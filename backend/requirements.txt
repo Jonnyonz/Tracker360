@@ -1,0 +1,11 @@
+fastapi==0.109.2
+uvicorn==0.27.0
+pydantic==2.6.1
+asyncpg==0.29.0
+aiofiles==23.2.1
+passlib==1.7.4
+argon2-cffi==23.1.0
+PyJWT==2.8.0
+python-multipart==0.0.9
+qrcode==7.4.2
+Pillow==10.2.0

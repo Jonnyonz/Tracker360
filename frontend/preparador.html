@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tracker360 - Terminal Operativa</title>
+    <style>
+        :root { --primary-blue: #1E3A8A; --accent-blue: #3B82F6; --bg-main: #F3F4F6; --card-bg: #FFFFFF; --text-main: #1F2937; --text-muted: #6B7280; --border-color: #D1D5DB; --success: #059669; --danger: #DC2626; --warning: #D97706; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; background-color: var(--bg-main); color: var(--text-main); }
+        .header { background-color: var(--primary-blue); color: white; padding: 1.2rem 1rem; text-align: center; font-weight: 800; text-transform: uppercase; position: relative; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .btn-back { position: absolute; left: 1rem; top: 1.2rem; color: #93C5FD; text-decoration: none; font-size: 0.9rem; display: none; cursor: pointer; font-weight: 600; text-transform: uppercase; }
+        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; }
+        .menu-card { background-color: var(--card-bg); padding: 1.5rem 1rem; border-radius: 8px; border: 1px solid var(--border-color); text-align: center; cursor: pointer; font-weight: 700; text-transform: uppercase; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .menu-card small { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500; }
+        .view { display: none; padding: 1rem; padding-bottom: 5rem; }
+        .view.active { display: block; }
+        h3 { color: var(--primary-blue); margin-bottom: 1rem; text-transform: uppercase; font-size: 1.1rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; }
+        .list-item { background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 0.8rem; }
+        .list-item strong { display: block; font-size: 1.05rem; color: var(--primary-blue); margin-bottom: 0.3rem; }
+        .list-item p { margin-bottom: 0; font-size: 0.9rem; color: var(--text-muted); }
+        form { display: flex; flex-direction: column; gap: 0.8rem; }
+        label { font-size: 0.85rem; font-weight: 700; color: var(--text-main); text-transform: uppercase; }
+        .input-group { display: flex; gap: 6px; align-items: center; }
+        .input-group input { flex: 1; }
+        .btn-cam { background-color: #374151; color: white; border: none; padding: 0.85rem; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-cam svg { width: 22px; height: 22px; }
+        input { width: 100%; padding: 0.9rem; border: 1px solid var(--border-color); border-radius: 6px; font-size: 1rem; background-color: #F9FAFB; }
+        button { background-color: var(--primary-blue); color: white; border: none; padding: 1rem; border-radius: 6px; font-weight: 700; text-transform: uppercase; font-size: 1rem; cursor: pointer; }
+        .camera-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 99999; flex-direction: column; align-items: center; justify-content: space-between; padding: 1rem; }
+        .camera-viewport { position: relative; width: 100%; max-width: 500px; height: 60vh; background: #000; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .camera-viewport video { width: 100%; height: 100%; object-fit: cover; }
+        .btn-close-cam { background-color: #DC2626; color: white; width: 100%; max-width: 500px; padding: 1rem; border-radius: 6px; font-weight: 800; border: none; }
+    </style>
+</head>
+<body>
+    <div class="header"><span class="btn-back" id="btn-back" onclick="goHome()">VOLVER</span><span id="header-title">TERMINAL OPERATIVA</span></div>
+
+    <div id="view-home" class="view active">
+        <div class="menu-grid">
+            <div class="menu-card" onclick="openView('view-picking', loadPicking)">PICKING<br><small>Armado de Pedidos</small></div>
+            <div class="menu-card" onclick="openView('view-packing', loadPacking)" style="border-color: var(--success); color: var(--success);">PACKING<br><small>Empaque y Despacho</small></div>
+            <div class="menu-card" onclick="openView('view-receptions')">RECEPCIÓN<br><small>Control Ingresos</small></div>
+            <div class="menu-card" onclick="openView('view-transfers')">TRASPASOS<br><small>Entre Sucursales</small></div>
+            <div class="menu-card" onclick="logout()" style="color: var(--danger); border-color: #FECACA;">SALIR<br><small>Cerrar Sesión</small></div>
+        </div>
+    </div>
+
+    <!-- PICKING MANTENIDO 100% -->
+    <div id="view-picking" class="view">
+        <h3>Pedidos Pendientes de Armado</h3>
+        <div id="picking-list"></div>
+    </div>
+    <div id="view-picking-scan" class="view">
+        <h3 id="pick-title"></h3><div id="pick-details" style="font-size:0.9rem; margin-bottom:1.5rem; background:white; padding:10px; border-radius:6px; border:1px solid var(--border-color);"></div>
+        <form id="form-picking" onsubmit="scanPicking(event)">
+            <input type="hidden" id="pick-number">
+            <label>Ubicación de Extracción</label>
+            <div class="input-group"><input type="text" id="pick-loc" required autofocus><button type="button" class="btn-cam" onclick="startCameraScanner('pick-loc')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg></button></div>
+            <label>SKU Escaneado</label>
+            <div class="input-group"><input type="text" id="pick-sku" required><button type="button" class="btn-cam" onclick="startCameraScanner('pick-sku')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg></button></div>
+            <label>Cantidad</label><input type="number" id="pick-qty" min="0.01" step="0.01" required value="1">
+            <button type="submit" style="margin-top:1rem;">Extraer del Stock</button>
+        </form>
+    </div>
+
+    <!-- PACKING AUTOMATIZADO Y CERO FRICCIÓN -->
+    <div id="view-packing" class="view">
+        <h3>Mesa de Empaque y Despacho</h3>
+        <div id="packing-list"></div>
+    </div>
+    <div id="view-packing-form" class="view">
+        <h3 id="pack-title"></h3>
+        <div id="pack-details" style="font-size:0.9rem; margin-bottom:1rem; background:white; padding:10px; border-radius:6px; border:1px solid var(--border-color); color:var(--primary-blue); font-weight:bold;"></div>
+        
+        <!-- RESUMEN DE PESO Y VOLUMEN AUTOMÁTICO (SOLO LECTURA) -->
+        <div id="pack-metrics-summary" style="display:none; background:#ECFDF5; border:1px solid #10B981; padding:10px; border-radius:6px; margin-bottom:1.5rem; font-size:0.85rem; color:#065F46; font-weight:bold;"></div>
+
+        <form id="form-packing" onsubmit="dispatchPacking(event)">
+            <input type="hidden" id="pack-number">
+            <label>Cantidad de Cajas / Bultos *</label>
+            <input type="number" id="pack-boxes" required value="1" min="1" autofocus>
+            <button type="submit" style="margin-top:1.5rem; background-color:var(--success);">Sellar Caja y Despachar</button>
+        </form>
+    </div>
+
+    <div id="camera-modal" class="camera-modal">
+        <div style="color:white; font-weight:800; text-transform:uppercase; margin-bottom:0.5rem;">Apunte al código</div>
+        <div class="camera-viewport"><video id="camera-video" playsinline autoplay></video></div>
+        <button type="button" class="btn-close-cam" onclick="stopCameraScanner()">Cerrar</button>
+    </div>
+
+    <script>
+        let currentTargetInputId = null, videoStream = null, cameraInterval = null;
+        let AppConfig = {};
+
+        window.onload = async () => {
+            const data = await reqAPI('/api/settings');
+            if(data) AppConfig = data;
+        };
+
+        function goHome() { stopCameraScanner(); document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); document.getElementById('view-home').classList.add('active'); document.getElementById('btn-back').style.display = 'none'; }
+        function openView(id, cb = null) { stopCameraScanner(); document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); document.getElementById(id).classList.add('active'); document.getElementById('btn-back').style.display = 'inline'; if(cb) cb(); }
+        async function reqAPI(url, method = 'GET', body = null) {
+            try {
+                const r = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: body ? JSON.stringify(body) : null });
+                if (r.status === 401) return window.location.href = '/index.html';
+                const d = await r.json().catch(() => ({}));
+                if(!r.ok) { if(method !== 'GET') alert('ERROR: ' + (d.detail || r.statusText)); return null; }
+                return d;
+            } catch(e) { if(method !== 'GET') alert('Falla de red.'); return null; }
+        }
+
+        async function startCameraScanner(inputId) {
+            currentTargetInputId = inputId; document.getElementById('camera-modal').style.display = 'flex';
+            videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } }).catch(() => navigator.mediaDevices.getUserMedia({ video: true }));
+            document.getElementById('camera-video').srcObject = videoStream;
+            if ('BarcodeDetector' in window) {
+                const bd = new BarcodeDetector();
+                cameraInterval = setInterval(async () => {
+                    const codes = await bd.detect(document.getElementById('camera-video')).catch(()=>[]);
+                    if (codes.length > 0) { if (navigator.vibrate) navigator.vibrate([100]); document.getElementById(currentTargetInputId).value = codes[0].rawValue; stopCameraScanner(); }
+                }, 250);
+            }
+        }
+        function stopCameraScanner() { clearInterval(cameraInterval); if(videoStream) videoStream.getTracks().forEach(t => t.stop()); document.getElementById('camera-modal').style.display = 'none'; }
+
+        async function loadPicking() {
+            const list = document.getElementById('picking-list'); list.innerHTML = 'Consultando...';
+            const data = await reqAPI('/api/picking/orders');
+            if(!data) return;
+            list.innerHTML = data.length ? data.map(o => `<div class="list-item" onclick="openPickingScan('${o.document_number}')"><strong>${o.document_number}</strong><p>${o.company_name}</p></div>`).join('') : 'Sin pedidos pendientes.';
+        }
+        async function openPickingScan(num) {
+            document.getElementById('form-picking').reset(); document.getElementById('pick-number').value = num; document.getElementById('pick-title').textContent = num;
+            openView('view-picking-scan');
+            const d = await reqAPI('/api/picking/orders/' + encodeURIComponent(num));
+            if(d) document.getElementById('pick-details').innerHTML = d.lines.map(l => `<div style="border-bottom:1px solid #ddd; padding:5px 0;"><strong>${l.sku}</strong><br>Progreso: ${l.quantity_picked} / ${l.quantity_requested}<br><small style="color:var(--success)">Sugerencias: ${l.suggested_locations}</small></div>`).join('');
+        }
+        async function scanPicking(e) {
+            e.preventDefault();
+            const num = document.getElementById('pick-number').value;
+            const r = await reqAPI(`/api/picking/orders/${encodeURIComponent(num)}/scan`, 'POST', { location_code: document.getElementById('pick-loc').value.trim(), sku: document.getElementById('pick-sku').value.trim(), quantity: parseFloat(document.getElementById('pick-qty').value) });
+            if(r) { alert(r.message); r.order_completed ? goHome() : openPickingScan(num); }
+        }
+
+        async function loadPacking() {
+            const list = document.getElementById('packing-list'); list.innerHTML = 'Buscando pedidos completados...';
+            const data = await reqAPI('/api/packing/orders');
+            if(!data) return;
+            list.innerHTML = data.length ? data.map(o => `<div class="list-item" style="border-left: 4px solid var(--success);" onclick="openPackingForm('${o.document_number}')"><strong>${o.document_number}</strong><p>Destino: ${o.company_name}</p></div>`).join('') : 'No hay pedidos esperando empaque.';
+        }
+
+        async function openPackingForm(num) {
+            document.getElementById('form-packing').reset(); 
+            document.getElementById('pack-number').value = num; 
+            document.getElementById('pack-title').textContent = "EMPAQUE: " + num;
+            
+            const metricsDiv = document.getElementById('pack-metrics-summary');
+            metricsDiv.style.display = 'none';
+            openView('view-packing-form');
+            
+            const d = await reqAPI('/api/packing/orders/' + encodeURIComponent(num));
+            if(d) {
+                document.getElementById('pack-details').innerHTML = `Cliente: ${d.document.company_name}<br><small style="color:var(--text-muted)">Dir: ${d.document.address}</small>`;
+                
+                // Muestra calculada automática proveniente del catálogo de artículos
+                if (AppConfig.enable_item_dimensions === 'true') {
+                    metricsDiv.innerHTML = `Peso Calculado: ${d.totals.calc_weight} Kg | Vol: ${d.totals.calc_volume} m³`;
+                    metricsDiv.style.display = 'block';
+                }
+            }
+        }
+
+        async function dispatchPacking(e) {
+            e.preventDefault();
+            const num = document.getElementById('pack-number').value;
+            const payload = { boxes: parseInt(document.getElementById('pack-boxes').value) };
+            const r = await reqAPI(`/api/packing/orders/${encodeURIComponent(num)}/pack`, 'POST', payload);
+            if(r) { alert(r.message); goHome(); }
+        }
+
+        async function logout() { await reqAPI('/api/auth/logout', 'POST'); window.location.href = '/index.html'; }
+    </script>
+</body>
+</html>

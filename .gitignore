@@ -1,0 +1,20 @@
+# Archivos de entorno y claves secretas
+.env
+*.env
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Datos de la Base de Datos PostgreSQL
+postgres_data/
+*.sql
+
+# Logs del sistema
+*.log
+
+# Archivos de sistema operativo / IDE
+.DS_Store
+.vscode/
+.idea/

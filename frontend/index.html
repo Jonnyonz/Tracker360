@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tracker360 - Acceso Seguro</title>
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --panel-bg: #1e1e1e;
+            --text-main: #ffffff;
+            --accent-blue: #2962ff;
+            --error-red: #d50000;
+            --input-bg: #2c2c2c;
+            --border-muted: #444444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .login-container {
+            background-color: var(--panel-bg);
+            padding: 3rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-muted);
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: var(--accent-blue);
+            font-size: 1.8rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+            color: #cccccc;
+        }
+
+        input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid var(--border-muted);
+            border-radius: 4px;
+            background-color: var(--input-bg);
+            color: var(--text-main);
+            font-size: 1.1rem;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            border-color: var(--accent-blue);
+            outline: none;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 1rem;
+            background-color: var(--accent-blue);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            margin-top: 1rem;
+            transition: opacity 0.2s;
+        }
+
+        .btn-submit:active {
+            opacity: 0.8;
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .error-box {
+            color: white;
+            background-color: var(--error-red);
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1.5rem;
+            display: none;
+            font-weight: bold;
+            text-align: center;
+            border: 1px solid #8e0000;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>Tracker360</h1>
+        <div id="errorBox" class="error-box"></div>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">Usuario o PIN</label>
+                <!-- APB: autofocus para que el operario no tenga que tocar la pantalla antes de escribir -->
+                <input type="text" id="username" autocomplete="off" required autofocus>
+            </div>
+            <div class="form-group">
+                <label for="password">Contraseña</label>
+                <input type="password" id="password" required>
+            </div>
+            <button type="submit" id="btnSubmit" class="btn-submit">Ingresar al Sistema</button>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const loginForm = document.getElementById('loginForm');
+            const btnSubmit = document.getElementById('btnSubmit');
+            const errorBox = document.getElementById('errorBox');
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+
+            const showError = (message) => {
+                errorBox.textContent = message;
+                errorBox.style.display = 'block';
+                // Ingeniería Defensiva: Limpiar la contraseña si hay error, pero mantener el usuario
+                passwordInput.value = '';
+                passwordInput.focus();
+            };
+
+            const hideError = () => {
+                errorBox.style.display = 'none';
+            };
+
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                hideError();
+
+                // APB: Evitar que el usuario toque el botón 5 veces seguidas por impaciencia
+                btnSubmit.disabled = true;
+                btnSubmit.textContent = 'Verificando...';
+
+                const credentials = {
+                    username: (usernameInput.value || '').trim(),
+                    password: passwordInput.value
+                };
+
+                try {
+                    // Petición a nuestro futuro endpoint de seguridad
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(credentials)
+                    });
+
+                    if (response.status === 401 || response.status === 403) {
+                        throw new Error('Credenciales incorrectas o usuario inactivo.');
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Error en el servidor. Intente nuevamente.');
+                    }
+
+                    const data = await response.json();
+
+                    // Tipado elástico y validación de nulidad para el rol
+                    const userRole = (data.role || '').toUpperCase();
+
+                    // El backend ya inyectó la cookie HttpOnly de forma invisible.
+                    // Solo redireccionamos según el rol asignado.
+                    if (userRole === 'ADMIN') {
+                        window.location.href = '/admin.html';
+                    } else if (userRole === 'PREPARADOR') {
+                        window.location.href = '/preparador.html';
+                    } else {
+                        throw new Error('Rol no reconocido por el sistema.');
+                    }
+
+                } catch (error) {
+                    showError(error.message);
+                    btnSubmit.disabled = false;
+                    btnSubmit.textContent = 'Ingresar al Sistema';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

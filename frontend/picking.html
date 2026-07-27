@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Preparación de Pedidos</title>
+    <style>
+        :root { --bg-dark: #121212; --panel-bg: #1e1e1e; --accent-blue: #2962ff; --text-main: #ffffff; --border-color: #333; --success-green: #00c853; --error-red: #d50000; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: var(--bg-dark); color: var(--text-main); font-family: system-ui, sans-serif; padding: 1rem; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; }
+        .card { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+        .btn { background: var(--accent-blue); color: white; border: none; padding: 0.8rem; border-radius: 4px; font-weight: bold; width: 100%; text-transform: uppercase; cursor: pointer; }
+        .input-scan { width: 100%; padding: 0.8rem; font-size: 1.1rem; border-radius: 4px; border: 1px solid var(--border-color); background: #2c2c2c; color: white; text-transform: uppercase; margin-bottom: 1rem; }
+        .sku-row { border-bottom: 1px solid var(--border-color); padding: 0.8rem 0; display: flex; justify-content: space-between; align-items: center; }
+        .sku-title { font-weight: bold; color: var(--accent-blue); font-size: 1.1rem; }
+        .sku-desc { font-size: 0.85rem; color: #aaa; margin-top: 2px; }
+        .sku-loc { font-size: 0.85rem; color: var(--success-green); font-weight: bold; margin-top: 4px; background: rgba(0,200,83,0.1); padding: 2px 6px; border-radius: 3px; display: inline-block; }
+        .badge-qty { background: #333; padding: 0.4rem 0.8rem; border-radius: 4px; font-weight: bold; font-size: 1.1rem; }
+        .badge-qty.complete { background: var(--success-green); color: black; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h3 id="view-title">Terminal de Picking</h3>
+        <button onclick="logout()" style="background:none; border:none; color:var(--error-red); font-weight:bold;">SALIR</button>
+    </div>
+
+    <!-- PANTALLA 1: SELECCION DE PEDIDO -->
+    <div id="view-mailbox">
+        <h4 style="margin-bottom: 0.5rem; color:#aaa;">PEDIDOS DISPONIBLES</h4>
+        <div id="orders-list"></div>
+    </div>
+
+    <!-- PANTALLA 2: EJECUCION DE PICKING -->
+    <div id="view-picking" style="display: none;">
+        <button onclick="showMailbox()" style="background:#333; color:white; border:none; padding:0.5rem; border-radius:4px; margin-bottom:1rem;">← Volver a la Lista</button>
+        
+        <div class="card">
+            <h2 id="doc-num-display" style="color:var(--accent-blue);">PDV-XXXX</h2>
+            <p id="doc-customer-display" style="color:#ccc; font-size:0.9rem;">Cliente: -</p>
+        </div>
+
+        <div class="card">
+            <label style="display:block; margin-bottom:0.5rem; font-weight:bold;">Escanear Código de Barra / SKU</label>
+            <input type="text" id="scan-input" class="input-scan" placeholder="Aguardando escaneo..." autofocus>
+            <div id="scan-feedback" style="font-weight:bold; text-align:center;"></div>
+        </div>
+
+        <div class="card">
+            <h4 style="margin-bottom: 0.5rem; color:#aaa;">ARTÍCULOS DEL PEDIDO</h4>
+            <div id="lines-list"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentDoc = null;
+
+        async function loadOrders() {
+            try {
+                const r = await fetch('/api/picking/orders');
+                if(!r.ok) { window.location.href = '/index.html'; return; }
+                const data = await r.json();
+                const list = document.getElementById('orders-list');
+                list.innerHTML = '';
+
+                if(data.length === 0) {
+                    list.innerHTML = '<div class="card" style="text-align:center; color:#888;">No hay pedidos pendientes de preparación.</div>';
+                    return;
+                }
+
+                data.forEach(o => {
+                    list.innerHTML += `
+                        <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+                            <div>
+                                <div style="font-weight:bold; font-size:1.1rem; color:var(--accent-blue);">${o.document_number}</div>
+                                <div style="font-size:0.9rem; color:#ccc;">${o.company_name}</div>
+                            </div>
+                            <button class="btn" style="width:auto; padding:0.6rem 1.2rem;" onclick="selectOrder('${o.document_number}')">Iniciar</button>
+                        </div>
+                    `;
+                });
+            } catch(e) {}
+        }
+
+        async function selectOrder(docNum) {
+            currentDoc = docNum;
+            document.getElementById('view-mailbox').style.display = 'none';
+            document.getElementById('view-picking').style.display = 'block';
+            document.getElementById('doc-num-display').textContent = docNum;
+            loadOrderDetails(docNum);
+        }
+
+        function showMailbox() {
+            currentDoc = null;
+            document.getElementById('view-picking').style.display = 'none';
+            document.getElementById('view-mailbox').style.display = 'block';
+            loadOrders();
+        }
+
+        async function loadOrderDetails(docNum) {
+            try {
+                const r = await fetch(`/api/picking/orders/${docNum}/lines`);
+                if(!r.ok) return;
+                const data = await r.json();
+                
+                document.getElementById('doc-customer-display').textContent = `Cliente: ${data.header.company_name}`;
+                const list = document.getElementById('lines-list');
+                list.innerHTML = '';
+
+                data.lines.forEach(l => {
+                    const isComplete = l.quantity_picked >= l.quantity_requested;
+                    const badgeClass = isComplete ? 'badge-qty complete' : 'badge-qty';
+                    list.innerHTML += `
+                        <div class="sku-row">
+                            <div>
+                                <div class="sku-title">${l.sku}</div>
+                                <div class="sku-desc">${l.description}</div>
+                                <div class="sku-loc">📍 ${l.location_info}</div>
+                            </div>
+                            <div class="${badgeClass}">${l.quantity_picked}/${l.quantity_requested}</div>
+                        </div>
+                    `;
+                });
+
+                const input = document.getElementById('scan-input');
+                input.value = '';
+                input.focus();
+            } catch(e) {}
+        }
+
+        document.getElementById('scan-input').addEventListener('keypress', async (e) => {
+            if(e.key === 'Enter') {
+                const sku = e.target.value.trim();
+                if(!sku || !currentDoc) return;
+                
+                const feedback = document.getElementById('scan-feedback');
+                feedback.textContent = 'Procesando...';
+                feedback.style.color = '#aaa';
+
+                try {
+                    const r = await fetch('/api/picking/scan', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ document_number: currentDoc, sku: sku })
+                    });
+
+                    const res = await r.json();
+                    if(r.ok) {
+                        feedback.textContent = res.message;
+                        feedback.style.color = 'var(--success-green)';
+                        if(res.order_completed) {
+                            alert("¡PEDIDO COMPLETADO AL 100%!");
+                            showMailbox();
+                        } else {
+                            loadOrderDetails(currentDoc);
+                        }
+                    } else {
+                        feedback.textContent = res.detail || "Error en el escaneo";
+                        feedback.style.color = 'var(--error-red)';
+                        e.target.value = '';
+                    }
+                } catch(err) {
+                    feedback.textContent = "Error de comunicación con el servidor";
+                    feedback.style.color = 'var(--error-red)';
+                }
+            }
+        });
+
+        async function logout() {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/index.html';
+        }
+
+        loadOrders();
+    </script>
+</body>
+</html>

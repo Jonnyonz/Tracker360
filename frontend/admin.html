@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="html-title">Centro de Comando</title>
+    <style>
+        :root { 
+            --bg-main: #F9FAFB; 
+            --sidebar-bg: #1E3A8A; 
+            --card-bg: #FFFFFF; 
+            --text-main: #1F2937; 
+            --text-muted: #6B7280; 
+            --accent-blue: #3B82F6; 
+            --primary-blue: #1E3A8A; 
+            --border-color: #E5E7EB; 
+            --input-bg: #FFFFFF; 
+            --input-border: #D1D5DB; 
+            --success-green: #059669; 
+            --error-red: #DC2626; 
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background-color: var(--bg-main); color: var(--text-main); font-family: system-ui, -apple-system, sans-serif; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+        
+        .sidebar { width: 260px; min-width: 260px; background-color: var(--sidebar-bg); border-right: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; justify-content: space-between; padding: 2rem 1rem; overflow-y: auto; transition: background-color 0.3s ease; }
+        .brand-title { font-size: 1.4rem; font-weight: 800; color: #FFFFFF; text-transform: uppercase; text-align: center; margin-bottom: 2rem; letter-spacing: 1px; }
+        .nav-tabs { display: flex; flex-direction: column; gap: 0.4rem; }
+        .tab-btn { background: none; border: none; color: #93C5FD; padding: 0.85rem 1rem; text-align: left; font-size: 0.88rem; font-weight: 600; cursor: pointer; border-radius: 6px; text-transform: uppercase; transition: all 0.2s ease; }
+        .tab-btn:hover { background-color: rgba(255, 255, 255, 0.1); color: #FFFFFF; }
+        .tab-btn.active { background-color: var(--accent-blue); color: #FFFFFF; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
+        .btn-logout { background-color: #EF4444; color: white; border: none; padding: 0.8rem; border-radius: 6px; font-weight: 700; cursor: pointer; text-transform: uppercase; margin-top: 2rem; transition: background 0.2s; }
+        .btn-logout:hover { background-color: var(--error-red); }
+        
+        .main-content { flex: 1; padding: 2rem; overflow-y: auto; position: relative; height: 100vh; background-color: var(--bg-main); }
+        .view-section { display: none; }
+        .view-section.active { display: block; }
+        h2 { text-transform: uppercase; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; color: var(--text-main); font-size: 1.35rem; font-weight: 700; }
+        .grid-layout { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+        .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem; height: fit-content; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .form-group { margin-bottom: 1.2rem; }
+        label { display: block; margin-bottom: 0.4rem; font-weight: 600; color: var(--text-main); font-size: 0.88rem; }
+        input, select, textarea { width: 100%; padding: 0.75rem; border: 1px solid var(--input-border); border-radius: 6px; background-color: var(--input-bg); color: var(--text-main); font-family: inherit; font-size: 0.9rem; transition: border-color 0.2s; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+        
+        .btn-submit { background-color: var(--primary-blue); color: white; border: none; padding: 0.75rem 1.5rem; font-weight: 700; border-radius: 6px; cursor: pointer; text-transform: uppercase; width: 100%; margin-top: 0.5rem; font-size: 0.85rem; transition: background 0.2s; }
+        .btn-submit:hover { background-color: #1E40AF; }
+
+        .btn-secondary { background-color: var(--card-bg); color: var(--primary-blue); border: 1px solid var(--primary-blue); padding: 0.65rem 1.2rem; font-weight: 700; border-radius: 6px; cursor: pointer; text-transform: uppercase; font-size: 0.82rem; transition: all 0.2s; }
+        .btn-secondary:hover { background-color: var(--primary-blue); color: white; }
+
+        .purchase-subtab-btn {
+            background-color: var(--card-bg);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 0.75rem 1.2rem;
+            font-weight: 700;
+            border-radius: 6px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+        }
+        .purchase-subtab-btn.active {
+            background-color: var(--primary-blue) !important;
+            color: #FFFFFF !important;
+            border-color: var(--primary-blue) !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+        }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+        th, td { text-align: left; padding: 0.8rem; border-bottom: 1px solid var(--border-color); font-size: 0.88rem; }
+        th { background-color: #F3F4F6; color: var(--primary-blue); text-transform: uppercase; font-size: 0.8rem; font-weight: 700; }
+        
+        .badge { padding: 0.25rem 0.55rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+        .badge-success { background: #D1FAE5; color: #065F46; }
+        .badge-info { background: #DBEAFE; color: #1E40AF; }
+        .badge-warning { background: #FEF3C7; color: #92400E; }
+        .badge-neutral { background: #E5E7EB; color: #374151; }
+
+        .dash-action-item { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0; border-bottom: 1px solid var(--border-color); color: var(--text-main); font-weight: 500; }
+        .dash-action-item:last-child { border-bottom: none; }
+        .btn-dash-more { background: none; border: 1px solid var(--accent-blue); color: var(--accent-blue); font-weight: 700; padding: 0.6rem 1rem; border-radius: 6px; cursor: pointer; width: 100%; text-transform: uppercase; margin-top: 1rem; font-size: 0.8rem; transition: all 0.2s; }
+        .btn-dash-more:hover { background: var(--accent-blue); color: white; }
+
+        .dynamic-list { border: 1px solid var(--border-color); padding: 1rem; border-radius: 6px; margin-bottom: 1rem; background: #F9FAFB; }
+        .dynamic-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(15, 23, 42, 0.65); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
+        .modal-content { background: var(--card-bg); width: 90%; max-width: 650px; max-height: 85vh; overflow-y: auto; border-radius: 8px; border: 1px solid var(--border-color); padding: 2rem; position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); color: var(--text-main); }
+        .close-modal { position: absolute; top: 1rem; right: 1.5rem; font-size: 1.8rem; cursor: pointer; color: var(--text-muted); }
+
+        .dropzone { border: 2px dashed var(--accent-blue); border-radius: 8px; padding: 2rem; text-align: center; background-color: #EFF6FF; cursor: pointer; margin-bottom: 1.2rem; }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div>
+            <div class="brand-title" id="app-brand-name">Tracker360</div>
+            <div class="nav-tabs">
+                <button class="tab-btn active" onclick="switchView('section-dashboard', this)">Inicio</button>
+                <button class="tab-btn" onclick="switchView('section-users', this)">Usuarios</button>
+                <button class="tab-btn" onclick="switchView('section-entities', this)">Clientes y Proveedores</button>
+                <button class="tab-btn" onclick="switchView('section-warehouse', this)">Depósitos</button>
+                <button class="tab-btn" onclick="switchView('section-items', this)">Artículos</button>
+                <button class="tab-btn" onclick="switchView('section-purchases', this)">Compras y Recepción</button>
+                <button class="tab-btn" onclick="switchView('section-inventory', this)">Inventario (Stock)</button>
+                <button class="tab-btn" onclick="switchView('section-orders', this)">Pedidos (PDV)</button>
+                <button class="tab-btn" onclick="switchView('section-logs', this)">Auditoría</button>
+                <button class="tab-btn" onclick="switchView('section-settings', this)">Configuración</button>
+            </div>
+        </div>
+        <button id="btnLogout" class="btn-logout">Cerrar Sesión</button>
+    </div>
+
+    <div class="main-content">
+        <!-- 1. DASHBOARD -->
+        <div id="section-dashboard" class="view-section active">
+            <h2>Tablero Resumen de Operaciones</h2>
+            <div class="grid-layout">
+                <div class="card">
+                    <h3 style="color:var(--primary-blue); margin-bottom:1rem;">1. Pedidos Pendientes</h3>
+                    <table style="font-size:0.85rem;"><thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th></tr></thead><tbody id="dash-orders-body"></tbody></table>
+                    <button class="btn-dash-more" onclick="switchView('section-orders')">Ver Todos los Pedidos</button>
+                </div>
+                <div class="card">
+                    <h3 style="color:var(--primary-blue); margin-bottom:1rem;">2. Traspasos Activos</h3>
+                    <table style="font-size:0.85rem;"><thead><tr><th>Nº Traspaso</th><th>Origen</th><th>Destino</th></tr></thead><tbody id="dash-transfers-body"></tbody></table>
+                    <button class="btn-dash-more" onclick="navigateToSubTab('section-purchases', 'tab-transfer')">Ver Todos los Traspasos</button>
+                </div>
+                <div class="card">
+                    <h3 style="color:var(--primary-blue); margin-bottom:1rem;">3. Cargar Mercadería y Movimientos</h3>
+                    <div style="display:flex; flex-direction:column; gap:0.5rem;">
+                        <div class="dash-action-item"><span>Crear Orden de Traspaso (ODT)</span><button class="btn-submit" style="width:auto; margin:0; padding:0.4rem 1rem;" onclick="navigateToSubTab('section-purchases', 'tab-transfer')">Crear</button></div>
+                        <div class="dash-action-item"><span>Crear Remito de Compra</span><button class="btn-submit" style="width:auto; margin:0; padding:0.4rem 1rem;" onclick="navigateToSubTab('section-purchases', 'tab-remito')">Crear</button></div>
+                        <div class="dash-action-item"><span>Crear Factura de Compra</span><button class="btn-submit" style="width:auto; margin:0; padding:0.4rem 1rem;" onclick="navigateToSubTab('section-purchases', 'tab-invoice')">Crear</button></div>
+                        <div class="dash-action-item"><span>Crear Orden de Compra</span><button class="btn-submit" style="width:auto; margin:0; padding:0.4rem 1rem;" onclick="navigateToSubTab('section-purchases', 'tab-po')">Crear</button></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 style="color:var(--primary-blue); margin-bottom:1rem;">4. Registros de Auditoría Recientes</h3>
+                    <table style="font-size:0.85rem;"><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th></tr></thead><tbody id="dash-logs-body"></tbody></table>
+                    <button class="btn-dash-more" onclick="switchView('section-logs')">Ver Registro Completo</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. USUARIOS -->
+        <div id="section-users" class="view-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h2 style="margin:0;">Control de Personal</h2>
+                <button type="button" class="btn-submit" onclick="openUserModal()" style="width:auto; margin:0;">+ Crear Usuario</button>
+            </div>
+
+            <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; background:#f8f9fa; padding:12px; border-radius:6px; border:1px solid #e9ecef; align-items:center;">
+                <input type="text" id="search-user-text" placeholder="Buscar usuario o nombre..." style="flex:2; min-width:180px; padding:8px; border:1px solid #ced4da; border-radius:4px;" onkeyup="filterUsers()">
+                <select id="search-user-role" style="flex:1; min-width:130px; padding:8px; border:1px solid #ced4da; border-radius:4px;" onchange="filterUsers()">
+                    <option value="ALL">-- Todos los Roles --</option>
+                    <option value="PREPARADOR">PREPARADOR</option>
+                    <option value="SUPERVISOR">SUPERVISOR</option>
+                    <option value="ADMIN">ADMINISTRADOR</option>
+                </select>
+                <select id="search-user-branch" style="flex:1; min-width:130px; padding:8px; border:1px solid #ced4da; border-radius:4px;" onchange="filterUsers()">
+                    <option value="ALL">-- Todas las Sucursales --</option>
+                </select>
+                <select id="search-user-status" style="flex:1; min-width:110px; padding:8px; border:1px solid #ced4da; border-radius:4px;" onchange="filterUsers()">
+                    <option value="ALL">-- Todos los Estados --</option>
+                    <option value="true">ACTIVOS</option>
+                    <option value="false">INACTIVOS</option>
+                </select>
+            </div>
+
+            <div class="card" style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Nombre Completo</th>
+                            <th>Correo</th>
+                            <th>Rol</th>
+                            <th>Sucursal</th>
+                            <th>Sector</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-users-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 3. ENTIDADES -->
+        <div id="section-entities" class="view-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <h2 style="margin:0;">Gestión de Clientes y Proveedores</h2>
+                <button type="button" class="btn-submit" onclick="openEntityModal()" style="width:auto; margin:0;">+ Crear Entidad</button>
+            </div>
+            <div class="card" style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>CUIT / RUT</th>
+                            <th>Razón Social</th>
+                            <th>Rol</th>
+                            <th>Direcciones Asignadas</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-entities-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 4. DEPÓSITOS -->
+        <div id="section-warehouse" class="view-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:10px;">
+                <h2 style="margin:0; border:none; padding:0;">Estructura Física de Depósitos</h2>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button class="btn-submit" style="width:auto; margin:0;" onclick="openModal('modal-branch')">+ Crear Sucursal</button>
+                    <button class="btn-submit" style="width:auto; margin:0;" onclick="openModal('modal-sector')">+ Crear Sector</button>
+                    <button class="btn-submit" style="width:auto; margin:0;" onclick="openModal('modal-location')">+ Crear Ubicación</button>
+                    <button class="btn-secondary" onclick="openModal('modal-import-locations')">Importar Ubicaciones CSV</button>
+                </div>
+            </div>
+
+            <div class="grid-layout">
+                <div class="card" style="overflow-x:auto;">
+                    <h3 style="color:var(--primary-blue); margin-bottom:1rem;">1. Sucursales Registradas</h3>
+                    <table>
+                        <thead><tr><th>Código</th><th>Nombre Sucursal</th><th>Estado</th></tr></thead>
+                        <tbody id="table-branches-body"></tbody>
+                    </table>
+                </div>
+
+                <div class="card" style="overflow-x:auto;">
+                    <h3 style="color:var(--primary-blue); margin-bottom:1rem;">2. Sectores por Sucursal</h3>
+                    <table>
+                        <thead><tr><th>Sucursal</th><th>Nombre Sector</th><th>Cola Impresión</th><th>Ubicaciones</th></tr></thead>
+                        <tbody id="table-sectors-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card" style="overflow-x:auto;">
+                <h3 style="color:var(--primary-blue); margin-bottom:1rem;">3. Maestro de Ubicaciones Físicas</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sucursal</th>
+                            <th>Sector</th>
+                            <th>Código Ubicación</th>
+                            <th>Descripción / Detalle</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-locations-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 5. ARTÍCULOS -->
+        <div id="section-items" class="view-section">
+            <h2>Maestro de Artículos</h2>
+            <div style="display:flex; justify-content:space-between; margin-bottom:1.5rem; flex-wrap:wrap; gap:10px; align-items:center;">
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button onclick="openImportModal('items')" class="btn-secondary">Importar Catálogo CSV</button>
+                    <button onclick="openImportModal('item_locations')" class="btn-secondary">Importar Ubicaciones CSV</button>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="search-sku" placeholder="SKU..." style="width:140px;" onkeydown="if(event.key === 'Enter') handleSearchItems()">
+                    <input type="text" id="search-desc" placeholder="Descripción..." style="width:200px;" onkeydown="if(event.key === 'Enter') handleSearchItems()">
+                    <button id="btn-search-items" onclick="handleSearchItems()" class="btn-submit" style="width:auto; margin:0; padding:0.8rem 1.5rem;">Buscar</button>
+                </div>
+            </div>
+            <div class="card" style="overflow-x:auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th onclick="sortItems('sku')" style="cursor:pointer;">SKU <span id="sort-sku">↑</span></th>
+                            <th onclick="sortItems('description')" style="cursor:pointer;">Descripción <span id="sort-description"></span></th>
+                            <th>Ubicaciones Asignadas</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-items-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 6. COMPRAS Y RECEPCIÓN -->
+        <div id="section-purchases" class="view-section">
+            <h2>Ingreso y Movimientos de Mercadería</h2>
+            
+            <div style="display:flex; gap:10px; margin-bottom:1.5rem;">
+                <button class="purchase-subtab-btn active" onclick="switchPurchaseTab('tab-po', this)">Órdenes de Compra</button>
+                <button class="purchase-subtab-btn" onclick="switchPurchaseTab('tab-remito', this)">Remitos de Entrada</button>
+                <button class="purchase-subtab-btn" onclick="switchPurchaseTab('tab-invoice', this)">Facturas de Compra</button>
+                <button class="purchase-subtab-btn" onclick="switchPurchaseTab('tab-transfer', this)">Traspasos de Stock</button>
+            </div>
+
+            <div id="tab-po" class="purchase-tab" style="display:block;">
+                <div class="grid-layout">
+                    <div class="card">
+                        <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Emitir Orden de Compra</h3>
+                        <form id="form-po" onsubmit="savePO(event)">
+                            <div class="grid-layout" style="margin-bottom:0;">
+                                <div class="form-group"><label>Nº de Orden</label><input type="text" id="po-num" placeholder="Ej: OC-2026-001" required></div>
+                                <div class="form-group"><label>Proveedor</label><select id="po-supplier" required></select></div>
+                            </div>
+                            <label style="margin-bottom:5px; display:block; font-weight:bold;">Artículos Solicitados:</label>
+                            <div class="dynamic-list" id="po-lines">
+                                <div class="dynamic-row">
+                                    <input type="text" placeholder="SKU" class="po-sku" style="flex:2;" required>
+                                    <input type="number" placeholder="Cantidad" class="po-qty" style="flex:1;" min="0.01" step="0.01" required>
+                                </div>
+                            </div>
+                            <button type="button" onclick="addDynamicLinePO()" style="background:none; border:1px solid var(--accent-blue); color:var(--accent-blue); padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">+ Añadir Artículo</button>
+                            <button type="submit" class="btn-submit" style="margin-top:1.5rem;">Registrar Orden de Compra</button>
+                        </form>
+                    </div>
+
+                    <div class="card" style="overflow-x:auto;">
+                        <h3 style="color:var(--primary-blue); margin-bottom:0.5rem;">Historial de Órdenes de Compra</h3>
+                        <div style="display:flex; gap:8px; margin-bottom:1rem;">
+                            <input type="text" id="search-po-text" placeholder="Buscar por Nº u Orden..." style="padding:6px; font-size:0.85rem;" onkeyup="loadPOData()">
+                            <button class="btn-secondary" style="padding:6px 12px;" onclick="loadPOData('', 50)">Ver Todos</button>
+                        </div>
+                        <table style="font-size:0.85rem;">
+                            <thead><tr><th>Nº Orden</th><th>Proveedor</th><th>Cant. Total</th><th>Estado</th></tr></thead>
+                            <tbody id="table-po-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-remito" class="purchase-tab" style="display:none;">
+                <div class="grid-layout">
+                    <div class="card">
+                        <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Registrar Remito de Ingreso</h3>
+                        <form id="form-remito" onsubmit="saveRemito(event)">
+                            <div class="grid-layout" style="margin-bottom:0;">
+                                <div class="form-group"><label>Nº de Remito</label><input type="text" id="rem-num" placeholder="Ej: REM-2026-09" required></div>
+                                <div class="form-group"><label>Proveedor</label><select id="rem-supplier" required></select></div>
+                                <div class="form-group"><label>Sucursal de Ingreso</label><select id="rem-branch" onchange="onRemBranchChange()" required></select></div>
+                                <div class="form-group"><label>Sector de Ingreso</label><select id="rem-sector" required></select></div>
+                            </div>
+                            <label style="margin-bottom:5px; display:block; font-weight:bold;">Mercadería Recibida:</label>
+                            <div class="dynamic-list" id="rem-lines">
+                                <div class="dynamic-row">
+                                    <input type="text" placeholder="SKU" class="rem-sku" style="flex:2;" required>
+                                    <input type="number" placeholder="Cant" class="rem-qty" style="flex:1;" min="0.01" step="0.01" required>
+                                    <input type="text" placeholder="Ubicación Destino" class="rem-loc" style="flex:1;">
+                                </div>
+                            </div>
+                            <button type="button" onclick="addDynamicLineRemito()" style="background:none; border:1px solid var(--accent-blue); color:var(--accent-blue); padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">+ Añadir Artículo</button>
+                            <button type="submit" class="btn-submit" style="margin-top:1.5rem;">Registrar Remito</button>
+                        </form>
+                    </div>
+
+                    <div class="card" style="overflow-x:auto;">
+                        <h3 style="color:var(--primary-blue); margin-bottom:0.5rem;">Historial de Remitos</h3>
+                        <div style="display:flex; gap:8px; margin-bottom:1rem;">
+                            <input type="text" id="search-rem-text" placeholder="Buscar por Remito o Proveedor..." style="padding:6px; font-size:0.85rem;" onkeyup="loadRemitoData()">
+                            <button class="btn-secondary" style="padding:6px 12px;" onclick="loadRemitoData('', 50)">Ver Todos</button>
+                        </div>
+                        <table style="font-size:0.85rem;">
+                            <thead><tr><th>Nº Remito</th><th>Proveedor</th><th>Destino</th><th>Estado</th></tr></thead>
+                            <tbody id="table-remito-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-invoice" class="purchase-tab" style="display:none;">
+                <div class="grid-layout">
+                    <div class="card">
+                        <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Cargar Factura de Compra</h3>
+                        <form id="form-invoice" onsubmit="saveInvoice(event)">
+                            <div class="grid-layout" style="margin-bottom:0;">
+                                <div class="form-group"><label>Nº de Factura *</label><input type="text" id="inv-num" placeholder="Ej: FC-0001-00001" required></div>
+                                <div class="form-group"><label>Tipo Comprobante *</label><select id="inv-type"><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="M">M</option></select></div>
+                            </div>
+                            <div class="form-group"><label>Proveedor *</label><select id="inv-supplier" onchange="onInvSupplierChange()" required></select></div>
+
+                            <div class="form-group" style="background:#F0F9FF; padding:1rem; border-radius:6px; border:1px solid #BAE6FD;">
+                                <label style="color:var(--primary-blue); font-weight:bold; margin-bottom:0.4rem;">Remitos Asociados del Proveedor</label>
+                                <div id="inv-remitos-container" style="max-height:120px; overflow-y:auto; font-size:0.88rem;">
+                                    <p style="color:var(--text-muted);">Seleccione un proveedor para consultar remitos registrados.</p>
+                                </div>
+                            </div>
+
+                            <hr style="border:0; border-top:1px solid var(--border-color); margin:1rem 0;">
+                            <h4 style="color:var(--success-green); margin-bottom:0.5rem;">Compra Directa (Ingreso Manual opcional a Stock)</h4>
+                            <div class="grid-layout" style="margin-bottom:0;">
+                                <div class="form-group"><label>Sucursal Destino</label><select id="inv-branch" onchange="onInvBranchChange()"><option value="">-- Opcional --</option></select></div>
+                                <div class="form-group"><label>Sector Destino</label><select id="inv-sector"><option value="">-- Opcional --</option></select></div>
+                            </div>
+                            <div class="dynamic-list" id="inv-lines">
+                                <div class="dynamic-row">
+                                    <input type="text" placeholder="SKU" class="inv-sku" style="flex:2;">
+                                    <input type="number" placeholder="Cantidad" class="inv-qty" style="flex:1;" min="0.01" step="0.01">
+                                    <input type="number" placeholder="Precio Unitario" class="inv-price" style="flex:1;" min="0" step="0.01">
+                                </div>
+                            </div>
+                            <button type="button" onclick="addDynamicLineInvoice()" style="background:none; border:1px solid var(--success-green); color:var(--success-green); padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">+ Añadir Ítem Manual</button>
+                            <button type="submit" class="btn-submit" style="margin-top:1.5rem;">Guardar Factura</button>
+                        </form>
+                    </div>
+
+                    <div class="card" style="overflow-x:auto;">
+                        <h3 style="color:var(--primary-blue); margin-bottom:0.5rem;">Historial de Facturas</h3>
+                        <div style="display:flex; gap:8px; margin-bottom:1rem;">
+                            <input type="text" id="search-inv-text" placeholder="Buscar por Factura o Proveedor..." style="padding:6px; font-size:0.85rem;" onkeyup="loadInvoiceData()">
+                            <button class="btn-secondary" style="padding:6px 12px;" onclick="loadInvoiceData('', 50)">Ver Todos</button>
+                        </div>
+                        <table style="font-size:0.85rem;">
+                            <thead><tr><th>Nº Factura</th><th>Tipo</th><th>Proveedor</th><th>Fecha</th></tr></thead>
+                            <tbody id="table-invoice-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-transfer" class="purchase-tab" style="display:none;">
+                <div class="grid-layout">
+                    <div class="card">
+                        <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Generar Orden de Traspaso (ODT)</h3>
+                        <form id="form-transfer" onsubmit="saveTransfer(event)">
+                            <div class="form-group"><label>Nº Documento Traspaso</label><input type="text" id="tr-num" placeholder="Ej: TR-2026-001" required></div>
+                            <div class="grid-layout" style="margin-bottom:0;">
+                                <div class="form-group"><label>Sucursal Origen</label><select id="tr-orig-branch" onchange="onTrOrigBranchChange()" required></select></div>
+                                <div class="form-group"><label>Sector Origen</label><select id="tr-orig-sector" required></select></div>
+                            </div>
+                            <div class="grid-layout" style="margin-bottom:0;">
+                                <div class="form-group"><label>Sucursal Destino</label><select id="tr-dest-branch" onchange="onTrDestBranchChange()" required></select></div>
+                                <div class="form-group"><label>Sector Destino</label><select id="tr-dest-sector" required></select></div>
+                            </div>
+                            <label style="margin-bottom:5px; display:block; font-weight:bold;">Artículos a Transferir:</label>
+                            <div class="dynamic-list" id="tr-lines">
+                                <div class="dynamic-row">
+                                    <input type="text" placeholder="SKU" class="tr-sku" style="flex:2;" required>
+                                    <input type="number" placeholder="Cant" class="tr-qty" style="flex:1;" min="0.01" step="0.01" required>
+                                    <input type="text" placeholder="Ubic. Origen" class="tr-orig-loc" style="flex:1;">
+                                    <input type="text" placeholder="Ubic. Destino" class="tr-dest-loc" style="flex:1;">
+                                </div>
+                            </div>
+                            <button type="button" onclick="addDynamicLineTransfer()" style="background:none; border:1px solid var(--accent-blue); color:var(--accent-blue); padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">+ Añadir Artículo</button>
+                            <button type="submit" class="btn-submit" style="margin-top:1.5rem;">Procesar Traspaso</button>
+                        </form>
+                    </div>
+
+                    <div class="card" style="overflow-x:auto;">
+                        <h3 style="color:var(--primary-blue); margin-bottom:0.5rem;">Historial de Traspasos</h3>
+                        <div style="display:flex; gap:8px; margin-bottom:1rem;">
+                            <input type="text" id="search-tr-text" placeholder="Buscar Traspaso..." style="padding:6px; font-size:0.85rem;" onkeyup="loadTransferData()">
+                            <button class="btn-secondary" style="padding:6px 12px;" onclick="loadTransferData('', 50)">Ver Todos</button>
+                        </div>
+                        <table style="font-size:0.85rem;">
+                            <thead><tr><th>Nº Traspaso</th><th>Origen</th><th>Destino</th><th>Estado</th></tr></thead>
+                            <tbody id="table-transfers-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7. INVENTARIO -->
+        <div id="section-inventory" class="view-section">
+            <h2>Control de Inventario</h2>
+            <div class="grid-layout">
+                <div class="card" style="overflow-x:auto;"><h3>Stock Físico Consolidado</h3><table><thead><tr><th>Sucursal / Sector</th><th>Ubicación</th><th>SKU</th><th>Cantidad</th></tr></thead><tbody id="table-stock-body"></tbody></table></div>
+                <div class="card" style="overflow-x:auto;"><h3>Kardex de Movimientos</h3><table><thead><tr><th>Fecha</th><th>SKU</th><th>Operación</th><th>Cant.</th></tr></thead><tbody id="table-kardex-body"></tbody></table></div>
+            </div>
+        </div>
+
+        <!-- 8. PEDIDOS -->
+        <div id="section-orders" class="view-section">
+            <h2>Monitoreo de Salidas (Pedidos)</h2>
+            <div class="card"><table><thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th><th>Progreso</th></tr></thead><tbody id="table-orders-body"></tbody></table></div>
+        </div>
+
+        <!-- 9. AUDITORÍA -->
+        <div id="section-logs" class="view-section">
+            <h2>Auditoría de Actividad General</h2>
+            <div class="card"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Detalles</th></tr></thead><tbody id="table-logs-body"></tbody></table></div>
+        </div>
+
+        <!-- 10. CONFIGURACIÓN COMPLETA -->
+        <div id="section-settings" class="view-section">
+            <h2>Configuración del Sistema</h2>
+            
+            <div class="grid-layout">
+                <div class="card">
+                    <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Parámetros Operativos</h3>
+                    <form id="form-settings-basic" onsubmit="saveSettings(event)">
+                        <div class="form-group"><label>Nombre de la Aplicación</label><input type="text" id="cfg-app-name" placeholder="Tracker360"></div>
+                        <div class="form-group"><label>CUIT Empresa</label><input type="text" id="cfg-company-cuit" placeholder="30-00000000-0"></div>
+                        <div class="form-group"><label>IP Impresora Térmica Zebra</label><input type="text" id="cfg-zebra-ip" placeholder="192.168.1.50"></div>
+                        <div class="form-group">
+                            <label>Control de Recepción Móvil Obligatorio</label>
+                            <select id="cfg-require-mobile-reception"><option value="false">NO</option><option value="true">SÍ</option></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Permitir Múltiples Productos en Misma Ubicación</label>
+                            <select id="cfg-allow-multiproduct"><option value="false">NO</option><option value="true">SÍ</option></select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Trabaja con Pesos y Volúmenes</label>
+                            <select id="cfg-enable-item-dimensions">
+                                <option value="false">NO</option>
+                                <option value="true">SÍ</option>
+                            </select>
+                        </div>
+
+                        <hr style="border:0; border-top:1px solid var(--border-color); margin:1.5rem 0;">
+                        <h3 style="color:var(--success-green); margin-bottom:1rem;">Acceso API Tracker360 (Inbound / Satélite)</h3>
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.8rem;">Clave API para que MercadoLibre, WordPress o tu ERP inyecten pedidos directamente.</p>
+                        <div class="form-group">
+                            <label>Clave API de Sistema (Header X-API-Key)</label>
+                            <div style="display:flex; gap:8px;">
+                                <input type="text" id="cfg-tracker360-api-key" readonly style="background:#F3F4F6; font-family:monospace; font-weight:bold;">
+                                <button type="button" class="btn-secondary" onclick="generateNewSystemApiKey()" style="white-space:nowrap;">Generar Nueva</button>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Parámetros</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Plantillas de Impresión ZPL</h3>
+                    <form id="form-settings-zpl" onsubmit="saveSettings(event)">
+                        <div style="display:flex; gap:10px;">
+                            <div class="form-group" style="flex:1;"><label>Ancho Artículo (mm)</label><input type="text" id="cfg-zpl-item-width" placeholder="38"></div>
+                            <div class="form-group" style="flex:1;"><label>Alto Artículo (mm)</label><input type="text" id="cfg-zpl-item-height" placeholder="20"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Plantilla ZPL Artículo</label>
+                            <textarea id="cfg-zpl-item-template" rows="2" style="font-family:monospace; font-size:0.8rem;"></textarea>
+                        </div>
+
+                        <hr style="border:0; border-top:1px solid var(--border-color); margin:1rem 0;">
+                        <div style="display:flex; gap:10px;">
+                            <div class="form-group" style="flex:1;"><label>Ancho Bulto (mm)</label><input type="text" id="cfg-zpl-order-width" placeholder="100"></div>
+                            <div class="form-group" style="flex:1;"><label>Alto Bulto (mm)</label><input type="text" id="cfg-zpl-order-height" placeholder="150"></div>
+                        </div>
+                        <div class="form-group">
+                            <label>Plantilla ZPL Bulto / Envíos</label>
+                            <textarea id="cfg-zpl-order-template" rows="2" style="font-family:monospace; font-size:0.8rem;"></textarea>
+                        </div>
+                        <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Plantillas ZPL</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- GESTOR DE CANALES Y APLICACIONES CONECTADAS -->
+            <div class="card" style="margin-top:1.5rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                    <div>
+                        <h3 style="color:var(--success-green); margin:0;">Conexiones Salientes Multicanal (Marketplaces, Tiendas y Fletes)</h3>
+                        <p style="font-size:0.8rem; color:var(--text-muted); margin:0;">Configure múltiples endpoints para sincronizar stock y notificar despachos simultáneamente.</p>
+                    </div>
+                    <button type="button" class="btn-submit" onclick="openModal('modal-add-channel')" style="width:auto; margin:0;">+ Añadir Conexión</button>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nombre de la Aplicación / Canal</th>
+                            <th>Tipo de Evento</th>
+                            <th>URL Receptora (Endpoint)</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-channels-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR ARTÍCULO CON DIMENSIONES Y PESO EDITABLE -->
+    <div id="modal-edit-item" class="modal">
+        <div class="modal-content" style="max-width:550px;">
+            <span class="close-modal" onclick="closeModal('modal-edit-item')">&times;</span>
+            <h2 style="color:var(--primary-blue); margin-bottom:1rem;">Ficha Técnica SKU: <span id="edit-item-sku-label"></span></h2>
+            <form id="form-edit-item" onsubmit="saveItemBasic(event)">
+                <input type="hidden" id="edit-item-sku">
+                <div class="form-group"><label>Descripción</label><input type="text" id="edit-item-desc" required></div>
+                <div class="form-group"><label>Categoría</label><input type="text" id="edit-item-cat"></div>
+                
+                <div id="group-dimensions" style="display:none; flex-direction:column; gap:10px; margin-top:0.8rem; background:#F8FAFC; padding:12px; border-radius:6px; border:1px solid #E2E8F0;">
+                    <label style="color:var(--primary-blue); font-size:0.85rem; font-weight:bold;">Dimensiones</label>
+                    <div style="display:flex; gap:8px;">
+                        <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.75rem;">Largo (cm)</label><input type="number" step="0.1" id="edit-item-length" oninput="calcItemVolume()"></div>
+                        <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.75rem;">Ancho (cm)</label><input type="number" step="0.1" id="edit-item-width" oninput="calcItemVolume()"></div>
+                        <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.75rem;">Alto (cm)</label><input type="number" step="0.1" id="edit-item-height" oninput="calcItemVolume()"></div>
+                    </div>
+                    <div style="display:flex; gap:8px; margin-top:6px;">
+                        <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.75rem; color:var(--success-green);">Peso por Unidad (Kg)</label><input type="number" step="0.01" id="edit-item-weight" placeholder="Ej: 1.25"></div>
+                        <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.75rem;">Volumen Calculado (m³)</label><input type="number" step="0.000001" id="edit-item-volume" readonly style="background:#E2E8F0; font-weight:bold;"></div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit" style="margin-top:1.2rem;">Guardar Cambios en Ficha</button>
+            </form>
+
+            <hr style="margin:20px 0; border:0; border-top:1px solid var(--border-color);">
+            <h3 style="color:var(--primary-blue); margin-bottom:10px;">Ubicaciones Asignadas</h3>
+            <div id="item-assigned-locations-list" style="margin-bottom:15px;">Cargando...</div>
+            <form onsubmit="addLocationToItem(event)" style="display:flex; gap:10px; align-items:flex-end;">
+                <div style="flex:1;"><label style="font-size:0.8rem; font-weight:bold;">Código Ubicación (Ej: RACK-01)</label><input type="text" id="new-item-loc-code" required placeholder="Escriba código..."></div>
+                <button type="submit" class="btn-secondary" style="height:42px;">+ Asignar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL USUARIO -->
+    <div id="modal-user" class="modal">
+        <div class="modal-content" style="max-width:500px;">
+            <span class="close-modal" onclick="closeModal('modal-user')">&times;</span>
+            <h3 id="modal-user-title" style="color:var(--primary-blue); margin-bottom:1rem;">Usuario</h3>
+            <form id="form-user" onsubmit="saveUser(event)">
+                <input type="hidden" id="user-edit-mode" value="false">
+                <div class="form-group"><label>Usuario *</label><input type="text" id="user-username" required autocomplete="off"></div>
+                <div class="form-group"><label>Nombre Completo *</label><input type="text" id="user-fullname" required></div>
+                <div class="form-group"><label id="label-user-password">Contraseña *</label><input type="password" id="user-password"></div>
+                <div class="form-group"><label>Correo Electrónico</label><input type="email" id="user-email"></div>
+                <div class="form-group"><label>Rol *</label><select id="user-role" required><option value="PREPARADOR">PREPARADOR</option><option value="SUPERVISOR">SUPERVISOR</option><option value="ADMIN">ADMINISTRADOR</option></select></div>
+                <div class="form-group"><label>Sucursal</label><select id="user-branch" onchange="onUserBranchChange()"><option value="">-- Sin Asignar --</option></select></div>
+                <div class="form-group"><label>Sector</label><select id="user-sector"><option value="">-- Sin Asignar --</option></select></div>
+                <div id="group-user-is-active" class="form-group" style="display:none;"><label>Estado</label><select id="user-is-active"><option value="true">ACTIVO</option><option value="false">INACTIVO</option></select></div>
+                <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Usuario</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CREAR ENTIDAD -->
+    <div id="modal-entity" class="modal">
+        <div class="modal-content" style="max-width:500px;">
+            <span class="close-modal" onclick="closeModal('modal-entity')">&times;</span>
+            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Nueva Entidad</h3>
+            <form id="form-entity" onsubmit="saveEntity(event)">
+                <div class="form-group"><label>CUIT / RUT *</label><input type="text" id="ent-taxid" placeholder="Ej: 30-70903124-0" required></div>
+                <div class="form-group"><label>Razón Social *</label><input type="text" id="ent-name" placeholder="Ej: Bazar Chef S.A." required></div>
+                <div class="form-group" style="display:flex; gap:1.5rem; margin-top:0.5rem;">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="ent-is-customer" checked style="width:auto;"> Es Cliente</label>
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="ent-is-supplier" style="width:auto;"> Es Proveedor</label>
+                </div>
+                <hr style="border:0; border-top:1px solid var(--border-color); margin:1rem 0;">
+                <h4 style="color:var(--primary-blue); margin-bottom:0.8rem; font-size:0.95rem;">Dirección Física Inicial (Opcional)</h4>
+                <div class="form-group"><label>Etiqueta / Identificador</label><input type="text" id="ent-addr-label" placeholder="Ej: Depósito Central / Casa Matriz"></div>
+                <div class="form-group"><label>Dirección Completa</label><input type="text" id="ent-full-addr" placeholder="Ej: Av. Corrientes 1234, CABA, Buenos Aires"></div>
+                <button type="submit" class="btn-submit" style="margin-top:1.5rem;">Guardar Entidad</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR ENTIDAD -->
+    <div id="modal-edit-entity" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('modal-edit-entity')">&times;</span>
+            <h2 style="color:var(--primary-blue); margin-bottom:1rem;">Editar Entidad</h2>
+            <form id="form-edit-entity" onsubmit="saveEntityBasic(event)">
+                <input type="hidden" id="edit-ent-id">
+                <div class="form-group"><label>CUIT / RUT *</label><input type="text" id="edit-ent-taxid" required></div>
+                <div class="form-group"><label>Razón Social *</label><input type="text" id="edit-ent-name" required></div>
+                <div class="form-group" style="display:flex; gap:1.5rem; margin-top:0.5rem;">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="edit-ent-is-customer" style="width:auto;"> Es Cliente</label>
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="edit-ent-is-supplier" style="width:auto;"> Es Proveedor</label>
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="edit-ent-is-active" style="width:auto;"> Activo</label>
+                </div>
+                <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Cambios Básicos</button>
+            </form>
+
+            <hr style="margin:20px 0; border:0; border-top:1px solid var(--border-color);">
+            <h3 style="color:var(--primary-blue); margin-bottom:10px;">Direcciones de Entrega Registradas</h3>
+            <div id="entity-addresses-list" style="margin-bottom:15px;">Cargando direcciones...</div>
+
+            <form onsubmit="addAddressToEntity(event)" style="background:#F0F9FF; padding:12px; border-radius:6px; border:1px solid #BAE6FD;">
+                <h4 style="color:var(--primary-blue); font-size:0.9rem; margin-bottom:8px;">+ Añadir Nueva Dirección</h4>
+                <div class="form-group" style="margin-bottom:8px;"><label style="font-size:0.8rem;">Etiqueta (Ej: Planta Industrial, Sucursal Norte)</label><input type="text" id="new-ent-addr-label" placeholder="Ej: Depósito B" required></div>
+                <div class="form-group" style="margin-bottom:8px;"><label style="font-size:0.8rem;">Dirección Completa</label><input type="text" id="new-ent-full-addr" placeholder="Ej: Calle 45 Nº 678, Rosario, Santa Fe" required></div>
+                <button type="submit" class="btn-secondary" style="margin-top:5px; width:100%;">Guardar Nueva Dirección</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL SUCURSAL -->
+    <div id="modal-branch" class="modal">
+        <div class="modal-content" style="max-width:450px;">
+            <span class="close-modal" onclick="closeModal('modal-branch')">&times;</span>
+            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Nueva Sucursal</h3>
+            <form onsubmit="saveBranch(event)">
+                <div class="form-group"><label>Código de Sucursal *</label><input type="text" id="branch-code" placeholder="Ej: SUC-02" required></div>
+                <div class="form-group"><label>Nombre de Sucursal *</label><input type="text" id="branch-name" placeholder="Ej: Depósito Norte" required></div>
+                <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Sucursal</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL SECTOR -->
+    <div id="modal-sector" class="modal">
+        <div class="modal-content" style="max-width:450px;">
+            <span class="close-modal" onclick="closeModal('modal-sector')">&times;</span>
+            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Nuevo Sector</h3>
+            <form onsubmit="saveSector(event)">
+                <div class="form-group"><label>Sucursal Asignada *</label><select id="sector-branch" required></select></div>
+                <div class="form-group"><label>Nombre del Sector *</label><input type="text" id="sector-name" placeholder="Ej: Nave Principal" required></div>
+                <div class="form-group"><label>Código Impresión / Cola *</label><input type="text" id="sector-print-code" placeholder="Ej: PRINT-SEC-01" required></div>
+                <div class="form-group">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                        <input type="checkbox" id="sector-uses-locations" style="width:auto;"> ¿Utiliza Ubicaciones Físicas?
+                    </label>
+                </div>
+                <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Sector</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL UBICACIÓN -->
+    <div id="modal-location" class="modal">
+        <div class="modal-content" style="max-width:450px;">
+            <span class="close-modal" onclick="closeModal('modal-location')">&times;</span>
+            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Nueva Ubicación Física</h3>
+            <form onsubmit="saveLocation(event)">
+                <div class="form-group"><label>Sector Asignado *</label><select id="loc-sector" required></select></div>
+                <div class="form-group"><label>Código de Ubicación *</label><input type="text" id="loc-code" placeholder="Ej: RACK-A-01" required></div>
+                <div class="form-group"><label>Descripción / Nota</label><input type="text" id="loc-desc" placeholder="Ej: Pasillo central, Nivel 1"></div>
+                <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Ubicación</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL IMPORTAR CSV -->
+    <div id="modal-import" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('modal-import')">&times;</span>
+            <h2 id="import-title" style="color:var(--primary-blue); margin-bottom:1rem;">Importar Datos CSV</h2>
+            <form id="form-modal-import" onsubmit="processCSVImport(event)">
+                <input type="hidden" id="import-type">
+                <div class="dropzone" onclick="document.getElementById('import-file-input').click()">
+                    <div style="font-weight:700; color:var(--primary-blue);">Haga clic para seleccionar archivo CSV</div>
+                    <div id="import-file-name" style="font-size:0.85rem; color:var(--text-muted);">Formatos admitidos: .csv</div>
+                </div>
+                <input type="file" id="import-file-input" accept=".csv" style="display:none;" onchange="updateImportFileName(this)">
+                <div style="display:flex; gap:10px; justify-content:flex-end;">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modal-import')">Cancelar</button>
+                    <button type="submit" class="btn-submit" style="width:auto; padding:0.75rem 2rem;">Procesar Archivo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL IMPORTAR UBICACIONES CSV -->
+    <div id="modal-import-locations" class="modal">
+        <div class="modal-content" style="max-width:500px;">
+            <span class="close-modal" onclick="closeModal('modal-import-locations')">&times;</span>
+            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Importar Ubicaciones por CSV</h3>
+            <form onsubmit="uploadLocationsCSV(event)">
+                <div class="form-group"><label>Sector Destino *</label><select id="import-loc-sector" required></select></div>
+                <div class="dropzone" onclick="document.getElementById('import-loc-file').click()">
+                    <div style="font-weight:700; color:var(--primary-blue);">Clic para seleccionar CSV de Ubicaciones</div>
+                    <div id="import-loc-file-name" style="font-size:0.85rem; color:var(--text-muted);">Columnas requeridas: ubicacion, descripcion</div>
+                </div>
+                <input type="file" id="import-loc-file" accept=".csv" style="display:none;" onchange="document.getElementById('import-loc-file-name').textContent = this.files[0]?.name || ''">
+                <button type="submit" class="btn-submit" style="margin-top:1rem;">Procesar Archivo</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL AÑADIR NUEVO CANAL DE INTEGRACIÓN -->
+    <div id="modal-add-channel" class="modal">
+        <div class="modal-content" style="max-width:550px;">
+            <span class="close-modal" onclick="closeModal('modal-add-channel')">&times;</span>
+            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Añadir Nueva Conexión Externa</h3>
+            <form onsubmit="saveNewChannel(event)">
+                <div class="form-group">
+                    <label>Nombre del Canal / Aplicación *</label>
+                    <input type="text" id="chan-name" placeholder="Ej: Tienda Nube Oficial, MercadoLibre Outlet, JZTravell" required>
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Evento *</label>
+                    <select id="chan-type" required>
+                        <option value="OUTBOUND_DESPACHO">Notificación de Despacho / Empaque (Order Dispatched)</option>
+                        <option value="OUTBOUND_STOCK">Sincronización de Stock en Tiempo Real (Stock Updated)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>URL Objetivo (Endpoint HTTP / Webhook) *</label>
+                    <input type="url" id="chan-url" placeholder="https://api.miempresa.com/webhook/despachos" required>
+                </div>
+                <div class="form-group">
+                    <label>Clave API / Token Bearer de la Aplicación Destino (Opcional)</label>
+                    <input type="password" id="chan-key" placeholder="Token Bearer para autenticación de salida">
+                </div>
+                <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Conexión</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT GLOBAL SOBERANO COMPLETO -->
+    <script>
+        let cachedUsers = [], cachedBranches = [], cachedSectors = [], cachedEntities = [], cachedLocations = [], suppliersCache = [];
+        let currentItemPage = 1, currentItemLimit = 50, currentItemSort = 'sku', currentItemOrder = 'ASC', currentItemSearchSKU = '', currentItemSearchDesc = '';
+        let AppConfig = {};
+
+        window.onload = async () => {
+            const data = await fetchAPI('/api/settings');
+            if(data) AppConfig = data;
+            loadDashboard();
+        };
+
+        function switchView(secId, btnElement = null) {
+            document.querySelectorAll('.view-section, .tab-btn').forEach(e => e.classList.remove('active'));
+            const sec = document.getElementById(secId);
+            if (sec) sec.classList.add('active');
+            if (btnElement) btnElement.classList.add('active');
+            else { const b = document.querySelector('.tab-btn[onclick*="' + secId + '"]'); if(b) b.classList.add('active'); }
+
+            if(secId === 'section-dashboard') loadDashboard();
+            if(secId === 'section-users') loadUsers();
+            if(secId === 'section-entities') loadEntities();
+            if(secId === 'section-warehouse') loadWarehouseData();
+            if(secId === 'section-items') loadItems();
+            if(secId === 'section-purchases') { loadPurchaseSelectors(); loadAllPurchaseHistories(); }
+            if(secId === 'section-inventory') { loadStock(); loadKardex(); }
+            if(secId === 'section-orders') loadOrders();
+            if(secId === 'section-logs') loadLogs();
+            if(secId === 'section-settings') { loadSettings(); loadIntegrationChannels(); }
+        }
+
+        function navigateToSubTab(sectionId, tabId) { switchView(sectionId); switchPurchaseTab(tabId); }
+        function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        async function fetchAPI(url, options = {}) {
+            try {
+                const r = await fetch(url, options);
+                if (r.status === 401) { window.location.href = '/index.html'; return null; }
+                if(!r.ok) {
+                    const err = await r.json().catch(()=>({}));
+                    console.warn(`[API ${r.status}] ${url}:`, err.detail || r.statusText);
+                    if(options.method && options.method !== 'GET') { alert('Error: ' + (err.detail || r.statusText)); }
+                    return null;
+                }
+                return await r.json();
+            } catch(e) {
+                console.error(`[Red error] ${url}:`, e);
+                if(options.method && options.method !== 'GET') { alert('Falla de conexión: ' + e.message); }
+                return null;
+            }
+        }
+
+        // === DASHBOARD ===
+        async function loadDashboard() {
+            const data = await fetchAPI('/api/admin/dashboard'); if(!data) return;
+            const bodyOrders = document.getElementById('dash-orders-body');
+            if(bodyOrders) {
+                bodyOrders.innerHTML = '';
+                if(data.pending_orders.length === 0) bodyOrders.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center;">No hay pedidos pendientes.</td></tr>';
+                else data.pending_orders.forEach(o => bodyOrders.innerHTML += `<tr><td style="font-weight:bold;">${o.document_number}</td><td>${o.company_name}</td><td><span class="badge badge-warning">${o.status}</span></td></tr>`);
+            }
+            const bodyTransfers = document.getElementById('dash-transfers-body');
+            if(bodyTransfers) {
+                bodyTransfers.innerHTML = '';
+                if(data.active_transfers.length === 0) bodyTransfers.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center;">No hay traspasos activos.</td></tr>';
+                else data.active_transfers.forEach(t => bodyTransfers.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${t.transfer_number}</td><td>${t.origin_branch}</td><td>${t.destination_branch}</td></tr>`);
+            }
+            const bodyLogs = document.getElementById('dash-logs-body');
+            if(bodyLogs) {
+                bodyLogs.innerHTML = '';
+                if(data.latest_logs.length === 0) bodyLogs.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center;">Sin registro de actividad.</td></tr>';
+                else data.latest_logs.forEach(l => bodyLogs.innerHTML += `<tr><td style="color:var(--text-muted);">${new Date(l.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td><td style="font-weight:bold;">${l.username}</td><td>${l.action}</td></tr>`);
+            }
+        }
+
+        // === USUARIOS ===
+        async function loadUsers() {
+            const [users, branches, sectors] = await Promise.all([ fetchAPI('/api/admin/users'), fetchAPI('/api/admin/branches'), fetchAPI('/api/admin/sectors') ]);
+            if(users) cachedUsers = users;
+            if(branches) {
+                cachedBranches = branches; const filterB = document.getElementById('search-user-branch');
+                if(filterB) { filterB.innerHTML = '<option value="ALL">-- Todas las Sucursales --</option>'; branches.forEach(b => filterB.innerHTML += `<option value="${b.id}">${b.name}</option>`); }
+            }
+            if(sectors) cachedSectors = sectors;
+            filterUsers();
+        }
+
+        function filterUsers() {
+            const query = document.getElementById('search-user-text')?.value.toLowerCase().trim() || '';
+            const role = document.getElementById('search-user-role')?.value || 'ALL';
+            const branch = document.getElementById('search-user-branch')?.value || 'ALL';
+            const status = document.getElementById('search-user-status')?.value || 'ALL';
+
+            const filtered = cachedUsers.filter(u => {
+                const matchText = !query || u.username.toLowerCase().includes(query) || u.full_name.toLowerCase().includes(query);
+                const matchRole = role === 'ALL' || u.role === role;
+                const matchBranch = branch === 'ALL' || String(u.branch_id) === String(branch);
+                const matchStatus = status === 'ALL' || String(u.is_active) === status;
+                return matchText && matchRole && matchBranch && matchStatus;
+            });
+
+            const body = document.getElementById('table-users-body'); if(!body) return; body.innerHTML = '';
+            if(filtered.length === 0) { body.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">No se encontraron usuarios.</td></tr>'; return; }
+            filtered.forEach(u => {
+                const escUser = u.username.replace(/'/g, "\\'");
+                body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${u.username}</td><td>${u.full_name}</td><td>${u.email || '-'}</td><td><span class="badge badge-info">${u.role}</span></td><td>${u.branch_name || '-'}</td><td>${u.sector_name || '-'}</td><td><span class="badge ${u.is_active ? 'badge-success' : 'badge-neutral'}">${u.is_active ? 'ACTIVO' : 'INACTIVO'}</span></td><td><button onclick="openUserModal('${escUser}')" class="btn-secondary" style="padding:4px 8px; font-size:0.8rem;">Editar</button></td></tr>`;
+            });
+        }
+
+        function openUserModal(usernameToEdit = null) {
+            document.getElementById('form-user')?.reset();
+            const bSelect = document.getElementById('user-branch');
+            if(bSelect) { bSelect.innerHTML = '<option value="">-- Sin Asignar --</option>'; cachedBranches.forEach(b => bSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`); }
+            onUserBranchChange();
+
+            const editMode = document.getElementById('user-edit-mode'); const userInput = document.getElementById('user-username');
+            const passLabel = document.getElementById('label-user-password'); const passInput = document.getElementById('user-password');
+            const activeGrp = document.getElementById('group-user-is-active'); const title = document.getElementById('modal-user-title');
+
+            if (usernameToEdit) {
+                const user = cachedUsers.find(u => u.username.toLowerCase() === usernameToEdit.toLowerCase()); if(!user) return;
+                editMode.value = 'true'; title.textContent = 'Editar Usuario'; userInput.value = user.username; userInput.disabled = true;
+                document.getElementById('user-fullname').value = user.full_name || ''; document.getElementById('user-email').value = user.email || '';
+                document.getElementById('user-role').value = user.role || 'PREPARADOR'; document.getElementById('user-branch').value = user.branch_id || '';
+                onUserBranchChange(); document.getElementById('user-sector').value = user.sector_id || ''; document.getElementById('user-is-active').value = user.is_active ? 'true' : 'false';
+                passLabel.textContent = 'Nueva Contraseña (vacío para mantener)'; passInput.required = false; activeGrp.style.display = 'block';
+            } else {
+                editMode.value = 'false'; title.textContent = 'Nuevo Usuario'; userInput.disabled = false; passLabel.textContent = 'Contraseña *'; passInput.required = true; activeGrp.style.display = 'none';
+            }
+            openModal('modal-user');
+        }
+
+        function onUserBranchChange() {
+            const selectedB = document.getElementById('user-branch').value; const sSelect = document.getElementById('user-sector'); if(!sSelect) return;
+            sSelect.innerHTML = '<option value="">-- Sin Asignar --</option>';
+            cachedSectors.forEach(s => { if(!selectedB || String(s.branch_id) === String(selectedB)) { sSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`; } });
+        }
+
+        async function saveUser(e) {
+            e.preventDefault(); const isEdit = document.getElementById('user-edit-mode').value === 'true'; const username = document.getElementById('user-username').value.trim();
+            if (isEdit) {
+                const payload = { full_name: document.getElementById('user-fullname').value.trim(), role: document.getElementById('user-role').value, email: document.getElementById('user-email').value.trim() || null, branch_id: document.getElementById('user-branch').value || null, sector_id: document.getElementById('user-sector').value || null, is_active: document.getElementById('user-is-active').value === 'true', password: document.getElementById('user-password').value || null };
+                const r = await fetchAPI('/api/admin/users/' + encodeURIComponent(username), { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                if (r) { closeModal('modal-user'); loadUsers(); }
+            } else {
+                const payload = { username: username, full_name: document.getElementById('user-fullname').value.trim(), password: document.getElementById('user-password').value, role: document.getElementById('user-role').value, email: document.getElementById('user-email').value.trim() || null, branch_id: document.getElementById('user-branch').value || null, sector_id: document.getElementById('user-sector').value || null };
+                const r = await fetchAPI('/api/admin/users', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                if (r) { closeModal('modal-user'); loadUsers(); }
+            }
+        }
+
+        // === ENTIDADES ===
+        async function loadEntities() {
+            const ents = await fetchAPI('/api/admin/entities'); if(!ents) return; cachedEntities = ents;
+            const body = document.getElementById('table-entities-body'); if(!body) return; body.innerHTML = '';
+            ents.forEach(e => {
+                const escTax = e.tax_id.replace(/'/g, "\\'"); const escName = e.company_name.replace(/'/g, "\\'");
+                let addrs = []; try { addrs = typeof e.addresses === 'string' ? JSON.parse(e.addresses) : (e.addresses || []); } catch(err) {}
+                const addrSummary = addrs.length > 0 ? addrs.map(a => `<small><strong>${a.label}:</strong> ${a.address}</small>`).join('<br>') : '<span style="color:var(--text-muted)">Sin direcciones</span>';
+                body.innerHTML += `<tr><td style="font-weight:bold;">${e.tax_id}</td><td style="color:var(--primary-blue); font-weight:bold;">${e.company_name}</td><td><span class="badge badge-neutral">${e.is_customer?'CLIENTE':''} ${e.is_supplier?'PROVEEDOR':''}</span></td><td>${addrSummary}</td><td><span class="badge ${e.is_active!==false?'badge-success':'badge-neutral'}">${e.is_active!==false?'ACTIVO':'INACTIVO'}</span></td><td><button onclick="openEditEntityModal('${e.id}', '${escTax}', '${escName}', ${e.is_customer}, ${e.is_supplier}, ${e.is_active!==false})" class="btn-secondary" style="padding:4px 8px; font-size:0.8rem;">Editar / Direcciones</button></td></tr>`;
+            });
+        }
+
+        function openEntityModal() { document.getElementById('form-entity')?.reset(); openModal('modal-entity'); }
+        async function saveEntity(e) {
+            e.preventDefault(); const addrLabel = document.getElementById('ent-addr-label').value.trim(); const fullAddr = document.getElementById('ent-full-addr').value.trim();
+            const payload = { tax_id: document.getElementById('ent-taxid').value.trim(), company_name: document.getElementById('ent-name').value.trim(), is_customer: document.getElementById('ent-is-customer').checked, is_supplier: document.getElementById('ent-is-supplier').checked, initial_address: fullAddr ? { address_label: addrLabel || 'Principal', full_address: fullAddr } : null };
+            const r = await fetchAPI('/api/admin/entities', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            if(r) { alert('Entidad registrada'); closeModal('modal-entity'); loadEntities(); }
+        }
+
+        async function openEditEntityModal(id, taxId, name, isCustomer, isSupplier, isActive) {
+            document.getElementById('edit-ent-id').value = id; document.getElementById('edit-ent-taxid').value = taxId; document.getElementById('edit-ent-name').value = name;
+            document.getElementById('edit-ent-is-customer').checked = isCustomer; document.getElementById('edit-ent-is-supplier').checked = isSupplier; document.getElementById('edit-ent-is-active').checked = isActive;
+            openModal('modal-edit-entity'); await loadEntityAddresses(id);
+        }
+
+        async function saveEntityBasic(e) {
+            e.preventDefault(); const entId = document.getElementById('edit-ent-id').value;
+            const payload = { tax_id: document.getElementById('edit-ent-taxid').value.trim(), company_name: document.getElementById('edit-ent-name').value.trim(), is_customer: document.getElementById('edit-ent-is-customer').checked, is_supplier: document.getElementById('edit-ent-is-supplier').checked, is_active: document.getElementById('edit-ent-is-active').checked };
+            const r = await fetchAPI(`/api/admin/entities/${entId}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            if(r) { alert('Entidad actualizada'); loadEntities(); }
+        }
+
+        async function loadEntityAddresses(entId) {
+            const list = document.getElementById('entity-addresses-list'); list.innerHTML = 'Cargando direcciones...';
+            const addrs = await fetchAPI(`/api/admin/entities/${entId}/addresses`);
+            if(!addrs || addrs.length === 0) { list.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No hay direcciones registradas.</p>'; return; }
+            let html = '<ul style="list-style:none;">';
+            addrs.forEach(a => { html += `<li style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #f0f0f0;"><span><strong style="color:var(--primary-blue);">${a.address_label}:</strong> ${a.full_address}</span><button type="button" onclick="deleteEntityAddress('${a.id}', '${entId}')" style="background:var(--error-red); color:white; border:none; padding:3px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button></li>`; });
+            html += '</ul>'; list.innerHTML = html;
+        }
+
+        async function addAddressToEntity(e) {
+            e.preventDefault(); const entId = document.getElementById('edit-ent-id').value; const label = document.getElementById('new-ent-addr-label').value.trim(); const fullAddr = document.getElementById('new-ent-full-addr').value.trim();
+            const r = await fetchAPI(`/api/admin/entities/${entId}/addresses`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ address_label: label, full_address: fullAddr }) });
+            if(r) { document.getElementById('new-ent-addr-label').value = ''; document.getElementById('new-ent-full-addr').value = ''; loadEntityAddresses(entId); loadEntities(); }
+        }
+
+        async function deleteEntityAddress(addrId, entId) {
+            const r = await fetchAPI(`/api/admin/entities/addresses/${addrId}`, { method: 'DELETE' }); if(r) { loadEntityAddresses(entId); loadEntities(); }
+        }
+
+        // === DEPÓSITOS ===
+        async function loadWarehouseData() {
+            const [branches, sectors, locations] = await Promise.all([ fetchAPI('/api/admin/branches'), fetchAPI('/api/admin/sectors'), fetchAPI('/api/admin/locations') ]);
+            if (branches) {
+                cachedBranches = branches; const bBody = document.getElementById('table-branches-body');
+                if(bBody) {
+                    bBody.innerHTML = ''; if(branches.length === 0) bBody.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center;">Sin sucursales.</td></tr>';
+                    else branches.forEach(b => bBody.innerHTML += `<tr><td style="font-weight:bold;">${b.code}</td><td>${b.name}</td><td><span class="badge badge-success">ACTIVA</span></td></tr>`);
+                }
+                const sBranchSelect = document.getElementById('sector-branch'); if(sBranchSelect) sBranchSelect.innerHTML = branches.map(b => `<option value="${b.id}">${b.name} (${b.code})</option>`).join('');
+            }
+            if (sectors) {
+                cachedSectors = sectors; const sBody = document.getElementById('table-sectors-body');
+                if(sBody) {
+                    sBody.innerHTML = ''; if(sectors.length === 0) sBody.innerHTML = '<tr><td colspan="4" style="color:var(--text-muted); text-align:center;">Sin sectores.</td></tr>';
+                    else sectors.forEach(s => sBody.innerHTML += `<tr><td>${s.branch_name||'-'}</td><td style="font-weight:bold;">${s.name}</td><td><span class="badge badge-info">${s.print_queue_code}</span></td><td><span class="badge badge-neutral">${s.uses_locations ? 'SÍ' : 'NO'}</span></td></tr>`);
+                }
+                const locSecSelect = document.getElementById('loc-sector'); const impSecSelect = document.getElementById('import-loc-sector');
+                const optionsHtml = sectors.map(s => `<option value="${s.id}">${s.branch_name} > ${s.name}</option>`).join('');
+                if(locSecSelect) locSecSelect.innerHTML = optionsHtml; if(impSecSelect) impSecSelect.innerHTML = optionsHtml;
+            }
+            if (locations) {
+                cachedLocations = locations; const lBody = document.getElementById('table-locations-body');
+                if(lBody) {
+                    lBody.innerHTML = ''; if(locations.length === 0) lBody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted); text-align:center;">Sin ubicaciones registradas.</td></tr>';
+                    else locations.forEach(l => lBody.innerHTML += `<tr><td>${l.branch_name||'-'}</td><td>${l.sector_name||'-'}</td><td style="font-weight:bold; color:var(--primary-blue);">${l.location_code}</td><td>${l.description||'-'}</td><td><span class="badge badge-success">ACTIVA</span></td></tr>`);
+                }
+            }
+        }
+
+        async function saveBranch(e) { e.preventDefault(); const payload = { code: document.getElementById('branch-code').value.trim(), name: document.getElementById('branch-name').value.trim() }; const r = await fetchAPI('/api/admin/branches', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { alert('Sucursal creada exitosamente'); closeModal('modal-branch'); loadWarehouseData(); } }
+        async function saveSector(e) { e.preventDefault(); const payload = { branch_id: document.getElementById('sector-branch').value, name: document.getElementById('sector-name').value.trim(), print_queue_code: document.getElementById('sector-print-code').value.trim(), uses_locations: document.getElementById('sector-uses-locations').checked }; const r = await fetchAPI('/api/admin/sectors', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { alert('Sector creado exitosamente'); closeModal('modal-sector'); loadWarehouseData(); } }
+        async function saveLocation(e) { e.preventDefault(); const payload = { sector_id: document.getElementById('loc-sector').value, location_code: document.getElementById('loc-code').value.trim(), description: document.getElementById('loc-desc').value.trim() || null }; const r = await fetchAPI('/api/admin/locations', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { alert('Ubicación registrada exitosamente'); closeModal('modal-location'); loadWarehouseData(); } }
+        async function uploadLocationsCSV(e) { e.preventDefault(); const sectorId = document.getElementById('import-loc-sector').value; const fileInput = document.getElementById('import-loc-file'); if(!fileInput.files[0]) { alert('Seleccione un archivo CSV.'); return; } const formData = new FormData(); formData.append('file', fileInput.files[0]); const r = await fetchAPI(`/api/admin/sectors/${sectorId}/locations/import`, { method: 'POST', body: formData }); if(r) { alert(r.message || 'Ubicaciones importadas correctamente.'); closeModal('modal-import-locations'); loadWarehouseData(); } }
+
+        // === ARTÍCULOS ===
+        function handleSearchItems() { currentItemSearchSKU = document.getElementById('search-sku').value.trim(); currentItemSearchDesc = document.getElementById('search-desc').value.trim(); loadItems(); }
+        function sortItems(col) { currentItemSort = col; currentItemOrder = currentItemOrder === 'ASC' ? 'DESC' : 'ASC'; loadItems(); }
+
+        async function loadItems() {
+            const url = `/api/admin/items?page=${currentItemPage}&limit=${currentItemLimit}&sku=${encodeURIComponent(currentItemSearchSKU)}&description=${encodeURIComponent(currentItemSearchDesc)}&sort_by=${currentItemSort}&sort_order=${currentItemOrder}`;
+            const data = await fetchAPI(url); if(!data) return;
+            const body = document.getElementById('table-items-body'); if(!body) return; body.innerHTML = '';
+            data.items.forEach(i => {
+                const escSku = i.sku.replace(/'/g, "\\'"); const escDesc = (i.description || '').replace(/'/g, "\\'"); const escCat = (i.category || '').replace(/'/g, "\\'");
+                body.innerHTML += `
+                    <tr>
+                        <td style="font-weight:bold; color:var(--primary-blue);">${i.sku}</td>
+                        <td>${i.description}</td>
+                        <td><span class="badge badge-info">${i.locations_summary || 'Sin asignación'}</span></td>
+                        <td><button onclick="openEditItemModal('${escSku}', '${escDesc}', '${escCat}', ${i.length||0}, ${i.width||0}, ${i.height||0}, ${i.weight||0}, ${i.volume||0})" class="btn-secondary" style="padding:4px 8px; font-size:0.8rem;">Ficha Técnica</button></td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openEditItemModal(sku, desc, cat, length, width, height, weight, volume) {
+            document.getElementById('edit-item-sku').value = sku;
+            document.getElementById('edit-item-sku-label').textContent = sku;
+            document.getElementById('edit-item-desc').value = desc;
+            document.getElementById('edit-item-cat').value = cat;
+            
+            document.getElementById('edit-item-length').value = length;
+            document.getElementById('edit-item-width').value = width;
+            document.getElementById('edit-item-height').value = height;
+            document.getElementById('edit-item-weight').value = weight;
+            document.getElementById('edit-item-volume').value = volume;
+            
+            document.getElementById('group-dimensions').style.display = AppConfig.enable_item_dimensions === 'true' ? 'flex' : 'none';
+            openModal('modal-edit-item');
+            loadItemLocations(sku);
+        }
+
+        // CÁLCULO DINÁMICO DE VOLUMEN EN TIEMPO REAL
+        function calcItemVolume() {
+            const l = parseFloat(document.getElementById('edit-item-length').value) || 0;
+            const w = parseFloat(document.getElementById('edit-item-width').value) || 0;
+            const h = parseFloat(document.getElementById('edit-item-height').value) || 0;
+            const vol = (l * w * h) / 1000000.0;
+            document.getElementById('edit-item-volume').value = vol.toFixed(6);
+        }
+
+        async function saveItemBasic(e) {
+            e.preventDefault();
+            const sku = document.getElementById('edit-item-sku').value;
+            const payload = { 
+                description: document.getElementById('edit-item-desc').value, 
+                category: document.getElementById('edit-item-cat').value,
+                length: parseFloat(document.getElementById('edit-item-length').value) || 0.0,
+                width: parseFloat(document.getElementById('edit-item-width').value) || 0.0,
+                height: parseFloat(document.getElementById('edit-item-height').value) || 0.0,
+                weight: parseFloat(document.getElementById('edit-item-weight').value) || 0.0,
+                volume: parseFloat(document.getElementById('edit-item-volume').value) || 0.0
+            };
+            const r = await fetchAPI('/api/admin/items/' + encodeURIComponent(sku), { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            if(r) { alert('Ficha de artículo actualizada correctamente.'); closeModal('modal-edit-item'); loadItems(); }
+        }
+
+        async function loadItemLocations(sku) {
+            const list = document.getElementById('item-assigned-locations-list'); list.innerHTML = 'Cargando...';
+            const locs = await fetchAPI(`/api/admin/items/${encodeURIComponent(sku)}/locations`);
+            if(!locs || locs.length === 0) { list.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">Sin ubicaciones fijas asignadas.</p>'; return; }
+            let html = '<ul style="list-style:none;">';
+            locs.forEach(l => { html += `<li style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #f0f0f0;"><span><strong>${l.location_code}</strong> <small>(${l.branch_name} > ${l.sector_name})</small></span><button type="button" onclick="deleteItemLocation('${l.assignment_id}', '${sku}')" style="background:var(--error-red); color:white; border:none; padding:3px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button></li>`; });
+            html += '</ul>'; list.innerHTML = html;
+        }
+
+        async function addLocationToItem(e) { e.preventDefault(); const sku = document.getElementById('edit-item-sku').value; const code = document.getElementById('new-item-loc-code').value.trim(); const r = await fetchAPI('/api/admin/item-locations', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ sku: sku, location_code: code }) }); if(r && r.status === 'success') { document.getElementById('new-item-loc-code').value = ''; loadItemLocations(sku); loadItems(); } }
+        async function deleteItemLocation(assignId, sku) { const r = await fetchAPI(`/api/admin/item-locations/${assignId}`, { method: 'DELETE' }); if(r) { loadItemLocations(sku); loadItems(); } }
+        function openImportModal(type) { document.getElementById('import-type').value = type; document.getElementById('import-title').textContent = type === 'items' ? 'Importar Catálogo CSV' : 'Importar Asignación CSV'; openModal('modal-import'); }
+        function updateImportFileName(input) { if(input.files[0]) document.getElementById('import-file-name').textContent = input.files[0].name; }
+        async function processCSVImport(e) { e.preventDefault(); const type = document.getElementById('import-type').value; const fileInput = document.getElementById('import-file-input'); if(!fileInput.files[0]) { alert('Seleccione un archivo CSV'); return; } const formData = new FormData(); formData.append('file', fileInput.files[0]); const endpoint = type === 'items' ? '/api/admin/import/items' : '/api/admin/import/item-locations'; const r = await fetchAPI(endpoint, { method: 'POST', body: formData }); if(r) { alert(r.message || 'Importación procesada.'); closeModal('modal-import'); loadItems(); } }
+
+        // === COMPRAS ===
+        function switchPurchaseTab(tabId, btnElement = null) {
+            document.querySelectorAll('.purchase-tab').forEach(e => e.style.display = 'none');
+            document.querySelectorAll('.purchase-subtab-btn').forEach(e => e.classList.remove('active'));
+            document.getElementById(tabId).style.display = 'block';
+            if (btnElement) { btnElement.classList.add('active'); } 
+            else { const b = document.querySelector(`.purchase-subtab-btn[onclick*="${tabId}"]`); if(b) b.classList.add('active'); }
+        }
+
+        async function loadPurchaseSelectors() {
+            const [ents, branches, sectors] = await Promise.all([ fetchAPI('/api/admin/entities'), fetchAPI('/api/admin/branches'), fetchAPI('/api/admin/sectors') ]);
+            if(ents) {
+                suppliersCache = ents.filter(e => e.is_supplier);
+                ['po-supplier', 'rem-supplier', 'inv-supplier'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.innerHTML = '<option value="">-- Seleccionar Proveedor --</option>' + suppliersCache.map(s => `<option value="${s.id}">${s.company_name} (${s.tax_id})</option>`).join('');
+                });
+            }
+            if(branches) {
+                cachedBranches = branches;
+                ['rem-branch', 'inv-branch', 'tr-orig-branch', 'tr-dest-branch'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.innerHTML = '<option value="">-- Seleccionar --</option>' + branches.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+                });
+            }
+            if(sectors) cachedSectors = sectors;
+        }
+
+        async function onInvSupplierChange() {
+            const supplierId = document.getElementById('inv-supplier').value; const container = document.getElementById('inv-remitos-container'); if (!container) return;
+            if (!supplierId) { container.innerHTML = '<p style="color:var(--text-muted);">Seleccione un proveedor para consultar remitos registrados.</p>'; return; }
+            container.innerHTML = 'Consultando remitos del proveedor...';
+            const remitos = await fetchAPI(`/api/admin/suppliers/${encodeURIComponent(supplierId)}/remitos`);
+            if (!remitos || remitos.length === 0) { container.innerHTML = '<p style="color:var(--text-muted);">El proveedor no tiene remitos registrados.</p>'; return; }
+            let html = '';
+            remitos.forEach(r => { html += `<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; background:#fff; padding:6px; border-radius:4px; border:1px solid #E0F2FE;"><input type="checkbox" class="inv-remito-checkbox" value="${r.id}" id="rem-chk-${r.id}"><label for="rem-chk-${r.id}" style="margin:0; font-weight:normal; cursor:pointer; flex:1;"><strong style="color:var(--primary-blue);">${r.remito_number}</strong> (${r.branch_name} > ${r.sector_name}) - <span class="badge badge-warning">${r.status}</span></label></div>`; });
+            container.innerHTML = html;
+        }
+
+        function loadAllPurchaseHistories() { loadPOData(); loadRemitoData(); loadInvoiceData(); loadTransferData(); }
+
+        async function loadPOData(search = '', limit = 5) { const text = search || document.getElementById('search-po-text')?.value.trim() || ''; const data = await fetchAPI(`/api/admin/purchase-orders?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-po-body'); if(!body) return; body.innerHTML = ''; if(!data || data.length === 0) { body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin órdenes registradas.</td></tr>'; return; } data.forEach(po => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${po.order_number}</td><td>${po.supplier_name}</td><td>${po.total_qty} un</td><td><span class="badge badge-info">${po.status}</span></td></tr>`; }); }
+        async function loadRemitoData(search = '', limit = 5) { const text = search || document.getElementById('search-rem-text')?.value.trim() || ''; const data = await fetchAPI(`/api/admin/purchase-remitos?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-remito-body'); if(!body) return; body.innerHTML = ''; if(!data || data.length === 0) { body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin remitos registrados.</td></tr>'; return; } data.forEach(r => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${r.remito_number}</td><td>${r.supplier_name}</td><td>${r.branch_name} > ${r.sector_name}</td><td><span class="badge badge-warning">${r.status}</span></td></tr>`; }); }
+        async function loadInvoiceData(search = '', limit = 5) { const text = search || document.getElementById('search-inv-text')?.value.trim() || ''; const data = await fetchAPI(`/api/admin/purchase-invoices?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-invoice-body'); if(!body) return; body.innerHTML = ''; if(!data || data.length === 0) { body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin facturas registradas.</td></tr>'; return; } data.forEach(i => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${i.invoice_number}</td><td><span class="badge badge-neutral">TIPO ${i.invoice_type}</span></td><td>${i.supplier_name}</td><td>${new Date(i.created_at).toLocaleDateString()}</td></tr>`; }); }
+        async function loadTransferData(search = '', limit = 5) { const text = search || document.getElementById('search-tr-text')?.value.trim() || ''; const trs = await fetchAPI(`/api/admin/transfer-orders?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-transfers-body'); if(!body) return; body.innerHTML = ''; if(!trs || trs.length === 0) { body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin traspasos registrados.</td></tr>'; return; } trs.forEach(t => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${t.transfer_number}</td><td>${t.origin_branch}</td><td>${t.destination_branch}</td><td><span class="badge badge-warning">${t.status}</span></td></tr>`; }); }
+
+        function filterSectorsByBranch(branchId) { return cachedSectors.filter(s => !branchId || String(s.branch_id) === String(branchId)); }
+        function onRemBranchChange() { document.getElementById('rem-sector').innerHTML = filterSectorsByBranch(document.getElementById('rem-branch').value).map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
+        function onInvBranchChange() { document.getElementById('inv-sector').innerHTML = filterSectorsByBranch(document.getElementById('inv-branch').value).map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
+        function onTrOrigBranchChange() { document.getElementById('tr-orig-sector').innerHTML = filterSectorsByBranch(document.getElementById('tr-orig-branch').value).map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
+        function onTrDestBranchChange() { document.getElementById('tr-dest-sector').innerHTML = filterSectorsByBranch(document.getElementById('tr-dest-branch').value).map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
+
+        function addDynamicLinePO() { document.getElementById('po-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="po-sku" style="flex:2;" required><input type="number" placeholder="Cantidad" class="po-qty" style="flex:1;" min="0.01" step="0.01" required></div>`; }
+        function addDynamicLineRemito() { document.getElementById('rem-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="rem-sku" style="flex:2;" required><input type="number" placeholder="Cant" class="rem-qty" style="flex:1;" min="0.01" step="0.01" required><input type="text" placeholder="Ubicación Destino" class="rem-loc" style="flex:1;"></div>`; }
+        function addDynamicLineInvoice() { document.getElementById('inv-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="inv-sku" style="flex:2;"><input type="number" placeholder="Cantidad" class="inv-qty" style="flex:1;" min="0.01" step="0.01"><input type="number" placeholder="Precio Unitario" class="inv-price" style="flex:1;" min="0" step="0.01"></div>`; }
+        function addDynamicLineTransfer() { document.getElementById('tr-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="tr-sku" style="flex:2;" required><input type="number" placeholder="Cant" class="tr-qty" style="flex:1;" min="0.01" step="0.01" required><input type="text" placeholder="Ubic. Origen" class="tr-orig-loc" style="flex:1;"><input type="text" placeholder="Ubic. Destino" class="tr-dest-loc" style="flex:1;"></div>`; }
+
+        async function savePO(e) { e.preventDefault(); const lines = []; document.querySelectorAll('#po-lines .dynamic-row').forEach(row => { const sku = row.querySelector('.po-sku').value.trim(); const qty = parseFloat(row.querySelector('.po-qty').value); if(sku && qty > 0) lines.push({ sku: sku, quantity_ordered: qty }); }); const payload = { order_number: document.getElementById('po-num').value.trim(), supplier_id: document.getElementById('po-supplier').value, lines: lines }; const r = await fetchAPI('/api/admin/purchase-orders', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { alert('Orden de Compra registrada.'); document.getElementById('form-po').reset(); loadPOData(); } }
+        async function saveRemito(e) { e.preventDefault(); const lines = []; document.querySelectorAll('#rem-lines .dynamic-row').forEach(row => { const sku = row.querySelector('.rem-sku').value.trim(); const qty = parseFloat(row.querySelector('.rem-qty').value); const loc = row.querySelector('.rem-loc').value.trim() || null; if(sku && qty > 0) lines.push({ sku: sku, quantity_sent: qty, location_code: loc }); }); const payload = { remito_number: document.getElementById('rem-num').value.trim(), supplier_id: document.getElementById('rem-supplier').value, branch_id: document.getElementById('rem-branch').value, sector_id: document.getElementById('rem-sector').value, lines: lines }; const r = await fetchAPI('/api/admin/purchase-remitos', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { alert(r.message || 'Remito registrado.'); document.getElementById('form-remito').reset(); loadRemitoData(); } }
+        async function saveInvoice(e) { e.preventDefault(); const remitoIds = []; document.querySelectorAll('.inv-remito-checkbox:checked').forEach(cb => remitoIds.push(cb.value)); const manualItems = []; document.querySelectorAll('#inv-lines .dynamic-row').forEach(row => { const sku = row.querySelector('.inv-sku').value.trim(); const qty = parseFloat(row.querySelector('.inv-qty').value); const price = parseFloat(row.querySelector('.inv-price').value) || 0; if(sku && qty > 0) manualItems.push({ sku: sku, quantity: qty, unit_price: price }); }); const payload = { invoice_number: document.getElementById('inv-num').value.trim(), supplier_id: document.getElementById('inv-supplier').value, invoice_type: document.getElementById('inv-type').value, branch_id: document.getElementById('inv-branch').value || null, sector_id: document.getElementById('inv-sector').value || null, manual_items: manualItems, remito_ids: remitoIds }; const r = await fetchAPI('/api/admin/purchase-invoices', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { alert('Factura registrada.'); document.getElementById('form-invoice').reset(); onInvSupplierChange(); loadInvoiceData(); } }
+        async function saveTransfer(e) { e.preventDefault(); const lines = []; document.querySelectorAll('#tr-lines .dynamic-row').forEach(row => { const sku = row.querySelector('.tr-sku').value.trim(); const qty = parseFloat(row.querySelector('.tr-qty').value); const oLoc = row.querySelector('.tr-orig-loc').value.trim() || null; const dLoc = row.querySelector('.tr-dest-loc').value.trim() || null; if(sku && qty > 0) lines.push({ sku: sku, quantity_sent: qty, origin_location_code: oLoc, destination_location_code: dLoc }); }); const payload = { transfer_number: document.getElementById('tr-num').value.trim(), origin_branch_id: document.getElementById('tr-orig-branch').value, origin_sector_id: document.getElementById('tr-orig-sector').value, destination_branch_id: document.getElementById('tr-dest-branch').value, destination_sector_id: document.getElementById('tr-dest-sector').value, lines: lines }; const r = await fetchAPI('/api/admin/transfer-orders', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { alert(r.message || 'Traspaso registrado.'); document.getElementById('form-transfer').reset(); loadTransferData(); } }
+
+        // === INVENTARIO, ORDERS, AUDITORÍA ===
+        async function loadStock() { const stock = await fetchAPI('/api/admin/stock'); const body = document.getElementById('table-stock-body'); if(body && stock) { body.innerHTML = ''; stock.forEach(s => body.innerHTML += `<tr><td>${s.sector_name}</td><td style="font-weight:bold; color:var(--primary-blue);">${s.location_code}</td><td style="font-weight:bold;">${s.sku}</td><td style="font-weight:bold; color:var(--success-green);">${s.quantity}</td></tr>`); } }
+        async function loadKardex() { const k = await fetchAPI('/api/admin/stock/kardex'); const body = document.getElementById('table-kardex-body'); if(body && k) { body.innerHTML = ''; k.forEach(row => body.innerHTML += `<tr><td>${new Date(row.created_at).toLocaleString()}</td><td style="font-weight:bold;">${row.sku}</td><td><span class="badge badge-neutral">${row.movement_type}</span></td><td>${row.quantity}</td></tr>`); } }
+        async function loadOrders() { const docs = await fetchAPI('/api/admin/documents'); const body = document.getElementById('table-orders-body'); if(body && docs) { body.innerHTML = ''; docs.forEach(d => body.innerHTML += `<tr><td style="font-weight:bold;">${d.document_number}</td><td>${d.company_name}</td><td><span class="badge badge-info">${d.status}</span></td><td>${d.progress_pct}%</td></tr>`); } }
+        async function loadLogs() { const logs = await fetchAPI('/api/admin/logs'); const body = document.getElementById('table-logs-body'); if(body && logs) { body.innerHTML = ''; logs.forEach(l => body.innerHTML += `<tr><td>${new Date(l.created_at).toLocaleString()}</td><td style="font-weight:bold;">${l.username}</td><td><span class="badge badge-neutral">${l.action}</span></td><td>${l.details}</td></tr>`); } }
+
+        // === CONFIGURACIÓN Y MULTICANAL ===
+        async function loadSettings() {
+            const data = await fetchAPI('/api/settings'); if(!data) return; AppConfig = data;
+            if(data.app_name) document.getElementById('cfg-app-name').value = data.app_name;
+            if(data.company_cuit) document.getElementById('cfg-company-cuit').value = data.company_cuit;
+            if(data.zebra_ip) document.getElementById('cfg-zebra-ip').value = data.zebra_ip;
+            if(data.require_mobile_reception) document.getElementById('cfg-require-mobile-reception').value = data.require_mobile_reception;
+            if(data.allow_multiproduct_locations) document.getElementById('cfg-allow-multiproduct').value = data.allow_multiproduct_locations;
+            if(data.enable_item_dimensions) document.getElementById('cfg-enable-item-dimensions').value = data.enable_item_dimensions;
+            
+            if(data.zpl_item_width) document.getElementById('cfg-zpl-item-width').value = data.zpl_item_width;
+            if(data.zpl_item_height) document.getElementById('cfg-zpl-item-height').value = data.zpl_item_height;
+            if(data.zpl_item_template) document.getElementById('cfg-zpl-item-template').value = data.zpl_item_template;
+
+            if(data.zpl_order_width) document.getElementById('cfg-zpl-order-width').value = data.zpl_order_width;
+            if(data.zpl_order_height) document.getElementById('cfg-zpl-order-height').value = data.zpl_order_height;
+            if(data.zpl_order_template) document.getElementById('cfg-zpl-order-template').value = data.zpl_order_template;
+
+            if(data.tracker360_api_key) document.getElementById('cfg-tracker360-api-key').value = data.tracker360_api_key;
+        }
+
+        async function saveSettings(e) {
+            e.preventDefault();
+            const payload = {
+                app_name: document.getElementById('cfg-app-name').value.trim(),
+                company_cuit: document.getElementById('cfg-company-cuit').value.trim(),
+                zebra_ip: document.getElementById('cfg-zebra-ip').value.trim(),
+                require_mobile_reception: document.getElementById('cfg-require-mobile-reception').value,
+                allow_multiproduct_locations: document.getElementById('cfg-allow-multiproduct').value,
+                enable_item_dimensions: document.getElementById('cfg-enable-item-dimensions').value,
+                
+                zpl_item_width: document.getElementById('cfg-zpl-item-width').value.trim(),
+                zpl_item_height: document.getElementById('cfg-zpl-item-height').value.trim(),
+                zpl_item_template: document.getElementById('cfg-zpl-item-template').value,
+
+                zpl_order_width: document.getElementById('cfg-zpl-order-width').value.trim(),
+                zpl_order_height: document.getElementById('cfg-zpl-order-height').value.trim(),
+                zpl_order_template: document.getElementById('cfg-zpl-order-template').value
+            };
+            const r = await fetchAPI('/api/admin/settings', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            if(r) { alert('Configuración guardada exitosamente.'); loadSettings(); }
+        }
+
+        async function loadIntegrationChannels() {
+            const channels = await fetchAPI('/api/admin/integrations');
+            const body = document.getElementById('table-channels-body'); if(!body) return; body.innerHTML = '';
+            if(!channels || channels.length === 0) { body.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No hay conexiones externas registradas.</td></tr>'; return; }
+            channels.forEach(ch => {
+                const badgeType = ch.channel_type === 'OUTBOUND_DESPACHO' ? '<span class="badge badge-info">DESPACHOS</span>' : '<span class="badge badge-success">STOCK REALTIME</span>';
+                body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${ch.name}</td><td>${badgeType}</td><td style="font-family:monospace; font-size:0.8rem;">${ch.target_url}</td><td><span class="badge badge-success">ACTIVA</span></td><td><button onclick="deleteChannel('${ch.id}')" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">Eliminar</button></td></tr>`;
+            });
+        }
+
+        async function saveNewChannel(e) {
+            e.preventDefault();
+            const payload = { name: document.getElementById('chan-name').value.trim(), channel_type: document.getElementById('chan-type').value, target_url: document.getElementById('chan-url').value.trim(), api_key: document.getElementById('chan-key').value.trim() || null };
+            const r = await fetchAPI('/api/admin/integrations', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            if(r) { closeModal('modal-add-channel'); loadIntegrationChannels(); }
+        }
+
+        async function deleteChannel(id) {
+            if(!confirm('¿Desea eliminar esta conexión externa?')) return;
+            const r = await fetchAPI(`/api/admin/integrations/${id}`, { method: 'DELETE' }); if(r) { loadIntegrationChannels(); }
+        }
+
+        async function generateNewSystemApiKey() {
+            if(!confirm('¿Desea generar una nueva API Key de Tracker360?')) return;
+            const r = await fetchAPI('/api/admin/settings/generate-key', { method: 'POST' });
+            if(r && r.new_key) { document.getElementById('cfg-tracker360-api-key').value = r.new_key; alert('Nueva API Key generada con éxito.'); }
+        }
+
+        document.getElementById('btnLogout')?.addEventListener('click', async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/index.html'; });
+
+        window.onload = async () => { await loadSettings(); loadDashboard(); };
+    </script>
+</body>
+</html>
