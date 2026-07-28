@@ -247,7 +247,7 @@ async def login(request: Request, response: Response, credentials: LoginRequest,
         await log_action(conn, credentials.username.strip().lower(), "LOGIN_FAILED", "Intento fallido", client_ip)
         raise HTTPException(status_code=401, detail="Credenciales incorrectas.")
     token = create_access_token({"sub": user["username"], "role": user["role"], "id": str(user["id"])})
-    response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="lax", max_age=28800)
+    response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=False, samesite="lax", max_age=28800)
     await log_action(conn, user["username"], "LOGIN_SUCCESS", "Inicio de sesión", client_ip)
     return {"message": "Éxito", "role": user["role"]}
 
