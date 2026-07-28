@@ -45,7 +45,7 @@ class DB:
     pool: Optional[asyncpg.Pool] = None
 
 async def get_db_connection():
-    if DB.pool is None: raise HTTPException(status_code=status.HTTP_53_SERVICE_UNAVAILABLE, detail="Servicio de base de datos no disponible.")
+    if DB.pool is None: raise HTTPException(status_code=503, detail="Servicio de base de datos no disponible.")
     async with DB.pool.acquire() as conn: yield conn
 
 async def log_action(conn: asyncpg.Connection, username: str, action: str, details: str, ip_address: str = "127.0.0.1"):
