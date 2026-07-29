@@ -5,7 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tracker360 - Terminal Operativa</title>
     <style>
-        :root { --primary-blue: #1E3A8A; --accent-blue: #3B82F6; --bg-main: #F3F4F6; --card-bg: #FFFFFF; --text-main: #1F2937; --text-muted: #6B7280; --border-color: #D1D5DB; --success: #059669; --danger: #DC2626; --warning: #D97706; }
+        :root { 
+            --primary-blue: #1E3A8A; 
+            --accent-blue: #3B82F6; 
+            --bg-main: #F3F4F6; 
+            --card-bg: #FFFFFF; 
+            --text-main: #1F2937; 
+            --text-muted: #6B7280; 
+            --border-color: #D1D5DB; 
+            --success: #059669; 
+            --danger: #DC2626; 
+            --warning: #D97706; 
+        }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: system-ui, -apple-system, sans-serif; background-color: var(--bg-main); color: var(--text-main); }
         .header { background-color: var(--primary-blue); color: white; padding: 1.2rem 1rem; text-align: center; font-weight: 800; text-transform: uppercase; position: relative; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
@@ -16,7 +27,7 @@
         .view { display: none; padding: 1rem; padding-bottom: 5rem; }
         .view.active { display: block; }
         h3 { color: var(--primary-blue); margin-bottom: 1rem; text-transform: uppercase; font-size: 1.1rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; }
-        .list-item { background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 0.8rem; }
+        .list-item { background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 0.8rem; cursor: pointer; }
         .list-item strong { display: block; font-size: 1.05rem; color: var(--primary-blue); margin-bottom: 0.3rem; }
         .list-item p { margin-bottom: 0; font-size: 0.9rem; color: var(--text-muted); }
         form { display: flex; flex-direction: column; gap: 0.8rem; }
@@ -27,44 +38,82 @@
         .btn-cam svg { width: 22px; height: 22px; }
         input { width: 100%; padding: 0.9rem; border: 1px solid var(--border-color); border-radius: 6px; font-size: 1rem; background-color: #F9FAFB; }
         button { background-color: var(--primary-blue); color: white; border: none; padding: 1rem; border-radius: 6px; font-weight: 700; text-transform: uppercase; font-size: 1rem; cursor: pointer; }
+        
         .camera-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 99999; flex-direction: column; align-items: center; justify-content: space-between; padding: 1rem; }
         .camera-viewport { position: relative; width: 100%; max-width: 500px; height: 60vh; background: #000; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
         .camera-viewport video { width: 100%; height: 100%; object-fit: cover; }
         .btn-close-cam { background-color: #DC2626; color: white; width: 100%; max-width: 500px; padding: 1rem; border-radius: 6px; font-weight: 800; border: none; }
+
+        .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
+        .badge-warning { background: #FEF3C7; color: #92400E; }
+        .badge-info { background: #DBEAFE; color: #1E40AF; }
+        .badge-success { background: #D1FAE5; color: #065F46; }
+
+        .net-status { display: none; background: #DC2626; color: white; text-align: center; padding: 6px; font-weight: bold; font-size: 0.8rem; text-transform: uppercase; border-bottom: 2px solid #B91C1C; }
+
+        /* CONTENEDOR TOAST FLOTANTE MÓVIL */
+        .toast-container { position: fixed; top: 1rem; right: 1rem; left: 1rem; z-index: 100000; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
+        .toast { background: #FFFFFF; color: var(--text-main); border: 1px solid var(--border-color); padding: 0.85rem 1rem; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.15); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 10px; animation: slideDown 0.2s ease forwards; pointer-events: auto; }
+        .toast-success { border-left: 5px solid var(--success); }
+        .toast-error { border-left: 5px solid var(--danger); }
+        .toast-warning { border-left: 5px solid var(--warning); }
+        @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     </style>
 </head>
 <body>
-    <div class="header"><span class="btn-back" id="btn-back" onclick="goHome()">VOLVER</span><span id="header-title">TERMINAL OPERATIVA</span></div>
+    <div id="net-banner" class="net-status">Sin conexión a la red local</div>
+    <div id="toast-container" class="toast-container"></div>
 
+    <div class="header">
+        <span class="btn-back" id="btn-back" onclick="goHome()">VOLVER</span>
+        <span id="header-title">TERMINAL OPERATIVA</span>
+    </div>
+
+    <!-- MENÚ PRINCIPAL -->
     <div id="view-home" class="view active">
         <div class="menu-grid">
             <div class="menu-card" onclick="openView('view-picking', loadPicking)">PICKING<br><small>Armado de Pedidos</small></div>
             <div class="menu-card" onclick="openView('view-packing', loadPacking)" style="border-color: var(--success); color: var(--success);">PACKING<br><small>Empaque y Despacho</small></div>
-            <div class="menu-card" onclick="openView('view-receptions')">RECEPCIÓN<br><small>Control Ingresos</small></div>
-            <div class="menu-card" onclick="openView('view-transfers')">TRASPASOS<br><small>Entre Sucursales</small></div>
-            <div class="menu-card" onclick="logout()" style="color: var(--danger); border-color: #FECACA;">SALIR<br><small>Cerrar Sesión</small></div>
+            <div class="menu-card" onclick="openView('view-receptions', loadReceptions)">RECEPCIÓN<br><small>Control Ingresos</small></div>
+            <div class="menu-card" onclick="openView('view-transfers', loadTransfers)">TRASPASOS<br><small>Entre Sucursales</small></div>
+            <div class="menu-card" onclick="logout()" style="color: var(--danger); border-color: #FECACA; grid-column: span 2;">SALIR<br><small>Cerrar Sesión</small></div>
         </div>
     </div>
 
-    <!-- PICKING MANTENIDO 100% -->
+    <!-- 1. PICKING CON AUTO-SUBMIT -->
     <div id="view-picking" class="view">
-        <h3>Pedidos Pendientes de Armado</h3>
+        <h3>Pedidos Pendientes</h3>
         <div id="picking-list"></div>
     </div>
     <div id="view-picking-scan" class="view">
-        <h3 id="pick-title"></h3><div id="pick-details" style="font-size:0.9rem; margin-bottom:1.5rem; background:white; padding:10px; border-radius:6px; border:1px solid var(--border-color);"></div>
+        <h3 id="pick-title"></h3>
+        <div id="pick-details" style="font-size:0.9rem; margin-bottom:1.5rem; background:white; padding:10px; border-radius:6px; border:1px solid var(--border-color);"></div>
         <form id="form-picking" onsubmit="scanPicking(event)">
             <input type="hidden" id="pick-number">
+            
             <label>Ubicación de Extracción</label>
-            <div class="input-group"><input type="text" id="pick-loc" required autofocus><button type="button" class="btn-cam" onclick="startCameraScanner('pick-loc')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg></button></div>
+            <div class="input-group">
+                <input type="text" id="pick-loc" required autofocus placeholder="Escanee ubicación..." onkeydown="handleScannerEnter(event, 'pick-sku')">
+                <button type="button" class="btn-cam" onclick="startCameraScanner('pick-loc')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                </button>
+            </div>
+            
             <label>SKU Escaneado</label>
-            <div class="input-group"><input type="text" id="pick-sku" required><button type="button" class="btn-cam" onclick="startCameraScanner('pick-sku')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg></button></div>
-            <label>Cantidad</label><input type="number" id="pick-qty" min="0.01" step="0.01" required value="1">
+            <div class="input-group">
+                <input type="text" id="pick-sku" required placeholder="Escanee SKU..." onkeydown="handleScannerEnter(event, null, 'form-picking')">
+                <button type="button" class="btn-cam" onclick="startCameraScanner('pick-sku')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                </button>
+            </div>
+            
+            <label>Cantidad</label>
+            <input type="number" id="pick-qty" min="0.01" step="0.01" required value="1">
             <button type="submit" style="margin-top:1rem;">Extraer del Stock</button>
         </form>
     </div>
 
-    <!-- PACKING AUTOMATIZADO Y CERO FRICCIÓN -->
+    <!-- 2. PACKING -->
     <div id="view-packing" class="view">
         <h3>Mesa de Empaque y Despacho</h3>
         <div id="packing-list"></div>
@@ -72,18 +121,83 @@
     <div id="view-packing-form" class="view">
         <h3 id="pack-title"></h3>
         <div id="pack-details" style="font-size:0.9rem; margin-bottom:1rem; background:white; padding:10px; border-radius:6px; border:1px solid var(--border-color); color:var(--primary-blue); font-weight:bold;"></div>
-        
-        <!-- RESUMEN DE PESO Y VOLUMEN AUTOMÁTICO (SOLO LECTURA) -->
         <div id="pack-metrics-summary" style="display:none; background:#ECFDF5; border:1px solid #10B981; padding:10px; border-radius:6px; margin-bottom:1.5rem; font-size:0.85rem; color:#065F46; font-weight:bold;"></div>
 
         <form id="form-packing" onsubmit="dispatchPacking(event)">
             <input type="hidden" id="pack-number">
             <label>Cantidad de Cajas / Bultos *</label>
-            <input type="number" id="pack-boxes" required value="1" min="1" autofocus>
+            <input type="number" id="pack-boxes" required value="1" min="1" autofocus onkeydown="handleScannerEnter(event, null, 'form-packing')">
             <button type="submit" style="margin-top:1.5rem; background-color:var(--success);">Sellar Caja y Despachar</button>
         </form>
     </div>
 
+    <!-- 3. RECEPCIÓN CON AUTO-SUBMIT -->
+    <div id="view-receptions" class="view">
+        <h3>Remitos Pendientes</h3>
+        <div id="receptions-list"></div>
+    </div>
+    <div id="view-reception-scan" class="view">
+        <h3 id="rec-title"></h3>
+        <div id="rec-details" style="font-size:0.9rem; margin-bottom:1.5rem; background:white; padding:10px; border-radius:6px; border:1px solid var(--border-color);"></div>
+        <form id="form-reception" onsubmit="scanReception(event)">
+            <input type="hidden" id="rec-number">
+            
+            <label>SKU Recibido *</label>
+            <div class="input-group">
+                <input type="text" id="rec-sku" required autofocus placeholder="Escanee SKU..." onkeydown="handleScannerEnter(event, 'rec-loc')">
+                <button type="button" class="btn-cam" onclick="startCameraScanner('rec-sku')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                </button>
+            </div>
+            
+            <label>Cantidad *</label>
+            <input type="number" id="rec-qty" min="0.01" step="0.01" required value="1">
+            
+            <label>Ubicación Destino (Opcional)</label>
+            <div class="input-group">
+                <input type="text" id="rec-loc" placeholder="Ej: RACK-01" onkeydown="handleScannerEnter(event, null, 'form-reception')">
+                <button type="button" class="btn-cam" onclick="startCameraScanner('rec-loc')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                </button>
+            </div>
+            <button type="submit" style="margin-top:1rem; background-color:var(--success);">Confirmar Ingreso</button>
+        </form>
+    </div>
+
+    <!-- 4. TRASPASOS CON AUTO-SUBMIT -->
+    <div id="view-transfers" class="view">
+        <h3>Órdenes de Traspaso Activas</h3>
+        <div id="transfers-list"></div>
+    </div>
+    <div id="view-transfer-scan" class="view">
+        <h3 id="tr-title"></h3>
+        <div id="tr-details" style="font-size:0.9rem; margin-bottom:1.5rem; background:white; padding:10px; border-radius:6px; border:1px solid var(--border-color);"></div>
+        <form id="form-transfer-scan" onsubmit="scanTransfer(event)">
+            <input type="hidden" id="tr-number">
+            
+            <label>SKU a Transferir *</label>
+            <div class="input-group">
+                <input type="text" id="tr-sku" required autofocus placeholder="Escanee SKU..." onkeydown="handleScannerEnter(event, 'tr-dest-loc')">
+                <button type="button" class="btn-cam" onclick="startCameraScanner('tr-sku')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                </button>
+            </div>
+            
+            <label>Cantidad *</label>
+            <input type="number" id="tr-qty" min="0.01" step="0.01" required value="1">
+            
+            <label>Ubicación Destino *</label>
+            <div class="input-group">
+                <input type="text" id="tr-dest-loc" placeholder="Ej: RACK-DEST-01" onkeydown="handleScannerEnter(event, null, 'form-transfer-scan')">
+                <button type="button" class="btn-cam" onclick="startCameraScanner('tr-dest-loc')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                </button>
+            </div>
+            <button type="submit" style="margin-top:1rem; background-color:var(--accent-blue);">Procesar Traspaso</button>
+        </form>
+    </div>
+
+    <!-- MODAL CÁMARA -->
     <div id="camera-modal" class="camera-modal">
         <div style="color:white; font-weight:800; text-transform:uppercase; margin-bottom:0.5rem;">Apunte al código</div>
         <div class="camera-viewport"><video id="camera-video" playsinline autoplay></video></div>
@@ -94,23 +208,79 @@
         let currentTargetInputId = null, videoStream = null, cameraInterval = null;
         let AppConfig = {};
 
+        // === PROTECCIÓN XSS (Militar/Bancaria) ===
+        function escapeHTML(str) {
+            if (str === null || str === undefined) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container'); if(!container) return;
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `<span>${escapeHTML(msg)}</span><span style="cursor:pointer; font-weight:bold; margin-left:10px;" onclick="this.parentElement.remove()">&times;</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { if(toast.parentElement) toast.remove(); }, 3500);
+        }
+
+        // DETECCIÓN DE RED
+        window.addEventListener('online', () => document.getElementById('net-banner').style.display = 'none');
+        window.addEventListener('offline', () => document.getElementById('net-banner').style.display = 'block');
+
         window.onload = async () => {
             const data = await reqAPI('/api/settings');
             if(data) AppConfig = data;
+            if(!navigator.onLine) document.getElementById('net-banner').style.display = 'block';
         };
 
-        function goHome() { stopCameraScanner(); document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); document.getElementById('view-home').classList.add('active'); document.getElementById('btn-back').style.display = 'none'; }
-        function openView(id, cb = null) { stopCameraScanner(); document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); document.getElementById(id).classList.add('active'); document.getElementById('btn-back').style.display = 'inline'; if(cb) cb(); }
+        // AUTO-SUBMIT PISTOLAS (Lectoras USB / Bluetooth emulan Enter)
+        function handleScannerEnter(e, nextFieldId = null, formIdToSubmit = null) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (nextFieldId) {
+                    const nextField = document.getElementById(nextFieldId);
+                    if (nextField) { nextField.focus(); nextField.select(); }
+                } else if (formIdToSubmit) {
+                    document.getElementById(formIdToSubmit).requestSubmit();
+                }
+            }
+        }
+
+        function goHome() { 
+            stopCameraScanner(); 
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); 
+            document.getElementById('view-home').classList.add('active'); 
+            document.getElementById('btn-back').style.display = 'none'; 
+            document.getElementById('header-title').textContent = 'TERMINAL OPERATIVA';
+        }
+
+        function openView(id, cb = null) { 
+            stopCameraScanner(); 
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); 
+            document.getElementById(id).classList.add('active'); 
+            document.getElementById('btn-back').style.display = 'inline'; 
+            if(cb) cb(); 
+        }
+
         async function reqAPI(url, method = 'GET', body = null) {
             try {
                 const r = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: body ? JSON.stringify(body) : null });
                 if (r.status === 401) return window.location.href = '/index.html';
                 const d = await r.json().catch(() => ({}));
-                if(!r.ok) { if(method !== 'GET') alert('ERROR: ' + (d.detail || r.statusText)); return null; }
+                if(!r.ok) { 
+                    const errMsg = d.detail || r.statusText || 'Error en el servidor';
+                    if(method !== 'GET') showToast(errMsg, 'error'); 
+                    return null; 
+                }
                 return d;
-            } catch(e) { if(method !== 'GET') alert('Falla de red.'); return null; }
+            } catch(e) { 
+                if(method !== 'GET') showToast('Falla de red con el servidor', 'error'); 
+                document.getElementById('net-banner').style.display = 'block';
+                return null; 
+            }
         }
 
+        // CÁMARA
         async function startCameraScanner(inputId) {
             currentTargetInputId = inputId; document.getElementById('camera-modal').style.display = 'flex';
             videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } }).catch(() => navigator.mediaDevices.getUserMedia({ video: true }));
@@ -119,36 +289,77 @@
                 const bd = new BarcodeDetector();
                 cameraInterval = setInterval(async () => {
                     const codes = await bd.detect(document.getElementById('camera-video')).catch(()=>[]);
-                    if (codes.length > 0) { if (navigator.vibrate) navigator.vibrate([100]); document.getElementById(currentTargetInputId).value = codes[0].rawValue; stopCameraScanner(); }
+                    if (codes.length > 0) { 
+                        if (navigator.vibrate) navigator.vibrate([100]); 
+                        document.getElementById(currentTargetInputId).value = codes[0].rawValue; 
+                        stopCameraScanner(); 
+                    }
                 }, 250);
+            } else {
+                showToast("Tu navegador no soporta lectura de códigos por cámara.", "warning");
+                stopCameraScanner();
             }
         }
         function stopCameraScanner() { clearInterval(cameraInterval); if(videoStream) videoStream.getTracks().forEach(t => t.stop()); document.getElementById('camera-modal').style.display = 'none'; }
 
+        // === 1. PICKING ===
         async function loadPicking() {
             const list = document.getElementById('picking-list'); list.innerHTML = 'Consultando...';
             const data = await reqAPI('/api/picking/orders');
             if(!data) return;
-            list.innerHTML = data.length ? data.map(o => `<div class="list-item" onclick="openPickingScan('${o.document_number}')"><strong>${o.document_number}</strong><p>${o.company_name}</p></div>`).join('') : 'Sin pedidos pendientes.';
+            list.innerHTML = data.length ? data.map(o => `
+                <div class="list-item" onclick="openPickingScan('${escapeHTML(o.document_number)}')">
+                    <strong>${escapeHTML(o.document_number)}</strong>
+                    <p>${escapeHTML(o.company_name)}</p>
+                </div>
+            `).join('') : 'Sin pedidos pendientes.';
         }
+
         async function openPickingScan(num) {
-            document.getElementById('form-picking').reset(); document.getElementById('pick-number').value = num; document.getElementById('pick-title').textContent = num;
+            document.getElementById('form-picking').reset(); 
+            document.getElementById('pick-number').value = num; 
+            document.getElementById('pick-title').textContent = num;
             openView('view-picking-scan');
             const d = await reqAPI('/api/picking/orders/' + encodeURIComponent(num));
-            if(d) document.getElementById('pick-details').innerHTML = d.lines.map(l => `<div style="border-bottom:1px solid #ddd; padding:5px 0;"><strong>${l.sku}</strong><br>Progreso: ${l.quantity_picked} / ${l.quantity_requested}<br><small style="color:var(--success)">Sugerencias: ${l.suggested_locations}</small></div>`).join('');
+            if(d) {
+                document.getElementById('pick-details').innerHTML = d.lines.map(l => `
+                    <div style="border-bottom:1px solid #ddd; padding:5px 0;">
+                        <strong>${escapeHTML(l.sku)}</strong><br>
+                        Progreso: ${l.quantity_picked} / ${l.quantity_requested}<br>
+                        <small style="color:var(--success)">Sugerencias: ${escapeHTML(l.suggested_locations)}</small>
+                    </div>
+                `).join('');
+                setTimeout(() => document.getElementById('pick-loc').focus(), 100);
+            }
         }
+
         async function scanPicking(e) {
             e.preventDefault();
             const num = document.getElementById('pick-number').value;
-            const r = await reqAPI(`/api/picking/orders/${encodeURIComponent(num)}/scan`, 'POST', { location_code: document.getElementById('pick-loc').value.trim(), sku: document.getElementById('pick-sku').value.trim(), quantity: parseFloat(document.getElementById('pick-qty').value) });
-            if(r) { alert(r.message); r.order_completed ? goHome() : openPickingScan(num); }
+            const payload = { 
+                location_code: document.getElementById('pick-loc').value.trim(), 
+                sku: document.getElementById('pick-sku').value.trim(), 
+                quantity: parseFloat(document.getElementById('pick-qty').value) 
+            };
+            const r = await reqAPI(`/api/picking/orders/${encodeURIComponent(num)}/scan`, 'POST', payload);
+            if(r) { 
+                showToast(r.message); 
+                document.getElementById('pick-sku').value = ''; // Limpiamos para el siguiente escaneo rápido
+                r.order_completed ? goHome() : openPickingScan(num); 
+            }
         }
 
+        // === 2. PACKING ===
         async function loadPacking() {
             const list = document.getElementById('packing-list'); list.innerHTML = 'Buscando pedidos completados...';
             const data = await reqAPI('/api/packing/orders');
             if(!data) return;
-            list.innerHTML = data.length ? data.map(o => `<div class="list-item" style="border-left: 4px solid var(--success);" onclick="openPackingForm('${o.document_number}')"><strong>${o.document_number}</strong><p>Destino: ${o.company_name}</p></div>`).join('') : 'No hay pedidos esperando empaque.';
+            list.innerHTML = data.length ? data.map(o => `
+                <div class="list-item" style="border-left: 4px solid var(--success);" onclick="openPackingForm('${escapeHTML(o.document_number)}')">
+                    <strong>${escapeHTML(o.document_number)}</strong>
+                    <p>Destino: ${escapeHTML(o.company_name)}</p>
+                </div>
+            `).join('') : 'No hay pedidos esperando empaque.';
         }
 
         async function openPackingForm(num) {
@@ -162,13 +373,12 @@
             
             const d = await reqAPI('/api/packing/orders/' + encodeURIComponent(num));
             if(d) {
-                document.getElementById('pack-details').innerHTML = `Cliente: ${d.document.company_name}<br><small style="color:var(--text-muted)">Dir: ${d.document.address}</small>`;
-                
-                // Muestra calculada automática proveniente del catálogo de artículos
+                document.getElementById('pack-details').innerHTML = `Cliente: ${escapeHTML(d.document.company_name)}<br><small style="color:var(--text-muted)">Dir: ${escapeHTML(d.document.address)}</small>`;
                 if (AppConfig.enable_item_dimensions === 'true') {
                     metricsDiv.innerHTML = `Peso Calculado: ${d.totals.calc_weight} Kg | Vol: ${d.totals.calc_volume} m³`;
                     metricsDiv.style.display = 'block';
                 }
+                setTimeout(() => document.getElementById('pack-boxes').focus(), 100);
             }
         }
 
@@ -177,7 +387,112 @@
             const num = document.getElementById('pack-number').value;
             const payload = { boxes: parseInt(document.getElementById('pack-boxes').value) };
             const r = await reqAPI(`/api/packing/orders/${encodeURIComponent(num)}/pack`, 'POST', payload);
-            if(r) { alert(r.message); goHome(); }
+            if(r) { showToast(r.message); goHome(); }
+        }
+
+        // === 3. RECEPCIÓN ===
+        async function loadReceptions() {
+            const list = document.getElementById('receptions-list'); list.innerHTML = 'Consultando remitos...';
+            const data = await reqAPI('/api/reception/remitos');
+            if(!data) return;
+            list.innerHTML = data.length ? data.map(r => `
+                <div class="list-item" style="border-left: 4px solid var(--accent-blue);" onclick="openReceptionScan('${escapeHTML(r.remito_number)}')">
+                    <strong>${escapeHTML(r.remito_number)}</strong>
+                    <p>Proveedor: ${escapeHTML(r.supplier_name)}</p>
+                    <p><small>${escapeHTML(r.branch_name)} > ${escapeHTML(r.sector_name)}</small> <span class="badge badge-warning">${escapeHTML(r.status)}</span></p>
+                </div>
+            `).join('') : 'No hay remitos pendientes de control.';
+        }
+
+        async function openReceptionScan(remitoNumber) {
+            document.getElementById('form-reception').reset();
+            document.getElementById('rec-number').value = remitoNumber;
+            document.getElementById('rec-title').textContent = "REMITO: " + remitoNumber;
+            openView('view-reception-scan');
+
+            const d = await reqAPI('/api/reception/remitos/' + encodeURIComponent(remitoNumber));
+            if(d && d.lines) {
+                document.getElementById('rec-details').innerHTML = `
+                    <div style="margin-bottom:8px; font-weight:bold; color:var(--primary-blue);">Proveedor: ${escapeHTML(d.remito.supplier_name)}</div>
+                    ${d.lines.map(l => `
+                        <div style="border-bottom:1px solid #eee; padding:4px 0; font-size:0.85rem;">
+                            <strong>${escapeHTML(l.sku)}</strong> - Controlado: ${l.quantity_received} / ${l.quantity_sent} un
+                            ${l.location_code ? `<br><small style="color:var(--success)">Sugerencia: ${escapeHTML(l.location_code)}</small>` : ''}
+                        </div>
+                    `).join('')}
+                `;
+                setTimeout(() => document.getElementById('rec-sku').focus(), 100);
+            }
+        }
+
+        async function scanReception(e) {
+            e.preventDefault();
+            const num = document.getElementById('rec-number').value;
+            const payload = {
+                remito_number: num,
+                sku: document.getElementById('rec-sku').value.trim(),
+                quantity: parseFloat(document.getElementById('rec-qty').value),
+                location_code: document.getElementById('rec-loc').value.trim() || null
+            };
+            const r = await reqAPI(`/api/reception/remitos/${encodeURIComponent(num)}/scan`, 'POST', payload);
+            if(r) { 
+                showToast(r.message); 
+                document.getElementById('rec-sku').value = '';
+                r.remito_completed ? goHome() : openReceptionScan(num); 
+            }
+        }
+
+        // === 4. TRASPASOS ===
+        async function loadTransfers() {
+            const list = document.getElementById('transfers-list'); list.innerHTML = 'Consultando traspasos...';
+            const data = await reqAPI('/api/transfers/orders');
+            if(!data) return;
+            list.innerHTML = data.length ? data.map(t => `
+                <div class="list-item" style="border-left: 4px solid var(--warning);" onclick="openTransferScan('${escapeHTML(t.transfer_number)}')">
+                    <strong>${escapeHTML(t.transfer_number)}</strong>
+                    <p>Origen: ${escapeHTML(t.origin_branch)} (${escapeHTML(t.origin_sector)})</p>
+                    <p>Destino: ${escapeHTML(t.destination_branch)} (${escapeHTML(t.destination_sector)})</p>
+                    <p><span class="badge badge-warning">${escapeHTML(t.status)}</span></p>
+                </div>
+            `).join('') : 'No hay órdenes de traspaso activas.';
+        }
+
+        async function openTransferScan(transferNumber) {
+            document.getElementById('form-transfer-scan').reset();
+            document.getElementById('tr-number').value = transferNumber;
+            document.getElementById('tr-title').textContent = "TRASPASO: " + transferNumber;
+            openView('view-transfer-scan');
+
+            const d = await reqAPI('/api/transfers/orders/' + encodeURIComponent(transferNumber));
+            if(d && d.lines) {
+                document.getElementById('tr-details').innerHTML = `
+                    <div style="margin-bottom:8px; font-weight:bold; color:var(--primary-blue);">${escapeHTML(d.transfer.origin_branch)} ➔ ${escapeHTML(d.transfer.destination_branch)}</div>
+                    ${d.lines.map(l => `
+                        <div style="border-bottom:1px solid #eee; padding:4px 0; font-size:0.85rem;">
+                            <strong>${escapeHTML(l.sku)}</strong> - Transferido: ${l.quantity_received} / ${l.quantity_sent} un
+                            <br><small style="color:var(--text-muted)">Origen: ${escapeHTML(l.origin_location || 'General')} ➔ Destino: ${escapeHTML(l.destination_location || 'General')}</small>
+                        </div>
+                    `).join('')}
+                `;
+                setTimeout(() => document.getElementById('tr-sku').focus(), 100);
+            }
+        }
+
+        async function scanTransfer(e) {
+            e.preventDefault();
+            const num = document.getElementById('tr-number').value;
+            const payload = {
+                transfer_number: num,
+                sku: document.getElementById('tr-sku').value.trim(),
+                quantity: parseFloat(document.getElementById('tr-qty').value),
+                destination_location_code: document.getElementById('tr-dest-loc').value.trim() || null
+            };
+            const r = await reqAPI(`/api/transfers/orders/${encodeURIComponent(num)}/scan`, 'POST', payload);
+            if(r) { 
+                showToast(r.message); 
+                document.getElementById('tr-sku').value = '';
+                r.transfer_completed ? goHome() : openTransferScan(num); 
+            }
         }
 
         async function logout() { await reqAPI('/api/auth/logout', 'POST'); window.location.href = '/index.html'; }

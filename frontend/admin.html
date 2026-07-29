@@ -22,7 +22,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { background-color: var(--bg-main); color: var(--text-main); font-family: system-ui, -apple-system, sans-serif; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
         
-        .sidebar { width: 260px; min-width: 260px; background-color: var(--sidebar-bg); border-right: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; justify-content: space-between; padding: 2rem 1rem; overflow-y: auto; transition: background-color 0.3s ease; }
+        .sidebar { width: 260px; min-width: 260px; background-color: var(--sidebar-bg); border-right: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; justify-content: space-between; padding: 2rem 1rem; overflow-y: auto; }
         .brand-title { font-size: 1.4rem; font-weight: 800; color: #FFFFFF; text-transform: uppercase; text-align: center; margin-bottom: 2rem; letter-spacing: 1px; }
         .nav-tabs { display: flex; flex-direction: column; gap: 0.4rem; }
         .tab-btn { background: none; border: none; color: #93C5FD; padding: 0.85rem 1rem; text-align: left; font-size: 0.88rem; font-weight: 600; cursor: pointer; border-radius: 6px; text-transform: uppercase; transition: all 0.2s ease; }
@@ -38,6 +38,8 @@
         .grid-layout { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
         .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem; height: fit-content; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .form-group { margin-bottom: 1.2rem; }
+        .form-row { display: flex; gap: 10px; margin-bottom: 0.8rem; }
+        .form-row .form-group { flex: 1; margin-bottom: 0; }
         label { display: block; margin-bottom: 0.4rem; font-weight: 600; color: var(--text-main); font-size: 0.88rem; }
         input, select, textarea { width: 100%; padding: 0.75rem; border: 1px solid var(--input-border); border-radius: 6px; background-color: var(--input-bg); color: var(--text-main); font-family: inherit; font-size: 0.9rem; transition: border-color 0.2s; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
@@ -90,9 +92,18 @@
         .close-modal { position: absolute; top: 1rem; right: 1.5rem; font-size: 1.8rem; cursor: pointer; color: var(--text-muted); }
 
         .dropzone { border: 2px dashed var(--accent-blue); border-radius: 8px; padding: 2rem; text-align: center; background-color: #EFF6FF; cursor: pointer; margin-bottom: 1.2rem; }
+
+        .net-status { display: none; background: #DC2626; color: white; text-align: center; padding: 6px; font-weight: bold; font-size: 0.8rem; text-transform: uppercase; border-radius: 4px; margin-bottom: 1rem; }
+        
+        .toast-container { position: fixed; top: 1.2rem; right: 1.2rem; z-index: 10000; display: flex; flex-direction: column; gap: 0.6rem; max-width: 380px; pointer-events: none; }
+        .toast { background: #FFFFFF; color: var(--text-main); border: 1px solid var(--border-color); padding: 0.85rem 1.2rem; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 12px; pointer-events: auto; }
+        .toast-success { border-left: 5px solid var(--success-green); }
+        .toast-error { border-left: 5px solid var(--error-red); }
     </style>
 </head>
 <body>
+    <div id="toast-container" class="toast-container"></div>
+
     <div class="sidebar">
         <div>
             <div class="brand-title" id="app-brand-name">Tracker360</div>
@@ -113,6 +124,8 @@
     </div>
 
     <div class="main-content">
+        <div id="net-banner" class="net-status">Sin conexión a la red local</div>
+
         <!-- 1. DASHBOARD -->
         <div id="section-dashboard" class="view-section active">
             <h2>Tablero Resumen de Operaciones</h2>
@@ -219,7 +232,7 @@
                     <button class="btn-submit" style="width:auto; margin:0;" onclick="openModal('modal-branch')">+ Crear Sucursal</button>
                     <button class="btn-submit" style="width:auto; margin:0;" onclick="openModal('modal-sector')">+ Crear Sector</button>
                     <button class="btn-submit" style="width:auto; margin:0;" onclick="openModal('modal-location')">+ Crear Ubicación</button>
-                    <button class="btn-secondary" onclick="openModal('modal-import-locations')">Importar Ubicaciones CSV</button>
+                    <button class="btn-secondary" onclick="openModal('modal-import-locations')">Agregar Ubicaciones Masivamente</button>
                 </div>
             </div>
 
@@ -263,8 +276,8 @@
             <h2>Maestro de Artículos</h2>
             <div style="display:flex; justify-content:space-between; margin-bottom:1.5rem; flex-wrap:wrap; gap:10px; align-items:center;">
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    <button onclick="openImportModal('items')" class="btn-secondary">Importar Catálogo CSV</button>
-                    <button onclick="openImportModal('item_locations')" class="btn-secondary">Importar Ubicaciones CSV</button>
+                    <button onclick="openImportModal('items')" class="btn-secondary">Agregar Catálogo Masivamente</button>
+                    <button onclick="openImportModal('item_locations')" class="btn-secondary">Agregar Ubicaciones Masivamente</button>
                 </div>
                 <div style="display:flex; gap:10px;">
                     <input type="text" id="search-sku" placeholder="SKU..." style="width:140px;" onkeydown="if(event.key === 'Enter') handleSearchItems()">
@@ -277,13 +290,18 @@
                     <thead>
                         <tr>
                             <th onclick="sortItems('sku')" style="cursor:pointer;">SKU <span id="sort-sku">↑</span></th>
-                            <th onclick="sortItems('description')" style="cursor:pointer;">Descripción <span id="sort-description"></span></th>
+                            <th onclick="sortItems('description')" style="cursor:pointer;">Descripción</th>
                             <th>Ubicaciones Asignadas</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="table-items-body"></tbody>
                 </table>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem;">
+                    <button class="btn-secondary" onclick="prevItemPage()">« Anterior</button>
+                    <span id="items-page-info" style="font-size:0.85rem; font-weight:bold;">Página 1 de 1</span>
+                    <button class="btn-secondary" onclick="nextItemPage()">Siguiente »</button>
+                </div>
             </div>
         </div>
 
@@ -326,7 +344,7 @@
                             <button class="btn-secondary" style="padding:6px 12px;" onclick="loadPOData('', 50)">Ver Todos</button>
                         </div>
                         <table style="font-size:0.85rem;">
-                            <thead><tr><th>Nº Orden</th><th>Proveedor</th><th>Cant. Total</th><th>Estado</th></tr></thead>
+                            <thead><tr><th>Nº Orden</th><th>Proveedor</th><th>Estado</th></tr></thead>
                             <tbody id="table-po-body"></tbody>
                         </table>
                     </div>
@@ -475,7 +493,10 @@
 
         <!-- 8. PEDIDOS -->
         <div id="section-orders" class="view-section">
-            <h2>Monitoreo de Salidas (Pedidos)</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <h2 style="margin:0; border:none; padding:0;">Monitoreo de Salidas (Pedidos)</h2>
+                <button type="button" class="btn-submit" onclick="openManualOrderModal()" style="width:auto; margin:0;">+ Crear Pedido</button>
+            </div>
             <div class="card"><table><thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th><th>Progreso</th></tr></thead><tbody id="table-orders-body"></tbody></table></div>
         </div>
 
@@ -491,11 +512,34 @@
             
             <div class="grid-layout">
                 <div class="card">
-                    <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Parámetros Operativos</h3>
+                    <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Parámetros Operativos y Stock</h3>
                     <form id="form-settings-basic" onsubmit="saveSettings(event)">
                         <div class="form-group"><label>Nombre de la Aplicación</label><input type="text" id="cfg-app-name" placeholder="Tracker360"></div>
                         <div class="form-group"><label>CUIT Empresa</label><input type="text" id="cfg-company-cuit" placeholder="30-00000000-0"></div>
                         <div class="form-group"><label>IP Impresora Térmica Zebra</label><input type="text" id="cfg-zebra-ip" placeholder="192.168.1.50"></div>
+                        
+                        <div class="form-group">
+                            <label>Gestión de Stock Activa</label>
+                            <select id="cfg-enable-stock-management">
+                                <option value="true">SÍ</option>
+                                <option value="false">NO</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Permitir Stock Negativo</label>
+                            <select id="cfg-allow-negative-stock">
+                                <option value="false">NO</option>
+                                <option value="true">SÍ</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Control de Stock Comprometido (Reservas)</label>
+                            <select id="cfg-enable-committed-stock">
+                                <option value="true">SÍ</option>
+                                <option value="false">NO</option>
+                            </select>
+                        </div>
+
                         <div class="form-group">
                             <label>Control de Recepción Móvil Obligatorio</label>
                             <select id="cfg-require-mobile-reception"><option value="false">NO</option><option value="true">SÍ</option></select>
@@ -637,7 +681,7 @@
 
     <!-- MODAL CREAR ENTIDAD -->
     <div id="modal-entity" class="modal">
-        <div class="modal-content" style="max-width:500px;">
+        <div class="modal-content" style="max-width:550px;">
             <span class="close-modal" onclick="closeModal('modal-entity')">&times;</span>
             <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Nueva Entidad</h3>
             <form id="form-entity" onsubmit="saveEntity(event)">
@@ -649,16 +693,23 @@
                 </div>
                 <hr style="border:0; border-top:1px solid var(--border-color); margin:1rem 0;">
                 <h4 style="color:var(--primary-blue); margin-bottom:0.8rem; font-size:0.95rem;">Dirección Física Inicial (Opcional)</h4>
-                <div class="form-group"><label>Etiqueta / Identificador</label><input type="text" id="ent-addr-label" placeholder="Ej: Depósito Central / Casa Matriz"></div>
-                <div class="form-group"><label>Dirección Completa</label><input type="text" id="ent-full-addr" placeholder="Ej: Av. Corrientes 1234, CABA, Buenos Aires"></div>
+                <div class="form-group"><label>Etiqueta / Identificador</label><input type="text" id="ent-addr-label" placeholder="Ej: Depósito Central"></div>
+                <div class="form-row">
+                    <div class="form-group"><label>Calle</label><input type="text" id="ent-street" placeholder="Ej: Av. Corrientes"></div>
+                    <div class="form-group" style="max-width:110px;"><label>Altura</label><input type="text" id="ent-number" placeholder="Ej: 1234"></div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="max-width:130px;"><label>Cód. Postal</label><input type="text" id="ent-zip" placeholder="Ej: C1043"></div>
+                    <div class="form-group"><label>Ciudad / Barrio</label><input type="text" id="ent-city" placeholder="Ej: CABA"></div>
+                </div>
                 <button type="submit" class="btn-submit" style="margin-top:1.5rem;">Guardar Entidad</button>
             </form>
         </div>
     </div>
 
-    <!-- MODAL EDITAR ENTIDAD -->
+    <!-- MODAL EDITAR ENTIDAD CON FORMULARIO ATÓMICO DE DIRECCIONES -->
     <div id="modal-edit-entity" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width:650px;">
             <span class="close-modal" onclick="closeModal('modal-edit-entity')">&times;</span>
             <h2 style="color:var(--primary-blue); margin-bottom:1rem;">Editar Entidad</h2>
             <form id="form-edit-entity" onsubmit="saveEntityBasic(event)">
@@ -677,11 +728,32 @@
             <h3 style="color:var(--primary-blue); margin-bottom:10px;">Direcciones de Entrega Registradas</h3>
             <div id="entity-addresses-list" style="margin-bottom:15px;">Cargando direcciones...</div>
 
-            <form onsubmit="addAddressToEntity(event)" style="background:#F0F9FF; padding:12px; border-radius:6px; border:1px solid #BAE6FD;">
-                <h4 style="color:var(--primary-blue); font-size:0.9rem; margin-bottom:8px;">+ Añadir Nueva Dirección</h4>
-                <div class="form-group" style="margin-bottom:8px;"><label style="font-size:0.8rem;">Etiqueta (Ej: Planta Industrial, Sucursal Norte)</label><input type="text" id="new-ent-addr-label" placeholder="Ej: Depósito B" required></div>
-                <div class="form-group" style="margin-bottom:8px;"><label style="font-size:0.8rem;">Dirección Completa</label><input type="text" id="new-ent-full-addr" placeholder="Ej: Calle 45 Nº 678, Rosario, Santa Fe" required></div>
-                <button type="submit" class="btn-secondary" style="margin-top:5px; width:100%;">Guardar Nueva Dirección</button>
+            <!-- FORMULARIO ESTRUCTURADO PARA RUTEO -->
+            <form id="form-entity-address" onsubmit="saveAddressToEntity(event)" style="background:#F0F9FF; padding:1.2rem; border-radius:6px; border:1px solid #BAE6FD;">
+                <input type="hidden" id="edit-addr-id" value="">
+                <h4 id="form-addr-title" style="color:var(--primary-blue); font-size:0.95rem; margin-bottom:10px;">+ Añadir Nueva Dirección</h4>
+                
+                <div class="form-row">
+                    <div class="form-group" style="flex:2;"><label style="font-size:0.8rem;">Etiqueta Identificadora *</label><input type="text" id="new-ent-addr-label" placeholder="Ej: Depósito Central, Casa Matriz" required></div>
+                    <div class="form-group" style="flex:1; display:flex; align-items:flex-end; padding-bottom:0.4rem;">
+                        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.8rem; margin:0;"><input type="checkbox" id="new-ent-is-default" style="width:auto;"> Predeterminada</label>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group" style="flex:3;"><label style="font-size:0.8rem;">Calle</label><input type="text" id="new-ent-street" placeholder="Ej: Av. Cabildo"></div>
+                    <div class="form-group" style="flex:1;"><label style="font-size:0.8rem;">Altura</label><input type="text" id="new-ent-number" placeholder="Ej: 2547"></div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group" style="flex:1;"><label style="font-size:0.8rem;">Código Postal</label><input type="text" id="new-ent-zip" placeholder="Ej: C1428"></div>
+                    <div class="form-group" style="flex:2;"><label style="font-size:0.8rem;">Ciudad / Barrio / Localidad</label><input type="text" id="new-ent-city" placeholder="Ej: CABA, Buenos Aires"></div>
+                </div>
+
+                <div style="display:flex; gap:8px; margin-top:10px;">
+                    <button type="submit" id="btn-save-addr" class="btn-secondary" style="flex:1;">Guardar Dirección</button>
+                    <button type="button" id="btn-cancel-edit-addr" onclick="resetAddressForm()" class="btn-secondary" style="display:none; background:#E5E7EB; color:#374151; border-color:#D1D5DB;">Cancelar Edición</button>
+                </div>
             </form>
         </div>
     </div>
@@ -736,7 +808,7 @@
     <div id="modal-import" class="modal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal('modal-import')">&times;</span>
-            <h2 id="import-title" style="color:var(--primary-blue); margin-bottom:1rem;">Importar Datos CSV</h2>
+            <h2 id="import-title" style="color:var(--primary-blue); margin-bottom:1rem;">Agregar Datos Masivamente (CSV)</h2>
             <form id="form-modal-import" onsubmit="processCSVImport(event)">
                 <input type="hidden" id="import-type">
                 <div class="dropzone" onclick="document.getElementById('import-file-input').click()">
@@ -756,7 +828,7 @@
     <div id="modal-import-locations" class="modal">
         <div class="modal-content" style="max-width:500px;">
             <span class="close-modal" onclick="closeModal('modal-import-locations')">&times;</span>
-            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Importar Ubicaciones por CSV</h3>
+            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Agregar Ubicaciones Masivamente</h3>
             <form onsubmit="uploadLocationsCSV(event)">
                 <div class="form-group"><label>Sector Destino *</label><select id="import-loc-sector" required></select></div>
                 <div class="dropzone" onclick="document.getElementById('import-loc-file').click()">
@@ -799,11 +871,110 @@
         </div>
     </div>
 
-    <!-- JAVASCRIPT GLOBAL SOBERANO COMPLETO -->
+    <!-- MODAL CREAR PEDIDO MANUAL DE VENTA -->
+    <div id="modal-manual-order" class="modal">
+        <div class="modal-content" style="max-width:600px;">
+            <span class="close-modal" onclick="closeModal('modal-manual-order')">&times;</span>
+            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Crear Pedido de Venta Manual</h3>
+            <form id="form-manual-order" onsubmit="saveManualOrder(event)">
+                <div class="grid-layout" style="margin-bottom:0;">
+                    <div class="form-group">
+                        <label>Nº Documento / Pedido *</label>
+                        <input type="text" id="manual-doc-num" value="000001" required style="font-weight:bold; color:var(--primary-blue);">
+                    </div>
+                    
+                    <!-- LUPA BUSCADORA DE CLIENTES -->
+                    <div class="form-group">
+                        <label>CUIT / DNI Cliente *</label>
+                        <div style="display:flex; gap:6px;">
+                            <input type="text" id="manual-cust-taxid" placeholder="Ej: 30709031240" required style="flex:1;">
+                            <button type="button" onclick="openSearchCustomerModal()" class="btn-secondary" style="display:flex; align-items:center; justify-content:center; padding:0 12px; height:42px;" title="Buscar Cliente">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="11" cy="11" r="8"></circle>
+                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="grid-layout" style="margin-bottom:0;">
+                    <div class="form-group"><label>Nombre Cliente (Opcional)</label><input type="text" id="manual-cust-name" placeholder="Ej: Juan Pérez"></div>
+                    
+                    <div class="form-group">
+                        <label>Dirección de Entrega</label>
+                        <select id="manual-addr-label" style="font-weight:600; color:var(--text-main);">
+                            <option value="Principal">Principal</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <label style="margin:0; font-weight:bold;">Artículos del Pedido:</label>
+                    <button type="button" onclick="document.getElementById('file-manual-order-csv').click()" class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;">+ Agregar Masivamente</button>
+                    <input type="file" id="file-manual-order-csv" accept=".csv" style="display:none;" onchange="importManualOrderCSV(this)">
+                </div>
+
+                <div class="dynamic-list" id="manual-order-lines">
+                    <div class="dynamic-row">
+                        <input type="text" placeholder="SKU" class="manual-sku" style="flex:2;" required>
+                        <input type="number" placeholder="Cantidad" class="manual-qty" style="flex:1;" min="0.01" step="0.01" required>
+                        <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
+                    </div>
+                </div>
+                <button type="button" onclick="addDynamicLineManualOrder()" style="background:none; border:1px solid var(--accent-blue); color:var(--accent-blue); padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">+ Añadir Artículo</button>
+                <button type="submit" class="btn-submit" style="margin-top:1.5rem;">Registrar Pedido</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL BÚSQUEDA ASISTIDA DE CLIENTES -->
+    <div id="modal-search-customer" class="modal">
+        <div class="modal-content" style="max-width:650px;">
+            <span class="close-modal" onclick="closeModal('modal-search-customer')">&times;</span>
+            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Seleccionar Cliente</h3>
+            <div class="form-group">
+                <input type="text" id="search-cust-query" placeholder="Buscar por CUIT, Nombre o Dirección..." onkeyup="filterCustomerSearch()" style="width:100%; padding:0.75rem;">
+            </div>
+            <div style="max-height:300px; overflow-y:auto; border:1px solid var(--border-color); border-radius:6px;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>CUIT / DNI</th>
+                            <th>Razón Social / Nombre</th>
+                            <th>Direcciones</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-search-cust-body"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT GLOBAL COMPLETO -->
     <script>
         let cachedUsers = [], cachedBranches = [], cachedSectors = [], cachedEntities = [], cachedLocations = [], suppliersCache = [];
-        let currentItemPage = 1, currentItemLimit = 50, currentItemSort = 'sku', currentItemOrder = 'ASC', currentItemSearchSKU = '', currentItemSearchDesc = '';
+        let cachedAddressesCurrentEntity = [];
+        let currentItemPage = 1, totalItemPages = 1, currentItemLimit = 50, currentItemSort = 'sku', currentItemOrder = 'ASC', currentItemSearchSKU = '', currentItemSearchDesc = '';
         let AppConfig = {};
+
+        function escapeHTML(str) {
+            if (str === null || str === undefined) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
+        function showToast(msg, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if(!container) return;
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `<span>${escapeHTML(msg)}</span><span style="cursor:pointer; font-weight:bold; margin-left:10px;" onclick="this.parentElement.remove()">&times;</span>`;
+            container.appendChild(toast);
+            setTimeout(() => { if(toast.parentElement) toast.remove(); }, 3500);
+        }
+
+        window.addEventListener('online', () => document.getElementById('net-banner').style.display = 'none');
+        window.addEventListener('offline', () => document.getElementById('net-banner').style.display = 'block');
 
         window.onload = async () => {
             const data = await fetchAPI('/api/settings');
@@ -840,14 +1011,14 @@
                 if (r.status === 401) { window.location.href = '/index.html'; return null; }
                 if(!r.ok) {
                     const err = await r.json().catch(()=>({}));
-                    console.warn(`[API ${r.status}] ${url}:`, err.detail || r.statusText);
-                    if(options.method && options.method !== 'GET') { alert('Error: ' + (err.detail || r.statusText)); }
+                    const msg = err.detail || r.statusText || 'Error en el servidor';
+                    if(options.method && options.method !== 'GET') { showToast('Error: ' + msg, 'error'); }
                     return null;
                 }
                 return await r.json();
             } catch(e) {
-                console.error(`[Red error] ${url}:`, e);
-                if(options.method && options.method !== 'GET') { alert('Falla de conexión: ' + e.message); }
+                document.getElementById('net-banner').style.display = 'block';
+                if(options.method && options.method !== 'GET') { showToast('Falla de conexión con el servidor', 'error'); }
                 return null;
             }
         }
@@ -859,19 +1030,19 @@
             if(bodyOrders) {
                 bodyOrders.innerHTML = '';
                 if(data.pending_orders.length === 0) bodyOrders.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center;">No hay pedidos pendientes.</td></tr>';
-                else data.pending_orders.forEach(o => bodyOrders.innerHTML += `<tr><td style="font-weight:bold;">${o.document_number}</td><td>${o.company_name}</td><td><span class="badge badge-warning">${o.status}</span></td></tr>`);
+                else data.pending_orders.forEach(o => bodyOrders.innerHTML += `<tr><td style="font-weight:bold;">${escapeHTML(o.document_number)}</td><td>${escapeHTML(o.company_name)}</td><td><span class="badge badge-warning">${escapeHTML(o.status)}</span></td></tr>`);
             }
             const bodyTransfers = document.getElementById('dash-transfers-body');
             if(bodyTransfers) {
                 bodyTransfers.innerHTML = '';
                 if(data.active_transfers.length === 0) bodyTransfers.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center;">No hay traspasos activos.</td></tr>';
-                else data.active_transfers.forEach(t => bodyTransfers.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${t.transfer_number}</td><td>${t.origin_branch}</td><td>${t.destination_branch}</td></tr>`);
+                else data.active_transfers.forEach(t => bodyTransfers.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(t.transfer_number)}</td><td>${escapeHTML(t.origin_branch)}</td><td>${escapeHTML(t.destination_branch)}</td></tr>`);
             }
             const bodyLogs = document.getElementById('dash-logs-body');
             if(bodyLogs) {
                 bodyLogs.innerHTML = '';
                 if(data.latest_logs.length === 0) bodyLogs.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center;">Sin registro de actividad.</td></tr>';
-                else data.latest_logs.forEach(l => bodyLogs.innerHTML += `<tr><td style="color:var(--text-muted);">${new Date(l.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td><td style="font-weight:bold;">${l.username}</td><td>${l.action}</td></tr>`);
+                else data.latest_logs.forEach(l => bodyLogs.innerHTML += `<tr><td style="color:var(--text-muted);">${new Date(l.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td><td style="font-weight:bold;">${escapeHTML(l.username)}</td><td>${escapeHTML(l.action)}</td></tr>`);
             }
         }
 
@@ -881,7 +1052,7 @@
             if(users) cachedUsers = users;
             if(branches) {
                 cachedBranches = branches; const filterB = document.getElementById('search-user-branch');
-                if(filterB) { filterB.innerHTML = '<option value="ALL">-- Todas las Sucursales --</option>'; branches.forEach(b => filterB.innerHTML += `<option value="${b.id}">${b.name}</option>`); }
+                if(filterB) { filterB.innerHTML = '<option value="ALL">-- Todas las Sucursales --</option>'; branches.forEach(b => filterB.innerHTML += `<option value="${b.id}">${escapeHTML(b.name)}</option>`); }
             }
             if(sectors) cachedSectors = sectors;
             filterUsers();
@@ -904,15 +1075,15 @@
             const body = document.getElementById('table-users-body'); if(!body) return; body.innerHTML = '';
             if(filtered.length === 0) { body.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted);">No se encontraron usuarios.</td></tr>'; return; }
             filtered.forEach(u => {
-                const escUser = u.username.replace(/'/g, "\\'");
-                body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${u.username}</td><td>${u.full_name}</td><td>${u.email || '-'}</td><td><span class="badge badge-info">${u.role}</span></td><td>${u.branch_name || '-'}</td><td>${u.sector_name || '-'}</td><td><span class="badge ${u.is_active ? 'badge-success' : 'badge-neutral'}">${u.is_active ? 'ACTIVO' : 'INACTIVO'}</span></td><td><button onclick="openUserModal('${escUser}')" class="btn-secondary" style="padding:4px 8px; font-size:0.8rem;">Editar</button></td></tr>`;
+                const escUser = escapeHTML(u.username);
+                body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${escUser}</td><td>${escapeHTML(u.full_name)}</td><td>${escapeHTML(u.email || '-')}</td><td><span class="badge badge-info">${escapeHTML(u.role)}</span></td><td>${escapeHTML(u.branch_name || '-')}</td><td>${escapeHTML(u.sector_name || '-')}</td><td><span class="badge ${u.is_active ? 'badge-success' : 'badge-neutral'}">${u.is_active ? 'ACTIVO' : 'INACTIVO'}</span></td><td><button onclick="openUserModal('${escUser}')" class="btn-secondary" style="padding:4px 8px; font-size:0.8rem;">Editar</button></td></tr>`;
             });
         }
 
         function openUserModal(usernameToEdit = null) {
             document.getElementById('form-user')?.reset();
             const bSelect = document.getElementById('user-branch');
-            if(bSelect) { bSelect.innerHTML = '<option value="">-- Sin Asignar --</option>'; cachedBranches.forEach(b => bSelect.innerHTML += `<option value="${b.id}">${b.name}</option>`); }
+            if(bSelect) { bSelect.innerHTML = '<option value="">-- Sin Asignar --</option>'; cachedBranches.forEach(b => bSelect.innerHTML += `<option value="${b.id}">${escapeHTML(b.name)}</option>`); }
             onUserBranchChange();
 
             const editMode = document.getElementById('user-edit-mode'); const userInput = document.getElementById('user-username');
@@ -935,7 +1106,7 @@
         function onUserBranchChange() {
             const selectedB = document.getElementById('user-branch').value; const sSelect = document.getElementById('user-sector'); if(!sSelect) return;
             sSelect.innerHTML = '<option value="">-- Sin Asignar --</option>';
-            cachedSectors.forEach(s => { if(!selectedB || String(s.branch_id) === String(selectedB)) { sSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`; } });
+            cachedSectors.forEach(s => { if(!selectedB || String(s.branch_id) === String(selectedB)) { sSelect.innerHTML += `<option value="${s.id}">${escapeHTML(s.name)}</option>`; } });
         }
 
         async function saveUser(e) {
@@ -943,64 +1114,162 @@
             if (isEdit) {
                 const payload = { full_name: document.getElementById('user-fullname').value.trim(), role: document.getElementById('user-role').value, email: document.getElementById('user-email').value.trim() || null, branch_id: document.getElementById('user-branch').value || null, sector_id: document.getElementById('user-sector').value || null, is_active: document.getElementById('user-is-active').value === 'true', password: document.getElementById('user-password').value || null };
                 const r = await fetchAPI('/api/admin/users/' + encodeURIComponent(username), { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-                if (r) { closeModal('modal-user'); loadUsers(); }
+                if (r) { showToast('Usuario actualizado correctamente'); closeModal('modal-user'); loadUsers(); }
             } else {
                 const payload = { username: username, full_name: document.getElementById('user-fullname').value.trim(), password: document.getElementById('user-password').value, role: document.getElementById('user-role').value, email: document.getElementById('user-email').value.trim() || null, branch_id: document.getElementById('user-branch').value || null, sector_id: document.getElementById('user-sector').value || null };
                 const r = await fetchAPI('/api/admin/users', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-                if (r) { closeModal('modal-user'); loadUsers(); }
+                if (r) { showToast('Usuario registrado correctamente'); closeModal('modal-user'); loadUsers(); }
             }
         }
 
-        // === ENTIDADES ===
+        // === ENTIDADES Y DIRECCIONES ===
         async function loadEntities() {
             const ents = await fetchAPI('/api/admin/entities'); if(!ents) return; cachedEntities = ents;
             const body = document.getElementById('table-entities-body'); if(!body) return; body.innerHTML = '';
             ents.forEach(e => {
-                const escTax = e.tax_id.replace(/'/g, "\\'"); const escName = e.company_name.replace(/'/g, "\\'");
                 let addrs = []; try { addrs = typeof e.addresses === 'string' ? JSON.parse(e.addresses) : (e.addresses || []); } catch(err) {}
-                const addrSummary = addrs.length > 0 ? addrs.map(a => `<small><strong>${a.label}:</strong> ${a.address}</small>`).join('<br>') : '<span style="color:var(--text-muted)">Sin direcciones</span>';
-                body.innerHTML += `<tr><td style="font-weight:bold;">${e.tax_id}</td><td style="color:var(--primary-blue); font-weight:bold;">${e.company_name}</td><td><span class="badge badge-neutral">${e.is_customer?'CLIENTE':''} ${e.is_supplier?'PROVEEDOR':''}</span></td><td>${addrSummary}</td><td><span class="badge ${e.is_active!==false?'badge-success':'badge-neutral'}">${e.is_active!==false?'ACTIVO':'INACTIVO'}</span></td><td><button onclick="openEditEntityModal('${e.id}', '${escTax}', '${escName}', ${e.is_customer}, ${e.is_supplier}, ${e.is_active!==false})" class="btn-secondary" style="padding:4px 8px; font-size:0.8rem;">Editar / Direcciones</button></td></tr>`;
+                const addrSummary = addrs.length > 0 ? addrs.map(a => `<small><strong>${escapeHTML(a.address_label || a.label)}${a.is_default ? ' ★' : ''}:</strong> ${escapeHTML(a.full_address || a.address)}</small>`).join('<br>') : '<span style="color:var(--text-muted)">Sin direcciones</span>';
+                body.innerHTML += `<tr><td style="font-weight:bold;">${escapeHTML(e.tax_id)}</td><td style="color:var(--primary-blue); font-weight:bold;">${escapeHTML(e.company_name)}</td><td><span class="badge badge-neutral">${e.is_customer?'CLIENTE':''} ${e.is_supplier?'PROVEEDOR':''}</span></td><td>${addrSummary}</td><td><span class="badge ${e.is_active!==false?'badge-success':'badge-neutral'}">${e.is_active!==false?'ACTIVO':'INACTIVO'}</span></td><td><button onclick="openEditEntityModal('${e.id}', '${escapeHTML(e.tax_id)}', '${escapeHTML(e.company_name)}', ${e.is_customer}, ${e.is_supplier}, ${e.is_active!==false})" class="btn-secondary" style="padding:4px 8px; font-size:0.8rem;">Editar / Direcciones</button></td></tr>`;
             });
         }
 
         function openEntityModal() { document.getElementById('form-entity')?.reset(); openModal('modal-entity'); }
         async function saveEntity(e) {
-            e.preventDefault(); const addrLabel = document.getElementById('ent-addr-label').value.trim(); const fullAddr = document.getElementById('ent-full-addr').value.trim();
-            const payload = { tax_id: document.getElementById('ent-taxid').value.trim(), company_name: document.getElementById('ent-name').value.trim(), is_customer: document.getElementById('ent-is-customer').checked, is_supplier: document.getElementById('ent-is-supplier').checked, initial_address: fullAddr ? { address_label: addrLabel || 'Principal', full_address: fullAddr } : null };
+            e.preventDefault(); 
+            const addrLabel = document.getElementById('ent-addr-label').value.trim(); 
+            const street = document.getElementById('ent-street').value.trim();
+            const number = document.getElementById('ent-number').value.trim();
+            const zip = document.getElementById('ent-zip').value.trim();
+            const city = document.getElementById('ent-city').value.trim();
+
+            const initialAddr = (street || addrLabel || city) ? {
+                address_label: addrLabel || 'Principal',
+                street: street || null,
+                number: number || null,
+                zip_code: zip || null,
+                city_neighborhood: city || null,
+                is_default: true
+            } : null;
+
+            const payload = { 
+                tax_id: document.getElementById('ent-taxid').value.trim(), 
+                company_name: document.getElementById('ent-name').value.trim(), 
+                is_customer: document.getElementById('ent-is-customer').checked, 
+                is_supplier: document.getElementById('ent-is-supplier').checked, 
+                initial_address: initialAddr 
+            };
             const r = await fetchAPI('/api/admin/entities', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-            if(r) { alert('Entidad registrada'); closeModal('modal-entity'); loadEntities(); }
+            if(r) { showToast('Entidad creada con éxito'); closeModal('modal-entity'); loadEntities(); }
         }
 
         async function openEditEntityModal(id, taxId, name, isCustomer, isSupplier, isActive) {
-            document.getElementById('edit-ent-id').value = id; document.getElementById('edit-ent-taxid').value = taxId; document.getElementById('edit-ent-name').value = name;
-            document.getElementById('edit-ent-is-customer').checked = isCustomer; document.getElementById('edit-ent-is-supplier').checked = isSupplier; document.getElementById('edit-ent-is-active').checked = isActive;
-            openModal('modal-edit-entity'); await loadEntityAddresses(id);
+            document.getElementById('edit-ent-id').value = id; 
+            document.getElementById('edit-ent-taxid').value = taxId; 
+            document.getElementById('edit-ent-name').value = name;
+            document.getElementById('edit-ent-is-customer').checked = isCustomer; 
+            document.getElementById('edit-ent-is-supplier').checked = isSupplier; 
+            document.getElementById('edit-ent-is-active').checked = isActive;
+            
+            resetAddressForm();
+            openModal('modal-edit-entity'); 
+            await loadEntityAddresses(id);
         }
 
         async function saveEntityBasic(e) {
             e.preventDefault(); const entId = document.getElementById('edit-ent-id').value;
             const payload = { tax_id: document.getElementById('edit-ent-taxid').value.trim(), company_name: document.getElementById('edit-ent-name').value.trim(), is_customer: document.getElementById('edit-ent-is-customer').checked, is_supplier: document.getElementById('edit-ent-is-supplier').checked, is_active: document.getElementById('edit-ent-is-active').checked };
             const r = await fetchAPI(`/api/admin/entities/${entId}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-            if(r) { alert('Entidad actualizada'); loadEntities(); }
+            if(r) { showToast('Entidad actualizada correctamente'); loadEntities(); }
         }
 
         async function loadEntityAddresses(entId) {
-            const list = document.getElementById('entity-addresses-list'); list.innerHTML = 'Cargando direcciones...';
+            const list = document.getElementById('entity-addresses-list'); 
+            list.innerHTML = 'Cargando direcciones...';
             const addrs = await fetchAPI(`/api/admin/entities/${entId}/addresses`);
-            if(!addrs || addrs.length === 0) { list.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No hay direcciones registradas.</p>'; return; }
+            if(!addrs || addrs.length === 0) { 
+                cachedAddressesCurrentEntity = [];
+                list.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No hay direcciones registradas.</p>'; 
+                return; 
+            }
+            cachedAddressesCurrentEntity = addrs;
             let html = '<ul style="list-style:none;">';
-            addrs.forEach(a => { html += `<li style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #f0f0f0;"><span><strong style="color:var(--primary-blue);">${a.address_label}:</strong> ${a.full_address}</span><button type="button" onclick="deleteEntityAddress('${a.id}', '${entId}')" style="background:var(--error-red); color:white; border:none; padding:3px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button></li>`; });
-            html += '</ul>'; list.innerHTML = html;
+            addrs.forEach(a => { 
+                const defaultBadge = a.is_default ? '<span class="badge badge-success" style="font-size:0.65rem; margin-left:4px;">PREDETERMINADA</span>' : '';
+                html += `<li style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #f0f0f0;">
+                    <div>
+                        <strong style="color:var(--primary-blue);">${escapeHTML(a.address_label || a.label)}:</strong> ${escapeHTML(a.full_address || a.address)} ${defaultBadge}
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button type="button" onclick="editEntityAddress('${a.id}')" style="background:var(--accent-blue); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;" title="Editar Dirección">✎</button>
+                        <button type="button" onclick="deleteEntityAddress('${a.id}', '${entId}')" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;" title="Eliminar Dirección">X</button>
+                    </div>
+                </li>`; 
+            });
+            html += '</ul>'; 
+            list.innerHTML = html;
         }
 
-        async function addAddressToEntity(e) {
-            e.preventDefault(); const entId = document.getElementById('edit-ent-id').value; const label = document.getElementById('new-ent-addr-label').value.trim(); const fullAddr = document.getElementById('new-ent-full-addr').value.trim();
-            const r = await fetchAPI(`/api/admin/entities/${entId}/addresses`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ address_label: label, full_address: fullAddr }) });
-            if(r) { document.getElementById('new-ent-addr-label').value = ''; document.getElementById('new-ent-full-addr').value = ''; loadEntityAddresses(entId); loadEntities(); }
+        function editEntityAddress(addrId) {
+            const addr = cachedAddressesCurrentEntity.find(a => String(a.id) === String(addrId));
+            if(!addr) return;
+            document.getElementById('edit-addr-id').value = addr.id;
+            document.getElementById('new-ent-addr-label').value = addr.address_label || addr.label || '';
+            document.getElementById('new-ent-street').value = addr.street || '';
+            document.getElementById('new-ent-number').value = addr.number || '';
+            document.getElementById('new-ent-zip').value = addr.zip_code || '';
+            document.getElementById('new-ent-city').value = addr.city_neighborhood || '';
+            document.getElementById('new-ent-is-default').checked = !!addr.is_default;
+
+            document.getElementById('form-addr-title').textContent = 'Editar Dirección Existente';
+            document.getElementById('btn-save-addr').textContent = 'Actualizar Dirección';
+            document.getElementById('btn-cancel-edit-addr').style.display = 'inline-block';
+        }
+
+        function resetAddressForm() {
+            document.getElementById('form-entity-address').reset();
+            document.getElementById('edit-addr-id').value = '';
+            document.getElementById('form-addr-title').textContent = '+ Añadir Nueva Dirección';
+            document.getElementById('btn-save-addr').textContent = 'Guardar Dirección';
+            document.getElementById('btn-cancel-edit-addr').style.display = 'none';
+        }
+
+        async function saveAddressToEntity(e) {
+            e.preventDefault(); 
+            const entId = document.getElementById('edit-ent-id').value; 
+            const addrId = document.getElementById('edit-addr-id').value;
+
+            const payload = {
+                entity_id: entId,
+                address_label: document.getElementById('new-ent-addr-label').value.trim(),
+                street: document.getElementById('new-ent-street').value.trim() || null,
+                number: document.getElementById('new-ent-number').value.trim() || null,
+                zip_code: document.getElementById('new-ent-zip').value.trim() || null,
+                city_neighborhood: document.getElementById('new-ent-city').value.trim() || null,
+                is_default: document.getElementById('new-ent-is-default').checked
+            };
+
+            let r = null;
+            if (addrId) {
+                r = await fetchAPI(`/api/admin/addresses/${addrId}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            } else {
+                r = await fetchAPI(`/api/admin/entities/${entId}/addresses`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            }
+
+            if(r) { 
+                showToast(addrId ? 'Dirección actualizada' : 'Dirección guardada'); 
+                resetAddressForm(); 
+                loadEntityAddresses(entId); 
+                loadEntities(); 
+            }
         }
 
         async function deleteEntityAddress(addrId, entId) {
-            const r = await fetchAPI(`/api/admin/entities/addresses/${addrId}`, { method: 'DELETE' }); if(r) { loadEntityAddresses(entId); loadEntities(); }
+            const r = await fetchAPI(`/api/admin/addresses/${addrId}`, { method: 'DELETE' }); 
+            if(r) { 
+                showToast('Dirección eliminada correctamente');
+                loadEntityAddresses(entId); 
+                loadEntities(); 
+            }
         }
 
         // === DEPÓSITOS ===
@@ -1010,50 +1279,55 @@
                 cachedBranches = branches; const bBody = document.getElementById('table-branches-body');
                 if(bBody) {
                     bBody.innerHTML = ''; if(branches.length === 0) bBody.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center;">Sin sucursales.</td></tr>';
-                    else branches.forEach(b => bBody.innerHTML += `<tr><td style="font-weight:bold;">${b.code}</td><td>${b.name}</td><td><span class="badge badge-success">ACTIVA</span></td></tr>`);
+                    else branches.forEach(b => bBody.innerHTML += `<tr><td style="font-weight:bold;">${escapeHTML(b.code)}</td><td>${escapeHTML(b.name)}</td><td><span class="badge badge-success">ACTIVA</span></td></tr>`);
                 }
-                const sBranchSelect = document.getElementById('sector-branch'); if(sBranchSelect) sBranchSelect.innerHTML = branches.map(b => `<option value="${b.id}">${b.name} (${b.code})</option>`).join('');
+                const sBranchSelect = document.getElementById('sector-branch'); if(sBranchSelect) sBranchSelect.innerHTML = branches.map(b => `<option value="${b.id}">${escapeHTML(b.name)} (${escapeHTML(b.code)})</option>`).join('');
             }
             if (sectors) {
                 cachedSectors = sectors; const sBody = document.getElementById('table-sectors-body');
                 if(sBody) {
                     sBody.innerHTML = ''; if(sectors.length === 0) sBody.innerHTML = '<tr><td colspan="4" style="color:var(--text-muted); text-align:center;">Sin sectores.</td></tr>';
-                    else sectors.forEach(s => sBody.innerHTML += `<tr><td>${s.branch_name||'-'}</td><td style="font-weight:bold;">${s.name}</td><td><span class="badge badge-info">${s.print_queue_code}</span></td><td><span class="badge badge-neutral">${s.uses_locations ? 'SÍ' : 'NO'}</span></td></tr>`);
+                    else sectors.forEach(s => sBody.innerHTML += `<tr><td>${escapeHTML(s.branch_name||'-')}</td><td style="font-weight:bold;">${escapeHTML(s.name)}</td><td><span class="badge badge-info">${escapeHTML(s.print_queue_code)}</span></td><td><span class="badge badge-neutral">${s.uses_locations ? 'SÍ' : 'NO'}</span></td></tr>`);
                 }
                 const locSecSelect = document.getElementById('loc-sector'); const impSecSelect = document.getElementById('import-loc-sector');
-                const optionsHtml = sectors.map(s => `<option value="${s.id}">${s.branch_name} > ${s.name}</option>`).join('');
+                const optionsHtml = sectors.map(s => `<option value="${s.id}">${escapeHTML(s.branch_name)} > ${escapeHTML(s.name)}</option>`).join('');
                 if(locSecSelect) locSecSelect.innerHTML = optionsHtml; if(impSecSelect) impSecSelect.innerHTML = optionsHtml;
             }
             if (locations) {
                 cachedLocations = locations; const lBody = document.getElementById('table-locations-body');
                 if(lBody) {
                     lBody.innerHTML = ''; if(locations.length === 0) lBody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted); text-align:center;">Sin ubicaciones registradas.</td></tr>';
-                    else locations.forEach(l => lBody.innerHTML += `<tr><td>${l.branch_name||'-'}</td><td>${l.sector_name||'-'}</td><td style="font-weight:bold; color:var(--primary-blue);">${l.location_code}</td><td>${l.description||'-'}</td><td><span class="badge badge-success">ACTIVA</span></td></tr>`);
+                    else locations.forEach(l => lBody.innerHTML += `<tr><td>${escapeHTML(l.branch_name||'-')}</td><td>${escapeHTML(l.sector_name||'-')}</td><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(l.location_code)}</td><td>${escapeHTML(l.description||'-')}</td><td><span class="badge badge-success">ACTIVA</span></td></tr>`);
                 }
             }
         }
 
-        async function saveBranch(e) { e.preventDefault(); const payload = { code: document.getElementById('branch-code').value.trim(), name: document.getElementById('branch-name').value.trim() }; const r = await fetchAPI('/api/admin/branches', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { alert('Sucursal creada exitosamente'); closeModal('modal-branch'); loadWarehouseData(); } }
-        async function saveSector(e) { e.preventDefault(); const payload = { branch_id: document.getElementById('sector-branch').value, name: document.getElementById('sector-name').value.trim(), print_queue_code: document.getElementById('sector-print-code').value.trim(), uses_locations: document.getElementById('sector-uses-locations').checked }; const r = await fetchAPI('/api/admin/sectors', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { alert('Sector creado exitosamente'); closeModal('modal-sector'); loadWarehouseData(); } }
-        async function saveLocation(e) { e.preventDefault(); const payload = { sector_id: document.getElementById('loc-sector').value, location_code: document.getElementById('loc-code').value.trim(), description: document.getElementById('loc-desc').value.trim() || null }; const r = await fetchAPI('/api/admin/locations', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { alert('Ubicación registrada exitosamente'); closeModal('modal-location'); loadWarehouseData(); } }
-        async function uploadLocationsCSV(e) { e.preventDefault(); const sectorId = document.getElementById('import-loc-sector').value; const fileInput = document.getElementById('import-loc-file'); if(!fileInput.files[0]) { alert('Seleccione un archivo CSV.'); return; } const formData = new FormData(); formData.append('file', fileInput.files[0]); const r = await fetchAPI(`/api/admin/sectors/${sectorId}/locations/import`, { method: 'POST', body: formData }); if(r) { alert(r.message || 'Ubicaciones importadas correctamente.'); closeModal('modal-import-locations'); loadWarehouseData(); } }
+        async function saveBranch(e) { e.preventDefault(); const payload = { code: document.getElementById('branch-code').value.trim(), name: document.getElementById('branch-name').value.trim() }; const r = await fetchAPI('/api/admin/branches', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { showToast('Sucursal creada exitosamente'); closeModal('modal-branch'); loadWarehouseData(); } }
+        async function saveSector(e) { e.preventDefault(); const payload = { branch_id: document.getElementById('sector-branch').value, name: document.getElementById('sector-name').value.trim(), print_queue_code: document.getElementById('sector-print-code').value.trim(), uses_locations: document.getElementById('sector-uses-locations').checked }; const r = await fetchAPI('/api/admin/sectors', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { showToast('Sector creado exitosamente'); closeModal('modal-sector'); loadWarehouseData(); } }
+        async function saveLocation(e) { e.preventDefault(); const payload = { sector_id: document.getElementById('loc-sector').value, location_code: document.getElementById('loc-code').value.trim(), description: document.getElementById('loc-desc').value.trim() || null }; const r = await fetchAPI('/api/admin/locations', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { showToast('Ubicación registrada exitosamente'); closeModal('modal-location'); loadWarehouseData(); } }
+        async function uploadLocationsCSV(e) { e.preventDefault(); const sectorId = document.getElementById('import-loc-sector').value; const fileInput = document.getElementById('import-loc-file'); if(!fileInput.files[0]) { showToast('Seleccione un archivo CSV.', 'warning'); return; } const formData = new FormData(); formData.append('file', fileInput.files[0]); const r = await fetchAPI(`/api/admin/sectors/${sectorId}/locations/import`, { method: 'POST', body: formData }); if(r) { showToast(r.message || 'Ubicaciones importadas correctamente.'); closeModal('modal-import-locations'); loadWarehouseData(); } }
 
         // === ARTÍCULOS ===
-        function handleSearchItems() { currentItemSearchSKU = document.getElementById('search-sku').value.trim(); currentItemSearchDesc = document.getElementById('search-desc').value.trim(); loadItems(); }
+        function handleSearchItems() { currentItemPage = 1; currentItemSearchSKU = document.getElementById('search-sku').value.trim(); currentItemSearchDesc = document.getElementById('search-desc').value.trim(); loadItems(); }
         function sortItems(col) { currentItemSort = col; currentItemOrder = currentItemOrder === 'ASC' ? 'DESC' : 'ASC'; loadItems(); }
+        function prevItemPage() { if(currentItemPage > 1) { currentItemPage--; loadItems(); } }
+        function nextItemPage() { if(currentItemPage < totalItemPages) { currentItemPage++; loadItems(); } }
 
         async function loadItems() {
             const url = `/api/admin/items?page=${currentItemPage}&limit=${currentItemLimit}&sku=${encodeURIComponent(currentItemSearchSKU)}&description=${encodeURIComponent(currentItemSearchDesc)}&sort_by=${currentItemSort}&sort_order=${currentItemOrder}`;
             const data = await fetchAPI(url); if(!data) return;
+            
+            totalItemPages = data.total_pages || 1;
+            document.getElementById('items-page-info').textContent = `Página ${data.page} de ${totalItemPages} (${data.total_count} ítems)`;
+
             const body = document.getElementById('table-items-body'); if(!body) return; body.innerHTML = '';
             data.items.forEach(i => {
-                const escSku = i.sku.replace(/'/g, "\\'"); const escDesc = (i.description || '').replace(/'/g, "\\'"); const escCat = (i.category || '').replace(/'/g, "\\'");
                 body.innerHTML += `
                     <tr>
-                        <td style="font-weight:bold; color:var(--primary-blue);">${i.sku}</td>
-                        <td>${i.description}</td>
-                        <td><span class="badge badge-info">${i.locations_summary || 'Sin asignación'}</span></td>
-                        <td><button onclick="openEditItemModal('${escSku}', '${escDesc}', '${escCat}', ${i.length||0}, ${i.width||0}, ${i.height||0}, ${i.weight||0}, ${i.volume||0})" class="btn-secondary" style="padding:4px 8px; font-size:0.8rem;">Ficha Técnica</button></td>
+                        <td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(i.sku)}</td>
+                        <td>${escapeHTML(i.description)}</td>
+                        <td><span class="badge badge-info">${escapeHTML(i.locations_summary || 'Sin asignación')}</span></td>
+                        <td><button onclick="openEditItemModal('${escapeHTML(i.sku)}', '${escapeHTML(i.description || '')}', '${escapeHTML(i.category || '')}', ${i.length||0}, ${i.width||0}, ${i.height||0}, ${i.weight||0}, ${i.volume||0})" class="btn-secondary" style="padding:4px 8px; font-size:0.8rem;">Ficha Técnica</button></td>
                     </tr>
                 `;
             });
@@ -1076,7 +1350,6 @@
             loadItemLocations(sku);
         }
 
-        // CÁLCULO DINÁMICO DE VOLUMEN EN TIEMPO REAL
         function calcItemVolume() {
             const l = parseFloat(document.getElementById('edit-item-length').value) || 0;
             const w = parseFloat(document.getElementById('edit-item-width').value) || 0;
@@ -1098,7 +1371,7 @@
                 volume: parseFloat(document.getElementById('edit-item-volume').value) || 0.0
             };
             const r = await fetchAPI('/api/admin/items/' + encodeURIComponent(sku), { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-            if(r) { alert('Ficha de artículo actualizada correctamente.'); closeModal('modal-edit-item'); loadItems(); }
+            if(r) { showToast('Ficha de artículo actualizada correctamente.'); closeModal('modal-edit-item'); loadItems(); }
         }
 
         async function loadItemLocations(sku) {
@@ -1106,15 +1379,15 @@
             const locs = await fetchAPI(`/api/admin/items/${encodeURIComponent(sku)}/locations`);
             if(!locs || locs.length === 0) { list.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">Sin ubicaciones fijas asignadas.</p>'; return; }
             let html = '<ul style="list-style:none;">';
-            locs.forEach(l => { html += `<li style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #f0f0f0;"><span><strong>${l.location_code}</strong> <small>(${l.branch_name} > ${l.sector_name})</small></span><button type="button" onclick="deleteItemLocation('${l.assignment_id}', '${sku}')" style="background:var(--error-red); color:white; border:none; padding:3px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button></li>`; });
+            locs.forEach(l => { html += `<li style="display:flex; justify-content:space-between; align-items:center; padding:6px 0; border-bottom:1px solid #f0f0f0;"><span><strong>${escapeHTML(l.location_code)}</strong> <small>(${escapeHTML(l.branch_name)} > ${escapeHTML(l.sector_name)})</small></span><button type="button" onclick="deleteItemLocation('${l.assignment_id}', '${sku}')" style="background:var(--error-red); color:white; border:none; padding:3px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button></li>`; });
             html += '</ul>'; list.innerHTML = html;
         }
 
         async function addLocationToItem(e) { e.preventDefault(); const sku = document.getElementById('edit-item-sku').value; const code = document.getElementById('new-item-loc-code').value.trim(); const r = await fetchAPI('/api/admin/item-locations', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ sku: sku, location_code: code }) }); if(r && r.status === 'success') { document.getElementById('new-item-loc-code').value = ''; loadItemLocations(sku); loadItems(); } }
         async function deleteItemLocation(assignId, sku) { const r = await fetchAPI(`/api/admin/item-locations/${assignId}`, { method: 'DELETE' }); if(r) { loadItemLocations(sku); loadItems(); } }
-        function openImportModal(type) { document.getElementById('import-type').value = type; document.getElementById('import-title').textContent = type === 'items' ? 'Importar Catálogo CSV' : 'Importar Asignación CSV'; openModal('modal-import'); }
+        function openImportModal(type) { document.getElementById('import-type').value = type; document.getElementById('import-title').textContent = type === 'items' ? 'Agregar Catálogo Masivamente' : 'Agregar Ubicaciones Masivamente'; openModal('modal-import'); }
         function updateImportFileName(input) { if(input.files[0]) document.getElementById('import-file-name').textContent = input.files[0].name; }
-        async function processCSVImport(e) { e.preventDefault(); const type = document.getElementById('import-type').value; const fileInput = document.getElementById('import-file-input'); if(!fileInput.files[0]) { alert('Seleccione un archivo CSV'); return; } const formData = new FormData(); formData.append('file', fileInput.files[0]); const endpoint = type === 'items' ? '/api/admin/import/items' : '/api/admin/import/item-locations'; const r = await fetchAPI(endpoint, { method: 'POST', body: formData }); if(r) { alert(r.message || 'Importación procesada.'); closeModal('modal-import'); loadItems(); } }
+        async function processCSVImport(e) { e.preventDefault(); const type = document.getElementById('import-type').value; const fileInput = document.getElementById('import-file-input'); if(!fileInput.files[0]) { showToast('Seleccione un archivo CSV', 'warning'); return; } const formData = new FormData(); formData.append('file', fileInput.files[0]); const endpoint = type === 'items' ? '/api/admin/import/items' : '/api/admin/import/item-locations'; const r = await fetchAPI(endpoint, { method: 'POST', body: formData }); if(r) { showToast(r.message || 'Importación procesada.'); closeModal('modal-import'); loadItems(); } }
 
         // === COMPRAS ===
         function switchPurchaseTab(tabId, btnElement = null) {
@@ -1131,14 +1404,14 @@
                 suppliersCache = ents.filter(e => e.is_supplier);
                 ['po-supplier', 'rem-supplier', 'inv-supplier'].forEach(id => {
                     const el = document.getElementById(id);
-                    if(el) el.innerHTML = '<option value="">-- Seleccionar Proveedor --</option>' + suppliersCache.map(s => `<option value="${s.id}">${s.company_name} (${s.tax_id})</option>`).join('');
+                    if(el) el.innerHTML = '<option value="">-- Seleccionar Proveedor --</option>' + suppliersCache.map(s => `<option value="${s.id}">${escapeHTML(s.company_name)} (${escapeHTML(s.tax_id)})</option>`).join('');
                 });
             }
             if(branches) {
                 cachedBranches = branches;
                 ['rem-branch', 'inv-branch', 'tr-orig-branch', 'tr-dest-branch'].forEach(id => {
                     const el = document.getElementById(id);
-                    if(el) el.innerHTML = '<option value="">-- Seleccionar --</option>' + branches.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+                    if(el) el.innerHTML = '<option value="">-- Seleccionar --</option>' + branches.map(b => `<option value="${b.id}">${escapeHTML(b.name)}</option>`).join('');
                 });
             }
             if(sectors) cachedSectors = sectors;
@@ -1151,38 +1424,214 @@
             const remitos = await fetchAPI(`/api/admin/suppliers/${encodeURIComponent(supplierId)}/remitos`);
             if (!remitos || remitos.length === 0) { container.innerHTML = '<p style="color:var(--text-muted);">El proveedor no tiene remitos registrados.</p>'; return; }
             let html = '';
-            remitos.forEach(r => { html += `<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; background:#fff; padding:6px; border-radius:4px; border:1px solid #E0F2FE;"><input type="checkbox" class="inv-remito-checkbox" value="${r.id}" id="rem-chk-${r.id}"><label for="rem-chk-${r.id}" style="margin:0; font-weight:normal; cursor:pointer; flex:1;"><strong style="color:var(--primary-blue);">${r.remito_number}</strong> (${r.branch_name} > ${r.sector_name}) - <span class="badge badge-warning">${r.status}</span></label></div>`; });
+            remitos.forEach(r => { html += `<div style="display:flex; align-items:center; gap:8px; margin-bottom:6px; background:#fff; padding:6px; border-radius:4px; border:1px solid #E0F2FE;"><input type="checkbox" class="inv-remito-checkbox" value="${r.id}" id="rem-chk-${r.id}"><label for="rem-chk-${r.id}" style="margin:0; font-weight:normal; cursor:pointer; flex:1;"><strong style="color:var(--primary-blue);">${escapeHTML(r.remito_number)}</strong> (${escapeHTML(r.branch_name)} > ${escapeHTML(r.sector_name)}) - <span class="badge badge-warning">${escapeHTML(r.status)}</span></label></div>`; });
             container.innerHTML = html;
         }
 
         function loadAllPurchaseHistories() { loadPOData(); loadRemitoData(); loadInvoiceData(); loadTransferData(); }
 
-        async function loadPOData(search = '', limit = 5) { const text = search || document.getElementById('search-po-text')?.value.trim() || ''; const data = await fetchAPI(`/api/admin/purchase-orders?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-po-body'); if(!body) return; body.innerHTML = ''; if(!data || data.length === 0) { body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin órdenes registradas.</td></tr>'; return; } data.forEach(po => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${po.order_number}</td><td>${po.supplier_name}</td><td>${po.total_qty} un</td><td><span class="badge badge-info">${po.status}</span></td></tr>`; }); }
-        async function loadRemitoData(search = '', limit = 5) { const text = search || document.getElementById('search-rem-text')?.value.trim() || ''; const data = await fetchAPI(`/api/admin/purchase-remitos?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-remito-body'); if(!body) return; body.innerHTML = ''; if(!data || data.length === 0) { body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin remitos registrados.</td></tr>'; return; } data.forEach(r => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${r.remito_number}</td><td>${r.supplier_name}</td><td>${r.branch_name} > ${r.sector_name}</td><td><span class="badge badge-warning">${r.status}</span></td></tr>`; }); }
-        async function loadInvoiceData(search = '', limit = 5) { const text = search || document.getElementById('search-inv-text')?.value.trim() || ''; const data = await fetchAPI(`/api/admin/purchase-invoices?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-invoice-body'); if(!body) return; body.innerHTML = ''; if(!data || data.length === 0) { body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin facturas registradas.</td></tr>'; return; } data.forEach(i => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${i.invoice_number}</td><td><span class="badge badge-neutral">TIPO ${i.invoice_type}</span></td><td>${i.supplier_name}</td><td>${new Date(i.created_at).toLocaleDateString()}</td></tr>`; }); }
-        async function loadTransferData(search = '', limit = 5) { const text = search || document.getElementById('search-tr-text')?.value.trim() || ''; const trs = await fetchAPI(`/api/admin/transfer-orders?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-transfers-body'); if(!body) return; body.innerHTML = ''; if(!trs || trs.length === 0) { body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin traspasos registrados.</td></tr>'; return; } trs.forEach(t => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${t.transfer_number}</td><td>${t.origin_branch}</td><td>${t.destination_branch}</td><td><span class="badge badge-warning">${t.status}</span></td></tr>`; }); }
+        async function loadPOData(search = '', limit = 5) { const text = search || document.getElementById('search-po-text')?.value.trim() || ''; const data = await fetchAPI(`/api/admin/purchase-orders?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-po-body'); if(!body) return; body.innerHTML = ''; if(!data || data.length === 0) { body.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">Sin órdenes registradas.</td></tr>'; return; } data.forEach(po => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(po.order_number)}</td><td>${escapeHTML(po.supplier_name)}</td><td><span class="badge badge-info">${escapeHTML(po.status)}</span></td></tr>`; }); }
+        async function loadRemitoData(search = '', limit = 5) { const text = search || document.getElementById('search-rem-text')?.value.trim() || ''; const data = await fetchAPI(`/api/admin/purchase-remitos?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-remito-body'); if(!body) return; body.innerHTML = ''; if(!data || data.length === 0) { body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin remitos registrados.</td></tr>'; return; } data.forEach(r => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(r.remito_number)}</td><td>${escapeHTML(r.supplier_name)}</td><td>${escapeHTML(r.branch_name)} > ${escapeHTML(r.sector_name)}</td><td><span class="badge badge-warning">${escapeHTML(r.status)}</span></td></tr>`; }); }
+        async function loadInvoiceData(search = '', limit = 5) { const text = search || document.getElementById('search-inv-text')?.value.trim() || ''; const data = await fetchAPI(`/api/admin/purchase-invoices?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-invoice-body'); if(!body) return; body.innerHTML = ''; if(!data || data.length === 0) { body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin facturas registradas.</td></tr>'; return; } data.forEach(i => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(i.invoice_number)}</td><td><span class="badge badge-neutral">TIPO ${escapeHTML(i.invoice_type)}</span></td><td>${escapeHTML(i.supplier_name)}</td><td>${new Date(i.created_at).toLocaleDateString()}</td></tr>`; }); }
+        async function loadTransferData(search = '', limit = 5) { const text = search || document.getElementById('search-tr-text')?.value.trim() || ''; const trs = await fetchAPI(`/api/admin/transfer-orders?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-transfers-body'); if(!body) return; body.innerHTML = ''; if(!trs || trs.length === 0) { body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin traspasos registrados.</td></tr>'; return; } trs.forEach(t => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(t.transfer_number)}</td><td>${escapeHTML(t.origin_branch)}</td><td>${escapeHTML(t.destination_branch)}</td><td><span class="badge badge-warning">${escapeHTML(t.status)}</span></td></tr>`; }); }
 
         function filterSectorsByBranch(branchId) { return cachedSectors.filter(s => !branchId || String(s.branch_id) === String(branchId)); }
-        function onRemBranchChange() { document.getElementById('rem-sector').innerHTML = filterSectorsByBranch(document.getElementById('rem-branch').value).map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
-        function onInvBranchChange() { document.getElementById('inv-sector').innerHTML = filterSectorsByBranch(document.getElementById('inv-branch').value).map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
-        function onTrOrigBranchChange() { document.getElementById('tr-orig-sector').innerHTML = filterSectorsByBranch(document.getElementById('tr-orig-branch').value).map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
-        function onTrDestBranchChange() { document.getElementById('tr-dest-sector').innerHTML = filterSectorsByBranch(document.getElementById('tr-dest-branch').value).map(s => `<option value="${s.id}">${s.name}</option>`).join(''); }
+        function onRemBranchChange() { document.getElementById('rem-sector').innerHTML = filterSectorsByBranch(document.getElementById('rem-branch').value).map(s => `<option value="${s.id}">${escapeHTML(s.name)}</option>`).join(''); }
+        function onInvBranchChange() { document.getElementById('inv-sector').innerHTML = filterSectorsByBranch(document.getElementById('inv-branch').value).map(s => `<option value="${s.id}">${escapeHTML(s.name)}</option>`).join(''); }
+        function onTrOrigBranchChange() { document.getElementById('tr-orig-sector').innerHTML = filterSectorsByBranch(document.getElementById('tr-orig-branch').value).map(s => `<option value="${s.id}">${escapeHTML(s.name)}</option>`).join(''); }
+        function onTrDestBranchChange() { document.getElementById('tr-dest-sector').innerHTML = filterSectorsByBranch(document.getElementById('tr-dest-branch').value).map(s => `<option value="${s.id}">${escapeHTML(s.name)}</option>`).join(''); }
 
         function addDynamicLinePO() { document.getElementById('po-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="po-sku" style="flex:2;" required><input type="number" placeholder="Cantidad" class="po-qty" style="flex:1;" min="0.01" step="0.01" required></div>`; }
         function addDynamicLineRemito() { document.getElementById('rem-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="rem-sku" style="flex:2;" required><input type="number" placeholder="Cant" class="rem-qty" style="flex:1;" min="0.01" step="0.01" required><input type="text" placeholder="Ubicación Destino" class="rem-loc" style="flex:1;"></div>`; }
         function addDynamicLineInvoice() { document.getElementById('inv-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="inv-sku" style="flex:2;"><input type="number" placeholder="Cantidad" class="inv-qty" style="flex:1;" min="0.01" step="0.01"><input type="number" placeholder="Precio Unitario" class="inv-price" style="flex:1;" min="0" step="0.01"></div>`; }
         function addDynamicLineTransfer() { document.getElementById('tr-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="tr-sku" style="flex:2;" required><input type="number" placeholder="Cant" class="tr-qty" style="flex:1;" min="0.01" step="0.01" required><input type="text" placeholder="Ubic. Origen" class="tr-orig-loc" style="flex:1;"><input type="text" placeholder="Ubic. Destino" class="tr-dest-loc" style="flex:1;"></div>`; }
 
-        async function savePO(e) { e.preventDefault(); const lines = []; document.querySelectorAll('#po-lines .dynamic-row').forEach(row => { const sku = row.querySelector('.po-sku').value.trim(); const qty = parseFloat(row.querySelector('.po-qty').value); if(sku && qty > 0) lines.push({ sku: sku, quantity_ordered: qty }); }); const payload = { order_number: document.getElementById('po-num').value.trim(), supplier_id: document.getElementById('po-supplier').value, lines: lines }; const r = await fetchAPI('/api/admin/purchase-orders', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { alert('Orden de Compra registrada.'); document.getElementById('form-po').reset(); loadPOData(); } }
-        async function saveRemito(e) { e.preventDefault(); const lines = []; document.querySelectorAll('#rem-lines .dynamic-row').forEach(row => { const sku = row.querySelector('.rem-sku').value.trim(); const qty = parseFloat(row.querySelector('.rem-qty').value); const loc = row.querySelector('.rem-loc').value.trim() || null; if(sku && qty > 0) lines.push({ sku: sku, quantity_sent: qty, location_code: loc }); }); const payload = { remito_number: document.getElementById('rem-num').value.trim(), supplier_id: document.getElementById('rem-supplier').value, branch_id: document.getElementById('rem-branch').value, sector_id: document.getElementById('rem-sector').value, lines: lines }; const r = await fetchAPI('/api/admin/purchase-remitos', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { alert(r.message || 'Remito registrado.'); document.getElementById('form-remito').reset(); loadRemitoData(); } }
-        async function saveInvoice(e) { e.preventDefault(); const remitoIds = []; document.querySelectorAll('.inv-remito-checkbox:checked').forEach(cb => remitoIds.push(cb.value)); const manualItems = []; document.querySelectorAll('#inv-lines .dynamic-row').forEach(row => { const sku = row.querySelector('.inv-sku').value.trim(); const qty = parseFloat(row.querySelector('.inv-qty').value); const price = parseFloat(row.querySelector('.inv-price').value) || 0; if(sku && qty > 0) manualItems.push({ sku: sku, quantity: qty, unit_price: price }); }); const payload = { invoice_number: document.getElementById('inv-num').value.trim(), supplier_id: document.getElementById('inv-supplier').value, invoice_type: document.getElementById('inv-type').value, branch_id: document.getElementById('inv-branch').value || null, sector_id: document.getElementById('inv-sector').value || null, manual_items: manualItems, remito_ids: remitoIds }; const r = await fetchAPI('/api/admin/purchase-invoices', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { alert('Factura registrada.'); document.getElementById('form-invoice').reset(); onInvSupplierChange(); loadInvoiceData(); } }
-        async function saveTransfer(e) { e.preventDefault(); const lines = []; document.querySelectorAll('#tr-lines .dynamic-row').forEach(row => { const sku = row.querySelector('.tr-sku').value.trim(); const qty = parseFloat(row.querySelector('.tr-qty').value); const oLoc = row.querySelector('.tr-orig-loc').value.trim() || null; const dLoc = row.querySelector('.tr-dest-loc').value.trim() || null; if(sku && qty > 0) lines.push({ sku: sku, quantity_sent: qty, origin_location_code: oLoc, destination_location_code: dLoc }); }); const payload = { transfer_number: document.getElementById('tr-num').value.trim(), origin_branch_id: document.getElementById('tr-orig-branch').value, origin_sector_id: document.getElementById('tr-orig-sector').value, destination_branch_id: document.getElementById('tr-dest-branch').value, destination_sector_id: document.getElementById('tr-dest-sector').value, lines: lines }; const r = await fetchAPI('/api/admin/transfer-orders', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { alert(r.message || 'Traspaso registrado.'); document.getElementById('form-transfer').reset(); loadTransferData(); } }
+        async function savePO(e) { e.preventDefault(); const lines = []; document.querySelectorAll('#po-lines .dynamic-row').forEach(row => { const sku = row.querySelector('.po-sku').value.trim(); const qty = parseFloat(row.querySelector('.po-qty').value); if(sku && qty > 0) lines.push({ sku: sku, quantity_ordered: qty }); }); const payload = { order_number: document.getElementById('po-num').value.trim(), supplier_id: document.getElementById('po-supplier').value, lines: lines }; const r = await fetchAPI('/api/admin/purchase-orders', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { showToast('Orden de Compra registrada.'); document.getElementById('form-po').reset(); loadPOData(); } }
+        async function saveRemito(e) { e.preventDefault(); const lines = []; document.querySelectorAll('#rem-lines .dynamic-row').forEach(row => { const sku = row.querySelector('.rem-sku').value.trim(); const qty = parseFloat(row.querySelector('.rem-qty').value); const loc = row.querySelector('.rem-loc').value.trim() || null; if(sku && qty > 0) lines.push({ sku: sku, quantity_sent: qty, location_code: loc }); }); const payload = { remito_number: document.getElementById('rem-num').value.trim(), supplier_id: document.getElementById('rem-supplier').value, branch_id: document.getElementById('rem-branch').value, sector_id: document.getElementById('rem-sector').value, lines: lines }; const r = await fetchAPI('/api/admin/purchase-remitos', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { showToast(r.message || 'Remito registrado.'); document.getElementById('form-remito').reset(); loadRemitoData(); } }
+        async function saveInvoice(e) { e.preventDefault(); const remitoIds = []; document.querySelectorAll('.inv-remito-checkbox:checked').forEach(cb => remitoIds.push(cb.value)); const manualItems = []; document.querySelectorAll('#inv-lines .dynamic-row').forEach(row => { const sku = row.querySelector('.inv-sku').value.trim(); const qty = parseFloat(row.querySelector('.inv-qty').value); const price = parseFloat(row.querySelector('.inv-price').value) || 0; if(sku && qty > 0) manualItems.push({ sku: sku, quantity: qty, unit_price: price }); }); const payload = { invoice_number: document.getElementById('inv-num').value.trim(), supplier_id: document.getElementById('inv-supplier').value, invoice_type: document.getElementById('inv-type').value, branch_id: document.getElementById('inv-branch').value || null, sector_id: document.getElementById('inv-sector').value || null, manual_items: manualItems, remito_ids: remitoIds }; const r = await fetchAPI('/api/admin/purchase-invoices', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { showToast('Factura registrada.'); document.getElementById('form-invoice').reset(); onInvSupplierChange(); loadInvoiceData(); } }
+        async function saveTransfer(e) { e.preventDefault(); const lines = []; document.querySelectorAll('#tr-lines .dynamic-row').forEach(row => { const sku = row.querySelector('.tr-sku').value.trim(); const qty = parseFloat(row.querySelector('.tr-qty').value); const oLoc = row.querySelector('.tr-orig-loc').value.trim() || null; const dLoc = row.querySelector('.tr-dest-loc').value.trim() || null; if(sku && qty > 0) lines.push({ sku: sku, quantity_sent: qty, origin_location_code: oLoc, destination_location_code: dLoc }); }); const payload = { transfer_number: document.getElementById('tr-num').value.trim(), origin_branch_id: document.getElementById('tr-orig-branch').value, origin_sector_id: document.getElementById('tr-orig-sector').value, destination_branch_id: document.getElementById('tr-dest-branch').value, destination_sector_id: document.getElementById('tr-dest-sector').value, lines: lines }; const r = await fetchAPI('/api/admin/transfer-orders', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { showToast(r.message || 'Traspaso registrado.'); document.getElementById('form-transfer').reset(); loadTransferData(); } }
 
         // === INVENTARIO, ORDERS, AUDITORÍA ===
-        async function loadStock() { const stock = await fetchAPI('/api/admin/stock'); const body = document.getElementById('table-stock-body'); if(body && stock) { body.innerHTML = ''; stock.forEach(s => body.innerHTML += `<tr><td>${s.sector_name}</td><td style="font-weight:bold; color:var(--primary-blue);">${s.location_code}</td><td style="font-weight:bold;">${s.sku}</td><td style="font-weight:bold; color:var(--success-green);">${s.quantity}</td></tr>`); } }
-        async function loadKardex() { const k = await fetchAPI('/api/admin/stock/kardex'); const body = document.getElementById('table-kardex-body'); if(body && k) { body.innerHTML = ''; k.forEach(row => body.innerHTML += `<tr><td>${new Date(row.created_at).toLocaleString()}</td><td style="font-weight:bold;">${row.sku}</td><td><span class="badge badge-neutral">${row.movement_type}</span></td><td>${row.quantity}</td></tr>`); } }
-        async function loadOrders() { const docs = await fetchAPI('/api/admin/documents'); const body = document.getElementById('table-orders-body'); if(body && docs) { body.innerHTML = ''; docs.forEach(d => body.innerHTML += `<tr><td style="font-weight:bold;">${d.document_number}</td><td>${d.company_name}</td><td><span class="badge badge-info">${d.status}</span></td><td>${d.progress_pct}%</td></tr>`); } }
-        async function loadLogs() { const logs = await fetchAPI('/api/admin/logs'); const body = document.getElementById('table-logs-body'); if(body && logs) { body.innerHTML = ''; logs.forEach(l => body.innerHTML += `<tr><td>${new Date(l.created_at).toLocaleString()}</td><td style="font-weight:bold;">${l.username}</td><td><span class="badge badge-neutral">${l.action}</span></td><td>${l.details}</td></tr>`); } }
+        async function loadStock() { const stock = await fetchAPI('/api/admin/stock'); const body = document.getElementById('table-stock-body'); if(body && stock) { body.innerHTML = ''; stock.forEach(s => body.innerHTML += `<tr><td>${escapeHTML(s.sector_name)}</td><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(s.location_code)}</td><td style="font-weight:bold;">${escapeHTML(s.sku)}</td><td style="font-weight:bold; color:var(--success-green);">${s.quantity}</td></tr>`); } }
+        async function loadKardex() { const k = await fetchAPI('/api/admin/stock/kardex'); const body = document.getElementById('table-kardex-body'); if(body && k) { body.innerHTML = ''; k.forEach(row => body.innerHTML += `<tr><td>${new Date(row.created_at).toLocaleString()}</td><td style="font-weight:bold;">${escapeHTML(row.sku)}</td><td><span class="badge badge-neutral">${escapeHTML(row.movement_type)}</span></td><td>${row.quantity}</td></tr>`); } }
+        async function loadOrders() { const docs = await fetchAPI('/api/admin/documents'); const body = document.getElementById('table-orders-body'); if(body && docs) { body.innerHTML = ''; docs.forEach(d => body.innerHTML += `<tr><td style="font-weight:bold;">${escapeHTML(d.document_number)}</td><td>${escapeHTML(d.company_name)}</td><td><span class="badge badge-info">${escapeHTML(d.status)}</span></td><td>${d.progress_pct}%</td></tr>`); } }
+        async function loadLogs() { const logs = await fetchAPI('/api/admin/logs'); const body = document.getElementById('table-logs-body'); if(body && logs) { body.innerHTML = ''; logs.forEach(l => body.innerHTML += `<tr><td>${new Date(l.created_at).toLocaleString()}</td><td style="font-weight:bold;">${escapeHTML(l.username)}</td><td><span class="badge badge-neutral">${escapeHTML(l.action)}</span></td><td>${escapeHTML(l.details)}</td></tr>`); } }
+
+        // === CREACIÓN MANUAL DE PEDIDOS Y BÚSQUEDA ASISTIDA ===
+        async function openManualOrderModal() {
+            document.getElementById('form-manual-order').reset();
+            document.getElementById('manual-order-lines').innerHTML = '';
+            addDynamicLineManualOrder();
+            
+            const addrSelect = document.getElementById('manual-addr-label');
+            if (addrSelect) addrSelect.innerHTML = '<option value="Principal">Principal</option>';
+
+            document.getElementById('manual-doc-num').value = "000001";
+            openModal('modal-manual-order');
+
+            const nextData = await fetchAPI('/api/admin/sales-orders/next-number');
+            if (nextData && nextData.next_number) {
+                document.getElementById('manual-doc-num').value = nextData.next_number;
+            }
+        }
+
+        function addDynamicLineManualOrder(sku = '', qty = '') {
+            const container = document.getElementById('manual-order-lines');
+            const row = document.createElement('div');
+            row.className = 'dynamic-row';
+            row.innerHTML = `
+                <input type="text" placeholder="SKU" class="manual-sku" value="${escapeHTML(sku)}" style="flex:2;" required>
+                <input type="number" placeholder="Cantidad" class="manual-qty" value="${qty}" style="flex:1;" min="0.01" step="0.01" required>
+                <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
+            `;
+            container.appendChild(row);
+        }
+
+        async function openSearchCustomerModal() {
+            if (!cachedEntities || cachedEntities.length === 0) {
+                const ents = await fetchAPI('/api/admin/entities');
+                if (ents) cachedEntities = ents;
+            }
+            document.getElementById('search-cust-query').value = '';
+            filterCustomerSearch();
+            openModal('modal-search-customer');
+        }
+
+        function filterCustomerSearch() {
+            const q = document.getElementById('search-cust-query').value.toLowerCase().trim();
+            const customers = cachedEntities.filter(e => e.is_customer);
+            const body = document.getElementById('table-search-cust-body');
+            body.innerHTML = '';
+
+            const filtered = customers.filter(c => {
+                let addrs = []; try { addrs = typeof c.addresses === 'string' ? JSON.parse(c.addresses) : (c.addresses || []); } catch(e){}
+                const addrStr = addrs.map(a => `${a.address_label || a.label} ${a.full_address || a.address}`).join(' ').toLowerCase();
+                return !q || c.tax_id.toLowerCase().includes(q) || c.company_name.toLowerCase().includes(q) || addrStr.includes(q);
+            });
+
+            if(filtered.length === 0) {
+                body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:1rem;">No se encontraron clientes.</td></tr>';
+                return;
+            }
+
+            filtered.forEach(c => {
+                let addrs = []; try { addrs = typeof c.addresses === 'string' ? JSON.parse(c.addresses) : (c.addresses || []); } catch(e){}
+                const addrText = addrs.length > 0 ? addrs.map(a => `<b>${escapeHTML(a.address_label || a.label)}:</b> ${escapeHTML(a.full_address || a.address)}`).join('<br>') : 'Sin dirección';
+
+                body.innerHTML += `
+                    <tr>
+                        <td style="font-weight:bold;">${escapeHTML(c.tax_id)}</td>
+                        <td style="color:var(--primary-blue); font-weight:bold;">${escapeHTML(c.company_name)}</td>
+                        <td><small>${addrText}</small></td>
+                        <td>
+                            <button type="button" class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" 
+                                onclick="selectCustomerForManualOrder('${escapeHTML(c.tax_id)}', '${escapeHTML(c.company_name)}', '${c.id}')">
+                                Seleccionar
+                            </button>
+                        </td>
+                    </tr>`;
+            });
+        }
+
+        function selectCustomerForManualOrder(taxId, name, entityId) {
+            document.getElementById('manual-cust-taxid').value = taxId;
+            document.getElementById('manual-cust-name').value = name;
+            
+            const select = document.getElementById('manual-addr-label');
+            select.innerHTML = '';
+            
+            const customer = cachedEntities.find(e => String(e.tax_id) === String(taxId) || String(e.id) === String(entityId));
+            let addrs = [];
+            if (customer) {
+                try { addrs = typeof customer.addresses === 'string' ? JSON.parse(customer.addresses) : (customer.addresses || []); } catch(e){}
+            }
+
+            if (addrs && addrs.length > 0) {
+                addrs.forEach(a => {
+                    const lbl = escapeHTML(a.address_label || a.label);
+                    const full = escapeHTML(a.full_address || a.address);
+                    select.innerHTML += `<option value="${lbl}">${lbl} (${full})</option>`;
+                });
+            } else {
+                select.innerHTML = '<option value="Principal">Principal</option>';
+            }
+
+            closeModal('modal-search-customer');
+        }
+
+        // AGREGAR MASIVAMENTE DESDE CSV
+        function importManualOrderCSV(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split(/\r\n|\n/);
+                let loadedCount = 0;
+
+                const container = document.getElementById('manual-order-lines');
+                const existingRows = container.querySelectorAll('.dynamic-row');
+                existingRows.forEach(row => {
+                    const skuVal = row.querySelector('.manual-sku').value.trim();
+                    if (!skuVal) row.remove();
+                });
+
+                lines.forEach((line, index) => {
+                    if (!line.trim()) return;
+                    const delimiter = line.includes(';') ? ';' : ',';
+                    const parts = line.split(delimiter);
+                    const sku = parts[0] ? parts[0].trim().replace(/^["']|["']$/g, '') : '';
+                    const qty = parts[1] ? parseFloat(parts[1].trim().replace(/^["']|["']$/g, '')) : 0;
+
+                    if (index === 0 && isNaN(qty)) return;
+
+                    if (sku && qty > 0) {
+                        addDynamicLineManualOrder(sku, qty);
+                        loadedCount++;
+                    }
+                });
+
+                showToast(`Se agregaron ${loadedCount} artículos masivamente.`);
+                input.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        async function saveManualOrder(e) {
+            e.preventDefault();
+            const lines = [];
+            document.querySelectorAll('#manual-order-lines .dynamic-row').forEach(row => {
+                const sku = row.querySelector('.manual-sku').value.trim();
+                const qty = parseFloat(row.querySelector('.manual-qty').value);
+                if(sku && qty > 0) lines.push({ sku: sku, quantity: qty });
+            });
+
+            if(lines.length === 0) {
+                showToast('Debe agregar al menos un artículo al pedido.', 'warning');
+                return;
+            }
+
+            const payload = {
+                document_number: document.getElementById('manual-doc-num').value.trim(),
+                customer_tax_id: document.getElementById('manual-cust-taxid').value.trim(),
+                customer_name: document.getElementById('manual-cust-name').value.trim() || null,
+                address_label: document.getElementById('manual-addr-label').value || 'Principal',
+                lines: lines
+            };
+
+            const r = await fetchAPI('/api/admin/sales-orders', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+
+            if(r) {
+                showToast(r.message || 'Pedido creado correctamente.');
+                closeModal('modal-manual-order');
+                loadOrders();
+            }
+        }
 
         // === CONFIGURACIÓN Y MULTICANAL ===
         async function loadSettings() {
@@ -1190,6 +1639,11 @@
             if(data.app_name) document.getElementById('cfg-app-name').value = data.app_name;
             if(data.company_cuit) document.getElementById('cfg-company-cuit').value = data.company_cuit;
             if(data.zebra_ip) document.getElementById('cfg-zebra-ip').value = data.zebra_ip;
+            
+            if(data.enable_stock_management !== undefined) document.getElementById('cfg-enable-stock-management').value = data.enable_stock_management;
+            if(data.allow_negative_stock !== undefined) document.getElementById('cfg-allow-negative-stock').value = data.allow_negative_stock;
+            if(data.enable_committed_stock !== undefined) document.getElementById('cfg-enable-committed-stock').value = data.enable_committed_stock;
+
             if(data.require_mobile_reception) document.getElementById('cfg-require-mobile-reception').value = data.require_mobile_reception;
             if(data.allow_multiproduct_locations) document.getElementById('cfg-allow-multiproduct').value = data.allow_multiproduct_locations;
             if(data.enable_item_dimensions) document.getElementById('cfg-enable-item-dimensions').value = data.enable_item_dimensions;
@@ -1211,6 +1665,9 @@
                 app_name: document.getElementById('cfg-app-name').value.trim(),
                 company_cuit: document.getElementById('cfg-company-cuit').value.trim(),
                 zebra_ip: document.getElementById('cfg-zebra-ip').value.trim(),
+                enable_stock_management: document.getElementById('cfg-enable-stock-management').value,
+                allow_negative_stock: document.getElementById('cfg-allow-negative-stock').value,
+                enable_committed_stock: document.getElementById('cfg-enable-committed-stock').value,
                 require_mobile_reception: document.getElementById('cfg-require-mobile-reception').value,
                 allow_multiproduct_locations: document.getElementById('cfg-allow-multiproduct').value,
                 enable_item_dimensions: document.getElementById('cfg-enable-item-dimensions').value,
@@ -1224,7 +1681,7 @@
                 zpl_order_template: document.getElementById('cfg-zpl-order-template').value
             };
             const r = await fetchAPI('/api/admin/settings', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-            if(r) { alert('Configuración guardada exitosamente.'); loadSettings(); }
+            if(r) { showToast('Configuración guardada exitosamente.'); loadSettings(); }
         }
 
         async function loadIntegrationChannels() {
@@ -1233,7 +1690,7 @@
             if(!channels || channels.length === 0) { body.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No hay conexiones externas registradas.</td></tr>'; return; }
             channels.forEach(ch => {
                 const badgeType = ch.channel_type === 'OUTBOUND_DESPACHO' ? '<span class="badge badge-info">DESPACHOS</span>' : '<span class="badge badge-success">STOCK REALTIME</span>';
-                body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${ch.name}</td><td>${badgeType}</td><td style="font-family:monospace; font-size:0.8rem;">${ch.target_url}</td><td><span class="badge badge-success">ACTIVA</span></td><td><button onclick="deleteChannel('${ch.id}')" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">Eliminar</button></td></tr>`;
+                body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(ch.name)}</td><td>${badgeType}</td><td style="font-family:monospace; font-size:0.8rem;">${escapeHTML(ch.target_url)}</td><td><span class="badge badge-success">ACTIVA</span></td><td><button onclick="deleteChannel('${ch.id}')" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">Eliminar</button></td></tr>`;
             });
         }
 
@@ -1241,18 +1698,16 @@
             e.preventDefault();
             const payload = { name: document.getElementById('chan-name').value.trim(), channel_type: document.getElementById('chan-type').value, target_url: document.getElementById('chan-url').value.trim(), api_key: document.getElementById('chan-key').value.trim() || null };
             const r = await fetchAPI('/api/admin/integrations', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-            if(r) { closeModal('modal-add-channel'); loadIntegrationChannels(); }
+            if(r) { showToast('Conexión registrada'); closeModal('modal-add-channel'); loadIntegrationChannels(); }
         }
 
         async function deleteChannel(id) {
-            if(!confirm('¿Desea eliminar esta conexión externa?')) return;
-            const r = await fetchAPI(`/api/admin/integrations/${id}`, { method: 'DELETE' }); if(r) { loadIntegrationChannels(); }
+            const r = await fetchAPI(`/api/admin/integrations/${id}`, { method: 'DELETE' }); if(r) { showToast('Conexión eliminada'); loadIntegrationChannels(); }
         }
 
         async function generateNewSystemApiKey() {
-            if(!confirm('¿Desea generar una nueva API Key de Tracker360?')) return;
             const r = await fetchAPI('/api/admin/settings/generate-key', { method: 'POST' });
-            if(r && r.new_key) { document.getElementById('cfg-tracker360-api-key').value = r.new_key; alert('Nueva API Key generada con éxito.'); }
+            if(r && r.new_key) { document.getElementById('cfg-tracker360-api-key').value = r.new_key; showToast('Nueva API Key generada con éxito.'); }
         }
 
         document.getElementById('btnLogout')?.addEventListener('click', async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/index.html'; });
