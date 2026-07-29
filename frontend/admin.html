@@ -51,22 +51,10 @@
         .btn-secondary:hover { background-color: var(--primary-blue); color: white; }
 
         .purchase-subtab-btn {
-            background-color: var(--card-bg);
-            color: var(--text-main);
-            border: 1px solid var(--border-color);
-            padding: 0.75rem 1.2rem;
-            font-weight: 700;
-            border-radius: 6px;
-            cursor: pointer;
-            text-transform: uppercase;
-            font-size: 0.85rem;
-            transition: all 0.2s ease;
+            background-color: var(--card-bg); color: var(--text-main); border: 1px solid var(--border-color); padding: 0.75rem 1.2rem; font-weight: 700; border-radius: 6px; cursor: pointer; text-transform: uppercase; font-size: 0.85rem; transition: all 0.2s ease;
         }
         .purchase-subtab-btn.active {
-            background-color: var(--primary-blue) !important;
-            color: #FFFFFF !important;
-            border-color: var(--primary-blue) !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.12);
+            background-color: var(--primary-blue) !important; color: #FFFFFF !important; border-color: var(--primary-blue) !important; box-shadow: 0 2px 4px rgba(0,0,0,0.12);
         }
 
         table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
@@ -271,13 +259,14 @@
             </div>
         </div>
 
-        <!-- 5. ARTÍCULOS -->
+        <!-- 5. ARTÍCULOS CON PANEL DE IMPRESIÓN BATCH -->
         <div id="section-items" class="view-section">
             <h2>Maestro de Artículos</h2>
             <div style="display:flex; justify-content:space-between; margin-bottom:1.5rem; flex-wrap:wrap; gap:10px; align-items:center;">
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
                     <button onclick="openImportModal('items')" class="btn-secondary">Agregar Catálogo Masivamente</button>
                     <button onclick="openImportModal('item_locations')" class="btn-secondary">Agregar Ubicaciones Masivamente</button>
+                    <button onclick="openBatchPrintModal()" class="btn-submit" style="width:auto; background:var(--success-green);">🖨️ Panel Impresión de Etiquetas</button>
                 </div>
                 <div style="display:flex; gap:10px;">
                     <input type="text" id="search-sku" placeholder="SKU..." style="width:140px;" onkeydown="if(event.key === 'Enter') handleSearchItems()">
@@ -382,7 +371,7 @@
                             <button class="btn-secondary" style="padding:6px 12px;" onclick="loadRemitoData('', 50)">Ver Todos</button>
                         </div>
                         <table style="font-size:0.85rem;">
-                            <thead><tr><th>Nº Remito</th><th>Proveedor</th><th>Destino</th><th>Estado</th></tr></thead>
+                            <thead><tr><th>Nº Remito</th><th>Proveedor</th><th>Destino</th><th>Estado</th><th>Acciones</th></tr></thead>
                             <tbody id="table-remito-body"></tbody>
                         </table>
                     </div>
@@ -491,13 +480,13 @@
             </div>
         </div>
 
-        <!-- 8. PEDIDOS -->
+        <!-- 8. PEDIDOS CON REIMPRESIÓN -->
         <div id="section-orders" class="view-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                 <h2 style="margin:0; border:none; padding:0;">Monitoreo de Salidas (Pedidos)</h2>
                 <button type="button" class="btn-submit" onclick="openManualOrderModal()" style="width:auto; margin:0;">+ Crear Pedido</button>
             </div>
-            <div class="card"><table><thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th><th>Progreso</th></tr></thead><tbody id="table-orders-body"></tbody></table></div>
+            <div class="card"><table><thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th><th>Progreso</th><th>Acción</th></tr></thead><tbody id="table-orders-body"></tbody></table></div>
         </div>
 
         <!-- 9. AUDITORÍA -->
@@ -520,24 +509,15 @@
                         
                         <div class="form-group">
                             <label>Gestión de Stock Activa</label>
-                            <select id="cfg-enable-stock-management">
-                                <option value="true">SÍ</option>
-                                <option value="false">NO</option>
-                            </select>
+                            <select id="cfg-enable-stock-management"><option value="true">SÍ</option><option value="false">NO</option></select>
                         </div>
                         <div class="form-group">
                             <label>Permitir Stock Negativo</label>
-                            <select id="cfg-allow-negative-stock">
-                                <option value="false">NO</option>
-                                <option value="true">SÍ</option>
-                            </select>
+                            <select id="cfg-allow-negative-stock"><option value="false">NO</option><option value="true">SÍ</option></select>
                         </div>
                         <div class="form-group">
                             <label>Control de Stock Comprometido (Reservas)</label>
-                            <select id="cfg-enable-committed-stock">
-                                <option value="true">SÍ</option>
-                                <option value="false">NO</option>
-                            </select>
+                            <select id="cfg-enable-committed-stock"><option value="true">SÍ</option><option value="false">NO</option></select>
                         </div>
 
                         <div class="form-group">
@@ -551,50 +531,68 @@
                         
                         <div class="form-group">
                             <label>Trabaja con Pesos y Volúmenes</label>
-                            <select id="cfg-enable-item-dimensions">
-                                <option value="false">NO</option>
-                                <option value="true">SÍ</option>
-                            </select>
+                            <select id="cfg-enable-item-dimensions"><option value="false">NO</option><option value="true">SÍ</option></select>
                         </div>
 
-                        <hr style="border:0; border-top:1px solid var(--border-color); margin:1.5rem 0;">
-                        <h3 style="color:var(--success-green); margin-bottom:1rem;">Acceso API Tracker360 (Inbound / Satélite)</h3>
-                        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.8rem;">Clave API para que MercadoLibre, WordPress o tu ERP inyecten pedidos directamente.</p>
-                        <div class="form-group">
-                            <label>Clave API de Sistema (Header X-API-Key)</label>
-                            <div style="display:flex; gap:8px;">
-                                <input type="text" id="cfg-tracker360-api-key" readonly style="background:#F3F4F6; font-family:monospace; font-weight:bold;">
-                                <button type="button" class="btn-secondary" onclick="generateNewSystemApiKey()" style="white-space:nowrap;">Generar Nueva</button>
-                            </div>
-                        </div>
                         <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Parámetros</button>
                     </form>
                 </div>
 
                 <div class="card">
-                    <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Plantillas de Impresión ZPL</h3>
-                    <form id="form-settings-zpl" onsubmit="saveSettings(event)">
-                        <div style="display:flex; gap:10px;">
-                            <div class="form-group" style="flex:1;"><label>Ancho Artículo (mm)</label><input type="text" id="cfg-zpl-item-width" placeholder="38"></div>
-                            <div class="form-group" style="flex:1;"><label>Alto Artículo (mm)</label><input type="text" id="cfg-zpl-item-height" placeholder="20"></div>
-                        </div>
-                        <div class="form-group">
-                            <label>Plantilla ZPL Artículo</label>
-                            <textarea id="cfg-zpl-item-template" rows="2" style="font-family:monospace; font-size:0.8rem;"></textarea>
-                        </div>
+                    <h3 style="color:var(--success-green); margin-bottom:1rem;">Documentación API & Agente de Impresión Windows</h3>
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">
+                        Herramientas para integración con sistemas satélite (ERP, tiendas) y ejecutable de servicio de impresión para PCs con impresoras Zebra USB/Red.
+                    </p>
 
-                        <hr style="border:0; border-top:1px solid var(--border-color); margin:1rem 0;">
-                        <div style="display:flex; gap:10px;">
-                            <div class="form-group" style="flex:1;"><label>Ancho Bulto (mm)</label><input type="text" id="cfg-zpl-order-width" placeholder="100"></div>
-                            <div class="form-group" style="flex:1;"><label>Alto Bulto (mm)</label><input type="text" id="cfg-zpl-order-height" placeholder="150"></div>
+                    <div style="background:#F0FDF4; border:1px solid #BBF7D0; padding:1rem; border-radius:6px; margin-bottom:1rem;">
+                        <h4 style="color:#166534; font-size:0.9rem; margin-bottom:0.4rem;">Documentación Interactiva Swagger / ReDoc</h4>
+                        <p style="font-size:0.8rem; color:#15803D; margin-bottom:0.8rem;">Explore todos los endpoints Inbound/Outbound en vivo con especificación OpenAPI 3.0.</p>
+                        <div style="display:flex; gap:8px;">
+                            <a href="/docs" target="_blank" class="btn-secondary" style="text-decoration:none; text-align:center; font-size:0.75rem; flex:1;">Abrir Swagger UI</a>
+                            <a href="/redoc" target="_blank" class="btn-secondary" style="text-decoration:none; text-align:center; font-size:0.75rem; flex:1;">Abrir ReDoc</a>
                         </div>
-                        <div class="form-group">
-                            <label>Plantilla ZPL Bulto / Envíos</label>
-                            <textarea id="cfg-zpl-order-template" rows="2" style="font-family:monospace; font-size:0.8rem;"></textarea>
+                    </div>
+
+                    <div style="background:#EFF6FF; border:1px solid #BFDBFE; padding:1rem; border-radius:6px; margin-bottom:1rem;">
+                        <h4 style="color:var(--primary-blue); font-size:0.9rem; margin-bottom:0.4rem;">Descarga Directa Agente de Impresión Windows (.exe)</h4>
+                        <p style="font-size:0.8rem; color:#1E40AF; margin-bottom:0.8rem;">Ejecutable para instalar en las PCs de empaque y recepción para conectar con las impresoras Zebra locales.</p>
+                        <a href="/downloads/tracker360_agent.exe" download class="btn-submit" style="display:block; text-decoration:none; text-align:center;">Descargar Agente Windows (.exe)</a>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Clave API de Sistema (Header X-API-Key)</label>
+                        <div style="display:flex; gap:8px;">
+                            <input type="text" id="cfg-tracker360-api-key" readonly style="background:#F3F4F6; font-family:monospace; font-weight:bold;">
+                            <button type="button" class="btn-secondary" onclick="generateNewSystemApiKey()" style="white-space:nowrap;">Generar Nueva</button>
                         </div>
-                        <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Plantillas ZPL</button>
-                    </form>
+                    </div>
                 </div>
+            </div>
+
+            <!-- PLANTILLAS ZPL -->
+            <div class="card" style="margin-top:1.5rem;">
+                <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Plantillas de Impresión ZPL</h3>
+                <form id="form-settings-zpl" onsubmit="saveSettings(event)">
+                    <div style="display:flex; gap:10px;">
+                        <div class="form-group" style="flex:1;"><label>Ancho Artículo (mm)</label><input type="text" id="cfg-zpl-item-width" placeholder="38"></div>
+                        <div class="form-group" style="flex:1;"><label>Alto Artículo (mm)</label><input type="text" id="cfg-zpl-item-height" placeholder="20"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Plantilla ZPL Artículo</label>
+                        <textarea id="cfg-zpl-item-template" rows="2" style="font-family:monospace; font-size:0.8rem;"></textarea>
+                    </div>
+
+                    <hr style="border:0; border-top:1px solid var(--border-color); margin:1rem 0;">
+                    <div style="display:flex; gap:10px;">
+                        <div class="form-group" style="flex:1;"><label>Ancho Bulto (mm)</label><input type="text" id="cfg-zpl-order-width" placeholder="100"></div>
+                        <div class="form-group" style="flex:1;"><label>Alto Bulto (mm)</label><input type="text" id="cfg-zpl-order-height" placeholder="150"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Plantilla ZPL Bulto / Envíos</label>
+                        <textarea id="cfg-zpl-order-template" rows="2" style="font-family:monospace; font-size:0.8rem;"></textarea>
+                    </div>
+                    <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Plantillas ZPL</button>
+                </form>
             </div>
 
             <!-- GESTOR DE CANALES Y APLICACIONES CONECTADAS -->
@@ -623,7 +621,38 @@
         </div>
     </div>
 
-    <!-- MODAL EDITAR ARTÍCULO CON DIMENSIONES Y PESO EDITABLE -->
+    <!-- MODAL PANEL DE IMPRESIÓN MASIVA DE ETIQUETAS -->
+    <div id="modal-batch-print-items" class="modal">
+        <div class="modal-content" style="max-width:650px;">
+            <span class="close-modal" onclick="closeModal('modal-batch-print-items')">&times;</span>
+            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">🖨️ Panel de Impresión de Etiquetas por Lote</h3>
+            <form id="form-batch-print" onsubmit="submitBatchPrint(event)">
+                <div class="form-group">
+                    <label>Sector / Cola de Impresión Destino *</label>
+                    <select id="batch-print-queue" required></select>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <label style="margin:0; font-weight:bold;">Artículos a Imprimir:</label>
+                    <button type="button" onclick="document.getElementById('file-batch-print-csv').click()" class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;">+ Cargar Desde CSV</button>
+                    <input type="file" id="file-batch-print-csv" accept=".csv" style="display:none;" onchange="importBatchPrintCSV(this)">
+                </div>
+
+                <div class="dynamic-list" id="batch-print-lines">
+                    <div class="dynamic-row">
+                        <input type="text" placeholder="SKU" class="batch-sku" style="flex:2;" required>
+                        <input type="number" placeholder="Cant. Etiquetas" class="batch-qty" value="1" min="1" style="flex:1;" required>
+                        <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
+                    </div>
+                </div>
+
+                <button type="button" onclick="addDynamicLineBatchPrint()" style="background:none; border:1px solid var(--accent-blue); color:var(--accent-blue); padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">+ Añadir Artículo</button>
+                <button type="submit" class="btn-submit" style="margin-top:1.5rem; background:var(--success-green);">Enviar a Impresora Zebra</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR ARTÍCULO -->
     <div id="modal-edit-item" class="modal">
         <div class="modal-content" style="max-width:550px;">
             <span class="close-modal" onclick="closeModal('modal-edit-item')">&times;</span>
@@ -707,7 +736,7 @@
         </div>
     </div>
 
-    <!-- MODAL EDITAR ENTIDAD CON FORMULARIO ATÓMICO DE DIRECCIONES -->
+    <!-- MODAL EDITAR ENTIDAD -->
     <div id="modal-edit-entity" class="modal">
         <div class="modal-content" style="max-width:650px;">
             <span class="close-modal" onclick="closeModal('modal-edit-entity')">&times;</span>
@@ -728,7 +757,6 @@
             <h3 style="color:var(--primary-blue); margin-bottom:10px;">Direcciones de Entrega Registradas</h3>
             <div id="entity-addresses-list" style="margin-bottom:15px;">Cargando direcciones...</div>
 
-            <!-- FORMULARIO ESTRUCTURADO PARA RUTEO -->
             <form id="form-entity-address" onsubmit="saveAddressToEntity(event)" style="background:#F0F9FF; padding:1.2rem; border-radius:6px; border:1px solid #BAE6FD;">
                 <input type="hidden" id="edit-addr-id" value="">
                 <h4 id="form-addr-title" style="color:var(--primary-blue); font-size:0.95rem; margin-bottom:10px;">+ Añadir Nueva Dirección</h4>
@@ -849,7 +877,7 @@
             <form onsubmit="saveNewChannel(event)">
                 <div class="form-group">
                     <label>Nombre del Canal / Aplicación *</label>
-                    <input type="text" id="chan-name" placeholder="Ej: Tienda Nube Oficial, MercadoLibre Outlet, JZTravell" required>
+                    <input type="text" id="chan-name" placeholder="Ej: Tienda Nube Oficial, MercadoLibre Outlet" required>
                 </div>
                 <div class="form-group">
                     <label>Tipo de Evento *</label>
@@ -883,7 +911,6 @@
                         <input type="text" id="manual-doc-num" value="000001" required style="font-weight:bold; color:var(--primary-blue);">
                     </div>
                     
-                    <!-- LUPA BUSCADORA DE CLIENTES -->
                     <div class="form-group">
                         <label>CUIT / DNI Cliente *</label>
                         <div style="display:flex; gap:6px;">
@@ -1333,6 +1360,89 @@
             });
         }
 
+        // PANEL BATCH ETIQUETAS
+        async function openBatchPrintModal() {
+            const sectors = await fetchAPI('/api/admin/sectors');
+            const qSelect = document.getElementById('batch-print-queue');
+            if (qSelect && sectors) {
+                qSelect.innerHTML = sectors.map(s => `<option value="${s.print_queue_code}">${s.branch_name} > ${s.name} (${s.print_queue_code})</option>`).join('');
+            }
+            document.getElementById('form-batch-print').reset();
+            document.getElementById('batch-print-lines').innerHTML = '';
+            addDynamicLineBatchPrint();
+            openModal('modal-batch-print-items');
+        }
+
+        function addDynamicLineBatchPrint(sku = '', qty = 1) {
+            const container = document.getElementById('batch-print-lines');
+            const row = document.createElement('div');
+            row.className = 'dynamic-row';
+            row.innerHTML = `
+                <input type="text" placeholder="SKU" class="batch-sku" value="${escapeHTML(sku)}" style="flex:2;" required>
+                <input type="number" placeholder="Cant. Etiquetas" class="batch-qty" value="${qty}" min="1" style="flex:1;" required>
+                <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
+            `;
+            container.appendChild(row);
+        }
+
+        function importBatchPrintCSV(input) {
+            const file = input.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const lines = text.split(/\r\n|\n/);
+                let loadedCount = 0;
+                const container = document.getElementById('batch-print-lines');
+                container.innerHTML = '';
+
+                lines.forEach((line, index) => {
+                    if (!line.trim()) return;
+                    const delimiter = line.includes(';') ? ';' : ',';
+                    const parts = line.split(delimiter);
+                    const sku = parts[0] ? parts[0].trim().replace(/^["']|["']$/g, '') : '';
+                    const qty = parts[1] ? parseInt(parts[1].trim().replace(/^["']|["']$/g, '')) : 1;
+
+                    if (index === 0 && isNaN(qty)) return;
+
+                    if (sku) {
+                        addDynamicLineBatchPrint(sku, max(1, qty));
+                        loadedCount++;
+                    }
+                });
+
+                showToast(`Cargados ${loadedCount} SKUs desde archivo CSV.`);
+                input.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        async function submitBatchPrint(e) {
+            e.preventDefault();
+            const queueCode = document.getElementById('batch-print-queue').value;
+            const items = [];
+            document.querySelectorAll('#batch-print-lines .dynamic-row').forEach(row => {
+                const sku = row.querySelector('.batch-sku').value.trim();
+                const qty = parseInt(row.querySelector('.batch-qty').value) || 1;
+                if(sku) items.push({ sku: sku, quantity: qty });
+            });
+
+            if (items.length === 0) {
+                showToast('Agregue al menos un SKU.', 'warning');
+                return;
+            }
+
+            const r = await fetchAPI('/api/admin/items/batch-print-labels', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ queue_code: queueCode, items: items })
+            });
+
+            if(r) {
+                showToast(r.message || 'Lote de impresión enviado.');
+                closeModal('modal-batch-print-items');
+            }
+        }
+
         function openEditItemModal(sku, desc, cat, length, width, height, weight, volume) {
             document.getElementById('edit-item-sku').value = sku;
             document.getElementById('edit-item-sku-label').textContent = sku;
@@ -1431,7 +1541,28 @@
         function loadAllPurchaseHistories() { loadPOData(); loadRemitoData(); loadInvoiceData(); loadTransferData(); }
 
         async function loadPOData(search = '', limit = 5) { const text = search || document.getElementById('search-po-text')?.value.trim() || ''; const data = await fetchAPI(`/api/admin/purchase-orders?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-po-body'); if(!body) return; body.innerHTML = ''; if(!data || data.length === 0) { body.innerHTML = '<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">Sin órdenes registradas.</td></tr>'; return; } data.forEach(po => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(po.order_number)}</td><td>${escapeHTML(po.supplier_name)}</td><td><span class="badge badge-info">${escapeHTML(po.status)}</span></td></tr>`; }); }
-        async function loadRemitoData(search = '', limit = 5) { const text = search || document.getElementById('search-rem-text')?.value.trim() || ''; const data = await fetchAPI(`/api/admin/purchase-remitos?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-remito-body'); if(!body) return; body.innerHTML = ''; if(!data || data.length === 0) { body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin remitos registrados.</td></tr>'; return; } data.forEach(r => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(r.remito_number)}</td><td>${escapeHTML(r.supplier_name)}</td><td>${escapeHTML(r.branch_name)} > ${escapeHTML(r.sector_name)}</td><td><span class="badge badge-warning">${escapeHTML(r.status)}</span></td></tr>`; }); }
+        
+        async function loadRemitoData(search = '', limit = 5) { 
+            const text = search || document.getElementById('search-rem-text')?.value.trim() || ''; 
+            const data = await fetchAPI(`/api/admin/purchase-remitos?search=${encodeURIComponent(text)}&limit=${limit}`); 
+            const body = document.getElementById('table-remito-body'); if(!body) return; body.innerHTML = ''; 
+            if(!data || data.length === 0) { body.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">Sin remitos registrados.</td></tr>'; return; } 
+            data.forEach(r => { 
+                body.innerHTML += `<tr>
+                    <td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(r.remito_number)}</td>
+                    <td>${escapeHTML(r.supplier_name)}</td>
+                    <td>${escapeHTML(r.branch_name)} > ${escapeHTML(r.sector_name)}</td>
+                    <td><span class="badge badge-warning">${escapeHTML(r.status)}</span></td>
+                    <td><button onclick="printRemitoLabels('${r.id}')" class="btn-secondary" style="padding:3px 6px; font-size:0.75rem;">🖨️ Etiquetas</button></td>
+                </tr>`; 
+            }); 
+        }
+
+        async function printRemitoLabels(remitoId) {
+            const r = await fetchAPI(`/api/admin/purchase-remitos/${remitoId}/print-labels`, { method: 'POST' });
+            if(r) showToast(r.message || 'Etiquetas enviadas a la cola de impresión.');
+        }
+
         async function loadInvoiceData(search = '', limit = 5) { const text = search || document.getElementById('search-inv-text')?.value.trim() || ''; const data = await fetchAPI(`/api/admin/purchase-invoices?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-invoice-body'); if(!body) return; body.innerHTML = ''; if(!data || data.length === 0) { body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin facturas registradas.</td></tr>'; return; } data.forEach(i => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(i.invoice_number)}</td><td><span class="badge badge-neutral">TIPO ${escapeHTML(i.invoice_type)}</span></td><td>${escapeHTML(i.supplier_name)}</td><td>${new Date(i.created_at).toLocaleDateString()}</td></tr>`; }); }
         async function loadTransferData(search = '', limit = 5) { const text = search || document.getElementById('search-tr-text')?.value.trim() || ''; const trs = await fetchAPI(`/api/admin/transfer-orders?search=${encodeURIComponent(text)}&limit=${limit}`); const body = document.getElementById('table-transfers-body'); if(!body) return; body.innerHTML = ''; if(!trs || trs.length === 0) { body.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin traspasos registrados.</td></tr>'; return; } trs.forEach(t => { body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(t.transfer_number)}</td><td>${escapeHTML(t.origin_branch)}</td><td>${escapeHTML(t.destination_branch)}</td><td><span class="badge badge-warning">${escapeHTML(t.status)}</span></td></tr>`; }); }
 
@@ -1454,7 +1585,29 @@
         // === INVENTARIO, ORDERS, AUDITORÍA ===
         async function loadStock() { const stock = await fetchAPI('/api/admin/stock'); const body = document.getElementById('table-stock-body'); if(body && stock) { body.innerHTML = ''; stock.forEach(s => body.innerHTML += `<tr><td>${escapeHTML(s.sector_name)}</td><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(s.location_code)}</td><td style="font-weight:bold;">${escapeHTML(s.sku)}</td><td style="font-weight:bold; color:var(--success-green);">${s.quantity}</td></tr>`); } }
         async function loadKardex() { const k = await fetchAPI('/api/admin/stock/kardex'); const body = document.getElementById('table-kardex-body'); if(body && k) { body.innerHTML = ''; k.forEach(row => body.innerHTML += `<tr><td>${new Date(row.created_at).toLocaleString()}</td><td style="font-weight:bold;">${escapeHTML(row.sku)}</td><td><span class="badge badge-neutral">${escapeHTML(row.movement_type)}</span></td><td>${row.quantity}</td></tr>`); } }
-        async function loadOrders() { const docs = await fetchAPI('/api/admin/documents'); const body = document.getElementById('table-orders-body'); if(body && docs) { body.innerHTML = ''; docs.forEach(d => body.innerHTML += `<tr><td style="font-weight:bold;">${escapeHTML(d.document_number)}</td><td>${escapeHTML(d.company_name)}</td><td><span class="badge badge-info">${escapeHTML(d.status)}</span></td><td>${d.progress_pct}%</td></tr>`); } }
+        
+        async function loadOrders() { 
+            const docs = await fetchAPI('/api/admin/documents'); const body = document.getElementById('table-orders-body'); if(body && docs) { 
+                body.innerHTML = ''; 
+                docs.forEach(d => {
+                    const canPrint = (d.status === 'COMPLETED' || d.status === 'DISPATCHED');
+                    const btnPrint = canPrint ? `<button onclick="printOrderLabelAgain('${escapeHTML(d.document_number)}')" class="btn-secondary" style="padding:3px 6px; font-size:0.75rem;">🖨️ Etiqueta</button>` : '<span style="color:var(--text-muted);">-</span>';
+                    body.innerHTML += `<tr>
+                        <td style="font-weight:bold;">${escapeHTML(d.document_number)}</td>
+                        <td>${escapeHTML(d.company_name)}</td>
+                        <td><span class="badge badge-info">${escapeHTML(d.status)}</span></td>
+                        <td>${d.progress_pct}%</td>
+                        <td>${btnPrint}</td>
+                    </tr>`; 
+                }); 
+            } 
+        }
+
+        async function printOrderLabelAgain(docNum) {
+            const r = await fetchAPI(`/api/admin/sales-orders/${encodeURIComponent(docNum)}/print-label`, { method: 'POST' });
+            if(r) showToast(r.message || 'Etiqueta enviada a la cola de impresión.');
+        }
+
         async function loadLogs() { const logs = await fetchAPI('/api/admin/logs'); const body = document.getElementById('table-logs-body'); if(body && logs) { body.innerHTML = ''; logs.forEach(l => body.innerHTML += `<tr><td>${new Date(l.created_at).toLocaleString()}</td><td style="font-weight:bold;">${escapeHTML(l.username)}</td><td><span class="badge badge-neutral">${escapeHTML(l.action)}</span></td><td>${escapeHTML(l.details)}</td></tr>`); } }
 
         // === CREACIÓN MANUAL DE PEDIDOS Y BÚSQUEDA ASISTIDA ===
@@ -1559,23 +1712,15 @@
             closeModal('modal-search-customer');
         }
 
-        // AGREGAR MASIVAMENTE DESDE CSV
         function importManualOrderCSV(input) {
-            const file = input.files[0];
-            if (!file) return;
-
+            const file = input.files[0]; if (!file) return;
             const reader = new FileReader();
             reader.onload = function(e) {
                 const text = e.target.result;
                 const lines = text.split(/\r\n|\n/);
                 let loadedCount = 0;
-
                 const container = document.getElementById('manual-order-lines');
-                const existingRows = container.querySelectorAll('.dynamic-row');
-                existingRows.forEach(row => {
-                    const skuVal = row.querySelector('.manual-sku').value.trim();
-                    if (!skuVal) row.remove();
-                });
+                container.querySelectorAll('.dynamic-row').forEach(row => { if(!row.querySelector('.manual-sku').value.trim()) row.remove(); });
 
                 lines.forEach((line, index) => {
                     if (!line.trim()) return;
@@ -1583,13 +1728,8 @@
                     const parts = line.split(delimiter);
                     const sku = parts[0] ? parts[0].trim().replace(/^["']|["']$/g, '') : '';
                     const qty = parts[1] ? parseFloat(parts[1].trim().replace(/^["']|["']$/g, '')) : 0;
-
                     if (index === 0 && isNaN(qty)) return;
-
-                    if (sku && qty > 0) {
-                        addDynamicLineManualOrder(sku, qty);
-                        loadedCount++;
-                    }
+                    if (sku && qty > 0) { addDynamicLineManualOrder(sku, qty); loadedCount++; }
                 });
 
                 showToast(`Se agregaron ${loadedCount} artículos masivamente.`);

@@ -96,6 +96,9 @@ async def record_stock_movement(conn: asyncpg.Connection, sku: str, branch_id: u
     stock_payload = { "event": "stock.updated", "sku": sku.upper(), "available_quantity": float(total_qty), "timestamp": datetime.now(timezone.utc).isoformat() }
     await dispatch_event_to_channels(conn, "OUTBOUND_STOCK", stock_payload)
 
+async def queue_zpl_print_job(conn: asyncpg.Connection, queue_code: str, zpl_content: str):
+    await conn.execute("INSERT INTO print_jobs (queue_code, zpl_content, status) VALUES ($1, $2, 'PENDING')", queue_code.strip().upper(), zpl_content)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     for attempt in range(10):
@@ -110,6 +113,9 @@ async def lifespan(app: FastAPI):
                 ddl_statements = [
                     "CREATE TABLE IF NOT EXISTS system_settings (key VARCHAR(100) PRIMARY KEY, value TEXT);",
                     "CREATE TABLE IF NOT EXISTS users (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), username VARCHAR(50) UNIQUE NOT NULL, full_name VARCHAR(100) NOT NULL, password_hash TEXT NOT NULL, role VARCHAR(20) NOT NULL DEFAULT 'PREPARADOR', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(150);",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS branch_id VARCHAR(100);",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS sector_id VARCHAR(100);",
                     "CREATE TABLE IF NOT EXISTS branches (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), code VARCHAR(50) UNIQUE NOT NULL, name VARCHAR(150) NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "CREATE TABLE IF NOT EXISTS entities (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tax_id VARCHAR(50) UNIQUE NOT NULL, company_name VARCHAR(150) NOT NULL, is_customer BOOLEAN DEFAULT TRUE, is_supplier BOOLEAN DEFAULT FALSE, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "CREATE TABLE IF NOT EXISTS entity_addresses (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), entity_id UUID REFERENCES entities(id) ON DELETE CASCADE, address_label VARCHAR(100) NOT NULL, full_address TEXT NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
@@ -137,7 +143,7 @@ async def lifespan(app: FastAPI):
                     "ALTER TABLE documents ADD CONSTRAINT documents_customer_address_id_fkey FOREIGN KEY (customer_address_id) REFERENCES entity_addresses(id) ON DELETE SET NULL;",
                     "CREATE TABLE IF NOT EXISTS document_lines (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), document_id UUID REFERENCES documents(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, quantity_requested NUMERIC NOT NULL, quantity_picked NUMERIC DEFAULT 0);",
                     "CREATE TABLE IF NOT EXISTS audit_logs (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), username VARCHAR(50) NOT NULL, action VARCHAR(50) NOT NULL, details TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
-                    "CREATE TABLE IF NOT EXISTS item_print_jobs (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), job_code VARCHAR(50) UNIQUE NOT NULL, zpl_content TEXT NOT NULL, label_printed BOOLEAN DEFAULT FALSE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
+                    "CREATE TABLE IF NOT EXISTS print_jobs (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), queue_code VARCHAR(50) NOT NULL, zpl_content TEXT NOT NULL, status VARCHAR(20) DEFAULT 'PENDING', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "CREATE TABLE IF NOT EXISTS stock_inventory (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), branch_id UUID REFERENCES branches(id) ON DELETE CASCADE, sector_id UUID REFERENCES sectors(id) ON DELETE CASCADE, location_id UUID REFERENCES locations(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, quantity NUMERIC DEFAULT 0, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_loc_sku ON stock_inventory (branch_id, sector_id, location_id, sku) WHERE location_id IS NOT NULL;",
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_noloc_sku ON stock_inventory (branch_id, sector_id, sku) WHERE location_id IS NULL;",
@@ -159,7 +165,8 @@ async def lifespan(app: FastAPI):
                     "INSERT INTO system_settings (key, value) VALUES ('app_name', 'Tracker360') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('zpl_order_width', '100') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('zpl_order_height', '150') ON CONFLICT (key) DO NOTHING;",
-                    "INSERT INTO system_settings (key, value) VALUES ('zpl_order_template', '^XA^FO50,50^A0N,40,40^FDPEDIDO: {order_number}^FS^FO50,110^A0N,30,30^FDCLIENTE: {client_name}^FS^XZ') ON CONFLICT (key) DO NOTHING;"
+                    "INSERT INTO system_settings (key, value) VALUES ('zpl_order_template', '^XA^FO50,50^A0N,40,40^FDPEDIDO: {order_number}^FS^FO50,110^A0N,30,30^FDCLIENTE: {client_name}^FS^FO50,170^A0N,25,25^FDDIR: {delivery_address}^FS^FO50,230^BY3^BCN,100,Y,N,N^FD{order_number}^FS^XZ') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('zpl_item_template', '^XA^FO50,30^A0N,30,30^FD{description}^FS^FO50,70^A0N,25,25^FDSKU: {sku}^FS^FO50,110^BY2^BCN,80,Y,N,N^FD{sku}^FS^XZ') ON CONFLICT (key) DO NOTHING;"
                 ]
 
                 for stmt in ddl_statements:
@@ -274,7 +281,15 @@ class SalesOrderCreateInput(BaseModel):
 
 class SettingsUpdate(BaseModel): app_name: Optional[str] = None; primary_color: Optional[str] = None; company_cuit: Optional[str] = None; zebra_ip: Optional[str] = None; allow_multiproduct_locations: Optional[str] = None; require_mobile_reception: Optional[str] = None; enable_item_dimensions: Optional[str] = None; zpl_item_width: Optional[str] = None; zpl_item_height: Optional[str] = None; zpl_item_template: Optional[str] = None; zpl_order_width: Optional[str] = None; zpl_order_height: Optional[str] = None; zpl_order_template: Optional[str] = None; tracker360_api_key: Optional[str] = None
 class IntegrationChannelCreate(BaseModel): name: str; channel_type: str; target_url: str; api_key: Optional[str] = None
-class BatchItemPrintInput(BaseModel): sku: str; quantity: int
+
+class BatchItemPrintLine(BaseModel):
+    sku: str
+    quantity: int
+
+class BatchItemPrintInput(BaseModel):
+    queue_code: str
+    items: List[BatchItemPrintLine]
+
 class BranchCreate(BaseModel): code: str; name: str
 class BranchUpdate(BaseModel): code: Optional[str] = None; name: Optional[str] = None; is_active: Optional[bool] = None
 class SectorCreate(BaseModel): name: str; print_queue_code: str; uses_locations: bool; branch_id: Optional[str] = None
@@ -347,325 +362,168 @@ async def login(request: Request, response: Response, credentials: LoginRequest,
 @app.post("/api/auth/logout")
 async def logout(response: Response): response.delete_cookie("access_token"); return {"message": "Éxito"}
 
-# === MÚLTIPLES CANALES DE INTEGRACIÓN ===
-@app.get("/api/admin/integrations")
-async def list_integration_channels(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    return [dict(r) for r in await conn.fetch("SELECT id, name, channel_type, target_url, api_key, is_active, created_at FROM integration_channels ORDER BY name ASC")]
+# === GESTIÓN DE USUARIOS ===
+@app.get("/api/admin/users")
+async def list_users(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    return [dict(u) for u in await conn.fetch("SELECT u.id, u.username, u.full_name, u.role, u.is_active, u.email, u.branch_id, u.sector_id, b.name as branch_name, s.name as sector_name FROM users u LEFT JOIN branches b ON u.branch_id = b.id::text LEFT JOIN sectors s ON u.sector_id = s.id::text ORDER BY u.created_at DESC")]
 
-@app.post("/api/admin/integrations")
-async def create_integration_channel(data: IntegrationChannelCreate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    await conn.execute("INSERT INTO integration_channels (name, channel_type, target_url, api_key) VALUES ($1, $2, $3, $4)", data.name.strip(), data.channel_type.strip(), data.target_url.strip(), data.api_key.strip() if data.api_key else None)
-    return {"status": "success", "message": "Canal de integración configurado."}
+@app.post("/api/admin/users")
+async def create_or_update_user(data: UserCreate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    await conn.execute("INSERT INTO users (username, full_name, password_hash, role, email, branch_id, sector_id) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (username) DO UPDATE SET full_name = EXCLUDED.full_name, password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, email = EXCLUDED.email, branch_id = EXCLUDED.branch_id, sector_id = EXCLUDED.sector_id, is_active = TRUE", data.username.strip().lower(), data.full_name.strip(), get_password_hash(data.password), data.role, data.email, data.branch_id, data.sector_id)
+    return {"status": "success"}
 
-@app.delete("/api/admin/integrations/{channel_id}")
-async def delete_integration_channel(channel_id: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    await conn.execute("DELETE FROM integration_channels WHERE id = $1", uuid.UUID(channel_id))
-    return {"status": "success", "message": "Canal eliminado."}
+@app.put("/api/admin/users/{username}")
+async def update_user(username: str, data: UserUpdate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    clean_user = username.strip().lower()
+    user = await conn.fetchrow("SELECT id FROM users WHERE username = $1", clean_user)
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado.")
 
-# === INGESTA EXTERNA IDEMPOTENTE ===
-@app.post("/api/v1/external/orders")
-async def create_external_order(data: OrderCreateInput, authenticated: bool = Depends(verify_system_api_key), conn: asyncpg.Connection = Depends(get_db_connection)):
-    if not data.lines or len(data.lines) == 0:
-        raise HTTPException(status_code=400, detail="El pedido debe contener al menos un artículo en 'lines'.")
+    updates = []
+    params = []
+    idx = 1
 
-    clean_doc = data.document_number.strip().upper()
+    if data.full_name is not None:
+        updates.append(f"full_name = ${idx}")
+        params.append(data.full_name.strip())
+        idx += 1
+    if data.role is not None:
+        updates.append(f"role = ${idx}")
+        params.append(data.role)
+        idx += 1
+    if data.email is not None:
+        updates.append(f"email = ${idx}")
+        params.append(data.email.strip() if data.email else None)
+        idx += 1
+    if data.branch_id is not None:
+        updates.append(f"branch_id = ${idx}")
+        params.append(data.branch_id if data.branch_id else None)
+        idx += 1
+    if data.sector_id is not None:
+        updates.append(f"sector_id = ${idx}")
+        params.append(data.sector_id if data.sector_id else None)
+        idx += 1
+    if data.is_active is not None:
+        updates.append(f"is_active = ${idx}")
+        params.append(data.is_active)
+        idx += 1
+    if data.password and data.password.strip():
+        updates.append(f"password_hash = ${idx}")
+        params.append(get_password_hash(data.password.strip()))
+        idx += 1
 
-    async with conn.transaction():
-        existing_doc = await conn.fetchval("SELECT id FROM documents WHERE UPPER(document_number) = $1", clean_doc)
-        if existing_doc:
-            raise HTTPException(status_code=400, detail=f"El pedido {clean_doc} ya fue registrado previamente en el depósito.")
+    if updates:
+        query = f"UPDATE users SET {', '.join(updates)} WHERE username = ${idx}"
+        params.append(clean_user)
+        await conn.execute(query, *params)
+        await log_action(conn, admin.get("username", "admin"), "USER_UPDATE", f"Actualizó usuario {clean_user}")
 
-        customer = await conn.fetchrow("SELECT id FROM entities WHERE tax_id = $1", data.customer_tax_id.strip())
-        if not customer:
-            cust_id = await conn.fetchval("INSERT INTO entities (tax_id, company_name, is_customer) VALUES ($1, $2, TRUE) RETURNING id", data.customer_tax_id.strip(), f"Cliente {data.customer_tax_id.strip()}")
-        else:
-            cust_id = customer["id"]
+    return {"status": "success", "message": "Usuario actualizado correctamente."}
 
-        addr_id = await conn.fetchval("SELECT id FROM entity_addresses WHERE entity_id = $1 AND address_label = $2", cust_id, data.address_label.strip())
-        if not addr_id:
-            addr_id = await conn.fetchval("INSERT INTO entity_addresses (entity_id, address_label, full_address) VALUES ($1, $2, $3) RETURNING id", cust_id, data.address_label.strip(), data.address_label.strip())
-
-        doc_id = await conn.fetchval("INSERT INTO documents (document_number, document_type, channel_origin, customer_id, customer_address_id, status) VALUES ($1, $2, $3, $4, $5, 'PENDING') RETURNING id", clean_doc, data.document_type, data.channel_origin.strip().upper(), cust_id, addr_id)
-
-        for line in data.lines:
-            await conn.execute("INSERT INTO document_lines (document_id, sku, quantity_requested) VALUES ($1, $2, $3)", doc_id, line.sku.strip().upper(), line.quantity)
-
-        await log_action(conn, "SYSTEM_API", "EXTERNAL_ORDER_IMPORT", f"Ingresó pedido {clean_doc} desde canal {data.channel_origin.upper()}")
-        return {"status": "success", "message": f"Pedido {clean_doc} ingresado al circuito de preparación."}
-
-@app.get("/api/v1/external/stock/{sku}")
-async def get_external_stock_balance(sku: str, authenticated: bool = Depends(verify_system_api_key), conn: asyncpg.Connection = Depends(get_db_connection)):
-    total = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE UPPER(sku) = $1", sku.strip().upper())
-    return {"sku": sku.strip().upper(), "available_quantity": float(total)}
-
-# === GESTIÓN DE PEDIDOS MANUALES Y DOCUMENTOS DE SALIDA ===
-@app.get("/api/admin/sales-orders/next-number")
-async def get_next_order_number(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    max_num = await conn.fetchval("SELECT COALESCE(MAX(CASE WHEN document_number ~ '^[0-9]{1,6}$' THEN document_number::integer ELSE 0 END), 0) FROM documents")
-    return {"next_number": f"{max_num + 1:06d}"}
-
-@app.post("/api/admin/sales-orders")
-async def create_sales_order(data: SalesOrderCreateInput, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    try:
-        if not data.lines or len(data.lines) == 0:
-            raise HTTPException(status_code=400, detail="El pedido debe contener al menos un artículo.")
-
-        cuit_clean = (data.customer_tax_id or data.customer_cuit or data.cuit_dni or "").strip()
-        if not cuit_clean:
-            raise HTTPException(status_code=400, detail="El CUIT/DNI del cliente es obligatorio.")
-
-        clean_doc = data.document_number.strip().upper() if data.document_number and data.document_number.strip() else None
-        if not clean_doc:
-            max_num = await conn.fetchval("SELECT COALESCE(MAX(CASE WHEN document_number ~ '^[0-9]{1,6}$' THEN document_number::integer ELSE 0 END), 0) FROM documents")
-            clean_doc = f"{max_num + 1:06d}"
-
-        async with conn.transaction():
-            existing_doc = await conn.fetchval("SELECT id FROM documents WHERE UPPER(TRIM(document_number)) = $1", clean_doc)
-            if existing_doc:
-                raise HTTPException(status_code=400, detail=f"El pedido {clean_doc} ya existe en el sistema.")
-
-            customer = await conn.fetchrow("SELECT id FROM entities WHERE tax_id = $1", cuit_clean)
-            c_name = data.customer_name.strip() if data.customer_name and data.customer_name.strip() else f"Cliente {cuit_clean}"
-            if not customer:
-                cust_id = await conn.fetchval(
-                    "INSERT INTO entities (tax_id, company_name, is_customer) VALUES ($1, $2, TRUE) RETURNING id",
-                    cuit_clean, c_name
-                )
-            else:
-                cust_id = customer["id"]
-
-            addr_label = data.address_label.strip() if data.address_label and data.address_label.strip() else "Principal"
-            addr_id = await conn.fetchval("SELECT id FROM entity_addresses WHERE entity_id = $1 AND address_label = $2", cust_id, addr_label)
-            if not addr_id:
-                addr_id = await conn.fetchval(
-                    "INSERT INTO entity_addresses (entity_id, address_label, full_address, is_default) VALUES ($1, $2, $3, TRUE) RETURNING id",
-                    cust_id, addr_label, addr_label
-                )
-
-            doc_id = await conn.fetchval(
-                "INSERT INTO documents (document_number, document_type, channel_origin, customer_id, customer_address_id, status) VALUES ($1, 'PICKING', 'MANUAL', $2, $3, 'PENDING') RETURNING id",
-                clean_doc, cust_id, addr_id
-            )
-
-            for line in data.lines:
-                sku_clean = line.sku.strip().upper()
-                await conn.execute(
-                    "INSERT INTO document_lines (document_id, sku, quantity_requested) VALUES ($1, $2, $3::numeric)",
-                    doc_id, sku_clean, Decimal(str(line.quantity))
-                )
-
-            await log_action(conn, admin.get("username", "admin"), "SALES_ORDER_CREATE", f"Creó pedido manual {clean_doc}")
-            return {"status": "success", "message": f"Pedido manual {clean_doc} creado exitosamente.", "document_number": clean_doc}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Error al guardar el pedido: {str(e)}")
-
-@app.get("/api/admin/documents")
-async def list_admin_documents(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+# === AGENTE DE IMPRESIÓN REST / API ===
+@app.get("/api/print-agent/queues")
+async def list_print_queues(conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
-        SELECT 
-            d.id::text as id, 
-            d.document_number, 
-            d.status, 
-            d.channel_origin, 
-            d.created_at,
-            COALESCE(c.company_name, 'Sin Cliente') as company_name,
-            COALESCE(c.company_name, 'Sin Cliente') as customer_name,
-            COALESCE(c.company_name, 'Sin Cliente') as client_name,
-            COALESCE(
-                ROUND(
-                    CAST((SUM(dl.quantity_picked) / NULLIF(SUM(dl.quantity_requested), 0)) * 100 AS numeric),
-                    1
-                )::float,
-                0
-            ) as progress_pct
+        SELECT s.print_queue_code as queue_code, s.name as sector_name, b.name as branch_name 
+        FROM sectors s 
+        LEFT JOIN branches b ON s.branch_id = b.id 
+        ORDER BY b.name, s.name ASC
+    """)
+    return [dict(r) for r in rows]
+
+@app.get("/api/print-agent/jobs")
+async def get_print_jobs_for_agent(queue_code: str, authenticated: bool = Depends(verify_system_api_key), conn: asyncpg.Connection = Depends(get_db_connection)):
+    rows = await conn.fetch("""
+        SELECT id::text as id, zpl_content, created_at 
+        FROM print_jobs 
+        WHERE UPPER(queue_code) = $1 AND status = 'PENDING' 
+        ORDER BY created_at ASC LIMIT 10
+    """, queue_code.strip().upper())
+    return [dict(r) for r in rows]
+
+@app.post("/api/print-agent/jobs/{job_id}/ack")
+async def acknowledge_print_job(job_id: str, authenticated: bool = Depends(verify_system_api_key), conn: asyncpg.Connection = Depends(get_db_connection)):
+    await conn.execute("UPDATE print_jobs SET status = 'PRINTED' WHERE id = $1", uuid.UUID(job_id))
+    return {"status": "success"}
+
+# === GESTIÓN DE ETIQUETAS / ZPL DESDE FRONTEND ===
+@app.post("/api/admin/sales-orders/{document_number}/print-label")
+async def print_order_label_again(document_number: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    doc = await conn.fetchrow("""
+        SELECT d.id, d.document_number, d.status, COALESCE(c.company_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, 'A coordinar') as delivery_address
         FROM documents d
         LEFT JOIN entities c ON d.customer_id = c.id
-        LEFT JOIN document_lines dl ON d.id = dl.document_id
-        GROUP BY d.id, d.document_number, d.status, d.channel_origin, d.created_at, c.company_name
-        ORDER BY d.created_at DESC
-    """)
-    return [dict(r) for r in rows]
-
-# === DASHBOARD Y SETTINGS ===
-@app.get("/api/admin/dashboard")
-async def get_dashboard_summary(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    pending_orders = [dict(r) for r in await conn.fetch("SELECT d.document_number, d.status, COALESCE(c.company_name, 'Sin cliente') as company_name FROM documents d LEFT JOIN entities c ON d.customer_id = c.id WHERE d.status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED') ORDER BY d.created_at DESC LIMIT 5")]
-    active_transfers = [dict(r) for r in await conn.fetch("SELECT t.transfer_number, t.status, COALESCE(ob.name, 'N/A') as origin_branch, COALESCE(db.name, 'N/A') as destination_branch FROM transfer_orders t LEFT JOIN branches ob ON t.origin_branch_id = ob.id LEFT JOIN branches db ON t.destination_branch_id = db.id ORDER BY t.created_at DESC LIMIT 5")]
-    latest_logs = [dict(r) for r in await conn.fetch("SELECT username, action, details, created_at FROM audit_logs ORDER BY created_at DESC LIMIT 5")]
-    return { "pending_orders": pending_orders, "active_transfers": active_transfers, "latest_logs": latest_logs }
-
-@app.get("/api/settings")
-async def get_settings(conn: asyncpg.Connection = Depends(get_db_connection)): return {row['key']: row['value'] for row in await conn.fetch("SELECT key, value FROM system_settings")}
-
-@app.put("/api/admin/settings")
-async def update_settings(data: SettingsUpdate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    async with conn.transaction():
-        for key, val in data.model_dump(exclude_unset=True).items():
-            if val is not None: await conn.execute("INSERT INTO system_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", key, str(val))
-    return {"status": "success", "message": "Configuración guardada correctamente."}
-
-@app.post("/api/admin/settings/generate-key")
-async def generate_new_system_api_key(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    new_key = f"trk_live_{secrets.token_hex(24)}"
-    await conn.execute("INSERT INTO system_settings (key, value) VALUES ('tracker360_api_key', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", new_key)
-    return {"status": "success", "new_key": new_key}
-
-# === GESTIÓN DE ENTIDADES Y DIRECCIONES ===
-@app.get("/api/admin/entities")
-async def list_entities(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)): 
-    rows = await conn.fetch("""
-        SELECT 
-            e.id::text as id, 
-            e.tax_id, 
-            e.company_name, 
-            e.is_customer, 
-            e.is_supplier, 
-            e.is_active, 
-            COALESCE(
-                json_agg(
-                    json_build_object(
-                        'id', a.id::text, 
-                        'address_label', a.address_label, 
-                        'street', COALESCE(a.street, ''),
-                        'number', COALESCE(a.number, ''),
-                        'zip_code', COALESCE(a.zip_code, ''),
-                        'city_neighborhood', COALESCE(a.city_neighborhood, ''),
-                        'full_address', a.full_address,
-                        'is_default', COALESCE(a.is_default, FALSE),
-                        'label', a.address_label,
-                        'address', a.full_address
-                    )
-                ) FILTER (WHERE a.id IS NOT NULL), '[]'::json
-            ) as addresses 
-        FROM entities e 
-        LEFT JOIN entity_addresses a ON e.id = a.entity_id 
-        GROUP BY e.id 
-        ORDER BY e.company_name ASC
-    """)
-    result = []
-    for r in rows:
-        d = dict(r)
-        if isinstance(d['addresses'], str):
-            try: d['addresses'] = json.loads(d['addresses'])
-            except Exception: d['addresses'] = []
-        result.append(d)
-    return result
-
-@app.post("/api/admin/entities")
-async def create_entity(data: EntityCreate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    async with conn.transaction():
-        ent_id = await conn.fetchval("INSERT INTO entities (tax_id, company_name, is_customer, is_supplier) VALUES ($1, $2, $3, $4) RETURNING id", data.tax_id.strip(), data.company_name.strip(), data.is_customer, data.is_supplier)
-        if data.initial_address:
-            fa = data.initial_address.full_address if data.initial_address.full_address and data.initial_address.full_address.strip() else build_full_address(data.initial_address.street, data.initial_address.number, data.initial_address.zip_code, data.initial_address.city_neighborhood, data.initial_address.address_label)
-            await conn.execute("""
-                INSERT INTO entity_addresses (entity_id, address_label, street, number, zip_code, city_neighborhood, full_address, is_default) 
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            """, ent_id, data.initial_address.address_label.strip(),
-                data.initial_address.street.strip() if data.initial_address.street else None,
-                data.initial_address.number.strip() if data.initial_address.number else None,
-                data.initial_address.zip_code.strip() if data.initial_address.zip_code else None,
-                data.initial_address.city_neighborhood.strip() if data.initial_address.city_neighborhood else None,
-                fa, True)
-    return {"status": "success", "id": str(ent_id)}
-
-@app.put("/api/admin/entities/{entity_id}")
-async def update_entity(entity_id: str, data: EntityUpdate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    await conn.execute("""
-        UPDATE entities 
-        SET company_name = COALESCE($1, company_name), 
-            tax_id = COALESCE($2, tax_id), 
-            is_customer = COALESCE($3, is_customer), 
-            is_supplier = COALESCE($4, is_supplier), 
-            is_active = COALESCE($5, is_active)
-        WHERE id = $6
-    """, data.company_name, data.tax_id, data.is_customer, data.is_supplier, data.is_active, uuid.UUID(entity_id))
-    return {"status": "success", "message": "Entidad actualizada."}
-
-@app.get("/api/admin/entities/{entity_id}/addresses")
-@app.get("/api/admin/entities/addresses")
-@app.get("/api/admin/addresses")
-async def get_entity_addresses(entity_id: Optional[str] = None, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    query = """
-        SELECT id::text as id, entity_id::text as entity_id, address_label, 
-               COALESCE(street, '') as street, COALESCE(number, '') as number,
-               COALESCE(zip_code, '') as zip_code, COALESCE(city_neighborhood, '') as city_neighborhood,
-               full_address, COALESCE(is_default, FALSE) as is_default,
-               address_label as label, full_address as address 
-        FROM entity_addresses 
-    """
-    if entity_id:
-        rows = await conn.fetch(query + " WHERE entity_id = $1 ORDER BY is_default DESC, created_at ASC", uuid.UUID(entity_id))
-    else:
-        rows = await conn.fetch(query + " ORDER BY is_default DESC, created_at ASC")
-    return [dict(r) for r in rows]
-
-@app.post("/api/admin/entities/{entity_id}/addresses")
-@app.post("/api/admin/entities/addresses")
-@app.post("/api/admin/addresses")
-async def add_entity_address(data: EntityAddressInput, entity_id: Optional[str] = None, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    target_id = entity_id or data.entity_id
-    if not target_id:
-        raise HTTPException(status_code=400, detail="ID de entidad no provisto.")
+        LEFT JOIN entity_addresses a ON d.customer_address_id = a.id
+        WHERE UPPER(d.document_number) = $1
+    """, document_number.strip().upper())
     
-    full_addr = data.full_address if data.full_address and data.full_address.strip() else build_full_address(data.street, data.number, data.zip_code, data.city_neighborhood, data.address_label)
-    
+    if not doc: raise HTTPException(404, "Pedido no encontrado.")
+    if doc["status"] not in ("COMPLETED", "DISPATCHED"):
+        raise HTTPException(400, "El pedido aún no está totalmente preparado.")
+
+    template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_order_template'")
+    if not template:
+        template = "^XA^FO50,50^A0N,40,40^FDPEDIDO: {order_number}^FS^FO50,110^A0N,30,30^FDCLIENTE: {client_name}^FS^FO50,170^A0N,25,25^FDDIR: {delivery_address}^FS^FO50,230^BY3^BCN,100,Y,N,N^FD{order_number}^FS^XZ"
+
+    zpl = template.replace("{order_number}", doc["document_number"])\
+                  .replace("{client_name}", doc["client_name"])\
+                  .replace("{delivery_address}", doc["delivery_address"])
+
+    default_queue = await conn.fetchval("SELECT print_queue_code FROM sectors WHERE uses_locations = FALSE LIMIT 1") or "PRINT-SEC-01"
+    await queue_zpl_print_job(conn, default_queue, zpl)
+    return {"status": "success", "message": f"Etiqueta enviada a la cola {default_queue}."}
+
+@app.post("/api/admin/items/batch-print-labels")
+async def batch_print_item_labels(data: BatchItemPrintInput, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    if not data.items or len(data.items) == 0:
+        raise HTTPException(400, "Debe agregar al menos un artículo para imprimir.")
+
+    template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_item_template'")
+    if not template:
+        template = "^XA^FO50,30^A0N,30,30^FD{description}^FS^FO50,70^A0N,25,25^FDSKU: {sku}^FS^FO50,110^BY2^BCN,80,Y,N,N^FD{sku}^FS^XZ"
+
+    total_queued = 0
     async with conn.transaction():
-        if data.is_default:
-            await conn.execute("UPDATE entity_addresses SET is_default = FALSE WHERE entity_id = $1", uuid.UUID(target_id))
-        
-        addr_id = await conn.fetchval(
-            """INSERT INTO entity_addresses (entity_id, address_label, street, number, zip_code, city_neighborhood, full_address, is_default) 
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id""",
-            uuid.UUID(target_id), data.address_label.strip(), 
-            data.street.strip() if data.street else None,
-            data.number.strip() if data.number else None,
-            data.zip_code.strip() if data.zip_code else None,
-            data.city_neighborhood.strip() if data.city_neighborhood else None,
-            full_addr, data.is_default or False
-        )
-    return {"status": "success", "id": str(addr_id)}
+        for line in data.items:
+            sku_clean = line.sku.strip().upper()
+            qty = max(1, line.quantity)
+            item = await conn.fetchrow("SELECT sku, description FROM items WHERE UPPER(sku) = $1", sku_clean)
+            desc = item["description"] if item else f"Art. {sku_clean}"
 
-@app.put("/api/admin/addresses/{address_id}")
-@app.put("/api/admin/entities/addresses/{address_id}")
-@app.put("/api/admin/entities/{entity_id}/addresses/{address_id}")
-async def update_entity_address(address_id: str, data: EntityAddressUpdate, entity_id: Optional[str] = None, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+            zpl = template.replace("{sku}", sku_clean).replace("{description}", desc)
+            for _ in range(qty):
+                await queue_zpl_print_job(conn, data.queue_code, zpl)
+                total_queued += 1
+
+    return {"status": "success", "message": f"Se enviaron {total_queued} etiquetas a la cola {data.queue_code}."}
+
+@app.post("/api/admin/purchase-remitos/{remito_id}/print-labels")
+async def print_remito_item_labels(remito_id: str, queue_code: str = "PRINT-SEC-01", admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    lines = await conn.fetch("""
+        SELECT prl.sku, prl.quantity_received, COALESCE(i.description, prl.sku) as description
+        FROM purchase_remito_lines prl
+        LEFT JOIN items i ON UPPER(prl.sku) = UPPER(i.sku)
+        WHERE prl.purchase_remito_id = $1 AND prl.quantity_received > 0
+    """, uuid.UUID(remito_id))
+
+    if not lines or len(lines) == 0:
+        raise HTTPException(400, "El remito no tiene ítems controlados/recibidos.")
+
+    template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_item_template'")
+    if not template:
+        template = "^XA^FO50,30^A0N,30,30^FD{description}^FS^FO50,70^A0N,25,25^FDSKU: {sku}^FS^FO50,110^BY2^BCN,80,Y,N,N^FD{sku}^FS^XZ"
+
+    total_queued = 0
     async with conn.transaction():
-        curr = await conn.fetchrow("SELECT entity_id, address_label, street, number, zip_code, city_neighborhood, full_address, is_default FROM entity_addresses WHERE id = $1", uuid.UUID(address_id))
-        if not curr:
-            raise HTTPException(status_code=404, detail="Dirección no encontrada.")
-        
-        target_entity_id = curr["entity_id"]
-        new_label = data.address_label.strip() if data.address_label is not None else curr["address_label"]
-        new_street = data.street.strip() if data.street is not None else curr["street"]
-        new_number = data.number.strip() if data.number is not None else curr["number"]
-        new_zip = data.zip_code.strip() if data.zip_code is not None else curr["zip_code"]
-        new_city = data.city_neighborhood.strip() if data.city_neighborhood is not None else curr["city_neighborhood"]
-        
-        if data.full_address is not None and data.full_address.strip():
-            new_full = data.full_address.strip()
-        else:
-            new_full = build_full_address(new_street, new_number, new_zip, new_city, new_label)
-            
-        new_default = data.is_default if data.is_default is not None else curr["is_default"]
-        
-        if new_default:
-            await conn.execute("UPDATE entity_addresses SET is_default = FALSE WHERE entity_id = $1", target_entity_id)
+        for line in lines:
+            sku_clean = line["sku"].strip().upper()
+            qty = int(line["quantity_received"])
+            zpl = template.replace("{sku}", sku_clean).replace("{description}", line["description"])
+            for _ in range(qty):
+                await queue_zpl_print_job(conn, queue_code, zpl)
+                total_queued += 1
 
-        await conn.execute("""
-            UPDATE entity_addresses 
-            SET address_label = $1, street = $2, number = $3, zip_code = $4, city_neighborhood = $5, full_address = $6, is_default = $7
-            WHERE id = $8
-        """, new_label, new_street, new_number, new_zip, new_city, new_full, new_default, uuid.UUID(address_id))
-    return {"status": "success", "message": "Dirección actualizada."}
-
-@app.delete("/api/admin/addresses/{address_id}")
-@app.delete("/api/admin/entities/addresses/{address_id}")
-@app.delete("/api/admin/entities/{entity_id}/addresses/{address_id}")
-async def delete_entity_address(address_id: str, entity_id: Optional[str] = None, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    await conn.execute("DELETE FROM entity_addresses WHERE id = $1", uuid.UUID(address_id))
-    return {"status": "success", "message": "Dirección eliminada correctamente."}
+    return {"status": "success", "message": f"Enviadas {total_queued} etiquetas de artículos a la cola {queue_code}."}
 
 # === OTROS MÓDULOS DE ADMINISTRACIÓN ===
 @app.get("/api/admin/branches")
@@ -905,6 +763,14 @@ async def pack_order_and_dispatch(document_number: str, data: PackOrderInput, us
         await conn.execute("UPDATE documents SET status = 'DISPATCHED' WHERE id = $1", doc["id"])
         await log_action(conn, user.get("username"), "PACKING_DISPATCH", f"Empacó y despachó {document_number} ({data.boxes} bultos)")
 
+        template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_order_template'")
+        if template:
+            zpl = template.replace("{order_number}", doc["document_number"])\
+                          .replace("{client_name}", doc["client_name"])\
+                          .replace("{delivery_address}", doc["delivery_address"])
+            default_queue = await conn.fetchval("SELECT print_queue_code FROM sectors WHERE uses_locations = FALSE LIMIT 1") or "PRINT-SEC-01"
+            await queue_zpl_print_job(conn, default_queue, zpl)
+
         dispatch_payload = {
             "event": "order.dispatched",
             "order_number": doc["document_number"],
@@ -917,7 +783,7 @@ async def pack_order_and_dispatch(document_number: str, data: PackOrderInput, us
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
         await dispatch_event_to_channels(conn, "OUTBOUND_DESPACHO", dispatch_payload)
-        return {"status": "success", "message": "Pedido despachado exitosamente."}
+        return {"status": "success", "message": "Pedido despachado e impreso exitosamente."}
 
 # === RECEPCIÓN (PREPARADOR) ===
 @app.get("/api/reception/remitos")
@@ -1058,14 +924,12 @@ async def scan_transfer_item(transfer_number: str, data: MobileTransferScanInput
 
         return {"status": "success", "message": f"Transferido {data.quantity} un de {sku_clean}", "transfer_completed": pending == 0}
 
-# === USUARIOS Y LOGS ===
-@app.get("/api/admin/users")
-async def list_users(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)): return [dict(u) for u in await conn.fetch("SELECT u.id, u.username, u.full_name, u.role, u.is_active, u.email, u.branch_id, u.sector_id, b.name as branch_name, s.name as sector_name FROM users u LEFT JOIN branches b ON u.branch_id = b.id::text LEFT JOIN sectors s ON u.sector_id = s.id::text ORDER BY u.created_at DESC")]
-@app.post("/api/admin/users")
-async def create_or_update_user(data: UserCreate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)): await conn.execute("INSERT INTO users (username, full_name, password_hash, role, email, branch_id, sector_id) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (username) DO UPDATE SET full_name = EXCLUDED.full_name, password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, email = EXCLUDED.email, branch_id = EXCLUDED.branch_id, sector_id = EXCLUDED.sector_id, is_active = TRUE", data.username.strip().lower(), data.full_name.strip(), get_password_hash(data.password), data.role, data.email, data.branch_id, data.sector_id); return {"status": "success"}
-
+# === AUDITORÍA ===
 @app.get("/api/admin/logs")
 async def list_logs(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)): return [dict(l) for l in await conn.fetch("SELECT username, action, details, created_at FROM audit_logs ORDER BY created_at DESC LIMIT 100")]
 
 # === ARCHIVOS ESTÁTICOS AL FINAL ABSOLUTO ===
+os.makedirs("downloads", exist_ok=True)
+os.makedirs("frontend", exist_ok=True)
+app.mount("/downloads", StaticFiles(directory="downloads"), name="downloads")
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
