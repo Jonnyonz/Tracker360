@@ -36,14 +36,17 @@ class ItemLocationInput(BaseModel):
 @router.get("/api/admin/items")
 async def list_items(sku: str = "", description: str = "", page: int = 1, limit: int = 50, sort_by: str = "sku", sort_order: str = "ASC", admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     offset = (page - 1) * limit
-    allowed_cols = {"sku": "i.sku", "description": "i.description", "category": "i.category"}
+    allowed_cols = {"sku": "i.sku", "description": "i.description", "category": "i.category", "total_stock": "total_stock"}
     col = allowed_cols.get(sort_by, "i.sku")
     order = "DESC" if sort_order.upper() == "DESC" else "ASC"
     
     total_count = await conn.fetchval("SELECT COUNT(*) FROM items WHERE sku ILIKE $1 AND description ILIKE $2", f"%{sku}%", f"%{description}%")
+    
+    # Inyección de Subconsulta (COALESCE con SUM) para Stock Total en tiempo real
     q = f"""
         SELECT i.sku, i.description, i.category, i.length, i.width, i.height, i.weight, i.volume, 
-               COALESCE((SELECT string_agg(l.location_code, ', ') FROM item_locations il JOIN locations l ON il.location_id = l.id WHERE il.item_sku = i.sku), 'Sin asignación') as locations_summary 
+               COALESCE((SELECT string_agg(l.location_code, ', ') FROM item_locations il JOIN locations l ON il.location_id = l.id WHERE il.item_sku = i.sku), 'Sin asignación') as locations_summary,
+               COALESCE((SELECT SUM(si.quantity) FROM stock_inventory si WHERE si.sku = i.sku), 0)::float as total_stock
         FROM items i 
         WHERE i.sku ILIKE $1 AND i.description ILIKE $2 
         ORDER BY {col} {order} 
@@ -59,6 +62,22 @@ async def list_items(sku: str = "", description: str = "", page: int = 1, limit:
         "total_pages": total_pages
     }
 
+# === NUEVO ENDPOINT: DESGLOSE DE STOCK POR SKU ===
+@router.get("/api/admin/items/{sku}/stock-breakdown")
+async def get_item_stock_breakdown(sku: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    rows = await conn.fetch("""
+        SELECT b.name as branch_name, sec.name as sector_name, 
+               COALESCE(l.location_code, 'Ubicación General') as location_code, 
+               si.quantity::float as quantity
+        FROM stock_inventory si
+        LEFT JOIN branches b ON si.branch_id = b.id
+        LEFT JOIN sectors sec ON si.sector_id = sec.id
+        LEFT JOIN locations l ON si.location_id = l.id
+        WHERE UPPER(si.sku) = $1 AND si.quantity > 0
+        ORDER BY b.name ASC, sec.name ASC, l.location_code ASC
+    """, sku.strip().upper())
+    return [dict(r) for r in rows]
+
 @router.put("/api/admin/items/{sku}")
 async def update_item(sku: str, data: ItemUpdate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     calculated_vol = (data.length * data.width * data.height) / 1000000.0 if (data.length and data.width and data.height) else (data.volume or 0.0)
@@ -68,7 +87,6 @@ async def update_item(sku: str, data: ItemUpdate, admin: dict = Depends(require_
         WHERE UPPER(sku) = $8
     """, data.description, data.category, data.length, data.width, data.height, data.weight, calculated_vol, sku.upper())
     return {"status": "success", "message": "Ficha de artículo actualizada."}
-
 
 @router.get("/api/admin/items/{sku}/locations")
 async def get_item_locations(sku: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
@@ -104,6 +122,7 @@ async def import_items_csv(file: UploadFile = File(...), admin: dict = Depends(r
         for row in reader:
             sku = row.get("sku") or row.get("SKU") or row.get("codigo")
             desc = row.get("description") or row.get("descripcion") or row.get("nombre") or sku
+            cat = row.get("category") or row.get("categoria") or ""
             if sku and sku.strip():
                 await conn.execute("""
                     INSERT INTO items (sku, description, category) VALUES ($1, $2, $3)
@@ -128,7 +147,6 @@ async def import_item_locations_csv(file: UploadFile = File(...), admin: dict = 
                     await conn.execute("INSERT INTO item_locations (item_sku, location_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", sku.strip().upper(), loc["id"])
                     count += 1
     return {"status": "success", "message": f"Se asignaron {count} ubicaciones."}
-
 
 @router.post("/api/admin/items/batch-print-labels")
 async def batch_print_items_labels(req: dict, conn: asyncpg.Connection = Depends(get_db_connection)):
