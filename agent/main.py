@@ -1,5 +1,5 @@
 # Tracker360 - Agente de Impresión Local
-import sys, os, time, json, traceback, logging
+import sys, os, time, json, traceback, logging, subprocess
 import requests
 
 CONFIG_FILE = "config.json"
@@ -12,9 +12,13 @@ logging.basicConfig(
 
 def get_windows_printers():
     try:
-        import win32print
-        printers = [p[2] for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS)]
-        return printers
+        # Utilizamos PowerShell nativo para asegurar la lectura de drivers Zebra/Brother
+        cmd = 'powershell -Command "Get-Printer | Select-Object -ExpandProperty Name"'
+        result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
+        if result.returncode == 0:
+            printers = [line.strip() for line in result.stdout.split('\n') if line.strip()]
+            return printers
+        return []
     except Exception:
         return []
 
@@ -25,8 +29,7 @@ def send_zpl_to_printer(printer_name, zpl_content):
         zpl_str = str(zpl_content) if zpl_content else ""
         
         if "\n" in zpl_str:
-            zpl_str = zpl_str.replace("\n", "
-")
+            zpl_str = zpl_str.replace("\n", "")
 
         if not zpl_str.strip():
             print("   [!] Error: El contenido ZPL recibido para la impresora está vacío.")
@@ -63,7 +66,7 @@ def load_or_create_config():
             pass
 
     print("\n===================================================")
-    print("     ASISTENTE DE CONFIGURACION DE IMPRESION")
+    print("    ASISTENTE DE CONFIGURACION DE IMPRESION")
     print("===================================================")
 
     server_url = input("1. URL del Servidor [https://tracker360.mywire.org]: ").strip()
@@ -79,6 +82,8 @@ def load_or_create_config():
         print("\nImpresoras detectadas en Windows:")
         for idx, p in enumerate(printers, 1):
             print(f"   [{idx}] {p}")
+        
+        # Corrección: El input ahora está fuera del bucle for
         choice = input(f"Seleccione número (1-{len(printers)}) o nombre exacto: ").strip()
         if choice.isdigit() and 1 <= int(choice) <= len(printers):
             printer_name = printers[int(choice) - 1]

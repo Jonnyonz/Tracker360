@@ -54,18 +54,101 @@ async def list_admin_stock(admin: dict = Depends(require_admin), conn: asyncpg.C
     return [dict(r) for r in rows]
 
 @router.get("/api/admin/stock/kardex")
-async def list_admin_stock_kardex(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("""
-        SELECT sm.id::text as id, sm.sku, sm.movement_type, sm.quantity::float as quantity, 
+async def list_admin_stock_kardex(
+    sku: Optional[str] = None,
+    branch_id: Optional[str] = None,
+    sector_id: Optional[str] = None,
+    location_code: Optional[str] = None,
+    date_from: Optional[str] = None,
+    time_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    time_to: Optional[str] = None,
+    movement_type: Optional[str] = None,
+    admin: dict = Depends(require_admin), 
+    conn: asyncpg.Connection = Depends(get_db_connection)
+):
+    query = """
+        SELECT sm.id::text as id, sm.sku, COALESCE(i.description, 'Sin descripción') as description,
+               sm.movement_type, sm.quantity::float as quantity, 
                sm.reference_document, sm.username, sm.created_at,
                b.name as branch_name, sec.name as sector_name, l.location_code
         FROM stock_movements sm
+        LEFT JOIN items i ON sm.sku = i.sku
         LEFT JOIN branches b ON sm.branch_id = b.id
         LEFT JOIN sectors sec ON sm.sector_id = sec.id
         LEFT JOIN locations l ON sm.location_id = l.id
-        ORDER BY sm.created_at DESC LIMIT 100
-    """)
-    return [dict(r) for r in rows]
+        WHERE 1=1
+    """
+    params = []
+    param_idx = 1
+
+    if sku:
+        query += f" AND (sm.sku ILIKE ${param_idx} OR i.description ILIKE ${param_idx})"
+        params.append(f"%{sku.strip()}%")
+        param_idx += 1
+    
+    if branch_id:
+        try:
+            b_uuid = uuid.UUID(branch_id)
+            query += f" AND sm.branch_id = ${param_idx}"
+            params.append(b_uuid)
+            param_idx += 1
+        except ValueError:
+            pass
+            
+    if sector_id:
+        try:
+            s_uuid = uuid.UUID(sector_id)
+            query += f" AND sm.sector_id = ${param_idx}"
+            params.append(s_uuid)
+            param_idx += 1
+        except ValueError:
+            pass
+            
+    if location_code:
+        query += f" AND l.location_code ILIKE ${param_idx}"
+        params.append(f"%{location_code.strip()}%")
+        param_idx += 1
+        
+    if movement_type:
+        query += f" AND sm.movement_type = ${param_idx}"
+        params.append(movement_type)
+        param_idx += 1
+
+    # === MOTOR DE SANITIZACIÓN DE FECHAS (ESTABILIDAD BRUTAL) ===
+    if date_from:
+        t_from = time_from.strip() if time_from else "00:00"
+        if len(t_from) == 5: 
+            t_from += ":00"
+        try:
+            dt_obj = datetime.strptime(f"{date_from.strip()} {t_from}", "%Y-%m-%d %H:%M:%S")
+            query += f" AND sm.created_at >= ${param_idx}"
+            params.append(dt_obj)
+            param_idx += 1
+        except ValueError:
+            pass # Ignoramos filtros con formato corrupto para no tumbar la BBDD
+
+    if date_to:
+        t_to = time_to.strip() if time_to else "23:59"
+        if len(t_to) == 5: 
+            t_to += ":59"
+        try:
+            dt_obj = datetime.strptime(f"{date_to.strip()} {t_to}", "%Y-%m-%d %H:%M:%S")
+            query += f" AND sm.created_at <= ${param_idx}"
+            params.append(dt_obj)
+            param_idx += 1
+        except ValueError:
+            pass
+
+    query += " ORDER BY sm.created_at DESC LIMIT 500"
+    
+    try:
+        rows = await conn.fetch(query, *params)
+        return [dict(r) for r in rows]
+    except Exception as e:
+        # Envolvemos el fallo SQL para devolver un 400 controlado en lugar de un 500 que rompa el JSON
+        print(f"Error procesando Kardex: {e}")
+        raise HTTPException(status_code=400, detail="Error al procesar la consulta. Verifique los filtros aplicados.")
 
 # === PICKING & PACKING ===
 @router.get("/api/picking/orders")

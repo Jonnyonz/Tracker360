@@ -51,6 +51,15 @@ app.include_router(settings.router)
 app.include_router(printing.router)
 app.include_router(operations.router)
 
+# === ENDPOINTS EXPLICITOS DE FAVICON ===
+@app.get("/favicon.png", include_in_schema=False)
+@app.get("/favicon.ico", include_in_schema=False)
+async def get_favicon():
+    favicon_path = "frontend/favicon.png"
+    if os.path.exists(favicon_path):
+        return FileResponse(path=favicon_path, media_type="image/png")
+    raise HTTPException(status_code=404, detail="Favicon no encontrado")
+
 # === ENDPOINT DIRECTO PARA AGENTE DE IMPRESIÓN ===
 @app.get("/downloads/tracker360-agent.zip")
 @app.get("/api/download-agent")
@@ -61,13 +70,6 @@ async def download_agent_file():
             return FileResponse(path=p, filename="tracker360-agent.zip", media_type="application/zip")
     raise HTTPException(status_code=404, detail="Archivo agente no encontrado")
 
-# === ARCHIVOS ESTÁTICOS AL FINAL ABSOLUTO ===
-os.makedirs("downloads", exist_ok=True)
-os.makedirs("frontend", exist_ok=True)
-app.mount("/downloads", StaticFiles(directory="downloads"), name="downloads")
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
-
-
 @app.get("/api/admin/dashboard")
 async def get_admin_dashboard():
     return {
@@ -75,3 +77,9 @@ async def get_admin_dashboard():
         "total_items": 0,
         "pending_jobs": 0
     }
+
+# === ARCHIVOS ESTÁTICOS AL FINAL ABSOLUTO ===
+os.makedirs("downloads", exist_ok=True)
+os.makedirs("frontend", exist_ok=True)
+app.mount("/downloads", StaticFiles(directory="downloads"), name="downloads")
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+  <link rel="icon" type="image/png" href="/favicon.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title id="html-title">Centro de Comando</title>
@@ -103,6 +104,7 @@
                 <button class="tab-btn" onclick="switchView('section-items', this)">Artículos</button>
                 <button class="tab-btn" onclick="switchView('section-purchases', this)">Compras y Recepción</button>
                 <button class="tab-btn" onclick="switchView('section-inventory', this)">Inventario (Stock)</button>
+                <button class="tab-btn" onclick="switchView('section-kardex', this)">Traza de Artículos</button>
                 <button class="tab-btn" onclick="switchView('section-orders', this)">Pedidos (PDV)</button>
                 <button class="tab-btn" onclick="switchView('section-logs', this)">Auditoría</button>
                 <button class="tab-btn" onclick="switchView('section-settings', this)">Configuración</button>
@@ -473,10 +475,113 @@
 
         <!-- 7. INVENTARIO -->
         <div id="section-inventory" class="view-section">
-            <h2>Control de Inventario</h2>
-            <div class="grid-layout">
-                <div class="card" style="overflow-x:auto;"><h3>Stock Físico Consolidado</h3><table><thead><tr><th>Sucursal / Sector</th><th>Ubicación</th><th>SKU</th><th>Cantidad</th></tr></thead><tbody id="table-stock-body"></tbody></table></div>
-                <div class="card" style="overflow-x:auto;"><h3>Kardex de Movimientos</h3><table><thead><tr><th>Fecha</th><th>SKU</th><th>Operación</th><th>Cant.</th></tr></thead><tbody id="table-kardex-body"></tbody></table></div>
+            <h2>Control de Inventario Físico</h2>
+            <div class="card" style="overflow-x:auto;">
+                <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Stock Físico Consolidado</h3>
+                <table>
+                    <thead><tr><th>Sucursal / Sector</th><th>Ubicación</th><th>SKU</th><th>Cantidad</th></tr></thead>
+                    <tbody id="table-stock-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 7B. TRAZA DE ARTÍCULOS (KARDEX) -->
+        <div id="section-kardex" class="view-section">
+            <h2>Traza de Artículos</h2>
+            
+            <div class="card" style="margin-bottom:1.5rem; background:#F8FAFC; border:1px solid #E2E8F0;">
+                <h4 style="color:var(--primary-blue); margin-bottom:1rem; font-size:0.95rem; border-bottom:1px solid #CBD5E1; padding-bottom:0.5rem;">Filtros de Búsqueda</h4>
+                
+                <form id="form-kardex-filters" onsubmit="if(typeof loadKardexFiltered === 'function') loadKardexFiltered(event)">
+                    <div class="grid-layout" style="margin-bottom:0;">
+                        <!-- Columna Izquierda -->
+                        <div>
+                            <div class="form-group">
+                                <label>Artículo (SKU / Descripción)</label>
+                                <input type="text" id="kardex-filter-sku" placeholder="Buscar por SKU o nombre..." autocomplete="off">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group" style="flex:1;">
+                                    <label>Sucursal</label>
+                                    <select id="kardex-filter-branch" onchange="if(typeof onKardexBranchChange === 'function') onKardexBranchChange()">
+                                        <option value="">-- Todas --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="flex:1;">
+                                    <label>Sector</label>
+                                    <select id="kardex-filter-sector">
+                                        <option value="">-- Todos --</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Ubicación Física Específica</label>
+                                <input type="text" id="kardex-filter-location" placeholder="Ej: RACK-A-01">
+                            </div>
+                        </div>
+
+                        <!-- Columna Derecha -->
+                        <div>
+                            <div class="form-row">
+                                <div class="form-group" style="flex:1;">
+                                    <label>Fecha Desde *</label>
+                                    <input type="date" id="kardex-filter-date-from" required>
+                                </div>
+                                <div class="form-group" style="flex:1;">
+                                    <label>Fecha Hasta *</label>
+                                    <input type="date" id="kardex-filter-date-to" required>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group" style="flex:1;">
+                                    <label>Hora Desde (HH:MM)</label>
+                                    <input type="time" id="kardex-filter-time-from" value="00:00">
+                                </div>
+                                <div class="form-group" style="flex:1;">
+                                    <label>Hora Hasta (HH:MM)</label>
+                                    <input type="time" id="kardex-filter-time-to" value="23:59">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Tipo de Operación / Movimiento</label>
+                                <select id="kardex-filter-type">
+                                    <option value="">-- Todas las Operaciones --</option>
+                                    <option value="INGRESO_COMPRA">Ingreso por Compra</option>
+                                    <option value="SALIDA_VENTA">Salida por Venta / Pedido</option>
+                                    <option value="TRASPASO">Movimiento / Traspaso Interno</option>
+                                    <option value="AJUSTE">Ajuste de Inventario</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="display:flex; justify-content:flex-end; border-top:1px solid #CBD5E1; padding-top:1rem; margin-top:0.5rem;">
+                        <button type="submit" class="btn-submit" style="width:auto; padding:0.6rem 2rem; background:var(--primary-blue);">
+                            Generar Reporte de Traza
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card" style="overflow-x:auto;">
+                <table style="font-size:0.85rem;">
+                    <thead>
+                        <tr>
+                            <th>Fecha y Hora</th>
+                            <th>SKU</th>
+                            <th>Descripción</th>
+                            <th>Operación</th>
+                            <th>Sucursal > Sector</th>
+                            <th>Ubicación</th>
+                            <th>Ingreso</th>
+                            <th>Salida</th>
+                            <th>Usuario</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-kardex-body">
+                        <tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:2rem;">Seleccione los filtros y presione 'Generar Reporte' para visualizar la trazabilidad.</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 
@@ -1000,7 +1105,8 @@
             if(secId === 'section-warehouse') loadWarehouseData();
             if(secId === 'section-items') loadItems();
             if(secId === 'section-purchases') { loadPurchaseSelectors(); loadAllPurchaseHistories(); }
-            if(secId === 'section-inventory') { loadStock(); loadKardex(); }
+            if(secId === 'section-inventory') { loadStock(); }
+            if(secId === 'section-kardex') { if(typeof loadKardexSelectors === 'function') loadKardexSelectors(); }
             if(secId === 'section-orders') loadOrders();
             if(secId === 'section-logs') loadLogs();
             if(secId === 'section-settings' && typeof loadSettings === 'function') { loadSettings(); loadIntegrationChannels(); }
@@ -1554,7 +1660,6 @@
         async function saveTransfer(e) { e.preventDefault(); const lines = []; document.querySelectorAll('#tr-lines .dynamic-row').forEach(row => { const sku = row.querySelector('.tr-sku').value.trim(); const qty = parseFloat(row.querySelector('.tr-qty').value); const oLoc = row.querySelector('.tr-orig-loc').value.trim() || null; const dLoc = row.querySelector('.tr-dest-loc').value.trim() || null; if(sku && qty > 0) lines.push({ sku: sku, quantity_sent: qty, origin_location_code: oLoc, destination_location_code: dLoc }); }); const payload = { transfer_number: document.getElementById('tr-num').value.trim(), origin_branch_id: document.getElementById('tr-orig-branch').value, origin_sector_id: document.getElementById('tr-orig-sector').value, destination_branch_id: document.getElementById('tr-dest-branch').value, destination_sector_id: document.getElementById('tr-dest-sector').value, lines: lines }; const r = await fetchAPI('/api/admin/transfer-orders', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { showToast(r.message || 'Traspaso registrado.'); document.getElementById('form-transfer').reset(); loadTransferData(); } }
 
         async function loadStock() { const stock = await fetchAPI('/api/admin/stock'); const body = document.getElementById('table-stock-body'); if(body && stock) { body.innerHTML = ''; stock.forEach(s => body.innerHTML += `<tr><td>${escapeHTML(s.sector_name)}</td><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(s.location_code)}</td><td style="font-weight:bold;">${escapeHTML(s.sku)}</td><td style="font-weight:bold; color:var(--success-green);">${s.quantity}</td></tr>`); } }
-        async function loadKardex() { const k = await fetchAPI('/api/admin/stock/kardex'); const body = document.getElementById('table-kardex-body'); if(body && k) { body.innerHTML = ''; k.forEach(row => body.innerHTML += `<tr><td>${new Date(row.created_at).toLocaleString()}</td><td style="font-weight:bold;">${escapeHTML(row.sku)}</td><td><span class="badge badge-neutral">${escapeHTML(row.movement_type)}</span></td><td>${row.quantity}</td></tr>`); } }
         
         async function loadOrders() { 
             const docs = await fetchAPI('/api/admin/documents'); const body = document.getElementById('table-orders-body'); if(body && docs) { 
