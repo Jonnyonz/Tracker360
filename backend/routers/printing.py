@@ -1,89 +1,84 @@
 from fastapi import APIRouter, Depends, HTTPException
+from backend.database import get_db_connection
 from pydantic import BaseModel
 import asyncpg, uuid
 
-try:
-    from backend.database import get_db_connection, verify_system_api_key, require_admin, queue_zpl_print_job
-except ImportError:
-    from database import get_db_connection, verify_system_api_key, require_admin, queue_zpl_print_job
+router = APIRouter()
 
-router = APIRouter(tags=["Printing Agent & Labels"])
+class PrintJobItem(BaseModel):
+    sku: str
+    quantity: int = 1
 
-@router.get("/api/print-agent/queues")
-async def list_print_queues(conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("""
-        SELECT s.print_queue_code as queue_code, s.name as sector_name, b.name as branch_name 
-        FROM sectors s 
-        LEFT JOIN branches b ON s.branch_id = b.id 
-        ORDER BY b.name, s.name ASC
-    """)
-    return [dict(r) for r in rows]
+class PrintJobRequest(BaseModel):
+    queue_code: str = "RECEPCION"
+    skus: list[str] = []
+    items: list[PrintJobItem] = []
 
 @router.get("/api/print-agent/jobs")
-async def get_print_jobs_for_agent(queue_code: str, authenticated: bool = Depends(verify_system_api_key), conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("""
-        SELECT id::text as id, zpl_content, created_at 
-        FROM print_jobs 
-        WHERE UPPER(queue_code) = $1 AND status = 'PENDING' 
-        ORDER BY created_at ASC LIMIT 10
-    """, queue_code.strip().upper())
-    return [dict(r) for r in rows]
+async def get_pending_jobs(queue_code: str = "RECEPCION", conn: asyncpg.Connection = Depends(get_db_connection)):
+    clean_q = queue_code.strip().upper() if queue_code else "RECEPCION"
+    if clean_q in ["RECEPCION", "RECEPCIÓN", "1", ""]:
+        jobs = await conn.fetch("""
+            SELECT id, zpl_content 
+            FROM print_jobs 
+            WHERE status = 'PENDING' 
+              AND (UPPER(TRIM(queue_code)) IN ('RECEPCION', 'RECEPCIÓN', '1', '') OR queue_code IS NULL)
+            ORDER BY created_at ASC
+        """)
+    else:
+        jobs = await conn.fetch("""
+            SELECT id, zpl_content 
+            FROM print_jobs 
+            WHERE status = 'PENDING' AND UPPER(TRIM(queue_code)) = $1
+            ORDER BY created_at ASC
+        """, clean_q)
+
+    return [{"id": str(j["id"]), "zpl": j["zpl_content"], "zpl_content": j["zpl_content"]} for j in jobs]
 
 @router.post("/api/print-agent/jobs/{job_id}/ack")
-async def acknowledge_print_job(job_id: str, authenticated: bool = Depends(verify_system_api_key), conn: asyncpg.Connection = Depends(get_db_connection)):
-    await conn.execute("UPDATE print_jobs SET status = 'PRINTED' WHERE id = $1", uuid.UUID(job_id))
-    return {"status": "success"}
+async def ack_print_job(job_id: str, conn: asyncpg.Connection = Depends(get_db_connection)):
+    try:
+        await conn.execute("UPDATE print_jobs SET status = 'COMPLETED' WHERE CAST(id AS TEXT) = $1", str(job_id).strip())
+    except Exception as e:
+        print(f"[ACK ERROR]: {e}")
+    return {"status": "ok", "job_id": job_id}
 
-@router.post("/api/admin/sales-orders/{document_number}/print-label")
-async def print_order_label_again(document_number: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    doc = await conn.fetchrow("""
-        SELECT d.id, d.document_number, d.status, COALESCE(c.company_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, 'A coordinar') as delivery_address
-        FROM documents d
-        LEFT JOIN entities c ON d.customer_id = c.id
-        LEFT JOIN entity_addresses a ON d.customer_address_id = a.id
-        WHERE UPPER(d.document_number) = $1
-    """, document_number.strip().upper())
-    
-    if not doc: raise HTTPException(404, "Pedido no encontrado.")
-    if doc["status"] not in ("COMPLETED", "DISPATCHED"):
-        raise HTTPException(400, "El pedido aún no está totalmente preparado.")
+@router.post("/api/admin/print-jobs")
+async def create_print_job(req: PrintJobRequest, conn: asyncpg.Connection = Depends(get_db_connection)):
+    q_code = req.queue_code.strip().upper() if req.queue_code else "RECEPCION"
+    sku_list = list(req.skus)
+    for it in req.items:
+        if it.sku:
+            sku_list.extend([it.sku] * max(1, it.quantity))
 
-    template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_order_template'")
-    if not template:
-        template = "^XA^FO50,50^A0N,40,40^FDPEDIDO: {order_number}^FS^FO50,110^A0N,30,30^FDCLIENTE: {client_name}^FS^FO50,170^A0N,25,25^FDDIR: {delivery_address}^FS^FO50,230^BY3^BCN,100,Y,N,N^FD{order_number}^FS^XZ"
+    if not sku_list:
+        raise HTTPException(status_code=400, detail="Debe ingresar al menos un SKU para imprimir.")
 
-    zpl = template.replace("{order_number}", doc["document_number"])\
-                  .replace("{client_name}", doc["client_name"])\
-                  .replace("{delivery_address}", doc["delivery_address"])
+    template_row = await conn.fetchrow("SELECT value FROM settings WHERE key = 'zpl_template'")
+    custom_tpl = template_row["value"] if template_row and template_row["value"] else None
 
-    default_queue = await conn.fetchval("SELECT print_queue_code FROM sectors WHERE uses_locations = FALSE LIMIT 1") or "PRINT-SEC-01"
-    await queue_zpl_print_job(conn, default_queue, zpl)
-    return {"status": "success", "message": f"Etiqueta enviada a la cola {default_queue}."}
+    inserted = 0
+    for sku in sku_list:
+        clean_sku = str(sku).strip().upper()
+        if not clean_sku: continue
 
-@router.post("/api/admin/purchase-remitos/{remito_id}/print-labels")
-async def print_remito_item_labels(remito_id: str, queue_code: str = "PRINT-SEC-01", admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    lines = await conn.fetch("""
-        SELECT prl.sku, prl.quantity_received, COALESCE(i.description, prl.sku) as description
-        FROM purchase_remito_lines prl
-        LEFT JOIN items i ON UPPER(prl.sku) = UPPER(i.sku)
-        WHERE prl.purchase_remito_id = $1 AND prl.quantity_received > 0
-    """, uuid.UUID(remito_id))
+        item_row = await conn.fetchrow("SELECT description FROM items WHERE UPPER(sku) = $1 LIMIT 1", clean_sku)
+        clean_desc = item_row["description"] if item_row and item_row["description"] else clean_sku
+        short_desc = clean_desc[:22]
 
-    if not lines or len(lines) == 0:
-        raise HTTPException(400, "El remito no tiene ítems controlados/recibidos.")
+        if custom_tpl:
+            zpl = custom_tpl
+            for tag in ["{{SKU}}", "{{sku}}", "{SKU}", "{sku}", "{{ SKU }}"]:
+                zpl = zpl.replace(tag, clean_sku)
+            for tag in ["{{DESC}}", "{{desc}}", "{DESC}", "{desc}", "{{DESCRIPTION}}", "{{description}}", "{{ DESC }}"]:
+                zpl = zpl.replace(tag, short_desc)
+        else:
+            zpl = f"^XA\n^PW304\n^LL160\n^LS0\n^FO40,25^A0N,24,24^FD{clean_sku}^FS\n^FO40,65^A0N,18,18^FD{short_desc}^FS\n^FO205,20^BQN,2,3^FDLA,{clean_sku}^FS\n^XZ"
 
-    template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_item_template'")
-    if not template:
-        template = "^XA^FO50,30^A0N,30,30^FD{description}^FS^FO50,70^A0N,25,25^FDSKU: {sku}^FS^FO50,110^BY2^BCN,80,Y,N,N^FD{sku}^FS^XZ"
+        await conn.execute("""
+            INSERT INTO print_jobs (id, queue_code, zpl_content, status, created_at)
+            VALUES ($1, $2, $3, 'PENDING', NOW())
+        """, str(uuid.uuid4()), q_code, zpl)
+        inserted += 1
 
-    total_queued = 0
-    async with conn.transaction():
-        for line in lines:
-            sku_clean = line["sku"].strip().upper()
-            qty = int(line["quantity_received"])
-            zpl = template.replace("{sku}", sku_clean).replace("{description}", line["description"])
-            for _ in range(qty):
-                await queue_zpl_print_job(conn, queue_code, zpl)
-                total_queued += 1
-
-    return {"status": "success", "message": f"Enviadas {total_queued} etiquetas de artículos a la cola {queue_code}."}
+    return {"status": "ok", "jobs_created": inserted}

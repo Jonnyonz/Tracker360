@@ -1,0 +1,4 @@
+requests
+websocket-client
+pywin32
+pyserial

@@ -1,3 +1,4 @@
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from typing import Optional, List
@@ -68,29 +69,6 @@ async def update_item(sku: str, data: ItemUpdate, admin: dict = Depends(require_
     """, data.description, data.category, data.length, data.width, data.height, data.weight, calculated_vol, sku.upper())
     return {"status": "success", "message": "Ficha de artículo actualizada."}
 
-@router.post("/api/admin/items/batch-print-labels")
-async def batch_print_item_labels(data: BatchItemPrintInput, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    if not data.items or len(data.items) == 0:
-        raise HTTPException(400, "Debe agregar al menos un artículo para imprimir.")
-
-    template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_item_template'")
-    if not template:
-        template = "^XA^FO50,30^A0N,30,30^FD{description}^FS^FO50,70^A0N,25,25^FDSKU: {sku}^FS^FO50,110^BY2^BCN,80,Y,N,N^FD{sku}^FS^XZ"
-
-    total_queued = 0
-    async with conn.transaction():
-        for line in data.items:
-            sku_clean = line.sku.strip().upper()
-            qty = max(1, line.quantity)
-            item = await conn.fetchrow("SELECT sku, description FROM items WHERE UPPER(sku) = $1", sku_clean)
-            desc = item["description"] if item else f"Art. {sku_clean}"
-
-            zpl = template.replace("{sku}", sku_clean).replace("{description}", desc)
-            for _ in range(qty):
-                await queue_zpl_print_job(conn, data.queue_code, zpl)
-                total_queued += 1
-
-    return {"status": "success", "message": f"Se enviaron {total_queued} etiquetas a la cola {data.queue_code}."}
 
 @router.get("/api/admin/items/{sku}/locations")
 async def get_item_locations(sku: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
@@ -150,3 +128,73 @@ async def import_item_locations_csv(file: UploadFile = File(...), admin: dict = 
                     await conn.execute("INSERT INTO item_locations (item_sku, location_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", sku.strip().upper(), loc["id"])
                     count += 1
     return {"status": "success", "message": f"Se asignaron {count} ubicaciones."}
+
+
+@router.post("/api/admin/items/batch-print-labels")
+async def batch_print_items_labels(req: dict, conn: asyncpg.Connection = Depends(get_db_connection)):
+    try:
+        raw_queue = str(req.get("queue_code") or req.get("sector") or "RECEPCION").strip().upper()
+        queue_code = "RECEPCION"
+        
+        if raw_queue and raw_queue not in ["1", "RECEPCION", "RECEPCIÓN"]:
+            sector_row = await conn.fetchrow("""
+                SELECT print_queue_code 
+                FROM sectors 
+                WHERE CAST(id AS TEXT) = $1 
+                   OR UPPER(name) = UPPER($1) 
+                   OR UPPER(print_queue_code) = UPPER($1)
+                LIMIT 1
+            """, raw_queue)
+            if sector_row and sector_row["print_queue_code"]:
+                queue_code = sector_row["print_queue_code"].strip().upper()
+            else:
+                queue_code = raw_queue
+
+        skus = []
+        if "skus" in req and isinstance(req["skus"], list):
+            skus.extend(req["skus"])
+        if "items" in req and isinstance(req["items"], list):
+            for it in req["items"]:
+                if isinstance(it, dict) and "sku" in it:
+                    qty = int(it.get("quantity") or it.get("qty") or 1)
+                    skus.extend([str(it["sku"]).strip()] * qty)
+                elif isinstance(it, str):
+                    skus.append(it.strip())
+
+        if not skus:
+            raise HTTPException(status_code=400, detail="Debe proporcionar al menos un SKU.")
+
+        template_row = await conn.fetchrow("SELECT value FROM settings WHERE key = 'zpl_template'")
+        custom_tpl = template_row["value"] if template_row and template_row["value"] else None
+
+        inserted = 0
+        for sku in skus:
+            clean_sku = str(sku).strip().upper()
+            if not clean_sku: continue
+
+            item_row = await conn.fetchrow("SELECT description FROM items WHERE UPPER(sku) = $1 LIMIT 1", clean_sku)
+            clean_desc = item_row["description"] if item_row and item_row["description"] else clean_sku
+            short_desc = clean_desc[:22]
+
+            if custom_tpl:
+                zpl = custom_tpl
+                for tag in ["{{SKU}}", "{{sku}}", "{SKU}", "{sku}", "{{ SKU }}"]:
+                    zpl = zpl.replace(tag, clean_sku)
+                for tag in ["{{DESC}}", "{{desc}}", "{DESC}", "{desc}", "{{DESCRIPTION}}", "{{description}}", "{{ DESC }}"]:
+                    zpl = zpl.replace(tag, short_desc)
+            else:
+                zpl = f"^XA\n^PW304\n^LL160\n^LS0\n^FO40,25^A0N,24,24^FD{clean_sku}^FS\n^FO40,65^A0N,18,18^FD{short_desc}^FS\n^FO205,20^BQN,2,3^FDLA,{clean_sku}^FS\n^XZ"
+
+            await conn.execute("""
+                INSERT INTO print_jobs (id, queue_code, zpl_content, status, created_at)
+                VALUES ($1, $2, $3, 'PENDING', NOW())
+            """, str(uuid.uuid4()), queue_code, zpl)
+            inserted += 1
+
+        return {"status": "ok", "jobs_created": inserted, "queue_code": queue_code}
+
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        print(f"[BATCH PRINT ERROR]: {e}")
+        raise HTTPException(status_code=500, detail=f"Error en backend: {str(e)}")

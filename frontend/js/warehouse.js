@@ -1,6 +1,6 @@
 // === MÓDULO DE DEPÓSITO (SUCURSALES, SECTORES Y UBICACIONES) ===
 
-async function loadBranches() {
+async function legacy_loadBranches() {
     const tbody = document.getElementById('branchesTableBody');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="3" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Cargando sucursales...</td></tr>';
@@ -52,7 +52,7 @@ async function saveBranchForm(event) {
     } catch (e) {}
 }
 
-async function loadSectors() {
+async function legacy_loadSectors() {
     const tbody = document.getElementById('sectorsTableBody');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Cargando sectores...</td></tr>';
@@ -115,7 +115,7 @@ async function saveSectorForm(event) {
     } catch (e) {}
 }
 
-async function loadLocations() {
+async function legacy_loadLocations() {
     const tbody = document.getElementById('locationsTableBody');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Cargando ubicaciones...</td></tr>';

@@ -1,6 +1,6 @@
 // === MÓDULO DE CLIENTES, PROVEEDORES Y DIRECCIONES ===
 
-async function loadEntities() {
+async function legacy_loadEntities() {
     const tbody = document.getElementById('entitiesTableBody');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Cargando...</td></tr>';

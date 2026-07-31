@@ -259,14 +259,14 @@
             </div>
         </div>
 
-        <!-- 5. ARTÍCULOS CON PANEL DE IMPRESIÓN BATCH -->
+        <!-- 5. ARTÍCULOS -->
         <div id="section-items" class="view-section">
             <h2>Maestro de Artículos</h2>
             <div style="display:flex; justify-content:space-between; margin-bottom:1.5rem; flex-wrap:wrap; gap:10px; align-items:center;">
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
                     <button onclick="openImportModal('items')" class="btn-secondary">Agregar Catálogo Masivamente</button>
                     <button onclick="openImportModal('item_locations')" class="btn-secondary">Agregar Ubicaciones Masivamente</button>
-                    <button onclick="openBatchPrintModal()" class="btn-submit" style="width:auto; background:var(--success-green);">🖨️ Panel Impresión de Etiquetas</button>
+                    <button onclick="openBatchPrintModal()" class="btn-submit" style="width:auto; background:var(--success-green);"> Panel Impresión de Etiquetas</button>
                 </div>
                 <div style="display:flex; gap:10px;">
                     <input type="text" id="search-sku" placeholder="SKU..." style="width:140px;" onkeydown="if(event.key === 'Enter') handleSearchItems()">
@@ -480,7 +480,7 @@
             </div>
         </div>
 
-        <!-- 8. PEDIDOS CON REIMPRESIÓN -->
+        <!-- 8. PEDIDOS -->
         <div id="section-orders" class="view-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                 <h2 style="margin:0; border:none; padding:0;">Monitoreo de Salidas (Pedidos)</h2>
@@ -554,9 +554,9 @@
                     </div>
 
                     <div style="background:#EFF6FF; border:1px solid #BFDBFE; padding:1rem; border-radius:6px; margin-bottom:1rem;">
-                        <h4 style="color:var(--primary-blue); font-size:0.9rem; margin-bottom:0.4rem;">Descarga Directa Agente de Impresión Windows (.exe)</h4>
+                        <h4 style="color:var(--primary-blue); font-size:0.9rem; margin-bottom:0.4rem;">Descarga Directa Agente de Impresión Windows (.zip)</h4>
                         <p style="font-size:0.8rem; color:#1E40AF; margin-bottom:0.8rem;">Ejecutable para instalar en las PCs de empaque y recepción para conectar con las impresoras Zebra locales.</p>
-                        <a href="/downloads/tracker360_agent.exe" download class="btn-submit" style="display:block; text-decoration:none; text-align:center;">Descargar Agente Windows (.exe)</a>
+                        <a href="/downloads/tracker360-agent.zip" download="tracker360-agent.zip" class="btn-submit" style="display:block; text-decoration:none; text-align:center;">Descargar Agente Windows (.exe)</a>
                     </div>
 
                     <div class="form-group">
@@ -579,7 +579,7 @@
                     </div>
                     <div class="form-group">
                         <label>Plantilla ZPL Artículo</label>
-                        <textarea id="cfg-zpl-item-template" rows="2" style="font-family:monospace; font-size:0.8rem;"></textarea>
+                        <textarea id="cfg-zpl-item-template" rows="4" style="font-family:monospace; font-size:0.8rem;"></textarea>
                     </div>
 
                     <hr style="border:0; border-top:1px solid var(--border-color); margin:1rem 0;">
@@ -589,7 +589,7 @@
                     </div>
                     <div class="form-group">
                         <label>Plantilla ZPL Bulto / Envíos</label>
-                        <textarea id="cfg-zpl-order-template" rows="2" style="font-family:monospace; font-size:0.8rem;"></textarea>
+                        <textarea id="cfg-zpl-order-template" rows="4" style="font-family:monospace; font-size:0.8rem;"></textarea>
                     </div>
                     <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Plantillas ZPL</button>
                 </form>
@@ -621,23 +621,21 @@
         </div>
     </div>
 
-    <!-- MODAL PANEL DE IMPRESIÓN MASIVA DE ETIQUETAS -->
+    <!-- MODALES -->
     <div id="modal-batch-print-items" class="modal">
         <div class="modal-content" style="max-width:650px;">
             <span class="close-modal" onclick="closeModal('modal-batch-print-items')">&times;</span>
-            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">🖨️ Panel de Impresión de Etiquetas por Lote</h3>
+            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Panel de Impresión de Etiquetas por Lote</h3>
             <form id="form-batch-print" onsubmit="submitBatchPrint(event)">
                 <div class="form-group">
                     <label>Sector / Cola de Impresión Destino *</label>
                     <select id="batch-print-queue" required></select>
                 </div>
-
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                     <label style="margin:0; font-weight:bold;">Artículos a Imprimir:</label>
                     <button type="button" onclick="document.getElementById('file-batch-print-csv').click()" class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;">+ Cargar Desde CSV</button>
                     <input type="file" id="file-batch-print-csv" accept=".csv" style="display:none;" onchange="importBatchPrintCSV(this)">
                 </div>
-
                 <div class="dynamic-list" id="batch-print-lines">
                     <div class="dynamic-row">
                         <input type="text" placeholder="SKU" class="batch-sku" style="flex:2;" required>
@@ -645,14 +643,12 @@
                         <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
                     </div>
                 </div>
-
                 <button type="button" onclick="addDynamicLineBatchPrint()" style="background:none; border:1px solid var(--accent-blue); color:var(--accent-blue); padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">+ Añadir Artículo</button>
                 <button type="submit" class="btn-submit" style="margin-top:1.5rem; background:var(--success-green);">Enviar a Impresora Zebra</button>
             </form>
         </div>
     </div>
 
-    <!-- MODAL EDITAR ARTÍCULO -->
     <div id="modal-edit-item" class="modal">
         <div class="modal-content" style="max-width:550px;">
             <span class="close-modal" onclick="closeModal('modal-edit-item')">&times;</span>
@@ -661,7 +657,6 @@
                 <input type="hidden" id="edit-item-sku">
                 <div class="form-group"><label>Descripción</label><input type="text" id="edit-item-desc" required></div>
                 <div class="form-group"><label>Categoría</label><input type="text" id="edit-item-cat"></div>
-                
                 <div id="group-dimensions" style="display:none; flex-direction:column; gap:10px; margin-top:0.8rem; background:#F8FAFC; padding:12px; border-radius:6px; border:1px solid #E2E8F0;">
                     <label style="color:var(--primary-blue); font-size:0.85rem; font-weight:bold;">Dimensiones</label>
                     <div style="display:flex; gap:8px;">
@@ -674,10 +669,8 @@
                         <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.75rem;">Volumen Calculado (m³)</label><input type="number" step="0.000001" id="edit-item-volume" readonly style="background:#E2E8F0; font-weight:bold;"></div>
                     </div>
                 </div>
-
                 <button type="submit" class="btn-submit" style="margin-top:1.2rem;">Guardar Cambios en Ficha</button>
             </form>
-
             <hr style="margin:20px 0; border:0; border-top:1px solid var(--border-color);">
             <h3 style="color:var(--primary-blue); margin-bottom:10px;">Ubicaciones Asignadas</h3>
             <div id="item-assigned-locations-list" style="margin-bottom:15px;">Cargando...</div>
@@ -688,7 +681,6 @@
         </div>
     </div>
 
-    <!-- MODAL USUARIO -->
     <div id="modal-user" class="modal">
         <div class="modal-content" style="max-width:500px;">
             <span class="close-modal" onclick="closeModal('modal-user')">&times;</span>
@@ -708,7 +700,6 @@
         </div>
     </div>
 
-    <!-- MODAL CREAR ENTIDAD -->
     <div id="modal-entity" class="modal">
         <div class="modal-content" style="max-width:550px;">
             <span class="close-modal" onclick="closeModal('modal-entity')">&times;</span>
@@ -736,7 +727,6 @@
         </div>
     </div>
 
-    <!-- MODAL EDITAR ENTIDAD -->
     <div id="modal-edit-entity" class="modal">
         <div class="modal-content" style="max-width:650px;">
             <span class="close-modal" onclick="closeModal('modal-edit-entity')">&times;</span>
@@ -752,32 +742,26 @@
                 </div>
                 <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Cambios Básicos</button>
             </form>
-
             <hr style="margin:20px 0; border:0; border-top:1px solid var(--border-color);">
             <h3 style="color:var(--primary-blue); margin-bottom:10px;">Direcciones de Entrega Registradas</h3>
             <div id="entity-addresses-list" style="margin-bottom:15px;">Cargando direcciones...</div>
-
             <form id="form-entity-address" onsubmit="saveAddressToEntity(event)" style="background:#F0F9FF; padding:1.2rem; border-radius:6px; border:1px solid #BAE6FD;">
                 <input type="hidden" id="edit-addr-id" value="">
                 <h4 id="form-addr-title" style="color:var(--primary-blue); font-size:0.95rem; margin-bottom:10px;">+ Añadir Nueva Dirección</h4>
-                
                 <div class="form-row">
                     <div class="form-group" style="flex:2;"><label style="font-size:0.8rem;">Etiqueta Identificadora *</label><input type="text" id="new-ent-addr-label" placeholder="Ej: Depósito Central, Casa Matriz" required></div>
                     <div class="form-group" style="flex:1; display:flex; align-items:flex-end; padding-bottom:0.4rem;">
                         <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.8rem; margin:0;"><input type="checkbox" id="new-ent-is-default" style="width:auto;"> Predeterminada</label>
                     </div>
                 </div>
-
                 <div class="form-row">
                     <div class="form-group" style="flex:3;"><label style="font-size:0.8rem;">Calle</label><input type="text" id="new-ent-street" placeholder="Ej: Av. Cabildo"></div>
                     <div class="form-group" style="flex:1;"><label style="font-size:0.8rem;">Altura</label><input type="text" id="new-ent-number" placeholder="Ej: 2547"></div>
                 </div>
-
                 <div class="form-row">
                     <div class="form-group" style="flex:1;"><label style="font-size:0.8rem;">Código Postal</label><input type="text" id="new-ent-zip" placeholder="Ej: C1428"></div>
                     <div class="form-group" style="flex:2;"><label style="font-size:0.8rem;">Ciudad / Barrio / Localidad</label><input type="text" id="new-ent-city" placeholder="Ej: CABA, Buenos Aires"></div>
                 </div>
-
                 <div style="display:flex; gap:8px; margin-top:10px;">
                     <button type="submit" id="btn-save-addr" class="btn-secondary" style="flex:1;">Guardar Dirección</button>
                     <button type="button" id="btn-cancel-edit-addr" onclick="resetAddressForm()" class="btn-secondary" style="display:none; background:#E5E7EB; color:#374151; border-color:#D1D5DB;">Cancelar Edición</button>
@@ -786,7 +770,6 @@
         </div>
     </div>
 
-    <!-- MODAL SUCURSAL -->
     <div id="modal-branch" class="modal">
         <div class="modal-content" style="max-width:450px;">
             <span class="close-modal" onclick="closeModal('modal-branch')">&times;</span>
@@ -799,7 +782,6 @@
         </div>
     </div>
 
-    <!-- MODAL SECTOR -->
     <div id="modal-sector" class="modal">
         <div class="modal-content" style="max-width:450px;">
             <span class="close-modal" onclick="closeModal('modal-sector')">&times;</span>
@@ -818,7 +800,6 @@
         </div>
     </div>
 
-    <!-- MODAL UBICACIÓN -->
     <div id="modal-location" class="modal">
         <div class="modal-content" style="max-width:450px;">
             <span class="close-modal" onclick="closeModal('modal-location')">&times;</span>
@@ -832,7 +813,6 @@
         </div>
     </div>
 
-    <!-- MODAL IMPORTAR CSV -->
     <div id="modal-import" class="modal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal('modal-import')">&times;</span>
@@ -852,7 +832,6 @@
         </div>
     </div>
 
-    <!-- MODAL IMPORTAR UBICACIONES CSV -->
     <div id="modal-import-locations" class="modal">
         <div class="modal-content" style="max-width:500px;">
             <span class="close-modal" onclick="closeModal('modal-import-locations')">&times;</span>
@@ -869,7 +848,6 @@
         </div>
     </div>
 
-    <!-- MODAL AÑADIR NUEVO CANAL DE INTEGRACIÓN -->
     <div id="modal-add-channel" class="modal">
         <div class="modal-content" style="max-width:550px;">
             <span class="close-modal" onclick="closeModal('modal-add-channel')">&times;</span>
@@ -899,7 +877,6 @@
         </div>
     </div>
 
-    <!-- MODAL CREAR PEDIDO MANUAL DE VENTA -->
     <div id="modal-manual-order" class="modal">
         <div class="modal-content" style="max-width:600px;">
             <span class="close-modal" onclick="closeModal('modal-manual-order')">&times;</span>
@@ -910,7 +887,6 @@
                         <label>Nº Documento / Pedido *</label>
                         <input type="text" id="manual-doc-num" value="000001" required style="font-weight:bold; color:var(--primary-blue);">
                     </div>
-                    
                     <div class="form-group">
                         <label>CUIT / DNI Cliente *</label>
                         <div style="display:flex; gap:6px;">
@@ -926,7 +902,6 @@
                 </div>
                 <div class="grid-layout" style="margin-bottom:0;">
                     <div class="form-group"><label>Nombre Cliente (Opcional)</label><input type="text" id="manual-cust-name" placeholder="Ej: Juan Pérez"></div>
-                    
                     <div class="form-group">
                         <label>Dirección de Entrega</label>
                         <select id="manual-addr-label" style="font-weight:600; color:var(--text-main);">
@@ -934,7 +909,6 @@
                         </select>
                     </div>
                 </div>
-                
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                     <label style="margin:0; font-weight:bold;">Artículos del Pedido:</label>
                     <button type="button" onclick="document.getElementById('file-manual-order-csv').click()" class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;">+ Agregar Masivamente</button>
@@ -954,7 +928,6 @@
         </div>
     </div>
 
-    <!-- MODAL BÚSQUEDA ASISTIDA DE CLIENTES -->
     <div id="modal-search-customer" class="modal">
         <div class="modal-content" style="max-width:650px;">
             <span class="close-modal" onclick="closeModal('modal-search-customer')">&times;</span>
@@ -978,7 +951,6 @@
         </div>
     </div>
 
-    <!-- JAVASCRIPT GLOBAL COMPLETO -->
     <script>
         let cachedUsers = [], cachedBranches = [], cachedSectors = [], cachedEntities = [], cachedLocations = [], suppliersCache = [];
         let cachedAddressesCurrentEntity = [];
@@ -1000,14 +972,20 @@
             setTimeout(() => { if(toast.parentElement) toast.remove(); }, 3500);
         }
 
-        window.addEventListener('online', () => document.getElementById('net-banner').style.display = 'none');
-        window.addEventListener('offline', () => document.getElementById('net-banner').style.display = 'block');
+        function setFormVal(id, val) {
+            const el = document.getElementById(id);
+            if (el && val !== undefined && val !== null) {
+                el.value = val;
+            }
+        }
 
-        window.onload = async () => {
-            const data = await fetchAPI('/api/settings');
-            if(data) AppConfig = data;
-            loadDashboard();
-        };
+        function getFormVal(id) {
+            const el = document.getElementById(id);
+            return el ? el.value.trim() : '';
+        }
+
+        window.addEventListener('online', () => { const b = document.getElementById('net-banner'); if(b) b.style.display = 'none'; });
+        window.addEventListener('offline', () => { const b = document.getElementById('net-banner'); if(b) b.style.display = 'block'; });
 
         function switchView(secId, btnElement = null) {
             document.querySelectorAll('.view-section, .tab-btn').forEach(e => e.classList.remove('active'));
@@ -1025,7 +1003,7 @@
             if(secId === 'section-inventory') { loadStock(); loadKardex(); }
             if(secId === 'section-orders') loadOrders();
             if(secId === 'section-logs') loadLogs();
-            if(secId === 'section-settings') { loadSettings(); loadIntegrationChannels(); }
+            if(secId === 'section-settings' && typeof loadSettings === 'function') { loadSettings(); loadIntegrationChannels(); }
         }
 
         function navigateToSubTab(sectionId, tabId) { switchView(sectionId); switchPurchaseTab(tabId); }
@@ -1044,36 +1022,34 @@
                 }
                 return await r.json();
             } catch(e) {
-                document.getElementById('net-banner').style.display = 'block';
+                const banner = document.getElementById('net-banner');
+                if (banner) banner.style.display = 'block';
                 if(options.method && options.method !== 'GET') { showToast('Falla de conexión con el servidor', 'error'); }
                 return null;
             }
         }
 
-        // === DASHBOARD ===
         async function loadDashboard() {
-            const data = await fetchAPI('/api/admin/dashboard'); if(!data) return;
-            const bodyOrders = document.getElementById('dash-orders-body');
-            if(bodyOrders) {
-                bodyOrders.innerHTML = '';
-                if(data.pending_orders.length === 0) bodyOrders.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center;">No hay pedidos pendientes.</td></tr>';
-                else data.pending_orders.forEach(o => bodyOrders.innerHTML += `<tr><td style="font-weight:bold;">${escapeHTML(o.document_number)}</td><td>${escapeHTML(o.company_name)}</td><td><span class="badge badge-warning">${escapeHTML(o.status)}</span></td></tr>`);
-            }
-            const bodyTransfers = document.getElementById('dash-transfers-body');
-            if(bodyTransfers) {
-                bodyTransfers.innerHTML = '';
-                if(data.active_transfers.length === 0) bodyTransfers.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center;">No hay traspasos activos.</td></tr>';
-                else data.active_transfers.forEach(t => bodyTransfers.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(t.transfer_number)}</td><td>${escapeHTML(t.origin_branch)}</td><td>${escapeHTML(t.destination_branch)}</td></tr>`);
-            }
-            const bodyLogs = document.getElementById('dash-logs-body');
-            if(bodyLogs) {
-                bodyLogs.innerHTML = '';
-                if(data.latest_logs.length === 0) bodyLogs.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center;">Sin registro de actividad.</td></tr>';
-                else data.latest_logs.forEach(l => bodyLogs.innerHTML += `<tr><td style="color:var(--text-muted);">${new Date(l.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td><td style="font-weight:bold;">${escapeHTML(l.username)}</td><td>${escapeHTML(l.action)}</td></tr>`);
+            try {
+                const data = await fetchAPI('/api/admin/dashboard');
+                if (!data) return;
+                const bodyOrders = document.getElementById('dash-orders-body');
+                if (bodyOrders) {
+                    bodyOrders.innerHTML = '';
+                    const pending = data.pending_orders || [];
+                    if (pending.length === 0) {
+                        bodyOrders.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center;">No hay pedidos pendientes.</td></tr>';
+                    } else {
+                        pending.forEach(o => {
+                            bodyOrders.innerHTML += `<tr><td style="font-weight:bold;">${escapeHTML(o.document_number)}</td><td>${escapeHTML(o.company_name)}</td><td><span class="badge badge-warning">${escapeHTML(o.status)}</span></td></tr>`;
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Error en loadDashboard:", err);
             }
         }
 
-        // === USUARIOS ===
         async function loadUsers() {
             const [users, branches, sectors] = await Promise.all([ fetchAPI('/api/admin/users'), fetchAPI('/api/admin/branches'), fetchAPI('/api/admin/sectors') ]);
             if(users) cachedUsers = users;
@@ -1149,7 +1125,6 @@
             }
         }
 
-        // === ENTIDADES Y DIRECCIONES ===
         async function loadEntities() {
             const ents = await fetchAPI('/api/admin/entities'); if(!ents) return; cachedEntities = ents;
             const body = document.getElementById('table-entities-body'); if(!body) return; body.innerHTML = '';
@@ -1299,7 +1274,6 @@
             }
         }
 
-        // === DEPÓSITOS ===
         async function loadWarehouseData() {
             const [branches, sectors, locations] = await Promise.all([ fetchAPI('/api/admin/branches'), fetchAPI('/api/admin/sectors'), fetchAPI('/api/admin/locations') ]);
             if (branches) {
@@ -1334,7 +1308,6 @@
         async function saveLocation(e) { e.preventDefault(); const payload = { sector_id: document.getElementById('loc-sector').value, location_code: document.getElementById('loc-code').value.trim(), description: document.getElementById('loc-desc').value.trim() || null }; const r = await fetchAPI('/api/admin/locations', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { showToast('Ubicación registrada exitosamente'); closeModal('modal-location'); loadWarehouseData(); } }
         async function uploadLocationsCSV(e) { e.preventDefault(); const sectorId = document.getElementById('import-loc-sector').value; const fileInput = document.getElementById('import-loc-file'); if(!fileInput.files[0]) { showToast('Seleccione un archivo CSV.', 'warning'); return; } const formData = new FormData(); formData.append('file', fileInput.files[0]); const r = await fetchAPI(`/api/admin/sectors/${sectorId}/locations/import`, { method: 'POST', body: formData }); if(r) { showToast(r.message || 'Ubicaciones importadas correctamente.'); closeModal('modal-import-locations'); loadWarehouseData(); } }
 
-        // === ARTÍCULOS ===
         function handleSearchItems() { currentItemPage = 1; currentItemSearchSKU = document.getElementById('search-sku').value.trim(); currentItemSearchDesc = document.getElementById('search-desc').value.trim(); loadItems(); }
         function sortItems(col) { currentItemSort = col; currentItemOrder = currentItemOrder === 'ASC' ? 'DESC' : 'ASC'; loadItems(); }
         function prevItemPage() { if(currentItemPage > 1) { currentItemPage--; loadItems(); } }
@@ -1360,7 +1333,6 @@
             });
         }
 
-        // PANEL BATCH ETIQUETAS
         async function openBatchPrintModal() {
             const sectors = await fetchAPI('/api/admin/sectors');
             const qSelect = document.getElementById('batch-print-queue');
@@ -1405,7 +1377,7 @@
                     if (index === 0 && isNaN(qty)) return;
 
                     if (sku) {
-                        addDynamicLineBatchPrint(sku, max(1, qty));
+                        addDynamicLineBatchPrint(sku, Math.max(1, qty));
                         loadedCount++;
                     }
                 });
@@ -1499,7 +1471,6 @@
         function updateImportFileName(input) { if(input.files[0]) document.getElementById('import-file-name').textContent = input.files[0].name; }
         async function processCSVImport(e) { e.preventDefault(); const type = document.getElementById('import-type').value; const fileInput = document.getElementById('import-file-input'); if(!fileInput.files[0]) { showToast('Seleccione un archivo CSV', 'warning'); return; } const formData = new FormData(); formData.append('file', fileInput.files[0]); const endpoint = type === 'items' ? '/api/admin/import/items' : '/api/admin/import/item-locations'; const r = await fetchAPI(endpoint, { method: 'POST', body: formData }); if(r) { showToast(r.message || 'Importación procesada.'); closeModal('modal-import'); loadItems(); } }
 
-        // === COMPRAS ===
         function switchPurchaseTab(tabId, btnElement = null) {
             document.querySelectorAll('.purchase-tab').forEach(e => e.style.display = 'none');
             document.querySelectorAll('.purchase-subtab-btn').forEach(e => e.classList.remove('active'));
@@ -1553,7 +1524,7 @@
                     <td>${escapeHTML(r.supplier_name)}</td>
                     <td>${escapeHTML(r.branch_name)} > ${escapeHTML(r.sector_name)}</td>
                     <td><span class="badge badge-warning">${escapeHTML(r.status)}</span></td>
-                    <td><button onclick="printRemitoLabels('${r.id}')" class="btn-secondary" style="padding:3px 6px; font-size:0.75rem;">🖨️ Etiquetas</button></td>
+                    <td><button onclick="printRemitoLabels('${r.id}')" class="btn-secondary" style="padding:3px 6px; font-size:0.75rem;"> Etiquetas</button></td>
                 </tr>`; 
             }); 
         }
@@ -1582,7 +1553,6 @@
         async function saveInvoice(e) { e.preventDefault(); const remitoIds = []; document.querySelectorAll('.inv-remito-checkbox:checked').forEach(cb => remitoIds.push(cb.value)); const manualItems = []; document.querySelectorAll('#inv-lines .dynamic-row').forEach(row => { const sku = row.querySelector('.inv-sku').value.trim(); const qty = parseFloat(row.querySelector('.inv-qty').value); const price = parseFloat(row.querySelector('.inv-price').value) || 0; if(sku && qty > 0) manualItems.push({ sku: sku, quantity: qty, unit_price: price }); }); const payload = { invoice_number: document.getElementById('inv-num').value.trim(), supplier_id: document.getElementById('inv-supplier').value, invoice_type: document.getElementById('inv-type').value, branch_id: document.getElementById('inv-branch').value || null, sector_id: document.getElementById('inv-sector').value || null, manual_items: manualItems, remito_ids: remitoIds }; const r = await fetchAPI('/api/admin/purchase-invoices', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { showToast('Factura registrada.'); document.getElementById('form-invoice').reset(); onInvSupplierChange(); loadInvoiceData(); } }
         async function saveTransfer(e) { e.preventDefault(); const lines = []; document.querySelectorAll('#tr-lines .dynamic-row').forEach(row => { const sku = row.querySelector('.tr-sku').value.trim(); const qty = parseFloat(row.querySelector('.tr-qty').value); const oLoc = row.querySelector('.tr-orig-loc').value.trim() || null; const dLoc = row.querySelector('.tr-dest-loc').value.trim() || null; if(sku && qty > 0) lines.push({ sku: sku, quantity_sent: qty, origin_location_code: oLoc, destination_location_code: dLoc }); }); const payload = { transfer_number: document.getElementById('tr-num').value.trim(), origin_branch_id: document.getElementById('tr-orig-branch').value, origin_sector_id: document.getElementById('tr-orig-sector').value, destination_branch_id: document.getElementById('tr-dest-branch').value, destination_sector_id: document.getElementById('tr-dest-sector').value, lines: lines }; const r = await fetchAPI('/api/admin/transfer-orders', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); if(r) { showToast(r.message || 'Traspaso registrado.'); document.getElementById('form-transfer').reset(); loadTransferData(); } }
 
-        // === INVENTARIO, ORDERS, AUDITORÍA ===
         async function loadStock() { const stock = await fetchAPI('/api/admin/stock'); const body = document.getElementById('table-stock-body'); if(body && stock) { body.innerHTML = ''; stock.forEach(s => body.innerHTML += `<tr><td>${escapeHTML(s.sector_name)}</td><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(s.location_code)}</td><td style="font-weight:bold;">${escapeHTML(s.sku)}</td><td style="font-weight:bold; color:var(--success-green);">${s.quantity}</td></tr>`); } }
         async function loadKardex() { const k = await fetchAPI('/api/admin/stock/kardex'); const body = document.getElementById('table-kardex-body'); if(body && k) { body.innerHTML = ''; k.forEach(row => body.innerHTML += `<tr><td>${new Date(row.created_at).toLocaleString()}</td><td style="font-weight:bold;">${escapeHTML(row.sku)}</td><td><span class="badge badge-neutral">${escapeHTML(row.movement_type)}</span></td><td>${row.quantity}</td></tr>`); } }
         
@@ -1591,7 +1561,7 @@
                 body.innerHTML = ''; 
                 docs.forEach(d => {
                     const canPrint = (d.status === 'COMPLETED' || d.status === 'DISPATCHED');
-                    const btnPrint = canPrint ? `<button onclick="printOrderLabelAgain('${escapeHTML(d.document_number)}')" class="btn-secondary" style="padding:3px 6px; font-size:0.75rem;">🖨️ Etiqueta</button>` : '<span style="color:var(--text-muted);">-</span>';
+                    const btnPrint = canPrint ? `<button onclick="printOrderLabelAgain('${escapeHTML(d.document_number)}')" class="btn-secondary" style="padding:3px 6px; font-size:0.75rem;"> Etiqueta</button>` : '<span style="color:var(--text-muted);">-</span>';
                     body.innerHTML += `<tr>
                         <td style="font-weight:bold;">${escapeHTML(d.document_number)}</td>
                         <td>${escapeHTML(d.company_name)}</td>
@@ -1610,7 +1580,6 @@
 
         async function loadLogs() { const logs = await fetchAPI('/api/admin/logs'); const body = document.getElementById('table-logs-body'); if(body && logs) { body.innerHTML = ''; logs.forEach(l => body.innerHTML += `<tr><td>${new Date(l.created_at).toLocaleString()}</td><td style="font-weight:bold;">${escapeHTML(l.username)}</td><td><span class="badge badge-neutral">${escapeHTML(l.action)}</span></td><td>${escapeHTML(l.details)}</td></tr>`); } }
 
-        // === CREACIÓN MANUAL DE PEDIDOS Y BÚSQUEDA ASISTIDA ===
         async function openManualOrderModal() {
             document.getElementById('form-manual-order').reset();
             document.getElementById('manual-order-lines').innerHTML = '';
@@ -1696,7 +1665,7 @@
             const customer = cachedEntities.find(e => String(e.tax_id) === String(taxId) || String(e.id) === String(entityId));
             let addrs = [];
             if (customer) {
-                try { addrs = typeof customer.addresses === 'string' ? JSON.parse(customer.addresses) : (customer.addresses || []); } catch(e){}
+                try { addrs = typeof customer.addresses === 'string' ? JSON.parse(customer.addresses) : (customer.addresses || []); } catch (err) { console.error(err); }
             }
 
             if (addrs && addrs.length > 0) {
@@ -1773,65 +1742,18 @@
             }
         }
 
-        // === CONFIGURACIÓN Y MULTICANAL ===
-        async function loadSettings() {
-            const data = await fetchAPI('/api/settings'); if(!data) return; AppConfig = data;
-            if(data.app_name) document.getElementById('cfg-app-name').value = data.app_name;
-            if(data.company_cuit) document.getElementById('cfg-company-cuit').value = data.company_cuit;
-            if(data.zebra_ip) document.getElementById('cfg-zebra-ip').value = data.zebra_ip;
-            
-            if(data.enable_stock_management !== undefined) document.getElementById('cfg-enable-stock-management').value = data.enable_stock_management;
-            if(data.allow_negative_stock !== undefined) document.getElementById('cfg-allow-negative-stock').value = data.allow_negative_stock;
-            if(data.enable_committed_stock !== undefined) document.getElementById('cfg-enable-committed-stock').value = data.enable_committed_stock;
-
-            if(data.require_mobile_reception) document.getElementById('cfg-require-mobile-reception').value = data.require_mobile_reception;
-            if(data.allow_multiproduct_locations) document.getElementById('cfg-allow-multiproduct').value = data.allow_multiproduct_locations;
-            if(data.enable_item_dimensions) document.getElementById('cfg-enable-item-dimensions').value = data.enable_item_dimensions;
-            
-            if(data.zpl_item_width) document.getElementById('cfg-zpl-item-width').value = data.zpl_item_width;
-            if(data.zpl_item_height) document.getElementById('cfg-zpl-item-height').value = data.zpl_item_height;
-            if(data.zpl_item_template) document.getElementById('cfg-zpl-item-template').value = data.zpl_item_template;
-
-            if(data.zpl_order_width) document.getElementById('cfg-zpl-order-width').value = data.zpl_order_width;
-            if(data.zpl_order_height) document.getElementById('cfg-zpl-order-height').value = data.zpl_order_height;
-            if(data.zpl_order_template) document.getElementById('cfg-zpl-order-template').value = data.zpl_order_template;
-
-            if(data.tracker360_api_key) document.getElementById('cfg-tracker360-api-key').value = data.tracker360_api_key;
-        }
-
-        async function saveSettings(e) {
-            e.preventDefault();
-            const payload = {
-                app_name: document.getElementById('cfg-app-name').value.trim(),
-                company_cuit: document.getElementById('cfg-company-cuit').value.trim(),
-                zebra_ip: document.getElementById('cfg-zebra-ip').value.trim(),
-                enable_stock_management: document.getElementById('cfg-enable-stock-management').value,
-                allow_negative_stock: document.getElementById('cfg-allow-negative-stock').value,
-                enable_committed_stock: document.getElementById('cfg-enable-committed-stock').value,
-                require_mobile_reception: document.getElementById('cfg-require-mobile-reception').value,
-                allow_multiproduct_locations: document.getElementById('cfg-allow-multiproduct').value,
-                enable_item_dimensions: document.getElementById('cfg-enable-item-dimensions').value,
-                
-                zpl_item_width: document.getElementById('cfg-zpl-item-width').value.trim(),
-                zpl_item_height: document.getElementById('cfg-zpl-item-height').value.trim(),
-                zpl_item_template: document.getElementById('cfg-zpl-item-template').value,
-
-                zpl_order_width: document.getElementById('cfg-zpl-order-width').value.trim(),
-                zpl_order_height: document.getElementById('cfg-zpl-order-height').value.trim(),
-                zpl_order_template: document.getElementById('cfg-zpl-order-template').value
-            };
-            const r = await fetchAPI('/api/admin/settings', { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
-            if(r) { showToast('Configuración guardada exitosamente.'); loadSettings(); }
-        }
-
         async function loadIntegrationChannels() {
-            const channels = await fetchAPI('/api/admin/integrations');
-            const body = document.getElementById('table-channels-body'); if(!body) return; body.innerHTML = '';
-            if(!channels || channels.length === 0) { body.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No hay conexiones externas registradas.</td></tr>'; return; }
-            channels.forEach(ch => {
-                const badgeType = ch.channel_type === 'OUTBOUND_DESPACHO' ? '<span class="badge badge-info">DESPACHOS</span>' : '<span class="badge badge-success">STOCK REALTIME</span>';
-                body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(ch.name)}</td><td>${badgeType}</td><td style="font-family:monospace; font-size:0.8rem;">${escapeHTML(ch.target_url)}</td><td><span class="badge badge-success">ACTIVA</span></td><td><button onclick="deleteChannel('${ch.id}')" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">Eliminar</button></td></tr>`;
-            });
+            try {
+                const channels = await fetchAPI('/api/admin/integrations');
+                const body = document.getElementById('table-channels-body'); if(!body) return; body.innerHTML = '';
+                if(!channels || channels.length === 0) { body.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No hay conexiones externas registradas.</td></tr>'; return; }
+                channels.forEach(ch => {
+                    const badgeType = ch.channel_type === 'OUTBOUND_DESPACHO' ? '<span class="badge badge-info">DESPACHOS</span>' : '<span class="badge badge-success">STOCK REALTIME</span>';
+                    body.innerHTML += `<tr><td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(ch.name)}</td><td>${badgeType}</td><td style="font-family:monospace; font-size:0.8rem;">${escapeHTML(ch.target_url)}</td><td><span class="badge badge-success">ACTIVA</span></td><td><button onclick="deleteChannel('${ch.id}')" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">Eliminar</button></td></tr>`;
+                });
+            } catch (err) {
+                console.error("Error en loadIntegrationChannels:", err);
+            }
         }
 
         async function saveNewChannel(e) {
@@ -1850,17 +1772,31 @@
             if(r && r.new_key) { document.getElementById('cfg-tracker360-api-key').value = r.new_key; showToast('Nueva API Key generada con éxito.'); }
         }
 
-        document.getElementById('btnLogout')?.addEventListener('click', async () => { await fetch('/api/auth/logout', { method: 'POST' }); window.location.href = '/index.html'; });
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnLogout = document.getElementById('btnLogout');
+            if (btnLogout) {
+                btnLogout.addEventListener('click', async () => {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                    window.location.href = '/index.html';
+                });
+            }
+        });
 
-        window.onload = async () => { await loadSettings(); loadDashboard(); };
+        window.onload = async () => {
+            if (typeof loadSettings === 'function') {
+                try { await loadSettings(); } catch (err) { console.error("Error en loadSettings:", err); }
+            }
+            try { await loadDashboard(); } catch (err) { console.error("Error en loadDashboard:", err); }
+        };
     </script>
 
     <script src="js/api.js"></script>
     <script src="js/users.js"></script>
     <script src="js/entities.js"></script>
-    <script src="js/items.js"></script>
+    <script src="js/items.js?v=1785417687"></script>
     <script src="js/warehouse.js"></script>
     <script src="js/operations.js"></script>
+    <script src="js/settings.js"></script>
     <script src="js/admin-init.js"></script>
 </body>
 </html>

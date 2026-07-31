@@ -1,6 +1,6 @@
 // === MÓDULO DE OPERACIONES, STOCK, REPORTES Y CONFIGURACIÓN ===
 
-async function loadDashboardSummary() {
+async function legacy_loadDashboardSummary() {
     try {
         const data = await fetchAPI('/api/admin/dashboard');
         
@@ -27,7 +27,7 @@ async function loadDashboardSummary() {
     } catch (e) {}
 }
 
-async function loadAdminStock() {
+async function legacy_loadAdminStock() {
     const tbody = document.getElementById('stockTableBody');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Cargando stock...</td></tr>';
@@ -54,7 +54,7 @@ async function loadAdminStock() {
     }
 }
 
-async function loadAdminKardex() {
+async function legacy_loadAdminKardex() {
     const tbody = document.getElementById('kardexTableBody');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Cargando historial...</td></tr>';
@@ -82,7 +82,7 @@ async function loadAdminKardex() {
     }
 }
 
-async function loadSettings() {
+async function loadOperationsSettings() {
     try {
         const settings = await fetchAPI('/api/settings');
         for (const [key, value] of Object.entries(settings)) {

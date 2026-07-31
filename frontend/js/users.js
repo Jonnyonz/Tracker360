@@ -1,6 +1,6 @@
 // === MÓDULO DE GESTIÓN DE USUARIOS ===
 
-async function loadUsers() {
+async function legacy_loadUsers() {
     const tbody = document.getElementById('usersTableBody');
     if (!tbody) return;
     tbody.innerHTML = '<tr><td colspan="6" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Cargando...</td></tr>';

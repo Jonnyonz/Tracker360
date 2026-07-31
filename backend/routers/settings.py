@@ -1,88 +1,175 @@
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from typing import Optional
-import asyncpg, uuid, secrets
+from fastapi import APIRouter, Depends, HTTPException, Request
+from backend.database import get_db_connection
+import asyncpg, secrets
 
-try:
-    from backend.database import get_db_connection, require_admin, log_action
-except ImportError:
-    from database import get_db_connection, require_admin, log_action
+router = APIRouter()
 
-router = APIRouter(tags=["Settings & Dashboard"])
+DEFAULT_ITEM_ZPL = """^XA
+^PW304
+^LL160
+^LS0
+^FO20,25^A0N,22,22^FD{{SKU}}^FS
+^FO20,65^A0N,16,14^FD{{DESC}}^FS
+^FO195,15^BQN,2,3^FDLA,{{SKU}}^FS
+^XZ"""
 
-class SettingsUpdate(BaseModel):
-    app_name: Optional[str] = None
-    company_cuit: Optional[str] = None
-    zebra_ip: Optional[str] = None
-    enable_stock_management: Optional[str] = None
-    allow_negative_stock: Optional[str] = None
-    enable_committed_stock: Optional[str] = None
-    require_mobile_reception: Optional[str] = None
-    allow_multiproduct_locations: Optional[str] = None
-    enable_item_dimensions: Optional[str] = None
-    zpl_item_width: Optional[str] = None
-    zpl_item_height: Optional[str] = None
-    zpl_item_template: Optional[str] = None
-    zpl_order_width: Optional[str] = None
-    zpl_order_height: Optional[str] = None
-    zpl_order_template: Optional[str] = None
+DEFAULT_ORDER_ZPL = """^XA
+^PW608
+^LL380
+^LS0
+^FO30,30^A0N,30,30^FDTRACKER360 - ENVIO^FS
+^FO30,80^A0N,24,24^FDORDEN: {{ORDER_NUM}}^FS
+^FO30,120^A0N,20,20^FDDESTINO: {{DESTINATION}}^FS
+^FO380,60^BQN,2,5^FDLA,{{ORDER_NUM}}^FS
+^XZ"""
 
-class IntegrationChannelCreate(BaseModel):
-    name: str
-    channel_type: str
-    target_url: str
-    api_key: Optional[str] = None
+DEFAULT_SETTINGS = {
+    "app_name": "Tracker360",
+    "company_cuit": "30-00000000-0",
+    "zebra_ip": "192.168.1.50",
+    "enable_stock_management": "true",
+    "allow_negative_stock": "false",
+    "enable_committed_stock": "true",
+    "require_mobile_reception": "false",
+    "allow_multiproduct_locations": "false",
+    "enable_item_dimensions": "false",
+    "zpl_item_width": "38",
+    "zpl_item_height": "20",
+    "zpl_item_template": DEFAULT_ITEM_ZPL,
+    "zpl_template": DEFAULT_ITEM_ZPL,
+    "zpl_order_width": "100",
+    "zpl_order_height": "150",
+    "zpl_order_template": DEFAULT_ORDER_ZPL,
+    "tracker360_api_key": "",
+    "api_key": ""
+}
 
-@router.get("/api/settings")
-async def get_system_settings(conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("SELECT key, value FROM system_settings")
-    res = {}
-    for r in rows:
-        res[r["key"]] = r["value"]
-    return res
-
-@router.put("/api/admin/settings")
-async def update_settings(data: SettingsUpdate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    items = data.dict(exclude_unset=True)
-    async with conn.transaction():
-        for k, v in items.items():
-            if v is not None:
-                await conn.execute("INSERT INTO system_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", k, str(v))
-    return {"status": "success", "message": "Configuración actualizada."}
+async def _gen_key_db(conn: asyncpg.Connection):
+    new_key = secrets.token_hex(24)
+    await conn.execute("""
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('tracker360_api_key', $1, NOW())
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+    """, new_key)
+    await conn.execute("""
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('api_key', $1, NOW())
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+    """, new_key)
+    return {"status": "ok", "new_key": new_key, "api_key": new_key, "value": new_key}
 
 @router.post("/api/admin/settings/generate-key")
-async def generate_new_api_key(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    new_key = f"trk_live_{secrets.token_hex(24)}"
-    await conn.execute("INSERT INTO system_settings (key, value) VALUES ('tracker360_api_key', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", new_key)
-    return {"status": "success", "new_key": new_key}
+@router.post("/api/settings/generate-key")
+@router.get("/api/admin/settings/generate-key")
+@router.get("/api/settings/generate-key")
+async def generate_key_exact_endpoint(conn: asyncpg.Connection = Depends(get_db_connection)):
+    return await _gen_key_db(conn)
 
-@router.get("/api/admin/integrations")
-async def list_integration_channels(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("SELECT id, name, channel_type, target_url, is_active, created_at FROM integration_channels ORDER BY created_at DESC")
-    return [dict(r) for r in rows]
-
-@router.post("/api/admin/integrations")
-async def create_integration_channel(data: IntegrationChannelCreate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    await conn.execute("INSERT INTO integration_channels (name, channel_type, target_url, api_key) VALUES ($1, $2, $3, $4)", data.name.strip(), data.channel_type.strip(), data.target_url.strip(), data.api_key)
-    return {"status": "success"}
-
-@router.delete("/api/admin/integrations/{channel_id}")
-async def delete_integration_channel(channel_id: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    await conn.execute("DELETE FROM integration_channels WHERE id = $1", uuid.UUID(channel_id))
-    return {"status": "success"}
-
-@router.get("/api/admin/logs")
-async def list_logs(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    return [dict(l) for l in await conn.fetch("SELECT username, action, details, created_at FROM audit_logs ORDER BY created_at DESC LIMIT 100")]
-
-@router.get("/api/admin/dashboard")
-async def get_dashboard_summary(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    pending_orders = await conn.fetch("SELECT d.document_number, d.status, COALESCE(e.company_name, 'Consumidor Final') as company_name FROM documents d LEFT JOIN entities e ON d.customer_id = e.id WHERE d.status IN ('PENDING', 'IN_PROGRESS') ORDER BY d.created_at DESC LIMIT 5")
-    active_transfers = await conn.fetch("SELECT t.transfer_number, COALESCE(ob.name, 'Origen') as origin_branch, COALESCE(db.name, 'Destino') as destination_branch FROM transfer_orders t LEFT JOIN branches ob ON t.origin_branch_id = ob.id LEFT JOIN branches db ON t.destination_branch_id = db.id WHERE t.status IN ('PENDING', 'PENDING_CONTROL', 'IN_PROGRESS') ORDER BY t.created_at DESC LIMIT 5")
-    latest_logs = await conn.fetch("SELECT username, action, created_at FROM audit_logs ORDER BY created_at DESC LIMIT 5")
+@router.get("/api/settings")
+@router.get("/api/admin/settings")
+async def get_all_settings(conn: asyncpg.Connection = Depends(get_db_connection)):
+    rows = await conn.fetch("SELECT key, value FROM settings")
+    db_res = {r["key"]: r["value"] for r in rows}
     
-    return {
-        "pending_orders": [dict(r) for r in pending_orders],
-        "active_transfers": [dict(r) for r in active_transfers],
-        "latest_logs": [dict(r) for r in latest_logs]
-    }
+    # Iniciar con el diccionario de valores por defecto
+    res = DEFAULT_SETTINGS.copy()
+    
+    # Sobrescribir con lo guardado en la base de datos (siempre que no esté vacío)
+    for k, v in db_res.items():
+        if v is not None and str(v).strip() != "":
+            res[k] = str(v)
+            
+    # Sincronización de API Key
+    key_val = db_res.get("tracker360_api_key") or db_res.get("api_key") or res.get("tracker360_api_key") or ""
+    res["tracker360_api_key"] = key_val
+    res["api_key"] = key_val
+
+    # Sincronización de Plantillas ZPL
+    item_tpl = db_res.get("zpl_item_template") or db_res.get("zpl_template")
+    if not item_tpl or not str(item_tpl).strip():
+        item_tpl = DEFAULT_ITEM_ZPL
+
+    order_tpl = db_res.get("zpl_order_template")
+    if not order_tpl or not str(order_tpl).strip():
+        order_tpl = DEFAULT_ORDER_ZPL
+
+    res["zpl_item_template"] = str(item_tpl)
+    res["zpl_template"] = str(item_tpl)
+    res["zpl_order_template"] = str(order_tpl)
+    return res
+
+@router.post("/api/settings")
+@router.put("/api/settings")
+@router.post("/api/admin/settings")
+@router.put("/api/admin/settings")
+async def save_bulk_settings(request: Request, conn: asyncpg.Connection = Depends(get_db_connection)):
+    try:
+        data = await request.json()
+        if isinstance(data, dict):
+            for k, v in data.items():
+                if k is not None:
+                    val_str = str(v) if v is not None else ""
+                    
+                    # Evitar guardar textos vacíos en parámetros críticos
+                    if k in ["zpl_item_template", "zpl_template"] and not val_str.strip():
+                        val_str = DEFAULT_ITEM_ZPL
+                    elif k == "zpl_order_template" and not val_str.strip():
+                        val_str = DEFAULT_ORDER_ZPL
+                    elif k == "zpl_item_width" and not val_str.strip():
+                        val_str = "38"
+                    elif k == "zpl_item_height" and not val_str.strip():
+                        val_str = "20"
+                    elif k == "zpl_order_width" and not val_str.strip():
+                        val_str = "100"
+                    elif k == "zpl_order_height" and not val_str.strip():
+                        val_str = "150"
+
+                    await conn.execute("""
+                        INSERT INTO settings (key, value, updated_at)
+                        VALUES ($1, $2, NOW())
+                        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+                    """, str(k).strip(), val_str)
+                    
+                    if k == "zpl_item_template":
+                        await conn.execute("""
+                            INSERT INTO settings (key, value, updated_at)
+                            VALUES ('zpl_template', $1, NOW())
+                            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+                        """, val_str)
+
+        return {"status": "ok", "message": "Configuración guardada exitosamente"}
+    except Exception as exc:
+        print(f"[SAVE BULK SETTINGS ERROR]: {exc}")
+        raise HTTPException(status_code=500, detail=f"Error guardando configuración: {str(exc)}")
+
+@router.get("/api/settings/{key}")
+@router.get("/api/admin/settings/{key}")
+async def get_setting_by_key(key: str, conn: asyncpg.Connection = Depends(get_db_connection)):
+    if key.strip().lower() in ["generate-key", "generate-api-key", "api-key"]:
+        return await _gen_key_db(conn)
+    row = await conn.fetchrow("SELECT value FROM settings WHERE key = $1", key.strip())
+    val = row["value"] if row else DEFAULT_SETTINGS.get(key.strip(), "")
+    return {"key": key, "value": val}
+
+@router.post("/api/settings/{key}")
+@router.post("/api/admin/settings/{key}")
+@router.put("/api/settings/{key}")
+@router.put("/api/admin/settings/{key}")
+async def update_setting_by_key(key: str, request: Request, conn: asyncpg.Connection = Depends(get_db_connection)):
+    if key.strip().lower() in ["generate-key", "generate-api-key", "api-key"]:
+        return await _gen_key_db(conn)
+    body_val = ""
+    try:
+        data = await request.json()
+        if isinstance(data, dict):
+            body_val = str(data.get("value", data.get("val", "")))
+        elif isinstance(data, str):
+            body_val = data
+    except Exception:
+        pass
+    await conn.execute("""
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ($1, $2, NOW())
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+    """, key.strip(), body_val)
+    return {"status": "ok", "key": key, "value": body_val}
