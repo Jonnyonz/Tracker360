@@ -26,9 +26,17 @@
         .sidebar { width: 260px; min-width: 260px; background-color: var(--sidebar-bg); border-right: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; justify-content: space-between; padding: 2rem 1rem; overflow-y: auto; }
         .brand-title { font-size: 1.4rem; font-weight: 800; color: #FFFFFF; text-transform: uppercase; text-align: center; margin-bottom: 2rem; letter-spacing: 1px; }
         .nav-tabs { display: flex; flex-direction: column; gap: 0.4rem; }
-        .tab-btn { background: none; border: none; color: #93C5FD; padding: 0.85rem 1rem; text-align: left; font-size: 0.88rem; font-weight: 600; cursor: pointer; border-radius: 6px; text-transform: uppercase; transition: all 0.2s ease; }
+        .tab-btn { background: none; border: none; color: #93C5FD; padding: 0.85rem 1rem; text-align: left; font-size: 0.88rem; font-weight: 600; cursor: pointer; border-radius: 6px; text-transform: uppercase; transition: all 0.2s ease; display: flex; justify-content: space-between; align-items: center;}
         .tab-btn:hover { background-color: rgba(255, 255, 255, 0.1); color: #FFFFFF; }
         .tab-btn.active { background-color: var(--accent-blue); color: #FFFFFF; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
+        
+        /* ESTILOS DEL ACORDEÓN DE REPORTES */
+        .nav-accordion { display: none; flex-direction: column; gap: 2px; padding-left: 1rem; margin-top: 2px; margin-bottom: 4px; }
+        .nav-accordion.open { display: flex; }
+        .tab-sub-btn { background: none; border: none; color: #93C5FD; padding: 0.6rem 1rem; text-align: left; font-size: 0.8rem; cursor: pointer; border-radius: 6px; transition: all 0.2s ease; border-left: 2px solid transparent; }
+        .tab-sub-btn:hover { color: #FFFFFF; border-left-color: #3B82F6; background-color: rgba(255, 255, 255, 0.05); }
+        .tab-sub-btn.active { color: #FFFFFF; border-left-color: #3B82F6; font-weight: bold; background-color: rgba(255, 255, 255, 0.1); }
+
         .btn-logout { background-color: #EF4444; color: white; border: none; padding: 0.8rem; border-radius: 6px; font-weight: 700; cursor: pointer; text-transform: uppercase; margin-top: 2rem; transition: background 0.2s; }
         .btn-logout:hover { background-color: var(--error-red); }
         
@@ -51,12 +59,8 @@
         .btn-secondary { background-color: var(--card-bg); color: var(--primary-blue); border: 1px solid var(--primary-blue); padding: 0.65rem 1.2rem; font-weight: 700; border-radius: 6px; cursor: pointer; text-transform: uppercase; font-size: 0.82rem; transition: all 0.2s; }
         .btn-secondary:hover { background-color: var(--primary-blue); color: white; }
 
-        .purchase-subtab-btn {
-            background-color: var(--card-bg); color: var(--text-main); border: 1px solid var(--border-color); padding: 0.75rem 1.2rem; font-weight: 700; border-radius: 6px; cursor: pointer; text-transform: uppercase; font-size: 0.85rem; transition: all 0.2s ease;
-        }
-        .purchase-subtab-btn.active {
-            background-color: var(--primary-blue) !important; color: #FFFFFF !important; border-color: var(--primary-blue) !important; box-shadow: 0 2px 4px rgba(0,0,0,0.12);
-        }
+        .purchase-subtab-btn { background-color: var(--card-bg); color: var(--text-main); border: 1px solid var(--border-color); padding: 0.75rem 1.2rem; font-weight: 700; border-radius: 6px; cursor: pointer; text-transform: uppercase; font-size: 0.85rem; transition: all 0.2s ease; }
+        .purchase-subtab-btn.active { background-color: var(--primary-blue) !important; color: #FFFFFF !important; border-color: var(--primary-blue) !important; box-shadow: 0 2px 4px rgba(0,0,0,0.12); }
 
         table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
         th, td { text-align: left; padding: 0.8rem; border-bottom: 1px solid var(--border-color); font-size: 0.88rem; }
@@ -103,9 +107,22 @@
                 <button class="tab-btn" onclick="switchView('section-warehouse', this)">Depósitos</button>
                 <button class="tab-btn" onclick="switchView('section-items', this)">Artículos</button>
                 <button class="tab-btn" onclick="switchView('section-purchases', this)">Compras y Recepción</button>
-                <button class="tab-btn" onclick="switchView('section-inventory', this)">Inventario (Stock)</button>
-                <button class="tab-btn" onclick="switchView('section-kardex', this)">Traza de Artículos</button>
                 <button class="tab-btn" onclick="switchView('section-orders', this)">Pedidos (PDV)</button>
+                
+                <!-- ACORDEÓN DE REPORTES -->
+                <button class="tab-btn" id="btn-acc-reports" onclick="toggleAccordion('acc-reports')">
+                    <span>Reportes</span>
+                    <span id="icon-acc-reports">▼</span>
+                </button>
+                <div id="acc-reports" class="nav-accordion">
+                    <button class="tab-sub-btn" onclick="switchView('section-rep-stock', this)">Reporte de Stock</button>
+                    <button class="tab-sub-btn" onclick="switchView('section-kardex', this)">Traza de Artículos</button>
+                    <button class="tab-sub-btn" onclick="switchView('section-rep-orders', this)">Reporte de Pedidos</button>
+                    <button class="tab-sub-btn" onclick="switchView('section-rep-remitos', this)">Remitos de Compra</button>
+                    <button class="tab-sub-btn" onclick="switchView('section-rep-invoices', this)">Facturas de Compra</button>
+                    <button class="tab-sub-btn" onclick="switchView('section-rep-po', this)">Órdenes de Compra</button>
+                </div>
+
                 <button class="tab-btn" onclick="switchView('section-logs', this)">Auditoría</button>
                 <button class="tab-btn" onclick="switchView('section-settings', this)">Configuración</button>
             </div>
@@ -268,7 +285,7 @@
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
                     <button onclick="openImportModal('items')" class="btn-secondary">Agregar Catálogo Masivamente</button>
                     <button onclick="openImportModal('item_locations')" class="btn-secondary">Agregar Ubicaciones Masivamente</button>
-                    <button onclick="openBatchPrintModal()" class="btn-submit" style="width:auto; background:var(--success-green);"> Panel Impresión de Etiquetas</button>
+                    <button onclick="openBatchPrintModal()" class="btn-submit" style="width:auto; background:var(--success-green);">Panel Impresión de Etiquetas</button>
                 </div>
                 <div style="display:flex; gap:10px;">
                     <input type="text" id="search-sku" placeholder="SKU..." style="width:140px;" onkeydown="if(event.key === 'Enter') handleSearchItems()">
@@ -473,28 +490,35 @@
             </div>
         </div>
 
-        <!-- 7. INVENTARIO -->
-        <div id="section-inventory" class="view-section">
-            <h2>Control de Inventario Físico</h2>
-            <div class="card" style="overflow-x:auto;">
-                <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Stock Físico Consolidado</h3>
-                <table>
-                    <thead><tr><th>Sucursal / Sector</th><th>Ubicación</th><th>SKU</th><th>Cantidad</th></tr></thead>
-                    <tbody id="table-stock-body"></tbody>
-                </table>
+        <!-- 8. PEDIDOS -->
+        <div id="section-orders" class="view-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <h2 style="margin:0; border:none; padding:0;">Monitoreo de Salidas (Pedidos)</h2>
+                <button type="button" class="btn-submit" onclick="openManualOrderModal()" style="width:auto; margin:0;">+ Crear Pedido</button>
             </div>
+            <div class="card"><table><thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th><th>Progreso</th><th>Acción</th></tr></thead><tbody id="table-orders-body"></tbody></table></div>
         </div>
 
-        <!-- 7B. TRAZA DE ARTÍCULOS (KARDEX) -->
+        <!-- 9. AUDITORÍA -->
+        <div id="section-logs" class="view-section">
+            <h2>Auditoría de Actividad General</h2>
+            <div class="card"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Detalles</th></tr></thead><tbody id="table-logs-body"></tbody></table></div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- MÓDULOS DE REPORTES (VISTAS)                   -->
+        <!-- ============================================== -->
+
+        <!-- TRAZA (KARDEX) AHORA ES UN REPORTE -->
         <div id="section-kardex" class="view-section">
-            <h2>Traza de Artículos</h2>
-            
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <h2 style="margin:0; border:none; padding:0;">Traza de Artículos (Kardex)</h2>
+                <button type="button" class="btn-submit" onclick="exportKardexReportCSV()" style="width:auto; margin:0; background:var(--success-green);">Exportar CSV / Excel</button>
+            </div>
             <div class="card" style="margin-bottom:1.5rem; background:#F8FAFC; border:1px solid #E2E8F0;">
                 <h4 style="color:var(--primary-blue); margin-bottom:1rem; font-size:0.95rem; border-bottom:1px solid #CBD5E1; padding-bottom:0.5rem;">Filtros de Búsqueda</h4>
-                
-                <form id="form-kardex-filters" onsubmit="if(typeof loadKardexFiltered === 'function') loadKardexFiltered(event)">
+                <form id="form-kardex-filters" onsubmit="loadKardexFiltered(event)">
                     <div class="grid-layout" style="margin-bottom:0;">
-                        <!-- Columna Izquierda -->
                         <div>
                             <div class="form-group">
                                 <label>Artículo (SKU / Descripción)</label>
@@ -503,15 +527,11 @@
                             <div class="form-row">
                                 <div class="form-group" style="flex:1;">
                                     <label>Sucursal</label>
-                                    <select id="kardex-filter-branch" onchange="if(typeof onKardexBranchChange === 'function') onKardexBranchChange()">
-                                        <option value="">-- Todas --</option>
-                                    </select>
+                                    <select id="kardex-filter-branch" onchange="if(typeof onKardexBranchChange === 'function') onKardexBranchChange()"><option value="">-- Todas --</option></select>
                                 </div>
                                 <div class="form-group" style="flex:1;">
                                     <label>Sector</label>
-                                    <select id="kardex-filter-sector">
-                                        <option value="">-- Todos --</option>
-                                    </select>
+                                    <select id="kardex-filter-sector"><option value="">-- Todos --</option></select>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -519,28 +539,14 @@
                                 <input type="text" id="kardex-filter-location" placeholder="Ej: RACK-A-01">
                             </div>
                         </div>
-
-                        <!-- Columna Derecha -->
                         <div>
                             <div class="form-row">
-                                <div class="form-group" style="flex:1;">
-                                    <label>Fecha Desde *</label>
-                                    <input type="date" id="kardex-filter-date-from" required>
-                                </div>
-                                <div class="form-group" style="flex:1;">
-                                    <label>Fecha Hasta *</label>
-                                    <input type="date" id="kardex-filter-date-to" required>
-                                </div>
+                                <div class="form-group" style="flex:1;"><label>Fecha Desde *</label><input type="date" id="kardex-filter-date-from" required></div>
+                                <div class="form-group" style="flex:1;"><label>Fecha Hasta *</label><input type="date" id="kardex-filter-date-to" required></div>
                             </div>
                             <div class="form-row">
-                                <div class="form-group" style="flex:1;">
-                                    <label>Hora Desde (HH:MM)</label>
-                                    <input type="time" id="kardex-filter-time-from" value="00:00">
-                                </div>
-                                <div class="form-group" style="flex:1;">
-                                    <label>Hora Hasta (HH:MM)</label>
-                                    <input type="time" id="kardex-filter-time-to" value="23:59">
-                                </div>
+                                <div class="form-group" style="flex:1;"><label>Hora Desde (HH:MM)</label><input type="time" id="kardex-filter-time-from" value="00:00"></div>
+                                <div class="form-group" style="flex:1;"><label>Hora Hasta (HH:MM)</label><input type="time" id="kardex-filter-time-to" value="23:59"></div>
                             </div>
                             <div class="form-group">
                                 <label>Tipo de Operación / Movimiento</label>
@@ -554,15 +560,11 @@
                             </div>
                         </div>
                     </div>
-                    
                     <div style="display:flex; justify-content:flex-end; border-top:1px solid #CBD5E1; padding-top:1rem; margin-top:0.5rem;">
-                        <button type="submit" class="btn-submit" style="width:auto; padding:0.6rem 2rem; background:var(--primary-blue);">
-                            Generar Reporte de Traza
-                        </button>
+                        <button type="submit" class="btn-submit" style="width:auto; padding:0.6rem 2rem; background:var(--primary-blue);">Generar Reporte de Traza</button>
                     </div>
                 </form>
             </div>
-
             <div class="card" style="overflow-x:auto;">
                 <table style="font-size:0.85rem;">
                     <thead>
@@ -585,20 +587,303 @@
             </div>
         </div>
 
-        <!-- 8. PEDIDOS -->
-        <div id="section-orders" class="view-section">
+        <!-- REPORTE DE STOCK -->
+        <div id="section-rep-stock" class="view-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
-                <h2 style="margin:0; border:none; padding:0;">Monitoreo de Salidas (Pedidos)</h2>
-                <button type="button" class="btn-submit" onclick="openManualOrderModal()" style="width:auto; margin:0;">+ Crear Pedido</button>
+                <h2 style="margin:0; border:none; padding:0;">Reporte de Stock Consolidado</h2>
+                <button type="button" class="btn-submit" onclick="exportStockReportCSV()" style="width:auto; margin:0; background:var(--success-green);">Exportar CSV / Excel</button>
             </div>
-            <div class="card"><table><thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th><th>Progreso</th><th>Acción</th></tr></thead><tbody id="table-orders-body"></tbody></table></div>
+            
+            <div class="card" style="margin-bottom:1.5rem; background:#F8FAFC; border:1px solid #E2E8F0;">
+                <h4 style="color:var(--primary-blue); margin-bottom:1rem; font-size:0.95rem; border-bottom:1px solid #CBD5E1; padding-bottom:0.5rem;">Filtros del Reporte</h4>
+                <form id="form-rep-stock" onsubmit="generateStockReport(event)">
+                    <div class="grid-layout" style="margin-bottom:0;">
+                        <div class="form-group">
+                            <label>SKU o Descripción</label>
+                            <input type="text" id="rep-stock-sku" placeholder="Dejar vacío para traer todos...">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group" style="flex:1;">
+                                <label>Sucursal</label>
+                                <select id="rep-stock-branch" onchange="onRepStockBranchChange()"><option value="">-- Todas --</option></select>
+                            </div>
+                            <div class="form-group" style="flex:1;">
+                                <label>Sector</label>
+                                <select id="rep-stock-sector"><option value="">-- Todos --</option></select>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:20px; align-items:center; margin-bottom:1rem; padding:10px; background:#fff; border:1px solid var(--border-color); border-radius:6px;">
+                        <label style="display:flex; align-items:center; gap:8px; margin:0; cursor:pointer;">
+                            <input type="checkbox" id="rep-stock-inc-zero" style="width:auto;"> Mostrar stock en Cero (0)
+                        </label>
+                        <label style="display:flex; align-items:center; gap:8px; margin:0; cursor:pointer;">
+                            <input type="checkbox" id="rep-stock-inc-neg" style="width:auto;"> Mostrar stock Negativo
+                        </label>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; border-top:1px solid #CBD5E1; padding-top:1rem;">
+                        <button type="submit" class="btn-submit" style="width:auto; padding:0.6rem 2rem;">Generar Reporte</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card" style="overflow-x:auto;">
+                <table style="font-size:0.85rem;">
+                    <thead>
+                        <tr>
+                            <th>Sucursal</th>
+                            <th>Sector</th>
+                            <th>Ubicación</th>
+                            <th>SKU</th>
+                            <th>Descripción</th>
+                            <th style="text-align:right;">Cantidad</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-rep-stock-body">
+                        <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Seleccione los filtros y presione 'Generar Reporte'</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
-        <!-- 9. AUDITORÍA -->
-        <div id="section-logs" class="view-section">
-            <h2>Auditoría de Actividad General</h2>
-            <div class="card"><table><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Detalles</th></tr></thead><tbody id="table-logs-body"></tbody></table></div>
+        <!-- REPORTE DE PEDIDOS -->
+        <div id="section-rep-orders" class="view-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <h2 style="margin:0; border:none; padding:0;">Reporte de Pedidos de Venta</h2>
+                <button type="button" class="btn-submit" onclick="exportOrdersReportCSV()" style="width:auto; margin:0; background:var(--success-green);">Exportar CSV / Excel</button>
+            </div>
+            
+            <div class="card" style="margin-bottom:1.5rem; background:#F8FAFC; border:1px solid #E2E8F0;">
+                <h4 style="color:var(--primary-blue); margin-bottom:1rem; font-size:0.95rem; border-bottom:1px solid #CBD5E1; padding-bottom:0.5rem;">Filtros del Reporte</h4>
+                <form id="form-rep-orders" onsubmit="generateOrdersReport(event)">
+                    <div class="grid-layout" style="margin-bottom:0;">
+                        <div>
+                            <div class="form-group"><label>Nº de Documento / Pedido</label><input type="text" id="rep-order-num" placeholder="Ej: 000001"></div>
+                            <div class="form-group"><label>Cliente (CUIT / Razón Social)</label><input type="text" id="rep-order-client" placeholder="Buscar cliente..."></div>
+                            <div class="form-group"><label>Filtrar por SKU contenido</label><input type="text" id="rep-order-sku" placeholder="Buscar SKU específico..."></div>
+                        </div>
+                        <div>
+                            <div class="form-row">
+                                <div class="form-group" style="flex:1;"><label>Fecha Desde</label><input type="date" id="rep-order-date-from"></div>
+                                <div class="form-group" style="flex:1;"><label>Fecha Hasta</label><input type="date" id="rep-order-date-to"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>Estado del Pedido</label>
+                                <select id="rep-order-status">
+                                    <option value="">-- Todos los Estados --</option>
+                                    <option value="PENDING">Pendiente (0%)</option>
+                                    <option value="IN_PROGRESS">En Progreso</option>
+                                    <option value="COMPLETED">Preparado / Completado (100%)</option>
+                                    <option value="DISPATCHED">Despachado</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Documentos Vinculados</label>
+                                <select id="rep-order-related">
+                                    <option value="">-- Mostrar Todos --</option>
+                                    <option value="ONLY_RELATED">Mostrar solo vinculados a (PDV, ODC, FCV)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; border-top:1px solid #CBD5E1; padding-top:1rem; margin-top:0.5rem;">
+                        <button type="submit" class="btn-submit" style="width:auto; padding:0.6rem 2rem;">Generar Reporte</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card" style="overflow-x:auto;">
+                <table style="font-size:0.85rem;">
+                    <thead>
+                        <tr>
+                            <th>Nº Pedido</th>
+                            <th>Fecha</th>
+                            <th>Cliente</th>
+                            <th>Estado</th>
+                            <th>Progreso</th>
+                            <th>Vinculado a</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-rep-orders-body">
+                        <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:2rem;">Seleccione los filtros y presione 'Generar Reporte'</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
+
+        <!-- REPORTE DE REMITOS -->
+        <div id="section-rep-remitos" class="view-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <h2 style="margin:0; border:none; padding:0;">Reporte de Remitos de Compra</h2>
+                <button type="button" class="btn-submit" onclick="exportRemitosReportCSV()" style="width:auto; margin:0; background:var(--success-green);">Exportar CSV / Excel</button>
+            </div>
+            
+            <div class="card" style="margin-bottom:1.5rem; background:#F8FAFC; border:1px solid #E2E8F0;">
+                <h4 style="color:var(--primary-blue); margin-bottom:1rem; font-size:0.95rem; border-bottom:1px solid #CBD5E1; padding-bottom:0.5rem;">Filtros del Reporte</h4>
+                <form id="form-rep-remitos" onsubmit="generateRemitosReport(event)">
+                    <div class="grid-layout" style="margin-bottom:0;">
+                        <div>
+                            <div class="form-group"><label>Nº de Remito</label><input type="text" id="rep-remito-num" placeholder="Ej: REM-0001"></div>
+                            <div class="form-group"><label>Proveedor</label><select id="rep-remito-supplier"><option value="">-- Todos los Proveedores --</option></select></div>
+                            <div class="form-group"><label>Filtrar por SKU contenido</label><input type="text" id="rep-remito-sku" placeholder="Buscar SKU específico..."></div>
+                        </div>
+                        <div>
+                            <div class="form-row">
+                                <div class="form-group" style="flex:1;"><label>Fecha Desde</label><input type="date" id="rep-remito-date-from"></div>
+                                <div class="form-group" style="flex:1;"><label>Fecha Hasta</label><input type="date" id="rep-remito-date-to"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>Estado de Recepción</label>
+                                <select id="rep-remito-status">
+                                    <option value="">-- Todos los Estados --</option>
+                                    <option value="PENDING">Pendiente</option>
+                                    <option value="PENDING_CONTROL">Pendiente de Control</option>
+                                    <option value="IN_PROGRESS">En Progreso</option>
+                                    <option value="COMPLETED">Completado</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Sucursal Destino</label>
+                                <select id="rep-remito-branch"><option value="">-- Todas las Sucursales --</option></select>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; border-top:1px solid #CBD5E1; padding-top:1rem; margin-top:0.5rem;">
+                        <button type="submit" class="btn-submit" style="width:auto; padding:0.6rem 2rem;">Generar Reporte</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card" style="overflow-x:auto;">
+                <table style="font-size:0.85rem;">
+                    <thead>
+                        <tr>
+                            <th>Nº Remito</th>
+                            <th>Fecha Ingreso</th>
+                            <th>Proveedor</th>
+                            <th>Destino (Sucursal > Sector)</th>
+                            <th>Estado y Progreso</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-rep-remitos-body">
+                        <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">Seleccione los filtros y presione 'Generar Reporte'</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- REPORTE DE FACTURAS -->
+        <div id="section-rep-invoices" class="view-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <h2 style="margin:0; border:none; padding:0;">Reporte de Facturas de Compra</h2>
+                <button type="button" class="btn-submit" onclick="exportInvoicesReportCSV()" style="width:auto; margin:0; background:var(--success-green);">Exportar CSV / Excel</button>
+            </div>
+            
+            <div class="card" style="margin-bottom:1.5rem; background:#F8FAFC; border:1px solid #E2E8F0;">
+                <h4 style="color:var(--primary-blue); margin-bottom:1rem; font-size:0.95rem; border-bottom:1px solid #CBD5E1; padding-bottom:0.5rem;">Filtros del Reporte</h4>
+                <form id="form-rep-invoices" onsubmit="generateInvoicesReport(event)">
+                    <div class="grid-layout" style="margin-bottom:0;">
+                        <div>
+                            <div class="form-group"><label>Nº de Factura</label><input type="text" id="rep-invoice-num" placeholder="Ej: FC-0001"></div>
+                            <div class="form-group"><label>Proveedor</label><select id="rep-invoice-supplier"><option value="">-- Todos los Proveedores --</option></select></div>
+                        </div>
+                        <div>
+                            <div class="form-row">
+                                <div class="form-group" style="flex:1;"><label>Fecha Desde</label><input type="date" id="rep-invoice-date-from"></div>
+                                <div class="form-group" style="flex:1;"><label>Fecha Hasta</label><input type="date" id="rep-invoice-date-to"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>Tipo de Comprobante</label>
+                                <select id="rep-invoice-type">
+                                    <option value="">-- Todos --</option>
+                                    <option value="A">Factura A</option>
+                                    <option value="B">Factura B</option>
+                                    <option value="C">Factura C</option>
+                                    <option value="M">Factura M</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; border-top:1px solid #CBD5E1; padding-top:1rem; margin-top:0.5rem;">
+                        <button type="submit" class="btn-submit" style="width:auto; padding:0.6rem 2rem;">Generar Reporte</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card" style="overflow-x:auto;">
+                <table style="font-size:0.85rem;">
+                    <thead>
+                        <tr>
+                            <th>Nº Factura</th>
+                            <th>Fecha de Emisión</th>
+                            <th>Proveedor</th>
+                            <th>CUIT Proveedor</th>
+                            <th>Tipo Comprobante</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-rep-invoices-body">
+                        <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">Seleccione los filtros y presione 'Generar Reporte'</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- REPORTE DE ÓRDENES DE COMPRA -->
+        <div id="section-rep-po" class="view-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <h2 style="margin:0; border:none; padding:0;">Reporte de Órdenes de Compra</h2>
+                <button type="button" class="btn-submit" onclick="exportPOReportCSV()" style="width:auto; margin:0; background:var(--success-green);">Exportar CSV / Excel</button>
+            </div>
+            
+            <div class="card" style="margin-bottom:1.5rem; background:#F8FAFC; border:1px solid #E2E8F0;">
+                <h4 style="color:var(--primary-blue); margin-bottom:1rem; font-size:0.95rem; border-bottom:1px solid #CBD5E1; padding-bottom:0.5rem;">Filtros del Reporte</h4>
+                <form id="form-rep-po" onsubmit="generatePOReport(event)">
+                    <div class="grid-layout" style="margin-bottom:0;">
+                        <div>
+                            <div class="form-group"><label>Nº de Orden</label><input type="text" id="rep-po-num" placeholder="Ej: OC-0001"></div>
+                            <div class="form-group"><label>Proveedor</label><select id="rep-po-supplier"><option value="">-- Todos los Proveedores --</option></select></div>
+                            <div class="form-group"><label>Filtrar por SKU contenido</label><input type="text" id="rep-po-sku" placeholder="Buscar SKU específico..."></div>
+                        </div>
+                        <div>
+                            <div class="form-row">
+                                <div class="form-group" style="flex:1;"><label>Fecha Desde</label><input type="date" id="rep-po-date-from"></div>
+                                <div class="form-group" style="flex:1;"><label>Fecha Hasta</label><input type="date" id="rep-po-date-to"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>Estado de la Orden</label>
+                                <select id="rep-po-status">
+                                    <option value="">-- Todos los Estados --</option>
+                                    <option value="PENDING">Pendiente</option>
+                                    <option value="IN_PROGRESS">En Progreso / Parcial</option>
+                                    <option value="COMPLETED">Completada</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; border-top:1px solid #CBD5E1; padding-top:1rem; margin-top:0.5rem;">
+                        <button type="submit" class="btn-submit" style="width:auto; padding:0.6rem 2rem;">Generar Reporte</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card" style="overflow-x:auto;">
+                <table style="font-size:0.85rem;">
+                    <thead>
+                        <tr>
+                            <th>Nº Orden</th>
+                            <th>Fecha Emisión</th>
+                            <th>Proveedor</th>
+                            <th>Estado</th>
+                            <th>Resumen</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-rep-po-body">
+                        <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">Seleccione los filtros y presione 'Generar Reporte'</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
 
         <!-- 10. CONFIGURACIÓN COMPLETA -->
         <div id="section-settings" class="view-section">
@@ -1092,12 +1377,46 @@
         window.addEventListener('online', () => { const b = document.getElementById('net-banner'); if(b) b.style.display = 'none'; });
         window.addEventListener('offline', () => { const b = document.getElementById('net-banner'); if(b) b.style.display = 'block'; });
 
+        // === CONTROL DEL ACORDEÓN DE REPORTES ===
+        function toggleAccordion(id) {
+            const acc = document.getElementById(id);
+            const icon = document.getElementById('icon-acc-reports');
+            const btn = document.getElementById('btn-acc-reports');
+            
+            if (acc.classList.contains('open')) {
+                acc.classList.remove('open');
+                icon.textContent = '▼';
+                btn.classList.remove('active');
+            } else {
+                acc.classList.add('open');
+                icon.textContent = '▲';
+                document.querySelectorAll('.sidebar > div > .nav-tabs > .tab-btn').forEach(e => e.classList.remove('active'));
+                btn.classList.add('active');
+            }
+        }
+
         function switchView(secId, btnElement = null) {
-            document.querySelectorAll('.view-section, .tab-btn').forEach(e => e.classList.remove('active'));
+            document.querySelectorAll('.view-section, .tab-btn, .tab-sub-btn').forEach(e => e.classList.remove('active'));
+            
             const sec = document.getElementById(secId);
             if (sec) sec.classList.add('active');
-            if (btnElement) btnElement.classList.add('active');
-            else { const b = document.querySelector('.tab-btn[onclick*="' + secId + '"]'); if(b) b.classList.add('active'); }
+            
+            if (btnElement) {
+                btnElement.classList.add('active');
+                if (btnElement.classList.contains('tab-sub-btn')) {
+                    document.getElementById('btn-acc-reports').classList.add('active');
+                }
+            } else {
+                const b = document.querySelector(`[onclick*="${secId}"]`);
+                if(b) {
+                    b.classList.add('active');
+                    if (b.classList.contains('tab-sub-btn')) {
+                        document.getElementById('btn-acc-reports').classList.add('active');
+                        document.getElementById('acc-reports').classList.add('open');
+                        document.getElementById('icon-acc-reports').textContent = '▲';
+                    }
+                }
+            }
 
             if(secId === 'section-dashboard') loadDashboard();
             if(secId === 'section-users') loadUsers();
@@ -1105,11 +1424,15 @@
             if(secId === 'section-warehouse') loadWarehouseData();
             if(secId === 'section-items') loadItems();
             if(secId === 'section-purchases') { loadPurchaseSelectors(); loadAllPurchaseHistories(); }
-            if(secId === 'section-inventory') { loadStock(); }
-            if(secId === 'section-kardex') { if(typeof loadKardexSelectors === 'function') loadKardexSelectors(); }
             if(secId === 'section-orders') loadOrders();
             if(secId === 'section-logs') loadLogs();
             if(secId === 'section-settings' && typeof loadSettings === 'function') { loadSettings(); loadIntegrationChannels(); }
+            
+            if(secId === 'section-kardex') { if(typeof window.loadKardexSelectors === 'function') window.loadKardexSelectors(); }
+            if(secId === 'section-rep-stock') { if(typeof window.loadReportStockSelectors === 'function') window.loadReportStockSelectors(); }
+            if(secId === 'section-rep-remitos') { if(typeof window.loadReportRemitosSelectors === 'function') window.loadReportRemitosSelectors(); }
+            if(secId === 'section-rep-invoices') { if(typeof window.loadReportInvoicesSelectors === 'function') window.loadReportInvoicesSelectors(); }
+            if(secId === 'section-rep-po') { if(typeof window.loadReportPOSelectors === 'function') window.loadReportPOSelectors(); }
         }
 
         function navigateToSubTab(sectionId, tabId) { switchView(sectionId); switchPurchaseTab(tabId); }
@@ -1308,7 +1631,7 @@
                         <strong style="color:var(--primary-blue);">${escapeHTML(a.address_label || a.label)}:</strong> ${escapeHTML(a.full_address || a.address)} ${defaultBadge}
                     </div>
                     <div style="display:flex; gap:6px;">
-                        <button type="button" onclick="editEntityAddress('${a.id}')" style="background:var(--accent-blue); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;" title="Editar Dirección">✎</button>
+                        <button type="button" onclick="editEntityAddress('${a.id}')" style="background:var(--accent-blue); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;" title="Editar Dirección">Editar</button>
                         <button type="button" onclick="deleteEntityAddress('${a.id}', '${entId}')" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;" title="Eliminar Dirección">X</button>
                     </div>
                 </li>`; 
@@ -1630,7 +1953,7 @@
                     <td>${escapeHTML(r.supplier_name)}</td>
                     <td>${escapeHTML(r.branch_name)} > ${escapeHTML(r.sector_name)}</td>
                     <td><span class="badge badge-warning">${escapeHTML(r.status)}</span></td>
-                    <td><button onclick="printRemitoLabels('${r.id}')" class="btn-secondary" style="padding:3px 6px; font-size:0.75rem;"> Etiquetas</button></td>
+                    <td><button onclick="printRemitoLabels('${r.id}')" class="btn-secondary" style="padding:3px 6px; font-size:0.75rem;">Etiquetas</button></td>
                 </tr>`; 
             }); 
         }
@@ -1666,7 +1989,7 @@
                 body.innerHTML = ''; 
                 docs.forEach(d => {
                     const canPrint = (d.status === 'COMPLETED' || d.status === 'DISPATCHED');
-                    const btnPrint = canPrint ? `<button onclick="printOrderLabelAgain('${escapeHTML(d.document_number)}')" class="btn-secondary" style="padding:3px 6px; font-size:0.75rem;"> Etiqueta</button>` : '<span style="color:var(--text-muted);">-</span>';
+                    const btnPrint = canPrint ? `<button onclick="printOrderLabelAgain('${escapeHTML(d.document_number)}')" class="btn-secondary" style="padding:3px 6px; font-size:0.75rem;">Etiqueta</button>` : '<span style="color:var(--text-muted);">-</span>';
                     body.innerHTML += `<tr>
                         <td style="font-weight:bold;">${escapeHTML(d.document_number)}</td>
                         <td>${escapeHTML(d.company_name)}</td>
@@ -1901,6 +2224,7 @@
     <script src="js/items.js?v=1785417687"></script>
     <script src="js/warehouse.js"></script>
     <script src="js/operations.js"></script>
+    <script src="js/reports.js?v=20260804_2"></script>
     <script src="js/settings.js"></script>
     <script src="js/admin-init.js"></script>
 </body>

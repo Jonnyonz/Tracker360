@@ -8,10 +8,10 @@ from fastapi.responses import FileResponse
 
 try:
     from backend.database import init_db_schema, DB
-    from backend.routers import auth, users, entities, items, warehouse, settings, printing, operations
+    from backend.routers import auth, users, entities, items, warehouse, settings, printing, operations, reports
 except ImportError:
     from database import init_db_schema, DB
-    from routers import auth, users, entities, items, warehouse, settings, printing, operations
+    from routers import auth, users, entities, items, warehouse, settings, printing, operations, reports
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -50,6 +50,7 @@ app.include_router(warehouse.router)
 app.include_router(settings.router)
 app.include_router(printing.router)
 app.include_router(operations.router)
+app.include_router(reports.router)
 
 # === ENDPOINTS EXPLICITOS DE FAVICON ===
 @app.get("/favicon.png", include_in_schema=False)
