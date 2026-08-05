@@ -9,11 +9,18 @@ from typing import Optional, Dict
 # === SEGURIDAD Y CONFIGURACIÓN ===
 SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_hex(32))
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 480
+ACCESS_TOKEN_EXPIRE_MINUTES = 240  # Reducido a 4 horas para coincidir con la seguridad estricta de la cookie
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
-def verify_password(p, h): return pwd_context.verify(p, h)
-def get_password_hash(p): return pwd_context.hash(p)
+
+def verify_password(p, h): 
+    try:
+        return pwd_context.verify(p, h)
+    except Exception:
+        return False
+
+def get_password_hash(p): 
+    return pwd_context.hash(p)
 
 def create_access_token(data: dict):
     to_encode = data.copy()
@@ -113,7 +120,10 @@ async def require_admin(current_user: dict = Depends(get_current_user)):
 async def verify_system_api_key(x_api_key: Optional[str] = Header(None), conn: asyncpg.Connection = Depends(get_db_connection)):
     if not x_api_key: raise HTTPException(status_code=401, detail="Cabecera X-API-Key requerida.")
     valid_key = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'tracker360_api_key'")
-    if not valid_key or x_api_key.strip() != valid_key.strip(): raise HTTPException(status_code=403, detail="Clave API de Tracker360 inválida.")
+    
+    # BLINDAJE CONTRA ATAQUES DE TIEMPO (Timing Attacks)
+    if not valid_key or not secrets.compare_digest(x_api_key.strip(), valid_key.strip()): 
+        raise HTTPException(status_code=403, detail="Clave API de Tracker360 inválida.")
     return True
 
 # === INICIALIZACIÓN DE TABLAS (DDL) ===

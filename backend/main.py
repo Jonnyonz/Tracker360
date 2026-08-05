@@ -1,7 +1,7 @@
 from fastapi.openapi.docs import get_redoc_html
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -22,14 +22,25 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Tracker360 API", version="2.0 Modular", lifespan=lifespan)
 
-# === MIDDLEWARE CABECERAS DE SEGURIDAD HTTP ===
+# === MIDDLEWARE SEGURIDAD BANCARIA (HTTPS & HEADERS) ===
 @app.middleware("http")
-async def add_security_headers(request: Request, call_next):
+async def security_middleware(request: Request, call_next):
+    # 1. Forzar HTTPS (ignora redes locales/internas para no romper desarrollo/pruebas)
+    client_ip = request.client.host if request.client else ""
+    forwarded_proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    
+    is_local = client_ip.startswith(("127.", "192.168.", "10.", "172.16.")) or client_ip == "::1"
+    if not is_local and forwarded_proto != "https":
+        return Response(content="Acceso denegado. Se requiere conexión HTTPS segura.", status_code=403)
+
+    # 2. Inyectar cabeceras contra ataques de inyección y sniffing
     response = await call_next(request)
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    
     return response
 
 # === MIDDLEWARE CORS HARDENED ===
