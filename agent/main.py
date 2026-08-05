@@ -1,18 +1,24 @@
-# Tracker360 - Agente de Impresión Local
 import sys, os, time, json, traceback, logging, subprocess
 import requests
 
-CONFIG_FILE = "config.json"
+# 1. RUTAS SEGURAS (Blindaje contra permisos de Windows)
+appdata_path = os.getenv('APPDATA')
+app_folder = os.path.join(appdata_path, 'Tracker360Agent')
+
+if not os.path.exists(app_folder):
+    os.makedirs(app_folder)
+
+CONFIG_FILE = os.path.join(app_folder, "config.json")
+LOG_FILE = os.path.join(app_folder, "agente_error.log")
 
 logging.basicConfig(
-    filename='agente_error.log',
+    filename=LOG_FILE,
     level=logging.ERROR,
     format='%(asctime)s %(levelname)s: %(message)s'
 )
 
 def get_windows_printers():
     try:
-        # Utilizamos PowerShell nativo para asegurar la lectura de drivers Zebra/Brother
         cmd = 'powershell -Command "Get-Printer | Select-Object -ExpandProperty Name"'
         result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
         if result.returncode == 0:
@@ -32,7 +38,7 @@ def send_zpl_to_printer(printer_name, zpl_content):
             zpl_str = zpl_str.replace("\n", "")
 
         if not zpl_str.strip():
-            print("   [!] Error: El contenido ZPL recibido para la impresora está vacío.")
+            print("   [!] Error: El contenido ZPL recibido para la impresora esta vacio.")
             return False
 
         hPrinter = win32print.OpenPrinter(printer_name)
@@ -54,19 +60,19 @@ def load_or_create_config():
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 cfg = json.load(f)
-                print("--> Configuración guardada detectada:")
+                print("--> Configuracion guardada detectada:")
                 print(f"    * Servidor: {cfg.get('server_url')}")
                 print(f"    * Sector / Cola: {cfg.get('queue_code')}")
                 print(f"    * Impresora: {cfg.get('printer_name')}")
                 print("")
-                ans = input("¿Desea usar esta configuración? (S/n): ").strip().lower()
+                ans = input("¿Desea usar esta configuracion? (S/n): ").strip().lower()
                 if ans != 'n':
                     return cfg
         except Exception:
             pass
 
     print("\n===================================================")
-    print("    ASISTENTE DE CONFIGURACION DE IMPRESION")
+    print("   ASISTENTE DE CONFIGURACION DE IMPRESION")
     print("===================================================")
 
     server_url = input("1. URL del Servidor [https://tracker360.mywire.org]: ").strip()
@@ -83,8 +89,7 @@ def load_or_create_config():
         for idx, p in enumerate(printers, 1):
             print(f"   [{idx}] {p}")
         
-        # Corrección: El input ahora está fuera del bucle for
-        choice = input(f"Seleccione número (1-{len(printers)}) o nombre exacto: ").strip()
+        choice = input(f"Seleccione numero (1-{len(printers)}) o nombre exacto: ").strip()
         if choice.isdigit() and 1 <= int(choice) <= len(printers):
             printer_name = printers[int(choice) - 1]
         else:
@@ -103,7 +108,7 @@ def load_or_create_config():
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=4)
 
-    print("\nConfiguración guardada en 'config.json'\n")
+    print("\nConfiguracion guardada exitosamente\n")
     return cfg
 
 def run_agent():
@@ -117,7 +122,7 @@ def run_agent():
     endpoint_jobs = f"{server_url}/api/print-agent/jobs?queue_code={queue_code}"
 
     print(f"--> Conectado a la cola '{queue_code}' con impresora '{printer_name}'")
-    print("--> Escuchando trabajos de impresion... (Presione Ctrl + C para salir)")
+    print("--> Escuchando trabajos de impresion... (Puede minimizar esta ventana)")
     print("---------------------------------------------------\n")
 
     while True:
@@ -134,7 +139,7 @@ def run_agent():
                         if send_zpl_to_printer(printer_name, zpl):
                             ack_url = f"{server_url}/api/print-agent/jobs/{job_id}/ack"
                             requests.post(ack_url, headers=headers, timeout=5)
-                            print(f"    -> Trabajo {job_id} impreso con éxito.")
+                            print(f"    -> Trabajo {job_id} impreso con exito.")
             
             time.sleep(3)
         except KeyboardInterrupt:
