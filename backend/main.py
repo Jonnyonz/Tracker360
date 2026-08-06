@@ -4,13 +4,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
+import jwt
 
 try:
-    from backend.database import init_db_schema, DB
+    from backend.database import init_db_schema, DB, SECRET_KEY, ALGORITHM
     from backend.routers import auth, users, entities, items, warehouse, settings, printing, operations, reports
 except ImportError:
-    from database import init_db_schema, DB
+    from database import init_db_schema, DB, SECRET_KEY, ALGORITHM
     from routers import auth, users, entities, items, warehouse, settings, printing, operations, reports
 
 @asynccontextmanager
@@ -82,16 +83,56 @@ async def download_agent_file():
             return FileResponse(path=p, filename="tracker360-agent.zip", media_type="application/zip")
     raise HTTPException(status_code=404, detail="Archivo agente no encontrado")
 
-@app.get("/api/admin/dashboard")
-async def get_admin_dashboard():
-    return {
-        "status": "ok",
-        "total_items": 0,
-        "pending_jobs": 0
-    }
+# === RUTAS INTELIGENTES DE ENRUTAMIENTO (SWITCH DE VISTAS) ===
+def get_user_role_from_cookie(request: Request) -> str:
+    token = request.cookies.get("access_token")
+    if not token or not token.startswith("Bearer "):
+        return None
+    try:
+        payload = jwt.decode(token.split(" ")[1], SECRET_KEY, algorithms=[ALGORITHM])
+        return payload.get("role")
+    except jwt.PyJWTError:
+        return None
+
+@app.get("/")
+@app.get("/index.html")
+async def serve_root(request: Request):
+    role = get_user_role_from_cookie(request)
+    if not role:
+        return FileResponse("frontend/index.html")
+    
+    if role in ["ADMIN", "SUPERVISOR"]:
+        return RedirectResponse(url="/admin", status_code=303)
+    else:
+        return RedirectResponse(url="/mobile", status_code=303)
+
+@app.get("/admin")
+@app.get("/admin.html")
+async def serve_admin(request: Request):
+    role = get_user_role_from_cookie(request)
+    if not role:
+        return RedirectResponse(url="/index.html", status_code=303)
+    
+    if role not in ["ADMIN", "SUPERVISOR"]:
+        return RedirectResponse(url="/mobile", status_code=303)
+        
+    return FileResponse("frontend/admin.html")
+
+@app.get("/mobile")
+@app.get("/preparador.html")
+async def serve_mobile(request: Request):
+    role = get_user_role_from_cookie(request)
+    if not role:
+        return RedirectResponse(url="/index.html", status_code=303)
+    
+    # Todos (incluyendo Admins y Supervisores) pueden acceder a la vista móvil
+    return FileResponse("frontend/preparador.html")
+
 
 # === ARCHIVOS ESTÁTICOS AL FINAL ABSOLUTO ===
 os.makedirs("downloads", exist_ok=True)
 os.makedirs("frontend", exist_ok=True)
 app.mount("/downloads", StaticFiles(directory="downloads"), name="downloads")
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
+
+# Excluimos html principal de StaticFiles porque ya las manejamos arriba de forma inteligente
+app.mount("/", StaticFiles(directory="frontend", html=False), name="frontend")

@@ -1,31 +1,61 @@
-// === MÓDULO DE OPERACIONES, STOCK, REPORTES Y CONFIGURACIÓN ===
+// === MÓDULO DE OPERACIONES, STOCK, REPORTES E INVENTARIOS CÍCLICOS ===
+
+let isFefoEnabled = false; // Variable global del sistema para Lotes/Vencimientos
+
+// =========================================================================================
+// === FUNCIONES LEGACY (DASHBOARD E INTEGRACIONES) QUE HABÍAN SIDO OMITIDAS ===========
+// =========================================================================================
 
 async function legacy_loadDashboardSummary() {
     try {
         const data = await fetchAPI('/api/admin/dashboard');
         
-        const pendingDiv = document.getElementById('dashPendingOrders');
-        if (pendingDiv) {
-            pendingDiv.innerHTML = data.pending_orders && data.pending_orders.length ? 
-                data.pending_orders.map(o => `<li class="list-group-item d-flex justify-content-between align-items-center"><div><strong>${o.document_number}</strong><br><small class="text-muted">${o.company_name}</small></div><span class="badge bg-warning text-dark">${o.status}</span></li>`).join('') :
-                '<li class="list-group-item text-muted small">Sin pedidos pendientes</li>';
+        const pendingBody = document.getElementById('dash-orders-body');
+        if (pendingBody) {
+            pendingBody.innerHTML = data.pending_orders && data.pending_orders.length ? 
+                data.pending_orders.map(o => `
+                    <tr>
+                        <td style="color:var(--primary-blue); font-weight:bold;">${escapeHTML(o.document_number)}</td>
+                        <td><small>${escapeHTML(o.company_name)}</small></td>
+                        <td><span class="badge ${o.status === 'PENDING' ? 'badge-warning' : 'badge-info'}">${o.status}</span></td>
+                    </tr>
+                `).join('') :
+                '<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:1rem;">No hay pedidos pendientes.</td></tr>';
         }
 
-        const transfersDiv = document.getElementById('dashActiveTransfers');
-        if (transfersDiv) {
-            transfersDiv.innerHTML = data.active_transfers && data.active_transfers.length ?
-                data.active_transfers.map(t => `<li class="list-group-item d-flex justify-content-between align-items-center"><div><strong>${t.transfer_number}</strong><br><small class="text-muted">${t.origin_branch} ➔ ${t.destination_branch}</small></div></li>`).join('') :
-                '<li class="list-group-item text-muted small">Sin traspasos activos</li>';
+        const transfersBody = document.getElementById('dash-transfers-body');
+        if (transfersBody) {
+            transfersBody.innerHTML = data.active_transfers && data.active_transfers.length ?
+                data.active_transfers.map(t => `
+                    <tr>
+                        <td style="color:var(--primary-blue); font-weight:bold;">${escapeHTML(t.transfer_number)}</td>
+                        <td><small>${escapeHTML(t.origin_branch)}</small></td>
+                        <td><small>${escapeHTML(t.destination_branch)}</small></td>
+                    </tr>
+                `).join('') :
+                '<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:1rem;">No hay traspasos activos.</td></tr>';
         }
 
-        const logsDiv = document.getElementById('dashLatestLogs');
-        if (logsDiv) {
-            logsDiv.innerHTML = data.latest_logs && data.latest_logs.length ?
-                data.latest_logs.map(l => `<li class="list-group-item small"><strong>${l.username}</strong>: ${l.action} <span class="text-muted float-end">${new Date(l.created_at).toLocaleTimeString()}</span></li>`).join('') :
-                '<li class="list-group-item text-muted small">Sin actividad reciente</li>';
+        const logsBody = document.getElementById('dash-logs-body');
+        if (logsBody) {
+            logsBody.innerHTML = data.latest_logs && data.latest_logs.length ?
+                data.latest_logs.map(l => `
+                    <tr>
+                        <td><small style="font-weight:600; color:var(--text-muted);">${new Date(l.created_at).toLocaleString()}</small></td>
+                        <td style="font-weight:bold;">${escapeHTML(l.username)}</td>
+                        <td><span class="badge badge-neutral">${escapeHTML(l.action)}</span></td>
+                    </tr>
+                `).join('') :
+                '<tr><td colspan="3" style="text-align:center; color:var(--text-muted); padding:1rem;">Sin actividad reciente.</td></tr>';
         }
-    } catch (e) {}
+    } catch (e) {
+        console.error("Error al cargar el dashboard:", e);
+    }
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    legacy_loadDashboardSummary();
+});
 
 async function legacy_loadAdminStock() {
     const tbody = document.getElementById('stockTableBody');
@@ -70,7 +100,7 @@ async function legacy_loadAdminKardex() {
             <tr>
                 <td><small class="text-muted">${new Date(r.created_at).toLocaleString()}</small></td>
                 <td class="fw-bold"><code>${r.sku}</code></td>
-                <td><span class="badge ${r.quantity > 0 ? 'bg-success' : 'bg-danger'}">${r.movement_type}</span></td>
+                <td><span class="badge ${r.quantity > 0 ? 'badge-info' : 'badge-warning'}">${r.movement_type}</span></td>
                 <td class="fw-bold ${r.quantity > 0 ? 'text-success' : 'text-danger'}">${r.quantity > 0 ? '+' : ''}${r.quantity}</td>
                 <td><small>${r.branch_name || ''} - ${r.location_code || 'Sin loc'}</small></td>
                 <td><code>${r.reference_document || '-'}</code></td>
@@ -82,43 +112,11 @@ async function legacy_loadAdminKardex() {
     }
 }
 
-async function loadOperationsSettings() {
-    try {
-        const settings = await fetchAPI('/api/settings');
-        for (const [key, value] of Object.entries(settings)) {
-            const input = document.getElementById(`setting_${key}`);
-            if (input) {
-                if (input.type === 'checkbox') {
-                    input.checked = value === 'true';
-                } else {
-                    input.value = value;
-                }
-            }
-        }
-    } catch (e) {}
-}
-
-async function saveSettingsForm(event) {
-    if (event) event.preventDefault();
-    const inputs = document.querySelectorAll('[id^="setting_"]');
-    const payload = {};
-
-    inputs.forEach(input => {
-        const key = input.id.replace('setting_', '');
-        payload[key] = input.type === 'checkbox' ? (input.checked ? 'true' : 'false') : input.value.trim();
-    });
-
-    try {
-        await fetchAPI('/api/admin/settings', { method: 'PUT', body: payload });
-        showToast("Configuración del sistema guardada.", "success");
-    } catch (e) {}
-}
-
 async function generateApiKey() {
     if (!confirm("¿Generar una nueva API Key? La anterior dejará de funcionar.")) return;
     try {
         const res = await fetchAPI('/api/admin/settings/generate-key', { method: 'POST' });
-        const input = document.getElementById('setting_tracker360_api_key');
+        const input = document.getElementById('cfg-tracker360-api-key');
         if (input) input.value = res.new_key;
         showToast("Nueva API Key generada.", "success");
     } catch (e) {}
@@ -133,29 +131,29 @@ async function loadIntegrations() {
         tbody.innerHTML = channels.map(c => `
             <tr>
                 <td class="fw-bold">${c.name}</td>
-                <td><span class="badge bg-secondary">${c.channel_type}</span></td>
+                <td><span class="badge badge-neutral">${c.channel_type}</span></td>
                 <td><small class="text-truncate d-inline-block" style="max-width: 200px;">${c.target_url}</small></td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteIntegration('${c.id}')">🗑️ Eliminar</button>
+                    <button class="btn-secondary" style="color:var(--error-red); border-color:var(--error-red);" onclick="deleteIntegration('${c.id}')">Eliminar</button>
                 </td>
             </tr>
         `).join('');
     } catch (e) {}
 }
 
-async function saveIntegrationForm(event) {
+async function saveNewChannel(event) {
     if (event) event.preventDefault();
     const payload = {
-        name: document.getElementById('intName').value.trim(),
-        channel_type: document.getElementById('intType').value,
-        target_url: document.getElementById('intTargetUrl').value.trim(),
-        api_key: document.getElementById('intApiKey').value.trim() || null
+        name: document.getElementById('chan-name').value.trim(),
+        channel_type: document.getElementById('chan-type').value,
+        target_url: document.getElementById('chan-url').value.trim(),
+        api_key: document.getElementById('chan-key').value.trim() || null
     };
 
     try {
         await fetchAPI('/api/admin/integrations', { method: 'POST', body: payload });
         showToast("Canal de integración agregado.", "success");
-        document.getElementById('integrationForm').reset();
+        closeModal('modal-add-channel');
         loadIntegrations();
     } catch (e) {}
 }
@@ -170,7 +168,330 @@ async function deleteIntegration(id) {
 }
 
 // =========================================================================================
-// === NUEVA LÓGICA DE KARDEX (TRAZA DE ARTÍCULOS) MÁXIMA PERFORMANCE Y ESTABILIDAD ======
+// === MOTOR DE SETTINGS Y FEFO ============================================================
+// =========================================================================================
+
+async function loadOperationsSettings() {
+    try {
+        const settings = await fetchAPI('/api/settings');
+        
+        // Fase 1: Sincronizar todos los inputs de settings
+        for (const [key, value] of Object.entries(settings)) {
+            const input = document.getElementById(`cfg-${key.replace(/_/g, '-')}`);
+            if (input) {
+                if (input.tagName === 'SELECT') input.value = value;
+                else if (input.type === 'checkbox') input.checked = value === 'true';
+                else input.value = value;
+            }
+        }
+
+        // Fase 2: Aplicar diseño dinámico FEFO a las operativas
+        isFefoEnabled = (settings.enable_lots_expiration === 'true');
+        const lotInputs = document.querySelectorAll('.lot-input');
+        lotInputs.forEach(el => {
+            if(el.tagName === 'TH' || el.tagName === 'TD') {
+                el.style.display = isFefoEnabled ? 'table-cell' : 'none';
+            } else {
+                el.style.display = isFefoEnabled ? 'block' : 'none';
+            }
+        });
+
+    } catch (e) {
+        console.error("Error cargando configuración operativa: ", e);
+    }
+}
+
+async function saveSettingsForm(event) {
+    if (event) event.preventDefault();
+    const payload = {};
+    const inputs = document.querySelectorAll('form[id^="form-settings"] input, form[id^="form-settings"] select, form[id^="form-settings"] textarea');
+    
+    inputs.forEach(input => {
+        if(!input.id.startsWith('cfg-')) return;
+        const key = input.id.replace('cfg-', '').replace(/-/g, '_');
+        payload[key] = input.type === 'checkbox' ? (input.checked ? 'true' : 'false') : input.value.trim();
+    });
+
+    try {
+        await fetchAPI('/api/settings', { method: 'POST', body: payload });
+        showToast("Configuración guardada. Actualizando interfaz...", "success");
+        setTimeout(() => location.reload(), 1500); 
+    } catch (e) {}
+}
+
+// =========================================================================================
+// === MOTOR DE AUDITORÍA: INVENTARIO FÍSICO (CONTEOS CÍCLICOS) ============================
+// =========================================================================================
+
+async function loadInventorySessions() {
+    const tbody = document.getElementById('table-inventory-sessions-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7" class="text-center py-3">Cargando sesiones...</td></tr>';
+
+    try {
+        const rows = await fetchAPI('/api/inventory/sessions');
+        if (!rows || rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">No hay sesiones de conteo registradas.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rows.map(r => {
+            const isClosed = r.status === 'CLOSED';
+            const isReview = r.status === 'REVIEW';
+            
+            let statusBadge = '<span class="badge badge-success" style="background:#D1FAE5; color:#065F46;">ABIERTO</span>';
+            if (isReview) statusBadge = '<span class="badge badge-warning" style="background:#FEF3C7; color:#92400E;">EN REVISIÓN</span>';
+            if (isClosed) statusBadge = '<span class="badge badge-neutral" style="background:#E5E7EB; color:#374151;">CERRADO</span>';
+
+            let actionBtn = `<button class="btn-submit" style="padding:4px 10px; width:auto;" onclick="openInventoryScan('${r.id}')">Escanear (App)</button>`;
+            if (isReview) actionBtn = `<button class="btn-secondary" style="background:#F59E0B; color:white; border:none; padding:4px 10px;" onclick="openInventoryReview('${r.id}')">Revisar Deltas</button>`;
+            if (isClosed) actionBtn = `<span style="color:var(--text-muted); font-size:0.8rem; font-weight:bold;">Ajustes Aplicados</span>`;
+
+            return `
+            <tr>
+                <td class="fw-bold" style="font-size:0.75rem;">${escapeHTML(r.branch_name)}</td>
+                <td style="color:var(--primary-blue); font-weight:bold;">${escapeHTML(r.sector_name)}</td>
+                <td>${r.count_type === 'HOT' ? '🔥 En Caliente' : '❄️ En Frío'}</td>
+                <td>${statusBadge}</td>
+                <td><small class="text-muted">${new Date(r.created_at).toLocaleString()}</small></td>
+                <td><small style="font-weight:bold;">${escapeHTML(r.assigned_operator || 'No asignado')}</small></td>
+                <td>${actionBtn}</td>
+            </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Error al cargar conteos.</td></tr>';
+    }
+}
+
+async function openCreateInventoryModal() {
+    document.getElementById('form-create-inventory').reset();
+    openModal('modal-create-inventory');
+    
+    // Cargar Sucursales
+    const branchSelect = document.getElementById('inv-session-branch');
+    branchSelect.innerHTML = '<option value="">-- Seleccione Sucursal --</option>';
+    if (typeof cachedBranches !== 'undefined') {
+        cachedBranches.forEach(b => {
+            branchSelect.innerHTML += `<option value="${b.id}">${escapeHTML(b.name)}</option>`;
+        });
+    }
+    
+    document.getElementById('inv-session-sector').innerHTML = '<option value="">-- Seleccione Sector --</option>';
+
+    // Cargar Operadores activos
+    const opSelect = document.getElementById('inv-session-operator');
+    opSelect.innerHTML = '<option value="">-- Cargando operadores... --</option>';
+    try {
+        const users = await fetchAPI('/api/admin/users');
+        opSelect.innerHTML = '<option value="">-- Seleccione Operador --</option>';
+        if (users && users.length > 0) {
+            users.filter(u => u.is_active).forEach(u => {
+                opSelect.innerHTML += `<option value="${u.username}">${escapeHTML(u.full_name)} (${u.role})</option>`;
+            });
+        }
+    } catch (e) {
+        opSelect.innerHTML = '<option value="">-- Error al cargar --</option>';
+    }
+}
+
+function onInvSessionBranchChange() {
+    const branchId = document.getElementById('inv-session-branch').value;
+    const sectorSelect = document.getElementById('inv-session-sector');
+    sectorSelect.innerHTML = '<option value="">-- Seleccione Sector --</option>';
+    
+    if (typeof cachedSectors !== 'undefined') {
+        cachedSectors.filter(s => s.branch_id === branchId).forEach(s => {
+            sectorSelect.innerHTML += `<option value="${s.id}">${escapeHTML(s.name)}</option>`;
+        });
+    }
+}
+
+async function saveInventorySession(event) {
+    event.preventDefault();
+    const payload = {
+        branch_id: document.getElementById('inv-session-branch').value,
+        sector_id: document.getElementById('inv-session-sector').value,
+        assigned_operator: document.getElementById('inv-session-operator').value,
+        count_type: document.getElementById('inv-session-type').value
+    };
+
+    try {
+        const btn = event.target.querySelector('button[type="submit"]');
+        btn.disabled = true; btn.textContent = 'Tomando Snapshot...';
+        
+        await fetchAPI('/api/inventory/sessions', { method: 'POST', body: payload });
+        
+        showToast("Sesión creada y foto de inventario capturada.", "success");
+        closeModal('modal-create-inventory');
+        loadInventorySessions();
+    } catch (e) {
+        showToast(e.message, "error");
+    } finally {
+        const btn = event.target.querySelector('button[type="submit"]');
+        btn.disabled = false; btn.textContent = 'Crear Sesión y Tomar Foto (Snapshot)';
+    }
+}
+
+function openInventoryScan(sessionId) {
+    document.getElementById('scan-inv-session-id').value = sessionId;
+    document.getElementById('scan-inv-session-id-label').textContent = sessionId.split('-')[0].toUpperCase();
+    document.getElementById('form-scan-inventory').reset();
+    openModal('modal-scan-inventory');
+    setTimeout(() => document.getElementById('scan-inv-sku').focus(), 300);
+}
+
+async function scanInventoryCount(event) {
+    event.preventDefault();
+    const sessionId = document.getElementById('scan-inv-session-id').value;
+    const skuInput = document.getElementById('scan-inv-sku');
+    
+    const payload = {
+        sku: skuInput.value.trim(),
+        quantity: parseFloat(document.getElementById('scan-inv-qty').value),
+        location_code: document.getElementById('scan-inv-loc').value.trim() || null,
+        lot_number: isFefoEnabled ? document.getElementById('scan-inv-lot').value.trim() : ""
+    };
+
+    try {
+        await fetchAPI(`/api/inventory/sessions/${sessionId}/scan`, { method: 'POST', body: payload });
+        showToast(`Registrado: ${payload.quantity}x ${payload.sku}`, "success");
+        
+        skuInput.value = '';
+        document.getElementById('scan-inv-qty').value = '';
+        if(isFefoEnabled) document.getElementById('scan-inv-lot').value = '';
+        skuInput.focus();
+    } catch (e) {
+        showToast(e.message, "error");
+    }
+}
+
+async function finishInventorySession() {
+    const sessionId = document.getElementById('scan-inv-session-id').value;
+    if (!confirm("¿Está seguro de finalizar la etapa de escaneo? El conteo pasará a revisión del Administrador.")) return;
+    
+    try {
+        await fetchAPI(`/api/inventory/sessions/${sessionId}/finish`, { method: 'POST' });
+        showToast("Conteo enviado a revisión exitosamente.", "success");
+        closeModal('modal-scan-inventory');
+        loadInventorySessions();
+    } catch (e) {}
+}
+
+async function openInventoryReview(sessionId) {
+    document.getElementById('review-inv-session-id').value = sessionId;
+    const tbody = document.getElementById('table-review-inventory-body');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem;">Calculando Deltas matemáticos...</td></tr>';
+    openModal('modal-review-inventory');
+
+    try {
+        const deltas = await fetchAPI(`/api/inventory/sessions/${sessionId}/review`);
+        
+        if (!deltas || deltas.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem;">No hay discrepancias. El sector está perfecto.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = deltas.map(d => {
+            const deltaVal = parseFloat(d.delta);
+            let color = 'var(--text-main)';
+            let sign = '';
+            
+            if (deltaVal > 0) { color = 'var(--success-green)'; sign = '+'; }
+            if (deltaVal < 0) { color = 'var(--error-red)'; }
+
+            return `
+            <tr>
+                <td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(d.sku)}</td>
+                <td>${escapeHTML(d.location_code || 'N/A')}</td>
+                <td class="lot-input" style="display:${isFefoEnabled ? 'table-cell' : 'none'};">${escapeHTML(d.lot_number || '-')}</td>
+                <td style="text-align:center; background:#F8FAFC;">${d.expected_quantity}</td>
+                <td style="text-align:center; font-weight:bold;">${d.counted_quantity}</td>
+                <td style="text-align:center; font-weight:900; font-size:1.1rem; color:${color};">${sign}${deltaVal}</td>
+            </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--error-red); padding:2rem;">Error al cruzar datos.</td></tr>';
+    }
+}
+
+async function applyInventoryAdjustments() {
+    const sessionId = document.getElementById('review-inv-session-id').value;
+    if (!confirm("ESTA ACCIÓN ES CRÍTICA.\nEl sistema inyectará los Deltas (Ajustes) al stock en tiempo real. ¿Desea proceder?")) return;
+    
+    try {
+        await fetchAPI(`/api/inventory/sessions/${sessionId}/apply`, { method: 'POST' });
+        showToast("Deltas aplicados. El inventario ha sido cuadrado.", "success");
+        closeModal('modal-review-inventory');
+        loadInventorySessions();
+    } catch (e) {}
+}
+
+// === AUDITORÍA RÁPIDA (SPOT CHECK) ===
+
+function openSpotCheckModal() {
+    document.getElementById('form-spot-check').reset();
+    document.getElementById('spot-check-result').style.display = 'none';
+    openModal('modal-spot-check');
+    setTimeout(() => document.getElementById('spot-check-sku').focus(), 300);
+}
+
+async function runSpotCheck(event) {
+    event.preventDefault();
+    const skuInput = document.getElementById('spot-check-sku');
+    const qtyInput = document.getElementById('spot-check-qty');
+    
+    const payload = {
+        sku: skuInput.value.trim(),
+        quantity: parseFloat(qtyInput.value),
+        location_code: document.getElementById('spot-check-loc').value.trim() || null,
+        lot_number: isFefoEnabled ? document.getElementById('spot-check-lot').value.trim() : ""
+    };
+
+    const resultDiv = document.getElementById('spot-check-result');
+
+    try {
+        const res = await fetchAPI('/api/inventory/spot-check', { method: 'POST', body: payload });
+
+        resultDiv.style.display = 'block';
+        if (res.match) {
+            resultDiv.style.backgroundColor = '#D1FAE5';
+            resultDiv.style.border = '2px solid #059669';
+            resultDiv.innerHTML = `
+                <h2 style="color:#065F46; margin:0; font-size:2rem; margin-bottom:8px;">✅ ¡PERFECTO!</h2>
+                <p style="color:#065F46; font-size:1.1rem; margin:0;">El stock físico coincide con el sistema.</p>
+                <p style="color:#047857; font-size:0.9rem; margin-top:4px;">Stock Confirmado: <strong>${res.expected} un</strong></p>
+            `;
+        } else {
+            resultDiv.style.backgroundColor = '#FEE2E2';
+            resultDiv.style.border = '2px solid #DC2626';
+            let sign = res.delta > 0 ? '+' : '';
+            let actionText = res.delta > 0 ? 'Sobrante' : 'Faltante';
+            resultDiv.innerHTML = `
+                <h2 style="color:#B91C1C; margin:0; font-size:2rem; margin-bottom:8px;">❌ DIFERENCIA</h2>
+                <div style="display:flex; justify-content:center; gap:20px; color:#991B1B; font-size:1.1rem; margin-top:10px;">
+                    <div><strong>Esperado:</strong><br>${res.expected}</div>
+                    <div><strong>Contado:</strong><br>${res.counted}</div>
+                </div>
+                <div style="background:#FEF2F2; border:1px solid #F87171; border-radius:6px; padding:8px; margin-top:12px;">
+                    <span style="font-size:1.1rem; font-weight:bold; color:#DC2626;">${actionText}: ${sign}${res.delta}</span>
+                </div>
+            `;
+        }
+
+        // Limpiar solo los campos críticos para seguir disparando el láser
+        skuInput.value = '';
+        qtyInput.value = '';
+        skuInput.focus();
+
+    } catch (e) {
+        showToast(e.message, "error");
+    }
+}
+
+// =========================================================================================
+// === KARDEX (TRAZA DE ARTÍCULOS) MÁXIMA PERFORMANCE ======================================
 // =========================================================================================
 
 let kardexAutocompleteTimer = null;
@@ -180,7 +501,6 @@ function setupKardexAutocomplete() {
     if (!input || input.hasAttribute('data-autocomplete-setup')) return;
     input.setAttribute('data-autocomplete-setup', 'true');
     
-    // Contenedor seguro para posicionamiento absoluto (Vanilla JS)
     const wrapper = document.createElement('div');
     wrapper.style.position = 'relative';
     wrapper.style.display = 'flex';
@@ -188,7 +508,6 @@ function setupKardexAutocomplete() {
     input.parentNode.insertBefore(wrapper, input);
     wrapper.appendChild(input);
     
-    // Caja flotante de sugerencias
     const list = document.createElement('div');
     list.style.position = 'absolute';
     list.style.top = '100%';
@@ -204,7 +523,6 @@ function setupKardexAutocomplete() {
     list.style.display = 'none';
     wrapper.appendChild(list);
 
-    // Debouncer nativo para proteger la Base de Datos
     input.addEventListener('input', (e) => {
         clearTimeout(kardexAutocompleteTimer);
         const query = e.target.value.trim();
@@ -216,7 +534,6 @@ function setupKardexAutocomplete() {
         
         kardexAutocompleteTimer = setTimeout(async () => {
             try {
-                // Filtramos cruzado (sku y descripción) limitando estrictamente a 10
                 const data = await fetchAPI(`/api/admin/items?page=1&limit=10&sku=${encodeURIComponent(query)}&description=${encodeURIComponent(query)}&sort_by=sku&sort_order=ASC`);
                 
                 if (!data || !data.items || data.items.length === 0) {
@@ -234,7 +551,6 @@ function setupKardexAutocomplete() {
                     </div>
                 `).join('');
                 
-                // Inyectar evento click sin chocar con scopes
                 Array.from(list.children).forEach((child) => {
                     child.addEventListener('click', function() {
                         const idx = this.getAttribute('data-idx');
@@ -249,10 +565,9 @@ function setupKardexAutocomplete() {
             } catch (err) {
                 list.style.display = 'none';
             }
-        }, 350); // 350ms de pausa de seguridad
+        }, 350); 
     });
 
-    // Cierre al hacer clic fuera del control
     document.addEventListener('click', (e) => {
         if (e.target !== input && !wrapper.contains(e.target)) {
             list.style.display = 'none';
@@ -263,7 +578,6 @@ function setupKardexAutocomplete() {
 function loadKardexSelectors() {
     setupKardexAutocomplete();
     
-    // Inyectar Sucursales (Cacheadas desde el Admin-Init/Warehouse)
     const branchSelect = document.getElementById('kardex-filter-branch');
     if (branchSelect && typeof cachedBranches !== 'undefined') {
         branchSelect.innerHTML = '<option value="">-- Todas --</option>' + 
@@ -271,7 +585,6 @@ function loadKardexSelectors() {
     }
     onKardexBranchChange();
     
-    // UX: Fechas autocompletadas (Desde: 1 mes atrás, Hasta: Hoy)
     const dateFrom = document.getElementById('kardex-filter-date-from');
     const dateTo = document.getElementById('kardex-filter-date-to');
     if (dateFrom && dateTo && !dateFrom.value) {
@@ -291,7 +604,6 @@ function onKardexBranchChange() {
     
     sectorSelect.innerHTML = '<option value="">-- Todos --</option>';
     cachedSectors.forEach(s => {
-        // Mostrar si no hay sucursal elegida, o si coincide exactamente
         if (!branchId || String(s.branch_id) === String(branchId)) {
             sectorSelect.innerHTML += `<option value="${s.id}">${escapeHTML(s.name)}</option>`;
         }
@@ -309,7 +621,6 @@ async function loadKardexFiltered(event) {
     
     tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:2rem;"><div style="color:var(--primary-blue); font-weight:bold;">Generando reporte en base de datos...</div></td></tr>';
     
-    // Recolección de Filtros
     const sku = document.getElementById('kardex-filter-sku').value.trim();
     const branchId = document.getElementById('kardex-filter-branch').value;
     const sectorId = document.getElementById('kardex-filter-sector').value;
@@ -357,3 +668,78 @@ async function loadKardexFiltered(event) {
         if (btn) { btn.disabled = false; btn.textContent = "Generar Reporte de Traza"; }
     }
 }
+
+// === FUNCIONES DINÁMICAS (Líneas de Compras, Traspasos, Pedidos) ===
+
+function addDynamicLinePO() {
+    const list = document.getElementById('po-lines');
+    const div = document.createElement('div');
+    div.className = 'dynamic-row';
+    div.innerHTML = `
+        <input type="text" placeholder="SKU" class="po-sku" style="flex:2;" required>
+        <input type="number" placeholder="Cantidad" class="po-qty" style="flex:1;" min="0.01" step="0.01" required>
+        <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
+    `;
+    list.appendChild(div);
+}
+
+function addDynamicLineRemito() {
+    const list = document.getElementById('rem-lines');
+    const div = document.createElement('div');
+    div.className = 'dynamic-row';
+    div.innerHTML = `
+        <input type="text" placeholder="SKU" class="rem-sku" style="flex:2;" required>
+        <input type="number" placeholder="Cant" class="rem-qty" style="flex:1;" min="0.01" step="0.01" required>
+        <input type="text" placeholder="Ubicación Destino" class="rem-loc" style="flex:1;">
+        <input type="text" placeholder="Lote / Vto" class="rem-lot lot-input" style="flex:1; display:${isFefoEnabled ? 'block' : 'none'};">
+        <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
+    `;
+    list.appendChild(div);
+}
+
+function addDynamicLineInvoice() {
+    const list = document.getElementById('inv-lines');
+    const div = document.createElement('div');
+    div.className = 'dynamic-row';
+    div.innerHTML = `
+        <input type="text" placeholder="SKU" class="inv-sku" style="flex:2;">
+        <input type="number" placeholder="Cantidad" class="inv-qty" style="flex:1;" min="0.01" step="0.01">
+        <input type="number" placeholder="Precio Unitario" class="inv-price" style="flex:1;" min="0" step="0.01">
+        <input type="text" placeholder="Lote / Vto" class="inv-lot lot-input" style="flex:1; display:${isFefoEnabled ? 'block' : 'none'};">
+        <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
+    `;
+    list.appendChild(div);
+}
+
+function addDynamicLineTransfer() {
+    const list = document.getElementById('tr-lines');
+    const div = document.createElement('div');
+    div.className = 'dynamic-row';
+    div.innerHTML = `
+        <input type="text" placeholder="SKU" class="tr-sku" style="flex:2;" required>
+        <input type="number" placeholder="Cant" class="tr-qty" style="flex:1;" min="0.01" step="0.01" required>
+        <input type="text" placeholder="Ubic. Origen" class="tr-orig-loc" style="flex:1;">
+        <input type="text" placeholder="Ubic. Destino" class="tr-dest-loc" style="flex:1;">
+        <input type="text" placeholder="Lote / Vto" class="tr-lot lot-input" style="flex:1; display:${isFefoEnabled ? 'block' : 'none'};">
+        <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
+    `;
+    list.appendChild(div);
+}
+
+function addDynamicLineManualOrder() {
+    const list = document.getElementById('manual-order-lines');
+    const div = document.createElement('div');
+    div.className = 'dynamic-row';
+    div.innerHTML = `
+        <input type="text" placeholder="SKU" class="manual-sku" style="flex:2;" required>
+        <input type="number" placeholder="Cantidad" class="manual-qty" style="flex:1;" min="0.01" step="0.01" required>
+        <input type="text" placeholder="Lote Extracción" class="manual-lot lot-input" style="flex:1; display:${isFefoEnabled ? 'block' : 'none'};">
+        <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
+    `;
+    list.appendChild(div);
+}
+
+// Call settings to initialize feature flags on page load
+document.addEventListener('DOMContentLoaded', () => {
+    loadOperationsSettings();
+});

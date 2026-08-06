@@ -33,6 +33,7 @@ DEFAULT_SETTINGS = {
     "require_mobile_reception": "false",
     "allow_multiproduct_locations": "false",
     "enable_item_dimensions": "false",
+    "enable_lots_expiration": "false", # MODIFICACIÓN FASE 1
     "zpl_item_width": "38",
     "zpl_item_height": "20",
     "zpl_item_template": DEFAULT_ITEM_ZPL,

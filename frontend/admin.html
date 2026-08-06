@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="icon" type="image/png" href="/favicon.png">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title id="html-title">Centro de Comando</title>
     <style>
         :root { 
@@ -21,36 +21,49 @@
             --error-red: #DC2626; 
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background-color: var(--bg-main); color: var(--text-main); font-family: system-ui, -apple-system, sans-serif; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
         
-        .sidebar { width: 260px; min-width: 260px; background-color: var(--sidebar-bg); border-right: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; justify-content: space-between; padding: 2rem 1rem; overflow-y: auto; }
+        /* FIX DE ANCHO: Se bloquea el scroll horizontal a nivel de cuerpo */
+        body { background-color: var(--bg-main); color: var(--text-main); font-family: system-ui, -apple-system, sans-serif; display: flex; height: 100vh; width: 100vw; max-width: 100vw; overflow-x: hidden; }
+        
+        /* CABECERA MÓVIL (Oculta en escritorio) */
+        .mobile-header { display: none; background-color: var(--sidebar-bg); color: white; padding: 1rem; align-items: center; justify-content: space-between; position: fixed; top: 0; left: 0; width: 100%; z-index: 900; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .hamburger-btn { background: none; border: none; color: white; font-size: 1.8rem; cursor: pointer; padding: 0; margin: 0; width: auto; line-height: 1; }
+        .mobile-title { font-size: 1.2rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
+        
+        /* OVERLAY MÓVIL */
+        .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.65); z-index: 950; backdrop-filter: blur(2px); }
+
+        .sidebar { width: 260px; min-width: 260px; background-color: var(--sidebar-bg); border-right: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; justify-content: space-between; padding: 2rem 1rem; overflow-y: auto; z-index: 1000; transition: left 0.3s ease; }
         .brand-title { font-size: 1.4rem; font-weight: 800; color: #FFFFFF; text-transform: uppercase; text-align: center; margin-bottom: 2rem; letter-spacing: 1px; }
         .nav-tabs { display: flex; flex-direction: column; gap: 0.4rem; }
         .tab-btn { background: none; border: none; color: #93C5FD; padding: 0.85rem 1rem; text-align: left; font-size: 0.88rem; font-weight: 600; cursor: pointer; border-radius: 6px; text-transform: uppercase; transition: all 0.2s ease; display: flex; justify-content: space-between; align-items: center;}
         .tab-btn:hover { background-color: rgba(255, 255, 255, 0.1); color: #FFFFFF; }
         .tab-btn.active { background-color: var(--accent-blue); color: #FFFFFF; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
         
-        /* ESTILOS DEL ACORDEÓN DE REPORTES */
         .nav-accordion { display: none; flex-direction: column; gap: 2px; padding-left: 1rem; margin-top: 2px; margin-bottom: 4px; }
         .nav-accordion.open { display: flex; }
         .tab-sub-btn { background: none; border: none; color: #93C5FD; padding: 0.6rem 1rem; text-align: left; font-size: 0.8rem; cursor: pointer; border-radius: 6px; transition: all 0.2s ease; border-left: 2px solid transparent; }
         .tab-sub-btn:hover { color: #FFFFFF; border-left-color: #3B82F6; background-color: rgba(255, 255, 255, 0.05); }
         .tab-sub-btn.active { color: #FFFFFF; border-left-color: #3B82F6; font-weight: bold; background-color: rgba(255, 255, 255, 0.1); }
 
-        .btn-logout { background-color: #EF4444; color: white; border: none; padding: 0.8rem; border-radius: 6px; font-weight: 700; cursor: pointer; text-transform: uppercase; margin-top: 2rem; transition: background 0.2s; }
+        .btn-logout { background-color: #EF4444; color: white; border: none; padding: 0.8rem; border-radius: 6px; font-weight: 700; cursor: pointer; text-transform: uppercase; margin-top: 1rem; transition: background 0.2s; }
         .btn-logout:hover { background-color: var(--error-red); }
         
-        .main-content { flex: 1; padding: 2rem; overflow-y: auto; position: relative; height: 100vh; background-color: var(--bg-main); }
+        /* FIX DE ANCHO: Control del contenedor principal */
+        .main-content { flex: 1; padding: 2rem; overflow-y: auto; overflow-x: hidden; position: relative; height: 100vh; background-color: var(--bg-main); width: 100%; max-width: 100vw; }
         .view-section { display: none; }
         .view-section.active { display: block; }
-        h2 { text-transform: uppercase; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; color: var(--text-main); font-size: 1.35rem; font-weight: 700; }
+        h2 { text-transform: uppercase; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; color: var(--text-main); font-size: 1.35rem; font-weight: 700; word-wrap: break-word; }
         .grid-layout { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
-        .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem; height: fit-content; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        
+        /* FIX DE ANCHO: Tarjetas con auto scroll horizontal para evitar que rompan la página */
+        .card { background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem; height: fit-content; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow-x: auto; max-width: 100%; }
+        
         .form-group { margin-bottom: 1.2rem; }
-        .form-row { display: flex; gap: 10px; margin-bottom: 0.8rem; }
-        .form-row .form-group { flex: 1; margin-bottom: 0; }
+        .form-row { display: flex; gap: 10px; margin-bottom: 0.8rem; flex-wrap: wrap; }
+        .form-row .form-group { flex: 1; margin-bottom: 0; min-width: 0; } /* min-width 0 salva el flex en móviles */
         label { display: block; margin-bottom: 0.4rem; font-weight: 600; color: var(--text-main); font-size: 0.88rem; }
-        input, select, textarea { width: 100%; padding: 0.75rem; border: 1px solid var(--input-border); border-radius: 6px; background-color: var(--input-bg); color: var(--text-main); font-family: inherit; font-size: 0.9rem; transition: border-color 0.2s; }
+        input, select, textarea { width: 100%; padding: 0.75rem; border: 1px solid var(--input-border); border-radius: 6px; background-color: var(--input-bg); color: var(--text-main); font-family: inherit; font-size: 0.9rem; transition: border-color 0.2s; box-sizing: border-box; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent-blue); box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
         
         .btn-submit { background-color: var(--primary-blue); color: white; border: none; padding: 0.75rem 1.5rem; font-weight: 700; border-radius: 6px; cursor: pointer; text-transform: uppercase; width: 100%; margin-top: 0.5rem; font-size: 0.85rem; transition: background 0.2s; }
@@ -63,7 +76,7 @@
         .purchase-subtab-btn.active { background-color: var(--primary-blue) !important; color: #FFFFFF !important; border-color: var(--primary-blue) !important; box-shadow: 0 2px 4px rgba(0,0,0,0.12); }
 
         table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
-        th, td { text-align: left; padding: 0.8rem; border-bottom: 1px solid var(--border-color); font-size: 0.88rem; }
+        th, td { text-align: left; padding: 0.8rem; border-bottom: 1px solid var(--border-color); font-size: 0.88rem; white-space: nowrap; } /* white space nowrap obliga a la tabla a usar el scroll de su tarjeta padre */
         th { background-color: #F3F4F6; color: var(--primary-blue); text-transform: uppercase; font-size: 0.8rem; font-weight: 700; }
         
         .badge { padding: 0.25rem 0.55rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
@@ -72,17 +85,20 @@
         .badge-warning { background: #FEF3C7; color: #92400E; }
         .badge-neutral { background: #E5E7EB; color: #374151; }
 
-        .dash-action-item { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0; border-bottom: 1px solid var(--border-color); color: var(--text-main); font-weight: 500; }
+        .dash-action-item { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0; border-bottom: 1px solid var(--border-color); color: var(--text-main); font-weight: 500; flex-wrap: wrap; gap: 10px; }
         .dash-action-item:last-child { border-bottom: none; }
         .btn-dash-more { background: none; border: 1px solid var(--accent-blue); color: var(--accent-blue); font-weight: 700; padding: 0.6rem 1rem; border-radius: 6px; cursor: pointer; width: 100%; text-transform: uppercase; margin-top: 1rem; font-size: 0.8rem; transition: all 0.2s; }
         .btn-dash-more:hover { background: var(--accent-blue); color: white; }
 
         .dynamic-list { border: 1px solid var(--border-color); padding: 1rem; border-radius: 6px; margin-bottom: 1rem; background: #F9FAFB; }
-        .dynamic-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .dynamic-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
+        
+        /* Inputs en dynamic row asegurados para móviles */
+        .dynamic-row input { flex: 1; min-width: 80px; }
 
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(15, 23, 42, 0.65); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
-        .modal-content { background: var(--card-bg); width: 90%; max-width: 650px; max-height: 85vh; overflow-y: auto; border-radius: 8px; border: 1px solid var(--border-color); padding: 2rem; position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); color: var(--text-main); }
-        .close-modal { position: absolute; top: 1rem; right: 1.5rem; font-size: 1.8rem; cursor: pointer; color: var(--text-muted); }
+        .modal-content { background: var(--card-bg); width: 95%; max-width: 650px; max-height: 90vh; overflow-y: auto; overflow-x: hidden; border-radius: 8px; border: 1px solid var(--border-color); padding: 1.5rem; position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); color: var(--text-main); margin: auto; }
+        .close-modal { position: absolute; top: 0.5rem; right: 1rem; font-size: 2rem; cursor: pointer; color: var(--text-muted); }
 
         .dropzone { border: 2px dashed var(--accent-blue); border-radius: 8px; padding: 2rem; text-align: center; background-color: #EFF6FF; cursor: pointer; margin-bottom: 1.2rem; }
 
@@ -92,12 +108,61 @@
         .toast { background: #FFFFFF; color: var(--text-main); border: 1px solid var(--border-color); padding: 0.85rem 1.2rem; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 12px; pointer-events: auto; }
         .toast-success { border-left: 5px solid var(--success-green); }
         .toast-error { border-left: 5px solid var(--error-red); }
+
+        .lot-input { display: none; }
+
+        /* ========================================= */
+        /* RESPONSIVE DESIGN (Media Queries)         */
+        /* ========================================= */
+        @media (max-width: 850px) {
+            body { flex-direction: column; }
+            .mobile-header { display: flex; }
+            
+            .sidebar {
+                position: fixed;
+                left: -280px;
+                top: 0;
+                bottom: 0;
+                width: 260px;
+                height: 100vh;
+            }
+            .sidebar.open { left: 0; }
+            .sidebar-overlay.open { display: block; }
+            
+            .main-content {
+                padding: 1rem;
+                padding-top: 5.5rem; /* Deja espacio para el mobile-header */
+                height: 100vh;
+            }
+            
+            .grid-layout { grid-template-columns: 1fr; gap: 1rem; }
+            
+            .form-row { flex-direction: column; gap: 0.8rem; }
+            .form-row .form-group { width: 100%; max-width: 100% !important; }
+            
+            .purchase-subtab-btn { padding: 0.6rem 0.5rem; font-size: 0.75rem; flex: 1; text-align: center; }
+            
+            h2 { font-size: 1.15rem; }
+            
+            .card { padding: 1rem; }
+            
+            /* En móviles forzamos scroll a las tablas */
+            table { min-width: 550px; }
+        }
     </style>
 </head>
 <body>
     <div id="toast-container" class="toast-container"></div>
 
-    <div class="sidebar">
+    <!-- CABECERA Y OVERLAY EXCLUSIVOS DE MÓVIL -->
+    <div class="mobile-header">
+        <button class="hamburger-btn" onclick="toggleSidebar()">☰</button>
+        <span class="mobile-title">Tracker360 Admin</span>
+        <div style="width: 24px;"></div> <!-- Spacer para centrar título -->
+    </div>
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <div class="sidebar" id="sidebar">
         <div>
             <div class="brand-title" id="app-brand-name">Tracker360</div>
             <div class="nav-tabs">
@@ -109,10 +174,12 @@
                 <button class="tab-btn" onclick="switchView('section-purchases', this)">Compras y Recepción</button>
                 <button class="tab-btn" onclick="switchView('section-orders', this)">Pedidos (PDV)</button>
                 
-                <!-- ACORDEÓN DE REPORTES -->
+                <button class="tab-btn" onclick="switchView('section-inventory', this)">Auditoría de Inventario</button>
+                
                 <button class="tab-btn" id="btn-acc-reports" onclick="toggleAccordion('acc-reports')">
                     <span>Reportes</span>
-                                    </button>
+                    <span id="icon-acc-reports">▼</span>
+                </button>
                 <div id="acc-reports" class="nav-accordion">
                     <button class="tab-sub-btn" onclick="switchView('section-rep-stock', this)">Reporte de Stock</button>
                     <button class="tab-sub-btn" onclick="switchView('section-kardex', this)">Traza de Artículos</button>
@@ -122,8 +189,13 @@
                     <button class="tab-sub-btn" onclick="switchView('section-rep-po', this)">Órdenes de Compra</button>
                 </div>
 
-                <button class="tab-btn" onclick="switchView('section-logs', this)">Auditoría</button>
+                <button class="tab-btn" onclick="switchView('section-logs', this)">Auditoría General</button>
                 <button class="tab-btn" onclick="switchView('section-settings', this)">Configuración</button>
+                
+                <!-- NUEVO BOTÓN: PUENTE AL MODO ESCÁNER -->
+                <button class="tab-btn" onclick="window.location.href='/mobile'" style="margin-top: 1.5rem; color: #FCD34D; border: 1px solid #FCD34D; justify-content: center; font-weight: bold; background: rgba(252, 211, 77, 0.1);">
+                    Modo Colectora
+                </button>
             </div>
         </div>
         <button id="btnLogout" class="btn-logout">Cerrar Sesión</button>
@@ -138,12 +210,12 @@
             <div class="grid-layout">
                 <div class="card">
                     <h3 style="color:var(--primary-blue); margin-bottom:1rem;">1. Pedidos Pendientes</h3>
-                    <table style="font-size:0.85rem;"><thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th></tr></thead><tbody id="dash-orders-body"></tbody></table>
+                    <table><thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th></tr></thead><tbody id="dash-orders-body"></tbody></table>
                     <button class="btn-dash-more" onclick="switchView('section-orders')">Ver Todos los Pedidos</button>
                 </div>
                 <div class="card">
                     <h3 style="color:var(--primary-blue); margin-bottom:1rem;">2. Traspasos Activos</h3>
-                    <table style="font-size:0.85rem;"><thead><tr><th>Nº Traspaso</th><th>Origen</th><th>Destino</th></tr></thead><tbody id="dash-transfers-body"></tbody></table>
+                    <table><thead><tr><th>Nº Traspaso</th><th>Origen</th><th>Destino</th></tr></thead><tbody id="dash-transfers-body"></tbody></table>
                     <button class="btn-dash-more" onclick="navigateToSubTab('section-purchases', 'tab-transfer')">Ver Todos los Traspasos</button>
                 </div>
                 <div class="card">
@@ -157,7 +229,7 @@
                 </div>
                 <div class="card">
                     <h3 style="color:var(--primary-blue); margin-bottom:1rem;">4. Registros de Auditoría Recientes</h3>
-                    <table style="font-size:0.85rem;"><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th></tr></thead><tbody id="dash-logs-body"></tbody></table>
+                    <table><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th></tr></thead><tbody id="dash-logs-body"></tbody></table>
                     <button class="btn-dash-more" onclick="switchView('section-logs')">Ver Registro Completo</button>
                 </div>
             </div>
@@ -165,11 +237,10 @@
 
         <!-- 2. USUARIOS -->
         <div id="section-users" class="view-section">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap: wrap; gap: 10px;">
                 <h2 style="margin:0;">Control de Personal</h2>
                 <button type="button" class="btn-submit" onclick="openUserModal()" style="width:auto; margin:0;">+ Crear Usuario</button>
             </div>
-
             <div style="display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; background:#f8f9fa; padding:12px; border-radius:6px; border:1px solid #e9ecef; align-items:center;">
                 <input type="text" id="search-user-text" placeholder="Buscar usuario o nombre..." style="flex:2; min-width:180px; padding:8px; border:1px solid #ced4da; border-radius:4px;" onkeyup="filterUsers()">
                 <select id="search-user-role" style="flex:1; min-width:130px; padding:8px; border:1px solid #ced4da; border-radius:4px;" onchange="filterUsers()">
@@ -187,46 +258,19 @@
                     <option value="false">INACTIVOS</option>
                 </select>
             </div>
-
-            <div class="card" style="overflow-x:auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Usuario</th>
-                            <th>Nombre Completo</th>
-                            <th>Correo</th>
-                            <th>Rol</th>
-                            <th>Sucursal</th>
-                            <th>Sector</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-users-body"></tbody>
-                </table>
+            <div class="card">
+                <table><thead><tr><th>Usuario</th><th>Nombre Completo</th><th>Correo</th><th>Rol</th><th>Sucursal</th><th>Sector</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="table-users-body"></tbody></table>
             </div>
         </div>
 
         <!-- 3. ENTIDADES -->
         <div id="section-entities" class="view-section">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap: wrap; gap: 10px;">
                 <h2 style="margin:0;">Gestión de Clientes y Proveedores</h2>
                 <button type="button" class="btn-submit" onclick="openEntityModal()" style="width:auto; margin:0;">+ Crear Entidad</button>
             </div>
-            <div class="card" style="overflow-x:auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>CUIT / RUT</th>
-                            <th>Razón Social</th>
-                            <th>Rol</th>
-                            <th>Direcciones Asignadas</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-entities-body"></tbody>
-                </table>
+            <div class="card">
+                <table><thead><tr><th>CUIT / RUT</th><th>Razón Social</th><th>Rol</th><th>Direcciones Asignadas</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="table-entities-body"></tbody></table>
             </div>
         </div>
 
@@ -238,12 +282,12 @@
                     <button class="btn-submit" style="width:auto; margin:0;" onclick="openModal('modal-branch')">+ Crear Sucursal</button>
                     <button class="btn-submit" style="width:auto; margin:0;" onclick="openModal('modal-sector')">+ Crear Sector</button>
                     <button class="btn-submit" style="width:auto; margin:0;" onclick="openModal('modal-location')">+ Crear Ubicación</button>
-                    <button class="btn-secondary" onclick="openModal('modal-import-locations')">Agregar Ubicaciones Masivamente</button>
+                    <button class="btn-secondary" onclick="openModal('modal-import-locations')">Agregar Masivamente</button>
                 </div>
             </div>
 
             <div class="grid-layout">
-                <div class="card" style="overflow-x:auto;">
+                <div class="card">
                     <h3 style="color:var(--primary-blue); margin-bottom:1rem;">1. Sucursales Registradas</h3>
                     <table>
                         <thead><tr><th>Código</th><th>Nombre Sucursal</th><th>Estado</th></tr></thead>
@@ -251,7 +295,7 @@
                     </table>
                 </div>
 
-                <div class="card" style="overflow-x:auto;">
+                <div class="card">
                     <h3 style="color:var(--primary-blue); margin-bottom:1rem;">2. Sectores por Sucursal</h3>
                     <table>
                         <thead><tr><th>Sucursal</th><th>Nombre Sector</th><th>Cola Impresión</th><th>Ubicaciones</th></tr></thead>
@@ -260,7 +304,7 @@
                 </div>
             </div>
 
-            <div class="card" style="overflow-x:auto;">
+            <div class="card">
                 <h3 style="color:var(--primary-blue); margin-bottom:1rem;">3. Maestro de Ubicaciones Físicas</h3>
                 <table>
                     <thead>
@@ -282,17 +326,17 @@
             <h2>Maestro de Artículos</h2>
             <div style="display:flex; justify-content:space-between; margin-bottom:1.5rem; flex-wrap:wrap; gap:10px; align-items:center;">
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    <button onclick="openImportModal('items')" class="btn-secondary">Agregar Catálogo Masivamente</button>
-                    <button onclick="openImportModal('item_locations')" class="btn-secondary">Agregar Ubicaciones Masivamente</button>
-                    <button onclick="openBatchPrintModal()" class="btn-submit" style="width:auto; background:var(--success-green);">Panel Impresión de Etiquetas</button>
+                    <button onclick="openImportModal('items')" class="btn-secondary">Agregar Catálogo</button>
+                    <button onclick="openImportModal('item_locations')" class="btn-secondary">Agregar Ubicaciones</button>
+                    <button onclick="openBatchPrintModal()" class="btn-submit" style="width:auto; background:var(--success-green);">Impresión Etiquetas</button>
                 </div>
-                <div style="display:flex; gap:10px;">
-                    <input type="text" id="search-sku" placeholder="SKU..." style="width:140px;" onkeydown="if(event.key === 'Enter') handleSearchItems()">
-                    <input type="text" id="search-desc" placeholder="Descripción..." style="width:200px;" onkeydown="if(event.key === 'Enter') handleSearchItems()">
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <input type="text" id="search-sku" placeholder="SKU..." style="width:140px; flex:1;" onkeydown="if(event.key === 'Enter') handleSearchItems()">
+                    <input type="text" id="search-desc" placeholder="Descripción..." style="width:200px; flex:2;" onkeydown="if(event.key === 'Enter') handleSearchItems()">
                     <button id="btn-search-items" onclick="handleSearchItems()" class="btn-submit" style="width:auto; margin:0; padding:0.8rem 1.5rem;">Buscar</button>
                 </div>
             </div>
-            <div class="card" style="overflow-x:auto;">
+            <div class="card">
                 <table>
                     <thead>
                         <tr>
@@ -316,11 +360,11 @@
         <div id="section-purchases" class="view-section">
             <h2>Ingreso y Movimientos de Mercadería</h2>
             
-            <div style="display:flex; gap:10px; margin-bottom:1.5rem;">
+            <div style="display:flex; gap:10px; margin-bottom:1.5rem; flex-wrap:wrap;">
                 <button class="purchase-subtab-btn active" onclick="switchPurchaseTab('tab-po', this)">Órdenes de Compra</button>
                 <button class="purchase-subtab-btn" onclick="switchPurchaseTab('tab-remito', this)">Remitos de Entrada</button>
-                <button class="purchase-subtab-btn" onclick="switchPurchaseTab('tab-invoice', this)">Facturas de Compra</button>
-                <button class="purchase-subtab-btn" onclick="switchPurchaseTab('tab-transfer', this)">Traspasos de Stock</button>
+                <button class="purchase-subtab-btn" onclick="switchPurchaseTab('tab-invoice', this)">Facturas</button>
+                <button class="purchase-subtab-btn" onclick="switchPurchaseTab('tab-transfer', this)">Traspasos</button>
             </div>
 
             <div id="tab-po" class="purchase-tab" style="display:block;">
@@ -337,17 +381,18 @@
                                 <div class="dynamic-row">
                                     <input type="text" placeholder="SKU" class="po-sku" style="flex:2;" required>
                                     <input type="number" placeholder="Cantidad" class="po-qty" style="flex:1;" min="0.01" step="0.01" required>
+                                    <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
                                 </div>
                             </div>
                             <button type="button" onclick="addDynamicLinePO()" style="background:none; border:1px solid var(--accent-blue); color:var(--accent-blue); padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">+ Añadir Artículo</button>
-                            <button type="submit" class="btn-submit" style="margin-top:1.5rem;">Registrar Orden de Compra</button>
+                            <button type="submit" class="btn-submit" style="margin-top:1.5rem;">Registrar Orden</button>
                         </form>
                     </div>
 
-                    <div class="card" style="overflow-x:auto;">
-                        <h3 style="color:var(--primary-blue); margin-bottom:0.5rem;">Historial de Órdenes de Compra</h3>
+                    <div class="card">
+                        <h3 style="color:var(--primary-blue); margin-bottom:0.5rem;">Historial de Órdenes</h3>
                         <div style="display:flex; gap:8px; margin-bottom:1rem;">
-                            <input type="text" id="search-po-text" placeholder="Buscar por Nº u Orden..." style="padding:6px; font-size:0.85rem;" onkeyup="loadPOData()">
+                            <input type="text" id="search-po-text" placeholder="Buscar..." style="padding:6px; font-size:0.85rem;" onkeyup="loadPOData()">
                             <button class="btn-secondary" style="padding:6px 12px;" onclick="loadPOData('', 50)">Ver Todos</button>
                         </div>
                         <table style="font-size:0.85rem;">
@@ -361,7 +406,7 @@
             <div id="tab-remito" class="purchase-tab" style="display:none;">
                 <div class="grid-layout">
                     <div class="card">
-                        <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Registrar Remito de Ingreso</h3>
+                        <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Registrar Remito</h3>
                         <form id="form-remito" onsubmit="saveRemito(event)">
                             <div class="grid-layout" style="margin-bottom:0;">
                                 <div class="form-group"><label>Nº de Remito</label><input type="text" id="rem-num" placeholder="Ej: REM-2026-09" required></div>
@@ -374,7 +419,9 @@
                                 <div class="dynamic-row">
                                     <input type="text" placeholder="SKU" class="rem-sku" style="flex:2;" required>
                                     <input type="number" placeholder="Cant" class="rem-qty" style="flex:1;" min="0.01" step="0.01" required>
-                                    <input type="text" placeholder="Ubicación Destino" class="rem-loc" style="flex:1;">
+                                    <input type="text" placeholder="Ubicación" class="rem-loc" style="flex:1;">
+                                    <input type="text" placeholder="Lote / Vto" class="rem-lot lot-input" style="flex:1;">
+                                    <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
                                 </div>
                             </div>
                             <button type="button" onclick="addDynamicLineRemito()" style="background:none; border:1px solid var(--accent-blue); color:var(--accent-blue); padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">+ Añadir Artículo</button>
@@ -382,10 +429,10 @@
                         </form>
                     </div>
 
-                    <div class="card" style="overflow-x:auto;">
+                    <div class="card">
                         <h3 style="color:var(--primary-blue); margin-bottom:0.5rem;">Historial de Remitos</h3>
                         <div style="display:flex; gap:8px; margin-bottom:1rem;">
-                            <input type="text" id="search-rem-text" placeholder="Buscar por Remito o Proveedor..." style="padding:6px; font-size:0.85rem;" onkeyup="loadRemitoData()">
+                            <input type="text" id="search-rem-text" placeholder="Buscar..." style="padding:6px; font-size:0.85rem;" onkeyup="loadRemitoData()">
                             <button class="btn-secondary" style="padding:6px 12px;" onclick="loadRemitoData('', 50)">Ver Todos</button>
                         </div>
                         <table style="font-size:0.85rem;">
@@ -399,7 +446,7 @@
             <div id="tab-invoice" class="purchase-tab" style="display:none;">
                 <div class="grid-layout">
                     <div class="card">
-                        <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Cargar Factura de Compra</h3>
+                        <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Cargar Factura</h3>
                         <form id="form-invoice" onsubmit="saveInvoice(event)">
                             <div class="grid-layout" style="margin-bottom:0;">
                                 <div class="form-group"><label>Nº de Factura *</label><input type="text" id="inv-num" placeholder="Ej: FC-0001-00001" required></div>
@@ -408,14 +455,14 @@
                             <div class="form-group"><label>Proveedor *</label><select id="inv-supplier" onchange="onInvSupplierChange()" required></select></div>
 
                             <div class="form-group" style="background:#F0F9FF; padding:1rem; border-radius:6px; border:1px solid #BAE6FD;">
-                                <label style="color:var(--primary-blue); font-weight:bold; margin-bottom:0.4rem;">Remitos Asociados del Proveedor</label>
+                                <label style="color:var(--primary-blue); font-weight:bold; margin-bottom:0.4rem;">Remitos Asociados</label>
                                 <div id="inv-remitos-container" style="max-height:120px; overflow-y:auto; font-size:0.88rem;">
-                                    <p style="color:var(--text-muted);">Seleccione un proveedor para consultar remitos registrados.</p>
+                                    <p style="color:var(--text-muted);">Seleccione un proveedor.</p>
                                 </div>
                             </div>
 
                             <hr style="border:0; border-top:1px solid var(--border-color); margin:1rem 0;">
-                            <h4 style="color:var(--success-green); margin-bottom:0.5rem;">Compra Directa (Ingreso Manual opcional a Stock)</h4>
+                            <h4 style="color:var(--success-green); margin-bottom:0.5rem;">Compra Directa (Ingreso Manual)</h4>
                             <div class="grid-layout" style="margin-bottom:0;">
                                 <div class="form-group"><label>Sucursal Destino</label><select id="inv-branch" onchange="onInvBranchChange()"><option value="">-- Opcional --</option></select></div>
                                 <div class="form-group"><label>Sector Destino</label><select id="inv-sector"><option value="">-- Opcional --</option></select></div>
@@ -425,6 +472,8 @@
                                     <input type="text" placeholder="SKU" class="inv-sku" style="flex:2;">
                                     <input type="number" placeholder="Cantidad" class="inv-qty" style="flex:1;" min="0.01" step="0.01">
                                     <input type="number" placeholder="Precio Unitario" class="inv-price" style="flex:1;" min="0" step="0.01">
+                                    <input type="text" placeholder="Lote / Vto" class="inv-lot lot-input" style="flex:1;">
+                                    <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
                                 </div>
                             </div>
                             <button type="button" onclick="addDynamicLineInvoice()" style="background:none; border:1px solid var(--success-green); color:var(--success-green); padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">+ Añadir Ítem Manual</button>
@@ -432,10 +481,10 @@
                         </form>
                     </div>
 
-                    <div class="card" style="overflow-x:auto;">
+                    <div class="card">
                         <h3 style="color:var(--primary-blue); margin-bottom:0.5rem;">Historial de Facturas</h3>
                         <div style="display:flex; gap:8px; margin-bottom:1rem;">
-                            <input type="text" id="search-inv-text" placeholder="Buscar por Factura o Proveedor..." style="padding:6px; font-size:0.85rem;" onkeyup="loadInvoiceData()">
+                            <input type="text" id="search-inv-text" placeholder="Buscar..." style="padding:6px; font-size:0.85rem;" onkeyup="loadInvoiceData()">
                             <button class="btn-secondary" style="padding:6px 12px;" onclick="loadInvoiceData('', 50)">Ver Todos</button>
                         </div>
                         <table style="font-size:0.85rem;">
@@ -465,8 +514,10 @@
                                 <div class="dynamic-row">
                                     <input type="text" placeholder="SKU" class="tr-sku" style="flex:2;" required>
                                     <input type="number" placeholder="Cant" class="tr-qty" style="flex:1;" min="0.01" step="0.01" required>
-                                    <input type="text" placeholder="Ubic. Origen" class="tr-orig-loc" style="flex:1;">
-                                    <input type="text" placeholder="Ubic. Destino" class="tr-dest-loc" style="flex:1;">
+                                    <input type="text" placeholder="Origen" class="tr-orig-loc" style="flex:1;">
+                                    <input type="text" placeholder="Destino" class="tr-dest-loc" style="flex:1;">
+                                    <input type="text" placeholder="Lote / Vto" class="tr-lot lot-input" style="flex:1;">
+                                    <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
                                 </div>
                             </div>
                             <button type="button" onclick="addDynamicLineTransfer()" style="background:none; border:1px solid var(--accent-blue); color:var(--accent-blue); padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">+ Añadir Artículo</button>
@@ -474,7 +525,7 @@
                         </form>
                     </div>
 
-                    <div class="card" style="overflow-x:auto;">
+                    <div class="card">
                         <h3 style="color:var(--primary-blue); margin-bottom:0.5rem;">Historial de Traspasos</h3>
                         <div style="display:flex; gap:8px; margin-bottom:1rem;">
                             <input type="text" id="search-tr-text" placeholder="Buscar Traspaso..." style="padding:6px; font-size:0.85rem;" onkeyup="loadTransferData()">
@@ -491,14 +542,14 @@
 
         <!-- 8. PEDIDOS -->
         <div id="section-orders" class="view-section">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:10px;">
                 <h2 style="margin:0; border:none; padding:0;">Monitoreo de Salidas (Pedidos)</h2>
                 <button type="button" class="btn-submit" onclick="openManualOrderModal()" style="width:auto; margin:0;">+ Crear Pedido</button>
             </div>
             
-            <div style="display:flex; gap:10px; margin-bottom:16px; background:#f8f9fa; padding:12px; border-radius:6px; border:1px solid #e9ecef; align-items:center;">
-                <input type="text" id="search-order-text" placeholder="Buscar por Nº de Pedido o Cliente..." style="flex:2; padding:8px; border:1px solid #ced4da; border-radius:4px;" onkeyup="filterOrders()">
-                <select id="search-order-status" style="flex:1; padding:8px; border:1px solid #ced4da; border-radius:4px;" onchange="filterOrders()">
+            <div style="display:flex; gap:10px; margin-bottom:16px; background:#f8f9fa; padding:12px; border-radius:6px; border:1px solid #e9ecef; align-items:center; flex-wrap:wrap;">
+                <input type="text" id="search-order-text" placeholder="Buscar por Nº de Pedido o Cliente..." style="flex:2; padding:8px; border:1px solid #ced4da; border-radius:4px; min-width: 200px;" onkeyup="filterOrders()">
+                <select id="search-order-status" style="flex:1; padding:8px; border:1px solid #ced4da; border-radius:4px; min-width: 150px;" onchange="filterOrders()">
                     <option value="ALL">-- Todos los Estados --</option>
                     <option value="PENDING">PENDIENTES</option>
                     <option value="IN_PROGRESS">EN PROGRESO</option>
@@ -508,11 +559,50 @@
                 <button class="btn-secondary" onclick="loadOrders()" style="padding:8px 16px;">Actualizar</button>
             </div>
 
-            <div class="card" style="overflow-x:auto;">
+            <div class="card">
                 <table>
                     <thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th><th>Progreso</th><th>Acción</th></tr></thead>
                     <tbody id="table-orders-body">
                         <tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Cargando pedidos...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- MÓDULO: CONTEOS CÍCLICOS (INVENTARIO)          -->
+        <!-- ============================================== -->
+        <div id="section-inventory" class="view-section">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:10px;">
+                <div>
+                    <h2 style="margin:0; border:none; padding:0;">Auditoría de Inventario Físico</h2>
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">Gestión de conteos ciegos mediante Deltas para ajustes precisos.</p>
+                </div>
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                    <button type="button" class="btn-secondary" onclick="openSpotCheckModal()" style="width:auto; margin:0;">🔍 Spot Check (Verificación Rápida)</button>
+                    <button type="button" class="btn-submit" onclick="openCreateInventoryModal()" style="width:auto; margin:0;">+ Nueva Sesión de Conteo</button>
+                </div>
+            </div>
+            
+            <div style="display:flex; gap:10px; margin-bottom:16px; background:#f8f9fa; padding:12px; border-radius:6px; border:1px solid #e9ecef; align-items:center;">
+                <button class="btn-secondary" onclick="loadInventorySessions()" style="padding:8px 16px;">Actualizar Panel</button>
+            </div>
+
+            <div class="card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sucursal</th>
+                            <th>Sector Auditado</th>
+                            <th>Modalidad</th>
+                            <th>Estado</th>
+                            <th>Fecha Creación</th>
+                            <th>Operador Asignado</th>
+                            <th>Acción Operativa</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-inventory-sessions-body">
+                        <tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--text-muted);">Cargando sesiones...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -529,7 +619,7 @@
                 <input type="text" id="search-log-text" placeholder="Buscar usuario, acción o detalles..." style="flex:1; padding:8px; border:1px solid #ced4da; border-radius:4px;" onkeyup="filterLogs()">
             </div>
 
-            <div class="card" style="overflow-x:auto;">
+            <div class="card">
                 <table>
                     <thead><tr><th>Fecha y Hora</th><th>Usuario</th><th>Acción</th><th>Detalles</th></tr></thead>
                     <tbody id="table-logs-body">
@@ -539,11 +629,8 @@
             </div>
         </div>
 
-        <!-- ============================================== -->
-        <!-- MÓDULOS DE REPORTES (VISTAS)                   -->
-        <!-- ============================================== -->
-
-        <!-- TRAZA (KARDEX) AHORA ES UN REPORTE -->
+        <!-- REPORTES Y SETTINGS -->
+        
         <div id="section-kardex" class="view-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                 <h2 style="margin:0; border:none; padding:0;">Traza de Artículos (Kardex)</h2>
@@ -599,7 +686,7 @@
                     </div>
                 </form>
             </div>
-            <div class="card" style="overflow-x:auto;">
+            <div class="card">
                 <table style="font-size:0.85rem;">
                     <thead>
                         <tr>
@@ -621,7 +708,6 @@
             </div>
         </div>
 
-        <!-- REPORTE DE STOCK -->
         <div id="section-rep-stock" class="view-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                 <h2 style="margin:0; border:none; padding:0;">Reporte de Stock Consolidado</h2>
@@ -647,7 +733,7 @@
                             </div>
                         </div>
                     </div>
-                    <div style="display:flex; gap:20px; align-items:center; margin-bottom:1rem; padding:10px; background:#fff; border:1px solid var(--border-color); border-radius:6px;">
+                    <div style="display:flex; gap:20px; align-items:center; margin-bottom:1rem; padding:10px; background:#fff; border:1px solid var(--border-color); border-radius:6px; flex-wrap: wrap;">
                         <label style="display:flex; align-items:center; gap:8px; margin:0; cursor:pointer;">
                             <input type="checkbox" id="rep-stock-inc-zero" style="width:auto;"> Mostrar stock en Cero (0)
                         </label>
@@ -661,7 +747,7 @@
                 </form>
             </div>
 
-            <div class="card" style="overflow-x:auto;">
+            <div class="card">
                 <table style="font-size:0.85rem;">
                     <thead>
                         <tr>
@@ -680,7 +766,6 @@
             </div>
         </div>
 
-        <!-- REPORTE DE PEDIDOS -->
         <div id="section-rep-orders" class="view-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                 <h2 style="margin:0; border:none; padding:0;">Reporte de Pedidos de Venta</h2>
@@ -726,7 +811,7 @@
                 </form>
             </div>
 
-            <div class="card" style="overflow-x:auto;">
+            <div class="card">
                 <table style="font-size:0.85rem;">
                     <thead>
                         <tr>
@@ -745,7 +830,6 @@
             </div>
         </div>
 
-        <!-- REPORTE DE REMITOS -->
         <div id="section-rep-remitos" class="view-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                 <h2 style="margin:0; border:none; padding:0;">Reporte de Remitos de Compra</h2>
@@ -788,7 +872,7 @@
                 </form>
             </div>
 
-            <div class="card" style="overflow-x:auto;">
+            <div class="card">
                 <table style="font-size:0.85rem;">
                     <thead>
                         <tr>
@@ -806,7 +890,6 @@
             </div>
         </div>
 
-        <!-- REPORTE DE FACTURAS -->
         <div id="section-rep-invoices" class="view-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                 <h2 style="margin:0; border:none; padding:0;">Reporte de Facturas de Compra</h2>
@@ -844,7 +927,7 @@
                 </form>
             </div>
 
-            <div class="card" style="overflow-x:auto;">
+            <div class="card">
                 <table style="font-size:0.85rem;">
                     <thead>
                         <tr>
@@ -862,7 +945,6 @@
             </div>
         </div>
 
-        <!-- REPORTE DE ÓRDENES DE COMPRA -->
         <div id="section-rep-po" class="view-section">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
                 <h2 style="margin:0; border:none; padding:0;">Reporte de Órdenes de Compra</h2>
@@ -900,7 +982,7 @@
                 </form>
             </div>
 
-            <div class="card" style="overflow-x:auto;">
+            <div class="card">
                 <table style="font-size:0.85rem;">
                     <thead>
                         <tr>
@@ -918,19 +1000,20 @@
             </div>
         </div>
 
-
-        <!-- 10. CONFIGURACIÓN COMPLETA -->
         <div id="section-settings" class="view-section">
             <h2>Configuración del Sistema</h2>
-            
             <div class="grid-layout">
                 <div class="card">
                     <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Parámetros Operativos y Stock</h3>
-                    <form id="form-settings-basic" onsubmit="saveSettings(event)">
+                    <form id="form-settings-basic" onsubmit="saveSettingsForm(event)">
                         <div class="form-group"><label>Nombre de la Aplicación</label><input type="text" id="cfg-app-name" placeholder="Tracker360"></div>
                         <div class="form-group"><label>CUIT Empresa</label><input type="text" id="cfg-company-cuit" placeholder="30-00000000-0"></div>
                         <div class="form-group"><label>IP Impresora Térmica Zebra</label><input type="text" id="cfg-zebra-ip" placeholder="192.168.1.50"></div>
                         
+                        <div class="form-group">
+                            <label>Gestión de Lotes y Vencimientos (FEFO)</label>
+                            <select id="cfg-enable-lots-expiration"><option value="false">NO</option><option value="true">SÍ</option></select>
+                        </div>
                         <div class="form-group">
                             <label>Gestión de Stock Activa</label>
                             <select id="cfg-enable-stock-management"><option value="true">SÍ</option><option value="false">NO</option></select>
@@ -943,7 +1026,6 @@
                             <label>Control de Stock Comprometido (Reservas)</label>
                             <select id="cfg-enable-committed-stock"><option value="true">SÍ</option><option value="false">NO</option></select>
                         </div>
-
                         <div class="form-group">
                             <label>Control de Recepción Móvil Obligatorio</label>
                             <select id="cfg-require-mobile-reception"><option value="false">NO</option><option value="true">SÍ</option></select>
@@ -952,7 +1034,6 @@
                             <label>Permitir Múltiples Productos en Misma Ubicación</label>
                             <select id="cfg-allow-multiproduct"><option value="false">NO</option><option value="true">SÍ</option></select>
                         </div>
-                        
                         <div class="form-group">
                             <label>Trabaja con Pesos y Volúmenes</label>
                             <select id="cfg-enable-item-dimensions"><option value="false">NO</option><option value="true">SÍ</option></select>
@@ -964,30 +1045,23 @@
 
                 <div class="card">
                     <h3 style="color:var(--success-green); margin-bottom:1rem;">Documentación API & Agente de Impresión Windows</h3>
-                    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">
-                        Herramientas para integración con sistemas satélite (ERP, tiendas) y ejecutable de servicio de impresión para PCs con impresoras Zebra USB/Red.
-                    </p>
-
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Herramientas para integración con sistemas satélite (ERP, tiendas) y ejecutable de servicio de impresión para PCs con impresoras Zebra USB/Red.</p>
                     <div style="background:#F0FDF4; border:1px solid #BBF7D0; padding:1rem; border-radius:6px; margin-bottom:1rem;">
                         <h4 style="color:#166534; font-size:0.9rem; margin-bottom:0.4rem;">Documentación Interactiva Swagger / ReDoc</h4>
-                        <p style="font-size:0.8rem; color:#15803D; margin-bottom:0.8rem;">Explore todos los endpoints Inbound/Outbound en vivo con especificación OpenAPI 3.0.</p>
                         <div style="display:flex; gap:8px;">
                             <a href="/docs" target="_blank" class="btn-secondary" style="text-decoration:none; text-align:center; font-size:0.75rem; flex:1;">Abrir Swagger UI</a>
                             <a href="/redoc" target="_blank" class="btn-secondary" style="text-decoration:none; text-align:center; font-size:0.75rem; flex:1;">Abrir ReDoc</a>
                         </div>
                     </div>
-
                     <div style="background:#EFF6FF; border:1px solid #BFDBFE; padding:1rem; border-radius:6px; margin-bottom:1rem;">
-                        <h4 style="color:var(--primary-blue); font-size:0.9rem; margin-bottom:0.4rem;">Descarga Directa Agente de Impresión Windows (.zip)</h4>
-                        <p style="font-size:0.8rem; color:#1E40AF; margin-bottom:0.8rem;">Ejecutable para instalar en las PCs de empaque y recepción para conectar con las impresoras Zebra locales.</p>
-                        <a href="/downloads/tracker360-agent.zip" download="tracker360-agent.zip" class="btn-submit" style="display:block; text-decoration:none; text-align:center;">Descargar Agente Windows (.exe)</a>
+                        <h4 style="color:var(--primary-blue); font-size:0.9rem; margin-bottom:0.4rem;">Descarga Directa Agente de Impresión Windows</h4>
+                        <a href="/downloads/tracker360-agent.zip" download="tracker360-agent.zip" class="btn-submit" style="display:block; text-decoration:none; text-align:center;">Descargar Agente (.exe)</a>
                     </div>
-
                     <div class="form-group">
                         <label>Clave API de Sistema (Header X-API-Key)</label>
                         <div style="display:flex; gap:8px;">
                             <input type="text" id="cfg-tracker360-api-key" readonly style="background:#F3F4F6; font-family:monospace; font-weight:bold;">
-                            <button type="button" class="btn-secondary" onclick="generateNewSystemApiKey()" style="white-space:nowrap;">Generar Nueva</button>
+                            <button type="button" class="btn-secondary" onclick="generateApiKey()" style="white-space:nowrap;">Generar Nueva</button>
                         </div>
                     </div>
                 </div>
@@ -996,7 +1070,7 @@
             <!-- PLANTILLAS ZPL -->
             <div class="card" style="margin-top:1.5rem;">
                 <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Plantillas de Impresión ZPL</h3>
-                <form id="form-settings-zpl" onsubmit="saveSettings(event)">
+                <form id="form-settings-zpl" onsubmit="saveSettingsForm(event)">
                     <div style="display:flex; gap:10px;">
                         <div class="form-group" style="flex:1;"><label>Ancho Artículo (mm)</label><input type="text" id="cfg-zpl-item-width" placeholder="38"></div>
                         <div class="form-group" style="flex:1;"><label>Alto Artículo (mm)</label><input type="text" id="cfg-zpl-item-height" placeholder="20"></div>
@@ -1023,284 +1097,170 @@
             <div class="card" style="margin-top:1.5rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
                     <div>
-                        <h3 style="color:var(--success-green); margin:0;">Conexiones Salientes Multicanal (Marketplaces, Tiendas y Fletes)</h3>
-                        <p style="font-size:0.8rem; color:var(--text-muted); margin:0;">Configure múltiples endpoints para sincronizar stock y notificar despachos simultáneamente.</p>
+                        <h3 style="color:var(--success-green); margin:0;">Conexiones Salientes Multicanal</h3>
                     </div>
                     <button type="button" class="btn-submit" onclick="openModal('modal-add-channel')" style="width:auto; margin:0;">+ Añadir Conexión</button>
                 </div>
-
                 <table>
                     <thead>
                         <tr>
                             <th>Nombre de la Aplicación / Canal</th>
                             <th>Tipo de Evento</th>
                             <th>URL Receptora (Endpoint)</th>
-                            <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
-                    <tbody id="table-channels-body"></tbody>
+                    <tbody id="integrationsTableBody"></tbody>
                 </table>
+            </div>
+        </div>
+
+    </div> <!-- FIN MAIN CONTENT -->
+
+    <!-- ============================================== -->
+    <!-- MODALES DEL SISTEMA                            -->
+    <!-- ============================================== -->
+
+    <!-- MODALES DEL MOTOR DE INVENTARIO CÍCLICO -->
+    <div id="modal-create-inventory" class="modal">
+        <div class="modal-content" style="max-width:500px;">
+            <span class="close-modal" onclick="closeModal('modal-create-inventory')">&times;</span>
+            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Apertura de Sesión de Auditoría</h3>
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">El sistema tomará una fotografía silenciosa del stock actual del sector seleccionado para cruzarla con los datos del operario.</p>
+            <form id="form-create-inventory" onsubmit="saveInventorySession(event)">
+                <div class="form-group">
+                    <label>Sucursal *</label>
+                    <select id="inv-session-branch" onchange="onInvSessionBranchChange()" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Sector a Contar *</label>
+                    <select id="inv-session-sector" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Operador Asignado *</label>
+                    <select id="inv-session-operator" required></select>
+                </div>
+                <div class="form-group">
+                    <label>Modalidad de Conteo *</label>
+                    <select id="inv-session-type" required>
+                        <option value="HOT">Conteo en Caliente (Permitir operativa del almacén)</option>
+                        <option value="COLD">Conteo en Frío (Recomendado - Bloquea la operativa)</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-submit" style="margin-top:1rem;">Crear Sesión y Tomar Foto (Snapshot)</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- CONSOLA DE ESCANEO PARA EL OPERARIO -->
+    <div id="modal-scan-inventory" class="modal">
+        <div class="modal-content" style="max-width:550px; background:#F8FAFC;">
+            <span class="close-modal" onclick="closeModal('modal-scan-inventory')">&times;</span>
+            <h3 style="color:var(--primary-blue); margin-bottom:0.5rem;">Consola de Conteo Ciego</h3>
+            <div style="background:#DBEAFE; color:#1E3A8A; padding:8px 12px; border-radius:6px; font-size:0.85rem; font-weight:bold; margin-bottom:1.5rem;">
+                ID Sesión: <span id="scan-inv-session-id-label"></span>
+            </div>
+            
+            <form id="form-scan-inventory" onsubmit="scanInventoryCount(event)" style="background:white; padding:1.5rem; border-radius:8px; border:1px solid #E2E8F0; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
+                <input type="hidden" id="scan-inv-session-id">
+                <div class="form-group">
+                    <label>Código Ubicación (Si aplica)</label>
+                    <input type="text" id="scan-inv-loc" placeholder="Ej: RACK-A-01 (Escanee o teclee)" style="font-size:1.1rem; padding:12px;">
+                </div>
+                <div class="form-group">
+                    <label>Código del Artículo (SKU) *</label>
+                    <input type="text" id="scan-inv-sku" placeholder="Escanee QR del artículo..." required autofocus style="border-color:var(--accent-blue); font-size:1.1rem; padding:12px;">
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex:2;">
+                        <label>Cantidad Contada *</label>
+                        <input type="number" id="scan-inv-qty" placeholder="0" min="0.01" step="0.01" required style="font-size:1.2rem; font-weight:bold; color:var(--success-green); padding:12px;">
+                    </div>
+                    <div class="form-group lot-input" style="flex:3;">
+                        <label>Lote / Vto</label>
+                        <input type="text" id="scan-inv-lot" placeholder="Lote..." style="font-size:1.1rem; padding:12px;">
+                    </div>
+                </div>
+                <button type="submit" class="btn-submit" style="font-size:1.1rem; padding:14px; margin-top:1rem;">Registrar Lectura</button>
+            </form>
+
+            <div style="margin-top:2rem; text-align:center; border-top:1px solid #E2E8F0; padding-top:1.5rem;">
+                <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:10px;">Cuando haya terminado de escanear todo el sector, finalice el conteo para que el supervisor apruebe los Deltas.</p>
+                <button type="button" class="btn-secondary" style="background:#EF4444; color:white; border:none;" onclick="finishInventorySession()">Finalizar y Enviar a Revisión</button>
             </div>
         </div>
     </div>
 
-    <!-- MODALES -->
-    <div id="modal-batch-print-items" class="modal">
-        <div class="modal-content" style="max-width:650px;">
-            <span class="close-modal" onclick="closeModal('modal-batch-print-items')">&times;</span>
-            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Panel de Impresión de Etiquetas por Lote</h3>
-            <form id="form-batch-print" onsubmit="submitBatchPrint(event)">
+    <!-- PANEL DE REVISIÓN DE DELTAS PARA EL ADMIN -->
+    <div id="modal-review-inventory" class="modal">
+        <div class="modal-content" style="max-width:900px; width:95%;">
+            <span class="close-modal" onclick="closeModal('modal-review-inventory')">&times;</span>
+            <h3 style="color:var(--primary-blue); margin-bottom:0.5rem;">Auditoría de Deltas (Esperado vs Contado)</h3>
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.5rem;">Revise las diferencias. Al aplicar, el sistema ejecutará los ajustes sumando o restando el Delta al stock real actual (sin pisar ventas en caliente).</p>
+            
+            <input type="hidden" id="review-inv-session-id">
+            
+            <div style="overflow-x:auto; border:1px solid var(--border-color); border-radius:6px; max-height:400px; overflow-y:auto; margin-bottom:1.5rem;">
+                <table style="font-size:0.85rem; margin-top:0;">
+                    <thead style="position:sticky; top:0; z-index:10;">
+                        <tr>
+                            <th>SKU</th>
+                            <th>Ubicación</th>
+                            <th class="lot-input">Lote</th>
+                            <th style="text-align:center;">Foto (Esperado)</th>
+                            <th style="text-align:center;">Real (Contado)</th>
+                            <th style="text-align:center;">Delta (Diferencia)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-review-inventory-body">
+                        <tr><td colspan="6" style="text-align:center; padding:2rem;">Cargando cruce de datos...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" class="btn-secondary" onclick="closeModal('modal-review-inventory')">Cancelar / Volver</button>
+                <button type="button" class="btn-submit" style="width:auto; padding:0.8rem 2rem; background:var(--success-green);" onclick="applyInventoryAdjustments()">Aprobar y Aplicar Ajustes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE AUDITORÍA RÁPIDA (SPOT CHECK) -->
+    <div id="modal-spot-check" class="modal">
+        <div class="modal-content" style="max-width:550px; background:#F8FAFC;">
+            <span class="close-modal" onclick="closeModal('modal-spot-check')">&times;</span>
+            <h3 style="color:var(--primary-blue); margin-bottom:0.5rem;">🔍 Spot Check (Auditoría Rápida)</h3>
+            <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Verificación instantánea de estantes. No altera el stock, solo audita e informa diferencias en tiempo real.</p>
+
+            <form id="form-spot-check" onsubmit="runSpotCheck(event)" style="background:white; padding:1.5rem; border-radius:8px; border:1px solid #E2E8F0; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05);">
                 <div class="form-group">
-                    <label>Sector / Cola de Impresión Destino *</label>
-                    <select id="batch-print-queue" required></select>
+                    <label>Código Ubicación (Opcional, si usa multilocación)</label>
+                    <input type="text" id="spot-check-loc" placeholder="Ej: RACK-A-01" style="font-size:1.1rem; padding:12px;">
                 </div>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                    <label style="margin:0; font-weight:bold;">Artículos a Imprimir:</label>
-                    <button type="button" onclick="document.getElementById('file-batch-print-csv').click()" class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;">+ Cargar Desde CSV</button>
-                    <input type="file" id="file-batch-print-csv" accept=".csv" style="display:none;" onchange="importBatchPrintCSV(this)">
+                <div class="form-group">
+                    <label>Código del Artículo (SKU) *</label>
+                    <input type="text" id="spot-check-sku" placeholder="Escanee QR del artículo..." required autofocus style="border-color:var(--accent-blue); font-size:1.1rem; padding:12px;">
                 </div>
-                <div class="dynamic-list" id="batch-print-lines">
-                    <div class="dynamic-row">
-                        <input type="text" placeholder="SKU" class="batch-sku" style="flex:2;" required>
-                        <input type="number" placeholder="Cant. Etiquetas" class="batch-qty" value="1" min="1" style="flex:1;" required>
-                        <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
+                <div class="form-row">
+                    <div class="form-group" style="flex:2;">
+                        <label>Cantidad Física Contada *</label>
+                        <input type="number" id="spot-check-qty" placeholder="0" min="0.01" step="0.01" required style="font-size:1.2rem; font-weight:bold; color:var(--primary-blue); padding:12px;">
+                    </div>
+                    <div class="form-group lot-input" style="flex:3;">
+                        <label>Lote / Vto</label>
+                        <input type="text" id="spot-check-lot" placeholder="Lote..." style="font-size:1.1rem; padding:12px;">
                     </div>
                 </div>
-                <button type="button" onclick="addDynamicLineBatchPrint()" style="background:none; border:1px solid var(--accent-blue); color:var(--accent-blue); padding:6px 12px; border-radius:4px; font-weight:bold; cursor:pointer;">+ Añadir Artículo</button>
-                <button type="submit" class="btn-submit" style="margin-top:1.5rem; background:var(--success-green);">Enviar a Impresora Zebra</button>
+                <button type="submit" class="btn-submit" style="font-size:1.1rem; padding:14px; margin-top:1rem;">Verificar Stock</button>
             </form>
+
+            <div id="spot-check-result" style="display:none; margin-top:1.5rem; padding:1.5rem; border-radius:8px; text-align:center; transition: all 0.3s ease;">
+                <!-- Aquí se inyecta el ✅ o la ❌ desde JavaScript -->
+            </div>
         </div>
     </div>
 
-    <div id="modal-edit-item" class="modal">
-        <div class="modal-content" style="max-width:550px;">
-            <span class="close-modal" onclick="closeModal('modal-edit-item')">&times;</span>
-            <h2 style="color:var(--primary-blue); margin-bottom:1rem;">Ficha Técnica SKU: <span id="edit-item-sku-label"></span></h2>
-            <form id="form-edit-item" onsubmit="saveItemBasic(event)">
-                <input type="hidden" id="edit-item-sku">
-                <div class="form-group"><label>Descripción</label><input type="text" id="edit-item-desc" required></div>
-                <div class="form-group"><label>Categoría</label><input type="text" id="edit-item-cat"></div>
-                <div id="group-dimensions" style="display:none; flex-direction:column; gap:10px; margin-top:0.8rem; background:#F8FAFC; padding:12px; border-radius:6px; border:1px solid #E2E8F0;">
-                    <label style="color:var(--primary-blue); font-size:0.85rem; font-weight:bold;">Dimensiones</label>
-                    <div style="display:flex; gap:8px;">
-                        <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.75rem;">Largo (cm)</label><input type="number" step="0.1" id="edit-item-length" oninput="calcItemVolume()"></div>
-                        <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.75rem;">Ancho (cm)</label><input type="number" step="0.1" id="edit-item-width" oninput="calcItemVolume()"></div>
-                        <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.75rem;">Alto (cm)</label><input type="number" step="0.1" id="edit-item-height" oninput="calcItemVolume()"></div>
-                    </div>
-                    <div style="display:flex; gap:8px; margin-top:6px;">
-                        <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.75rem; color:var(--success-green);">Peso por Unidad (Kg)</label><input type="number" step="0.01" id="edit-item-weight" placeholder="Ej: 1.25"></div>
-                        <div class="form-group" style="flex:1; margin-bottom:0;"><label style="font-size:0.75rem;">Volumen Calculado (m³)</label><input type="number" step="0.000001" id="edit-item-volume" readonly style="background:#E2E8F0; font-weight:bold;"></div>
-                    </div>
-                </div>
-                <button type="submit" class="btn-submit" style="margin-top:1.2rem;">Guardar Cambios en Ficha</button>
-            </form>
-            <hr style="margin:20px 0; border:0; border-top:1px solid var(--border-color);">
-            <h3 style="color:var(--primary-blue); margin-bottom:10px;">Ubicaciones Asignadas</h3>
-            <div id="item-assigned-locations-list" style="margin-bottom:15px;">Cargando...</div>
-            <form onsubmit="addLocationToItem(event)" style="display:flex; gap:10px; align-items:flex-end;">
-                <div style="flex:1;"><label style="font-size:0.8rem; font-weight:bold;">Código Ubicación (Ej: RACK-01)</label><input type="text" id="new-item-loc-code" required placeholder="Escriba código..."></div>
-                <button type="submit" class="btn-secondary" style="height:42px;">+ Asignar</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="modal-user" class="modal">
-        <div class="modal-content" style="max-width:500px;">
-            <span class="close-modal" onclick="closeModal('modal-user')">&times;</span>
-            <h3 id="modal-user-title" style="color:var(--primary-blue); margin-bottom:1rem;">Usuario</h3>
-            <form id="form-user" onsubmit="saveUser(event)">
-                <input type="hidden" id="user-edit-mode" value="false">
-                <div class="form-group"><label>Usuario *</label><input type="text" id="user-username" required autocomplete="off"></div>
-                <div class="form-group"><label>Nombre Completo *</label><input type="text" id="user-fullname" required></div>
-                <div class="form-group"><label id="label-user-password">Contraseña *</label><input type="password" id="user-password"></div>
-                <div class="form-group"><label>Correo Electrónico</label><input type="email" id="user-email"></div>
-                <div class="form-group"><label>Rol *</label><select id="user-role" required><option value="PREPARADOR">PREPARADOR</option><option value="SUPERVISOR">SUPERVISOR</option><option value="ADMIN">ADMINISTRADOR</option></select></div>
-                <div class="form-group"><label>Sucursal</label><select id="user-branch" onchange="onUserBranchChange()"><option value="">-- Sin Asignar --</option></select></div>
-                <div class="form-group"><label>Sector</label><select id="user-sector"><option value="">-- Sin Asignar --</option></select></div>
-                <div id="group-user-is-active" class="form-group" style="display:none;"><label>Estado</label><select id="user-is-active"><option value="true">ACTIVO</option><option value="false">INACTIVO</option></select></div>
-                <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Usuario</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="modal-entity" class="modal">
-        <div class="modal-content" style="max-width:550px;">
-            <span class="close-modal" onclick="closeModal('modal-entity')">&times;</span>
-            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Nueva Entidad</h3>
-            <form id="form-entity" onsubmit="saveEntity(event)">
-                <div class="form-group"><label>CUIT / RUT *</label><input type="text" id="ent-taxid" placeholder="Ej: 30-70903124-0" required></div>
-                <div class="form-group"><label>Razón Social *</label><input type="text" id="ent-name" placeholder="Ej: Bazar Chef S.A." required></div>
-                <div class="form-group" style="display:flex; gap:1.5rem; margin-top:0.5rem;">
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="ent-is-customer" checked style="width:auto;"> Es Cliente</label>
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="ent-is-supplier" style="width:auto;"> Es Proveedor</label>
-                </div>
-                <hr style="border:0; border-top:1px solid var(--border-color); margin:1rem 0;">
-                <h4 style="color:var(--primary-blue); margin-bottom:0.8rem; font-size:0.95rem;">Dirección Física Inicial (Opcional)</h4>
-                <div class="form-group"><label>Etiqueta / Identificador</label><input type="text" id="ent-addr-label" placeholder="Ej: Depósito Central"></div>
-                <div class="form-row">
-                    <div class="form-group"><label>Calle</label><input type="text" id="ent-street" placeholder="Ej: Av. Corrientes"></div>
-                    <div class="form-group" style="max-width:110px;"><label>Altura</label><input type="text" id="ent-number" placeholder="Ej: 1234"></div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group" style="max-width:130px;"><label>Cód. Postal</label><input type="text" id="ent-zip" placeholder="Ej: C1043"></div>
-                    <div class="form-group"><label>Ciudad / Barrio</label><input type="text" id="ent-city" placeholder="Ej: CABA"></div>
-                </div>
-                <button type="submit" class="btn-submit" style="margin-top:1.5rem;">Guardar Entidad</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="modal-edit-entity" class="modal">
-        <div class="modal-content" style="max-width:650px;">
-            <span class="close-modal" onclick="closeModal('modal-edit-entity')">&times;</span>
-            <h2 style="color:var(--primary-blue); margin-bottom:1rem;">Editar Entidad</h2>
-            <form id="form-edit-entity" onsubmit="saveEntityBasic(event)">
-                <input type="hidden" id="edit-ent-id">
-                <div class="form-group"><label>CUIT / RUT *</label><input type="text" id="edit-ent-taxid" required></div>
-                <div class="form-group"><label>Razón Social *</label><input type="text" id="edit-ent-name" required></div>
-                <div class="form-group" style="display:flex; gap:1.5rem; margin-top:0.5rem;">
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="edit-ent-is-customer" style="width:auto;"> Es Cliente</label>
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="edit-ent-is-supplier" style="width:auto;"> Es Proveedor</label>
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;"><input type="checkbox" id="edit-ent-is-active" style="width:auto;"> Activo</label>
-                </div>
-                <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Cambios Básicos</button>
-            </form>
-            <hr style="margin:20px 0; border:0; border-top:1px solid var(--border-color);">
-            <h3 style="color:var(--primary-blue); margin-bottom:10px;">Direcciones de Entrega Registradas</h3>
-            <div id="entity-addresses-list" style="margin-bottom:15px;">Cargando direcciones...</div>
-            <form id="form-entity-address" onsubmit="saveAddressToEntity(event)" style="background:#F0F9FF; padding:1.2rem; border-radius:6px; border:1px solid #BAE6FD;">
-                <input type="hidden" id="edit-addr-id" value="">
-                <h4 id="form-addr-title" style="color:var(--primary-blue); font-size:0.95rem; margin-bottom:10px;">+ Añadir Nueva Dirección</h4>
-                <div class="form-row">
-                    <div class="form-group" style="flex:2;"><label style="font-size:0.8rem;">Etiqueta Identificadora *</label><input type="text" id="new-ent-addr-label" placeholder="Ej: Depósito Central, Casa Matriz" required></div>
-                    <div class="form-group" style="flex:1; display:flex; align-items:flex-end; padding-bottom:0.4rem;">
-                        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.8rem; margin:0;"><input type="checkbox" id="new-ent-is-default" style="width:auto;"> Predeterminada</label>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group" style="flex:3;"><label style="font-size:0.8rem;">Calle</label><input type="text" id="new-ent-street" placeholder="Ej: Av. Cabildo"></div>
-                    <div class="form-group" style="flex:1;"><label style="font-size:0.8rem;">Altura</label><input type="text" id="new-ent-number" placeholder="Ej: 2547"></div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group" style="flex:1;"><label style="font-size:0.8rem;">Código Postal</label><input type="text" id="new-ent-zip" placeholder="Ej: C1428"></div>
-                    <div class="form-group" style="flex:2;"><label style="font-size:0.8rem;">Ciudad / Barrio / Localidad</label><input type="text" id="new-ent-city" placeholder="Ej: CABA, Buenos Aires"></div>
-                </div>
-                <div style="display:flex; gap:8px; margin-top:10px;">
-                    <button type="submit" id="btn-save-addr" class="btn-secondary" style="flex:1;">Guardar Dirección</button>
-                    <button type="button" id="btn-cancel-edit-addr" onclick="resetAddressForm()" class="btn-secondary" style="display:none; background:#E5E7EB; color:#374151; border-color:#D1D5DB;">Cancelar Edición</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="modal-branch" class="modal">
-        <div class="modal-content" style="max-width:450px;">
-            <span class="close-modal" onclick="closeModal('modal-branch')">&times;</span>
-            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Nueva Sucursal</h3>
-            <form onsubmit="saveBranch(event)">
-                <div class="form-group"><label>Código de Sucursal *</label><input type="text" id="branch-code" placeholder="Ej: SUC-02" required></div>
-                <div class="form-group"><label>Nombre de Sucursal *</label><input type="text" id="branch-name" placeholder="Ej: Depósito Norte" required></div>
-                <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Sucursal</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="modal-sector" class="modal">
-        <div class="modal-content" style="max-width:450px;">
-            <span class="close-modal" onclick="closeModal('modal-sector')">&times;</span>
-            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Nuevo Sector</h3>
-            <form onsubmit="saveSector(event)">
-                <div class="form-group"><label>Sucursal Asignada *</label><select id="sector-branch" required></select></div>
-                <div class="form-group"><label>Nombre del Sector *</label><input type="text" id="sector-name" placeholder="Ej: Nave Principal" required></div>
-                <div class="form-group"><label>Código Impresión / Cola *</label><input type="text" id="sector-print-code" placeholder="Ej: PRINT-SEC-01" required></div>
-                <div class="form-group">
-                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
-                        <input type="checkbox" id="sector-uses-locations" style="width:auto;"> ¿Utiliza Ubicaciones Físicas?
-                    </label>
-                </div>
-                <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Sector</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="modal-location" class="modal">
-        <div class="modal-content" style="max-width:450px;">
-            <span class="close-modal" onclick="closeModal('modal-location')">&times;</span>
-            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Nueva Ubicación Física</h3>
-            <form onsubmit="saveLocation(event)">
-                <div class="form-group"><label>Sector Asignado *</label><select id="loc-sector" required></select></div>
-                <div class="form-group"><label>Código de Ubicación *</label><input type="text" id="loc-code" placeholder="Ej: RACK-A-01" required></div>
-                <div class="form-group"><label>Descripción / Nota</label><input type="text" id="loc-desc" placeholder="Ej: Pasillo central, Nivel 1"></div>
-                <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Ubicación</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="modal-import" class="modal">
-        <div class="modal-content">
-            <span class="close-modal" onclick="closeModal('modal-import')">&times;</span>
-            <h2 id="import-title" style="color:var(--primary-blue); margin-bottom:1rem;">Agregar Datos Masivamente (CSV)</h2>
-            <form id="form-modal-import" onsubmit="processCSVImport(event)">
-                <input type="hidden" id="import-type">
-                <div class="dropzone" onclick="document.getElementById('import-file-input').click()">
-                    <div style="font-weight:700; color:var(--primary-blue);">Haga clic para seleccionar archivo CSV</div>
-                    <div id="import-file-name" style="font-size:0.85rem; color:var(--text-muted);">Formatos admitidos: .csv</div>
-                </div>
-                <input type="file" id="import-file-input" accept=".csv" style="display:none;" onchange="updateImportFileName(this)">
-                <div style="display:flex; gap:10px; justify-content:flex-end;">
-                    <button type="button" class="btn-secondary" onclick="closeModal('modal-import')">Cancelar</button>
-                    <button type="submit" class="btn-submit" style="width:auto; padding:0.75rem 2rem;">Procesar Archivo</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="modal-import-locations" class="modal">
-        <div class="modal-content" style="max-width:500px;">
-            <span class="close-modal" onclick="closeModal('modal-import-locations')">&times;</span>
-            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Agregar Ubicaciones Masivamente</h3>
-            <form onsubmit="uploadLocationsCSV(event)">
-                <div class="form-group"><label>Sector Destino *</label><select id="import-loc-sector" required></select></div>
-                <div class="dropzone" onclick="document.getElementById('import-loc-file').click()">
-                    <div style="font-weight:700; color:var(--primary-blue);">Clic para seleccionar CSV de Ubicaciones</div>
-                    <div id="import-loc-file-name" style="font-size:0.85rem; color:var(--text-muted);">Columnas requeridas: ubicacion, descripcion</div>
-                </div>
-                <input type="file" id="import-loc-file" accept=".csv" style="display:none;" onchange="document.getElementById('import-loc-file-name').textContent = this.files[0]?.name || ''">
-                <button type="submit" class="btn-submit" style="margin-top:1rem;">Procesar Archivo</button>
-            </form>
-        </div>
-    </div>
-
-    <div id="modal-add-channel" class="modal">
-        <div class="modal-content" style="max-width:550px;">
-            <span class="close-modal" onclick="closeModal('modal-add-channel')">&times;</span>
-            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Añadir Nueva Conexión Externa</h3>
-            <form onsubmit="saveNewChannel(event)">
-                <div class="form-group">
-                    <label>Nombre del Canal / Aplicación *</label>
-                    <input type="text" id="chan-name" placeholder="Ej: Tienda Nube Oficial, MercadoLibre Outlet" required>
-                </div>
-                <div class="form-group">
-                    <label>Tipo de Evento *</label>
-                    <select id="chan-type" required>
-                        <option value="OUTBOUND_DESPACHO">Notificación de Despacho / Empaque (Order Dispatched)</option>
-                        <option value="OUTBOUND_STOCK">Sincronización de Stock en Tiempo Real (Stock Updated)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>URL Objetivo (Endpoint HTTP / Webhook) *</label>
-                    <input type="url" id="chan-url" placeholder="https://api.miempresa.com/webhook/despachos" required>
-                </div>
-                <div class="form-group">
-                    <label>Clave API / Token Bearer de la Aplicación Destino (Opcional)</label>
-                    <input type="password" id="chan-key" placeholder="Token Bearer para autenticación de salida">
-                </div>
-                <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Conexión</button>
-            </form>
-        </div>
-    </div>
-
+    <!-- MODAL DE PEDIDO MANUAL CON SOPORTE FEFO -->
     <div id="modal-manual-order" class="modal">
         <div class="modal-content" style="max-width:600px;">
             <span class="close-modal" onclick="closeModal('modal-manual-order')">&times;</span>
@@ -1316,22 +1276,14 @@
                         <div style="display:flex; gap:6px;">
                             <input type="text" id="manual-cust-taxid" placeholder="Ej: 30709031240" required style="flex:1;">
                             <button type="button" onclick="openSearchCustomerModal()" class="btn-secondary" style="display:flex; align-items:center; justify-content:center; padding:0 12px; height:42px;" title="Buscar Cliente">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                    <circle cx="11" cy="11" r="8"></circle>
-                                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                                </svg>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                             </button>
                         </div>
                     </div>
                 </div>
                 <div class="grid-layout" style="margin-bottom:0;">
                     <div class="form-group"><label>Nombre Cliente (Opcional)</label><input type="text" id="manual-cust-name" placeholder="Ej: Juan Pérez"></div>
-                    <div class="form-group">
-                        <label>Dirección de Entrega</label>
-                        <select id="manual-addr-label" style="font-weight:600; color:var(--text-main);">
-                            <option value="Principal">Principal</option>
-                        </select>
-                    </div>
+                    <div class="form-group"><label>Dirección de Entrega</label><select id="manual-addr-label" style="font-weight:600; color:var(--text-main);"><option value="Principal">Principal</option></select></div>
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                     <label style="margin:0; font-weight:bold;">Artículos del Pedido:</label>
@@ -1343,6 +1295,7 @@
                     <div class="dynamic-row">
                         <input type="text" placeholder="SKU" class="manual-sku" style="flex:2;" required>
                         <input type="number" placeholder="Cantidad" class="manual-qty" style="flex:1;" min="0.01" step="0.01" required>
+                        <input type="text" placeholder="Lote Extracción" class="manual-lot lot-input" style="flex:1;">
                         <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
                     </div>
                 </div>
@@ -1360,31 +1313,48 @@
                 <input type="text" id="search-cust-query" placeholder="Buscar por CUIT, Nombre o Dirección..." onkeyup="filterCustomerSearch()" style="width:100%; padding:0.75rem;">
             </div>
             <div style="max-height:300px; overflow-y:auto; border:1px solid var(--border-color); border-radius:6px;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>CUIT / DNI</th>
-                            <th>Razón Social / Nombre</th>
-                            <th>Direcciones</th>
-                            <th>Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-search-cust-body"></tbody>
-                </table>
+                <table><thead><tr><th>CUIT / DNI</th><th>Razón Social / Nombre</th><th>Direcciones</th><th>Acción</th></tr></thead><tbody id="table-search-cust-body"></tbody></table>
             </div>
         </div>
     </div>
 
-    <!-- SCRIPTS DEL SISTEMA -->
+    <!-- SCRIPTS DEL SISTEMA: FORZANDO ACTUALIZACIÓN DE CACHÉ JS -->
     <script src="js/admin-core.js?v=20260805"></script>
     <script src="js/api.js"></script>
     <script src="js/users.js"></script>
     <script src="js/entities.js"></script>
     <script src="js/items.js?v=1785417687"></script>
     <script src="js/warehouse.js"></script>
-    <script src="js/operations.js"></script>
+    <script src="js/operations.js?v=20260806_7"></script>
     <script src="js/reports.js?v=20260804_3"></script>
     <script src="js/settings.js"></script>
     <script src="js/admin-init.js"></script>
+    
+    <!-- SCRIPT INYECTADO PARA EL COMPORTAMIENTO MÓVIL (MENU HAMBURGUESA) -->
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            if(sidebar && overlay) {
+                sidebar.classList.toggle('open');
+                overlay.classList.toggle('open');
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.tab-btn, .tab-sub-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (window.innerWidth <= 850) {
+                        const sidebar = document.getElementById('sidebar');
+                        const overlay = document.getElementById('sidebar-overlay');
+                        if(sidebar && overlay) {
+                            sidebar.classList.remove('open');
+                            overlay.classList.remove('open');
+                        }
+                    }
+                });
+            });
+        });
+    </script>
 </body>
 </html>

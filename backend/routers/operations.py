@@ -48,6 +48,26 @@ class ManualOrderInput(BaseModel):
     address_label: str = "Principal"
     lines: List[ManualOrderLine]
 
+# Modelos del Motor de Inventario Cíclico
+class InventorySessionCreate(BaseModel):
+    branch_id: str
+    sector_id: str
+    count_type: str = "HOT"
+    assigned_operator: str  # NUEVO CAMPO
+
+class InventoryCountScan(BaseModel):
+    sku: str
+    quantity: float
+    location_code: Optional[str] = None
+    lot_number: str = ""
+
+# Modelos para Auditoría Rápida (Spot Check)
+class SpotCheckInput(BaseModel):
+    sku: str
+    quantity: float
+    location_code: Optional[str] = None
+    lot_number: str = ""
+
 # === STOCK Y KARDEX ===
 @router.get("/api/admin/stock")
 async def list_admin_stock(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
@@ -158,6 +178,160 @@ async def list_admin_stock_kardex(
     except Exception as e:
         print(f"Error procesando Kardex: {e}")
         raise HTTPException(status_code=400, detail="Error al procesar la consulta. Verifique los filtros aplicados.")
+
+# === INVENTARIO FÍSICO / CONTEOS ===
+@router.get("/api/inventory/sessions")
+async def list_inventory_sessions(conn: asyncpg.Connection = Depends(get_db_connection)):
+    rows = await conn.fetch("""
+        SELECT s.id::text, b.name as branch_name, sec.name as sector_name, 
+               s.count_type, s.status, s.created_at, s.created_by, s.assigned_operator 
+        FROM inventory_sessions s 
+        JOIN branches b ON s.branch_id = b.id 
+        JOIN sectors sec ON s.sector_id = sec.id 
+        ORDER BY s.created_at DESC
+    """)
+    return [dict(r) for r in rows]
+
+@router.post("/api/inventory/sessions")
+async def create_inventory_session(data: InventorySessionCreate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    async with conn.transaction():
+        # Validar si ya hay un conteo abierto para ese sector
+        active = await conn.fetchval("SELECT id FROM inventory_sessions WHERE sector_id = $1 AND status IN ('OPEN', 'REVIEW')", uuid.UUID(data.sector_id))
+        if active:
+            raise HTTPException(400, "Ya existe un conteo activo para este sector. Ciérrelo antes de abrir uno nuevo.")
+
+        # Crear Sesión
+        session_id = await conn.fetchval(
+            "INSERT INTO inventory_sessions (branch_id, sector_id, count_type, created_by, assigned_operator) VALUES ($1, $2, $3, $4, $5) RETURNING id",
+            uuid.UUID(data.branch_id), uuid.UUID(data.sector_id), data.count_type, admin["username"], data.assigned_operator
+        )
+
+        # Tomar la 'FOTO' del sector (Snapshot ultra liviano)
+        await conn.execute("""
+            INSERT INTO inventory_snapshots (session_id, sku, location_id, lot_number, expected_quantity)
+            SELECT $1, sku, location_id, lot_number, quantity 
+            FROM stock_inventory 
+            WHERE sector_id = $2 AND quantity > 0
+        """, session_id, uuid.UUID(data.sector_id))
+
+        await log_action(conn, admin["username"], "INVENTORY_STARTED", f"Conteo asignado a {data.assigned_operator} en sector {data.sector_id}.")
+        return {"status": "success", "session_id": str(session_id)}
+
+@router.post("/api/inventory/sessions/{session_id}/scan")
+async def scan_inventory_count(session_id: str, data: InventoryCountScan, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    sess = await conn.fetchrow("SELECT id, status, sector_id FROM inventory_sessions WHERE id = $1", uuid.UUID(session_id))
+    if not sess or sess["status"] != "OPEN":
+        raise HTTPException(400, "La sesión de conteo no existe o no está abierta.")
+    
+    sku_clean = data.sku.strip().upper()
+    loc_id = None
+    
+    if data.location_code and data.location_code.strip():
+        loc = await conn.fetchrow("SELECT id FROM locations WHERE sector_id = $1 AND UPPER(location_code) = $2", sess["sector_id"], data.location_code.strip().upper())
+        if not loc:
+            raise HTTPException(400, f"Ubicación {data.location_code} no pertenece al sector.")
+        loc_id = loc["id"]
+
+    await conn.execute("""
+        INSERT INTO inventory_counts (session_id, sku, location_id, lot_number, counted_quantity, scanned_by)
+        VALUES ($1, $2, $3, $4, $5, $6)
+    """, sess["id"], sku_clean, loc_id, data.lot_number, data.quantity, user["username"])
+    
+    return {"status": "success", "message": f"Contado {data.quantity} de {sku_clean}"}
+
+@router.post("/api/inventory/sessions/{session_id}/finish")
+async def finish_inventory_count(session_id: str, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    # El operario avisa que terminó de escanear. Pasa a revisión del Admin.
+    res = await conn.execute("UPDATE inventory_sessions SET status = 'REVIEW' WHERE id = $1 AND status = 'OPEN'", uuid.UUID(session_id))
+    if res == "UPDATE 0":
+        raise HTTPException(400, "No se pudo finalizar. Sesión inválida o ya cerrada.")
+    return {"status": "success", "message": "Conteo enviado a revisión."}
+
+@router.get("/api/inventory/sessions/{session_id}/review")
+async def review_inventory_deltas(session_id: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    # Motor de Deltas: Cruza la Foto (Snapshot) con los Conteos agrupados. Costo de procesamiento: casi 0.
+    rows = await conn.fetch("""
+        WITH snapshot_agg AS (
+            SELECT sku, location_id, lot_number, SUM(expected_quantity) as expected
+            FROM inventory_snapshots WHERE session_id = $1 GROUP BY sku, location_id, lot_number
+        ),
+        count_agg AS (
+            SELECT sku, location_id, lot_number, SUM(counted_quantity) as counted
+            FROM inventory_counts WHERE session_id = $1 GROUP BY sku, location_id, lot_number
+        )
+        SELECT 
+            COALESCE(s.sku, c.sku) as sku,
+            COALESCE(s.location_id, c.location_id) as location_id,
+            l.location_code,
+            COALESCE(s.lot_number, c.lot_number) as lot_number,
+            COALESCE(s.expected, 0) as expected_quantity,
+            COALESCE(c.counted, 0) as counted_quantity,
+            (COALESCE(c.counted, 0) - COALESCE(s.expected, 0)) as delta
+        FROM snapshot_agg s
+        FULL OUTER JOIN count_agg c ON s.sku = c.sku AND s.location_id IS NOT DISTINCT FROM c.location_id AND s.lot_number IS NOT DISTINCT FROM c.lot_number
+        LEFT JOIN locations l ON COALESCE(s.location_id, c.location_id) = l.id
+    """, uuid.UUID(session_id))
+    return [dict(r) for r in rows]
+
+@router.post("/api/inventory/sessions/{session_id}/apply")
+async def apply_inventory_adjustments(session_id: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    async with conn.transaction():
+        sess = await conn.fetchrow("SELECT id, status, branch_id, sector_id FROM inventory_sessions WHERE id = $1 FOR UPDATE", uuid.UUID(session_id))
+        if not sess or sess["status"] != "REVIEW":
+            raise HTTPException(400, "La sesión no está en estado de revisión.")
+
+        # Traer los deltas calculados
+        deltas = await conn.fetch("""
+            WITH snapshot_agg AS (
+                SELECT sku, location_id, lot_number, SUM(expected_quantity) as expected FROM inventory_snapshots WHERE session_id = $1 GROUP BY sku, location_id, lot_number
+            ),
+            count_agg AS (
+                SELECT sku, location_id, lot_number, SUM(counted_quantity) as counted FROM inventory_counts WHERE session_id = $1 GROUP BY sku, location_id, lot_number
+            )
+            SELECT COALESCE(s.sku, c.sku) as sku, COALESCE(s.location_id, c.location_id) as location_id, COALESCE(s.lot_number, c.lot_number) as lot_number, (COALESCE(c.counted, 0) - COALESCE(s.expected, 0)) as delta
+            FROM snapshot_agg s FULL OUTER JOIN count_agg c ON s.sku = c.sku AND s.location_id IS NOT DISTINCT FROM c.location_id AND s.lot_number IS NOT DISTINCT FROM c.lot_number
+        """, sess["id"])
+
+        # Aplicar el ajuste usando la lógica matemática de sumarle el Delta al stock actual.
+        for row in deltas:
+            if row["delta"] != 0:
+                await record_stock_movement(conn, row["sku"], sess["branch_id"], sess["sector_id"], row["location_id"], float(row["delta"]), 'AJUSTE', f"CONTEO-{session_id}", admin["username"], row["lot_number"])
+
+        # Cerrar Sesión
+        await conn.execute("UPDATE inventory_sessions SET status = 'CLOSED', closed_at = CURRENT_TIMESTAMP, closed_by = $1 WHERE id = $2", admin["username"], sess["id"])
+        await log_action(conn, admin["username"], "INVENTORY_APPLIED", f"Ajustes de inventario aplicados para sesión {session_id}.")
+        return {"status": "success", "message": "Ajustes de inventario aplicados correctamente al stock actual."}
+
+@router.post("/api/inventory/spot-check")
+async def spot_check_inventory(data: SpotCheckInput, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    sku_clean = data.sku.strip().upper()
+    loc_id = None
+
+    if data.location_code and data.location_code.strip():
+        loc = await conn.fetchrow("SELECT id FROM locations WHERE UPPER(location_code) = $1", data.location_code.strip().upper())
+        if not loc:
+            raise HTTPException(400, f"Ubicación {data.location_code} no encontrada en el sistema.")
+        loc_id = loc["id"]
+
+    if loc_id:
+        expected = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE sku = $1 AND location_id = $2 AND lot_number = $3", sku_clean, loc_id, data.lot_number)
+    else:
+        expected = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE sku = $1 AND location_id IS NULL AND lot_number = $2", sku_clean, data.lot_number)
+
+    expected = float(expected or 0)
+    delta = data.quantity - expected
+    match = (delta == 0)
+
+    log_detail = f"SKU: {sku_clean} | Ubic: {data.location_code or 'N/A'} | Lote: {data.lot_number or '-'} | Esperado: {expected} | Contado: {data.quantity} | Delta: {delta}"
+    await log_action(conn, admin["username"], "SPOT_CHECK_AUDIT", log_detail)
+
+    return {
+        "status": "success",
+        "expected": expected,
+        "counted": data.quantity,
+        "delta": delta,
+        "match": match
+    }
 
 # === PICKING & PACKING ===
 @router.get("/api/picking/orders")
@@ -386,22 +560,38 @@ async def get_admin_integrations_op(admin: dict = Depends(require_admin)):
     return []
 
 @router.get("/api/admin/dashboard")
-async def get_admin_dashboard_op(admin: dict = Depends(require_admin)):
+async def get_admin_dashboard_op(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    # 1. Pedidos Pendientes (Top 5)
+    pending_orders = await conn.fetch("""
+        SELECT d.document_number, COALESCE(e.company_name, 'Consumidor Final') as company_name, d.status 
+        FROM documents d 
+        LEFT JOIN entities e ON d.customer_id = e.id 
+        WHERE d.status IN ('PENDING', 'IN_PROGRESS') 
+        ORDER BY d.created_at ASC LIMIT 5
+    """)
+    
+    # 2. Traspasos Activos (Top 5)
+    active_transfers = await conn.fetch("""
+        SELECT t.transfer_number, COALESCE(ob.name, 'N/A') as origin_branch, COALESCE(db.name, 'N/A') as destination_branch
+        FROM transfer_orders t
+        LEFT JOIN branches ob ON t.origin_branch_id = ob.id
+        LEFT JOIN branches db ON t.destination_branch_id = db.id
+        WHERE t.status IN ('PENDING', 'PENDING_CONTROL', 'IN_PROGRESS')
+        ORDER BY t.created_at ASC LIMIT 5
+    """)
+    
+    # 3. Auditoría Reciente (Top 5)
+    latest_logs = await conn.fetch("""
+        SELECT created_at, username, action 
+        FROM audit_logs 
+        ORDER BY created_at DESC LIMIT 5
+    """)
+    
     return {
         "status": "ok",
-        "pending_orders": [],
-        "active_transfers": [],
-        "total_items": 0,
-        "pending_jobs": 0,
-        "recent_activity": [],
-        "orders": [],
-        "items": [],
-        "logs": [],
-        "jobs": [],
-        "users": [],
-        "stats": [],
-        "sectors": [],
-        "transfers": []
+        "pending_orders": [dict(r) for r in pending_orders],
+        "active_transfers": [dict(r) for r in active_transfers],
+        "latest_logs": [dict(r) for r in latest_logs]
     }
 
 # === MÓDULOS DE PEDIDOS Y AUDITORÍA ===

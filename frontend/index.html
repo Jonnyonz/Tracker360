@@ -167,7 +167,7 @@
                 };
 
                 try {
-                    // Petición a nuestro futuro endpoint de seguridad
+                    // Petición a nuestro endpoint de seguridad
                     const response = await fetch('/api/auth/login', {
                         method: 'POST',
                         headers: {
@@ -176,12 +176,20 @@
                         body: JSON.stringify(credentials)
                     });
 
-                    if (response.status === 401 || response.status === 403) {
-                        throw new Error('Credenciales incorrectas o usuario inactivo.');
-                    }
-
+                    // MODIFICACIÓN CLAVE: Leer el mensaje detallado del backend
                     if (!response.ok) {
-                        throw new Error('Error en el servidor. Intente nuevamente.');
+                        let errorMsg = 'Error en el servidor. Intente nuevamente.';
+                        try {
+                            const errData = await response.json();
+                            if (errData && errData.detail) {
+                                errorMsg = errData.detail; // Captura "Bloqueado por 15 min." o "Credenciales incorrectas"
+                            }
+                        } catch (err) {
+                            if (response.status === 401 || response.status === 403) {
+                                errorMsg = 'Credenciales incorrectas o usuario inactivo.';
+                            }
+                        }
+                        throw new Error(errorMsg);
                     }
 
                     const data = await response.json();

@@ -22,17 +22,21 @@ class LoginRequest(BaseModel):
 @router.post("/login")
 async def login(request: Request, response: Response, credentials: LoginRequest, conn: asyncpg.Connection = Depends(get_db_connection)):
     client_ip = request.client.host if request.client else "127.0.0.1"
-    check_rate_limit(client_ip)
+    
+    # 1. Comprobar Bloqueos en Base de Datos
+    await check_rate_limit(client_ip, conn)
     
     user = await conn.fetchrow("SELECT id, username, password_hash, role, is_active FROM users WHERE username = $1", credentials.username.strip().lower())
     
     if not user or not user["is_active"] or not verify_password(credentials.password, user["password_hash"]):
-        record_failed_login(client_ip)
+        # 2. Registrar fallo en Base de Datos
+        await record_failed_login(client_ip, conn)
         username_attempt = credentials.username.strip().lower() if credentials.username else "UNKNOWN"
-        await log_action(conn, username_attempt, "LOGIN_FAILED", "Intento fallido", client_ip)
+        await log_action(conn, username_attempt, "LOGIN_FAILED", "Intento de acceso fallido", client_ip)
         raise HTTPException(status_code=401, detail="Credenciales incorrectas.")
     
-    reset_failed_login(client_ip)
+    # 3. Limpiar contador tras éxito
+    await reset_failed_login(client_ip, conn)
     token = create_access_token({"sub": user["username"], "role": user["role"], "id": str(user["id"])})
     
     # === COOKIE DE MÁXIMA SEGURIDAD (Secure, HttpOnly, Strict) ===

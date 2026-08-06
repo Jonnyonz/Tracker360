@@ -1,9 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <link rel="icon" type="image/png" href="/favicon.png">
-  <link rel="icon" type="image/png" href="/favicon.png">
-  <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="icon" type="image/png" href="/favicon.png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tracker360 - Terminal Operativa</title>
@@ -24,7 +22,13 @@
         body { font-family: system-ui, -apple-system, sans-serif; background-color: var(--bg-main); color: var(--text-main); }
         .header { background-color: var(--primary-blue); color: white; padding: 1.2rem 1rem; text-align: center; font-weight: 800; text-transform: uppercase; position: relative; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .btn-back { position: absolute; left: 1rem; top: 1.2rem; color: #93C5FD; text-decoration: none; font-size: 0.9rem; display: none; cursor: pointer; font-weight: 600; text-transform: uppercase; }
-        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; }
+        
+        /* Ajuste de cuadrícula a UNA SOLA COLUMNA */
+        .menu-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; padding: 1rem; }
+        
+        /* Contenedor inferior dinámico para Escritorio/Salir en DOS COLUMNAS */
+        .bottom-actions { display: grid; grid-template-columns: 1fr; gap: 1rem; padding: 0 1rem 1.5rem 1rem; }
+        
         .menu-card { background-color: var(--card-bg); padding: 1.5rem 1rem; border-radius: 8px; border: 1px solid var(--border-color); text-align: center; cursor: pointer; font-weight: 700; text-transform: uppercase; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .menu-card small { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500; }
         .view { display: none; padding: 1rem; padding-bottom: 5rem; }
@@ -61,6 +65,9 @@
         .toast-error { border-left: 5px solid var(--danger); }
         .toast-warning { border-left: 5px solid var(--warning); }
         @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        /* UTILIDAD FEFO */
+        .lot-input { display: none; }
     </style>
 </head>
 <body>
@@ -74,12 +81,20 @@
 
     <!-- MENÚ PRINCIPAL -->
     <div id="view-home" class="view active">
+        <!-- Bloque Operativo de Una Columna -->
         <div class="menu-grid">
             <div class="menu-card" onclick="openView('view-picking', loadPicking)">PICKING<br><small>Armado de Pedidos</small></div>
             <div class="menu-card" onclick="openView('view-packing', loadPacking)" style="border-color: var(--success); color: var(--success);">PACKING<br><small>Empaque y Despacho</small></div>
             <div class="menu-card" onclick="openView('view-receptions', loadReceptions)">RECEPCIÓN<br><small>Control Ingresos</small></div>
             <div class="menu-card" onclick="openView('view-transfers', loadTransfers)">TRASPASOS<br><small>Entre Sucursales</small></div>
-            <div class="menu-card" onclick="logout()" style="color: var(--danger); border-color: #FECACA; grid-column: span 2;">SALIR<br><small>Cerrar Sesión</small></div>
+            <div class="menu-card" onclick="openView('view-inventory', loadInventory)" style="border-color: #8B5CF6; color: #8B5CF6;">INVENTARIO<br><small>Conteos Pendientes</small></div>
+            <div class="menu-card" onclick="openSpotCheck()" style="border-color: #6366F1; color: #6366F1;">AUDITORIA RÁPIDA<br><small>Verificación de Estantes</small></div>
+        </div>
+        
+        <!-- Botonera Inferior Dinámica -->
+        <div id="bottom-actions" class="bottom-actions">
+            <div id="btn-switch-desktop" class="menu-card" onclick="window.location.href='/admin'" style="display:none; color: var(--primary-blue); border-color: var(--accent-blue); background: rgba(59, 130, 246, 0.05); padding: 1rem;">MODO ESCRITORIO</div>
+            <div class="menu-card" onclick="logout()" style="color: var(--danger); border-color: #FECACA; padding: 1rem;">SALIR</div>
         </div>
     </div>
 
@@ -200,6 +215,83 @@
         </form>
     </div>
 
+    <!-- 5. INVENTARIO (CONTEOS CÍCLICOS) -->
+    <div id="view-inventory" class="view">
+        <h3>Conteos Pendientes</h3>
+        <div id="inventory-list"></div>
+    </div>
+    <div id="view-inventory-scan" class="view">
+        <h3 id="inv-title">Escaneo de Sector</h3>
+        <div style="background:#DBEAFE; color:#1E3A8A; padding:8px 12px; border-radius:6px; font-size:0.85rem; font-weight:bold; margin-bottom:1.5rem;">
+            ID Sesión: <span id="inv-session-id-label"></span>
+        </div>
+        <form id="form-inventory-scan" onsubmit="scanInventoryCount(event)">
+            <input type="hidden" id="inv-session-id">
+            
+            <label>Ubicación (Si aplica)</label>
+            <div class="input-group">
+                <input type="text" id="inv-loc" placeholder="Ej: RACK-01" onkeydown="handleScannerEnter(event, 'inv-sku')">
+                <button type="button" class="btn-cam" onclick="startCameraScanner('inv-loc')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                </button>
+            </div>
+            
+            <label>SKU *</label>
+            <div class="input-group">
+                <input type="text" id="inv-sku" required placeholder="Escanee SKU..." onkeydown="handleScannerEnter(event, 'inv-qty')">
+                <button type="button" class="btn-cam" onclick="startCameraScanner('inv-sku')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                </button>
+            </div>
+            
+            <label>Cantidad Contada *</label>
+            <input type="number" id="inv-qty" min="0.01" step="0.01" required placeholder="0">
+            
+            <div class="lot-input" style="margin-top:0.8rem;">
+                <label>Lote / Vto</label>
+                <input type="text" id="inv-lot" placeholder="Lote...">
+            </div>
+
+            <button type="submit" style="margin-top:1rem; background-color: #8B5CF6;">Registrar Lectura</button>
+        </form>
+        <button type="button" style="background-color: var(--danger); width: 100%; margin-top: 1.5rem; padding: 1rem; border: none; border-radius: 6px; color: white; font-weight: bold; text-transform: uppercase;" onclick="finishInventorySession()">Finalizar Conteo</button>
+    </div>
+
+    <!-- 6. SPOT CHECK (AUDITORÍA RÁPIDA) -->
+    <div id="view-spot-check" class="view">
+        <h3>Auditoría Rápida</h3>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Verificación en caliente. No altera stock.</p>
+        <form id="form-spot-check" onsubmit="runSpotCheck(event)">
+            <label>Ubicación (Opcional)</label>
+            <div class="input-group">
+                <input type="text" id="spot-check-loc" placeholder="Ej: RACK-A-01" onkeydown="handleScannerEnter(event, 'spot-check-sku')">
+                <button type="button" class="btn-cam" onclick="startCameraScanner('spot-check-loc')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                </button>
+            </div>
+            
+            <label>SKU *</label>
+            <div class="input-group">
+                <input type="text" id="spot-check-sku" required placeholder="Escanee SKU..." onkeydown="handleScannerEnter(event, 'spot-check-qty')">
+                <button type="button" class="btn-cam" onclick="startCameraScanner('spot-check-sku')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                </button>
+            </div>
+            
+            <label>Cantidad Física *</label>
+            <input type="number" id="spot-check-qty" min="0.01" step="0.01" required placeholder="0">
+            
+            <div class="lot-input" style="margin-top:0.8rem;">
+                <label>Lote / Vto</label>
+                <input type="text" id="spot-check-lot" placeholder="Lote...">
+            </div>
+
+            <button type="submit" style="margin-top:1rem; background-color: #6366F1;">Verificar Stock</button>
+        </form>
+
+        <div id="spot-check-result" style="display:none; margin-top:1.5rem; padding:1.5rem; border-radius:8px; text-align:center;"></div>
+    </div>
+
     <!-- MODAL CÁMARA -->
     <div id="camera-modal" class="camera-modal">
         <div style="color:white; font-weight:800; text-transform:uppercase; margin-bottom:0.5rem;">Apunte al código</div>
@@ -207,303 +299,9 @@
         <button type="button" class="btn-close-cam" onclick="stopCameraScanner()">Cerrar</button>
     </div>
 
-    <script>
-        let currentTargetInputId = null, videoStream = null, cameraInterval = null;
-        let AppConfig = {};
-
-        // === PROTECCIÓN XSS (Militar/Bancaria) ===
-        function escapeHTML(str) {
-            if (str === null || str === undefined) return '';
-            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-        }
-
-        function showToast(msg, type = 'success') {
-            const container = document.getElementById('toast-container'); if(!container) return;
-            const toast = document.createElement('div');
-            toast.className = `toast toast-${type}`;
-            toast.innerHTML = `<span>${escapeHTML(msg)}</span><span style="cursor:pointer; font-weight:bold; margin-left:10px;" onclick="this.parentElement.remove()">&times;</span>`;
-            container.appendChild(toast);
-            setTimeout(() => { if(toast.parentElement) toast.remove(); }, 3500);
-        }
-
-        // DETECCIÓN DE RED
-        window.addEventListener('online', () => document.getElementById('net-banner').style.display = 'none');
-        window.addEventListener('offline', () => document.getElementById('net-banner').style.display = 'block');
-
-        window.onload = async () => {
-            const data = await reqAPI('/api/settings');
-            if(data) AppConfig = data;
-            if(!navigator.onLine) document.getElementById('net-banner').style.display = 'block';
-        };
-
-        // AUTO-SUBMIT PISTOLAS (Lectoras USB / Bluetooth emulan Enter)
-        function handleScannerEnter(e, nextFieldId = null, formIdToSubmit = null) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                if (nextFieldId) {
-                    const nextField = document.getElementById(nextFieldId);
-                    if (nextField) { nextField.focus(); nextField.select(); }
-                } else if (formIdToSubmit) {
-                    document.getElementById(formIdToSubmit).requestSubmit();
-                }
-            }
-        }
-
-        function goHome() { 
-            stopCameraScanner(); 
-            document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); 
-            document.getElementById('view-home').classList.add('active'); 
-            document.getElementById('btn-back').style.display = 'none'; 
-            document.getElementById('header-title').textContent = 'TERMINAL OPERATIVA';
-        }
-
-        function openView(id, cb = null) { 
-            stopCameraScanner(); 
-            document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); 
-            document.getElementById(id).classList.add('active'); 
-            document.getElementById('btn-back').style.display = 'inline'; 
-            if(cb) cb(); 
-        }
-
-        async function reqAPI(url, method = 'GET', body = null) {
-            try {
-                const r = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: body ? JSON.stringify(body) : null });
-                if (r.status === 401) return window.location.href = '/index.html';
-                const d = await r.json().catch(() => ({}));
-                if(!r.ok) { 
-                    const errMsg = d.detail || r.statusText || 'Error en el servidor';
-                    if(method !== 'GET') showToast(errMsg, 'error'); 
-                    return null; 
-                }
-                return d;
-            } catch(e) { 
-                if(method !== 'GET') showToast('Falla de red con el servidor', 'error'); 
-                document.getElementById('net-banner').style.display = 'block';
-                return null; 
-            }
-        }
-
-        // CÁMARA
-        async function startCameraScanner(inputId) {
-            currentTargetInputId = inputId; document.getElementById('camera-modal').style.display = 'flex';
-            videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: "environment" } } }).catch(() => navigator.mediaDevices.getUserMedia({ video: true }));
-            document.getElementById('camera-video').srcObject = videoStream;
-            if ('BarcodeDetector' in window) {
-                const bd = new BarcodeDetector();
-                cameraInterval = setInterval(async () => {
-                    const codes = await bd.detect(document.getElementById('camera-video')).catch(()=>[]);
-                    if (codes.length > 0) { 
-                        if (navigator.vibrate) navigator.vibrate([100]); 
-                        document.getElementById(currentTargetInputId).value = codes[0].rawValue; 
-                        stopCameraScanner(); 
-                    }
-                }, 250);
-            } else {
-                showToast("Tu navegador no soporta lectura de códigos por cámara.", "warning");
-                stopCameraScanner();
-            }
-        }
-        function stopCameraScanner() { clearInterval(cameraInterval); if(videoStream) videoStream.getTracks().forEach(t => t.stop()); document.getElementById('camera-modal').style.display = 'none'; }
-
-        // === 1. PICKING ===
-        async function loadPicking() {
-            const list = document.getElementById('picking-list'); list.innerHTML = 'Consultando...';
-            const data = await reqAPI('/api/picking/orders');
-            if(!data) return;
-            list.innerHTML = data.length ? data.map(o => `
-                <div class="list-item" onclick="openPickingScan('${escapeHTML(o.document_number)}')">
-                    <strong>${escapeHTML(o.document_number)}</strong>
-                    <p>${escapeHTML(o.company_name)}</p>
-                </div>
-            `).join('') : 'Sin pedidos pendientes.';
-        }
-
-        async function openPickingScan(num) {
-            document.getElementById('form-picking').reset(); 
-            document.getElementById('pick-number').value = num; 
-            document.getElementById('pick-title').textContent = num;
-            openView('view-picking-scan');
-            const d = await reqAPI('/api/picking/orders/' + encodeURIComponent(num));
-            if(d) {
-                document.getElementById('pick-details').innerHTML = d.lines.map(l => `
-                    <div style="border-bottom:1px solid #ddd; padding:5px 0;">
-                        <strong>${escapeHTML(l.sku)}</strong><br>
-                        Progreso: ${l.quantity_picked} / ${l.quantity_requested}<br>
-                        <small style="color:var(--success)">Sugerencias: ${escapeHTML(l.suggested_locations)}</small>
-                    </div>
-                `).join('');
-                setTimeout(() => document.getElementById('pick-loc').focus(), 100);
-            }
-        }
-
-        async function scanPicking(e) {
-            e.preventDefault();
-            const num = document.getElementById('pick-number').value;
-            const payload = { 
-                location_code: document.getElementById('pick-loc').value.trim(), 
-                sku: document.getElementById('pick-sku').value.trim(), 
-                quantity: parseFloat(document.getElementById('pick-qty').value) 
-            };
-            const r = await reqAPI(`/api/picking/orders/${encodeURIComponent(num)}/scan`, 'POST', payload);
-            if(r) { 
-                showToast(r.message); 
-                document.getElementById('pick-sku').value = ''; // Limpiamos para el siguiente escaneo rápido
-                r.order_completed ? goHome() : openPickingScan(num); 
-            }
-        }
-
-        // === 2. PACKING ===
-        async function loadPacking() {
-            const list = document.getElementById('packing-list'); list.innerHTML = 'Buscando pedidos completados...';
-            const data = await reqAPI('/api/packing/orders');
-            if(!data) return;
-            list.innerHTML = data.length ? data.map(o => `
-                <div class="list-item" style="border-left: 4px solid var(--success);" onclick="openPackingForm('${escapeHTML(o.document_number)}')">
-                    <strong>${escapeHTML(o.document_number)}</strong>
-                    <p>Destino: ${escapeHTML(o.company_name)}</p>
-                </div>
-            `).join('') : 'No hay pedidos esperando empaque.';
-        }
-
-        async function openPackingForm(num) {
-            document.getElementById('form-packing').reset(); 
-            document.getElementById('pack-number').value = num; 
-            document.getElementById('pack-title').textContent = "EMPAQUE: " + num;
-            
-            const metricsDiv = document.getElementById('pack-metrics-summary');
-            metricsDiv.style.display = 'none';
-            openView('view-packing-form');
-            
-            const d = await reqAPI('/api/packing/orders/' + encodeURIComponent(num));
-            if(d) {
-                document.getElementById('pack-details').innerHTML = `Cliente: ${escapeHTML(d.document.company_name)}<br><small style="color:var(--text-muted)">Dir: ${escapeHTML(d.document.address)}</small>`;
-                if (AppConfig.enable_item_dimensions === 'true') {
-                    metricsDiv.innerHTML = `Peso Calculado: ${d.totals.calc_weight} Kg | Vol: ${d.totals.calc_volume} m³`;
-                    metricsDiv.style.display = 'block';
-                }
-                setTimeout(() => document.getElementById('pack-boxes').focus(), 100);
-            }
-        }
-
-        async function dispatchPacking(e) {
-            e.preventDefault();
-            const num = document.getElementById('pack-number').value;
-            const payload = { boxes: parseInt(document.getElementById('pack-boxes').value) };
-            const r = await reqAPI(`/api/packing/orders/${encodeURIComponent(num)}/pack`, 'POST', payload);
-            if(r) { showToast(r.message); goHome(); }
-        }
-
-        // === 3. RECEPCIÓN ===
-        async function loadReceptions() {
-            const list = document.getElementById('receptions-list'); list.innerHTML = 'Consultando remitos...';
-            const data = await reqAPI('/api/reception/remitos');
-            if(!data) return;
-            list.innerHTML = data.length ? data.map(r => `
-                <div class="list-item" style="border-left: 4px solid var(--accent-blue);" onclick="openReceptionScan('${escapeHTML(r.remito_number)}')">
-                    <strong>${escapeHTML(r.remito_number)}</strong>
-                    <p>Proveedor: ${escapeHTML(r.supplier_name)}</p>
-                    <p><small>${escapeHTML(r.branch_name)} > ${escapeHTML(r.sector_name)}</small> <span class="badge badge-warning">${escapeHTML(r.status)}</span></p>
-                </div>
-            `).join('') : 'No hay remitos pendientes de control.';
-        }
-
-        async function openReceptionScan(remitoNumber) {
-            document.getElementById('form-reception').reset();
-            document.getElementById('rec-number').value = remitoNumber;
-            document.getElementById('rec-title').textContent = "REMITO: " + remitoNumber;
-            openView('view-reception-scan');
-
-            const d = await reqAPI('/api/reception/remitos/' + encodeURIComponent(remitoNumber));
-            if(d && d.lines) {
-                document.getElementById('rec-details').innerHTML = `
-                    <div style="margin-bottom:8px; font-weight:bold; color:var(--primary-blue);">Proveedor: ${escapeHTML(d.remito.supplier_name)}</div>
-                    ${d.lines.map(l => `
-                        <div style="border-bottom:1px solid #eee; padding:4px 0; font-size:0.85rem;">
-                            <strong>${escapeHTML(l.sku)}</strong> - Controlado: ${l.quantity_received} / ${l.quantity_sent} un
-                            ${l.location_code ? `<br><small style="color:var(--success)">Sugerencia: ${escapeHTML(l.location_code)}</small>` : ''}
-                        </div>
-                    `).join('')}
-                `;
-                setTimeout(() => document.getElementById('rec-sku').focus(), 100);
-            }
-        }
-
-        async function scanReception(e) {
-            e.preventDefault();
-            const num = document.getElementById('rec-number').value;
-            const payload = {
-                remito_number: num,
-                sku: document.getElementById('rec-sku').value.trim(),
-                quantity: parseFloat(document.getElementById('rec-qty').value),
-                location_code: document.getElementById('rec-loc').value.trim() || null
-            };
-            const r = await reqAPI(`/api/reception/remitos/${encodeURIComponent(num)}/scan`, 'POST', payload);
-            if(r) { 
-                showToast(r.message); 
-                document.getElementById('rec-sku').value = '';
-                r.remito_completed ? goHome() : openReceptionScan(num); 
-            }
-        }
-
-        // === 4. TRASPASOS ===
-        async function loadTransfers() {
-            const list = document.getElementById('transfers-list'); list.innerHTML = 'Consultando traspasos...';
-            const data = await reqAPI('/api/transfers/orders');
-            if(!data) return;
-            list.innerHTML = data.length ? data.map(t => `
-                <div class="list-item" style="border-left: 4px solid var(--warning);" onclick="openTransferScan('${escapeHTML(t.transfer_number)}')">
-                    <strong>${escapeHTML(t.transfer_number)}</strong>
-                    <p>Origen: ${escapeHTML(t.origin_branch)} (${escapeHTML(t.origin_sector)})</p>
-                    <p>Destino: ${escapeHTML(t.destination_branch)} (${escapeHTML(t.destination_sector)})</p>
-                    <p><span class="badge badge-warning">${escapeHTML(t.status)}</span></p>
-                </div>
-            `).join('') : 'No hay órdenes de traspaso activas.';
-        }
-
-        async function openTransferScan(transferNumber) {
-            document.getElementById('form-transfer-scan').reset();
-            document.getElementById('tr-number').value = transferNumber;
-            document.getElementById('tr-title').textContent = "TRASPASO: " + transferNumber;
-            openView('view-transfer-scan');
-
-            const d = await reqAPI('/api/transfers/orders/' + encodeURIComponent(transferNumber));
-            if(d && d.lines) {
-                document.getElementById('tr-details').innerHTML = `
-                    <div style="margin-bottom:8px; font-weight:bold; color:var(--primary-blue);">${escapeHTML(d.transfer.origin_branch)} ➔ ${escapeHTML(d.transfer.destination_branch)}</div>
-                    ${d.lines.map(l => `
-                        <div style="border-bottom:1px solid #eee; padding:4px 0; font-size:0.85rem;">
-                            <strong>${escapeHTML(l.sku)}</strong> - Transferido: ${l.quantity_received} / ${l.quantity_sent} un
-                            <br><small style="color:var(--text-muted)">Origen: ${escapeHTML(l.origin_location || 'General')} ➔ Destino: ${escapeHTML(l.destination_location || 'General')}</small>
-                        </div>
-                    `).join('')}
-                `;
-                setTimeout(() => document.getElementById('tr-sku').focus(), 100);
-            }
-        }
-
-        async function scanTransfer(e) {
-            e.preventDefault();
-            const num = document.getElementById('tr-number').value;
-            const payload = {
-                transfer_number: num,
-                sku: document.getElementById('tr-sku').value.trim(),
-                quantity: parseFloat(document.getElementById('tr-qty').value),
-                destination_location_code: document.getElementById('tr-dest-loc').value.trim() || null
-            };
-            const r = await reqAPI(`/api/transfers/orders/${encodeURIComponent(num)}/scan`, 'POST', payload);
-            if(r) { 
-                showToast(r.message); 
-                document.getElementById('tr-sku').value = '';
-                r.transfer_completed ? goHome() : openTransferScan(num); 
-            }
-        }
-
-        async function logout() { await reqAPI('/api/auth/logout', 'POST'); window.location.href = '/index.html'; }
-    </script>
-
     <!-- Modulos JavaScript Tracker360 -->
     <script src="js/api.js"></script>
-    <script src="js/mobile.js"></script>
+    <script src="js/mobile.js?v=20260806_1"></script>
     <script src="js/preparador-init.js"></script>
 </body>
 </html>
