@@ -29,12 +29,35 @@
         /* Contenedor inferior dinámico para Escritorio/Salir en DOS COLUMNAS */
         .bottom-actions { display: grid; grid-template-columns: 1fr; gap: 1rem; padding: 0 1rem 1.5rem 1rem; }
         
-        .menu-card { background-color: var(--card-bg); padding: 1.5rem 1rem; border-radius: 8px; border: 1px solid var(--border-color); text-align: center; cursor: pointer; font-weight: 700; text-transform: uppercase; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        /* TARJETAS DE MENÚ UNIFICADAS (Cero Arcoíris) */
+        .menu-card { 
+            background-color: var(--card-bg); 
+            padding: 1.5rem 1rem; 
+            border-radius: 8px; 
+            border: 1px solid var(--border-color); 
+            text-align: center; 
+            cursor: pointer; 
+            font-weight: 700; 
+            color: var(--primary-blue);
+            text-transform: uppercase; 
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05); 
+            transition: all 0.2s ease;
+        }
+        .menu-card:hover, .menu-card:active {
+            border-color: var(--accent-blue);
+            background-color: #F0F9FF;
+        }
         .menu-card small { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500; }
+        
+        /* Modificador exclusivo para acción destructiva (Salir) */
+        .card-danger { color: var(--danger); border-color: #FECACA; }
+        .card-danger:hover, .card-danger:active { background-color: #FEF2F2; border-color: var(--danger); }
+
         .view { display: none; padding: 1rem; padding-bottom: 5rem; }
         .view.active { display: block; }
         h3 { color: var(--primary-blue); margin-bottom: 1rem; text-transform: uppercase; font-size: 1.1rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; }
-        .list-item { background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 0.8rem; cursor: pointer; }
+        .list-item { background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 0.8rem; cursor: pointer; transition: background 0.2s; }
+        .list-item:active { background: #F9FAFB; }
         .list-item strong { display: block; font-size: 1.05rem; color: var(--primary-blue); margin-bottom: 0.3rem; }
         .list-item p { margin-bottom: 0; font-size: 0.9rem; color: var(--text-muted); }
         form { display: flex; flex-direction: column; gap: 0.8rem; }
@@ -81,20 +104,20 @@
 
     <!-- MENÚ PRINCIPAL -->
     <div id="view-home" class="view active">
-        <!-- Bloque Operativo de Una Columna -->
+        <!-- Bloque Operativo de Una Columna, Paleta Unificada -->
         <div class="menu-grid">
             <div class="menu-card" onclick="openView('view-picking', loadPicking)">PICKING<br><small>Armado de Pedidos</small></div>
-            <div class="menu-card" onclick="openView('view-packing', loadPacking)" style="border-color: var(--success); color: var(--success);">PACKING<br><small>Empaque y Despacho</small></div>
+            <div class="menu-card" onclick="openView('view-packing', loadPacking)">PACKING<br><small>Empaque y Despacho</small></div>
             <div class="menu-card" onclick="openView('view-receptions', loadReceptions)">RECEPCIÓN<br><small>Control Ingresos</small></div>
             <div class="menu-card" onclick="openView('view-transfers', loadTransfers)">TRASPASOS<br><small>Entre Sucursales</small></div>
-            <div class="menu-card" onclick="openView('view-inventory', loadInventory)" style="border-color: #8B5CF6; color: #8B5CF6;">INVENTARIO<br><small>Conteos Pendientes</small></div>
-            <div class="menu-card" onclick="openSpotCheck()" style="border-color: #6366F1; color: #6366F1;">AUDITORIA RÁPIDA<br><small>Verificación de Estantes</small></div>
+            <div class="menu-card" onclick="openView('view-inventory', loadInventory)">INVENTARIO<br><small>Conteos Pendientes</small></div>
+            <div class="menu-card" onclick="openSpotCheck()">AUDITORIA RÁPIDA<br><small>Verificación de Estantes</small></div>
         </div>
         
         <!-- Botonera Inferior Dinámica -->
         <div id="bottom-actions" class="bottom-actions">
-            <div id="btn-switch-desktop" class="menu-card" onclick="window.location.href='/admin'" style="display:none; color: var(--primary-blue); border-color: var(--accent-blue); background: rgba(59, 130, 246, 0.05); padding: 1rem;">MODO ESCRITORIO</div>
-            <div class="menu-card" onclick="logout()" style="color: var(--danger); border-color: #FECACA; padding: 1rem;">SALIR</div>
+            <div id="btn-switch-desktop" class="menu-card" onclick="window.location.href='/admin'" style="display:none; background: #EFF6FF; padding: 1rem;">MODO ESCRITORIO</div>
+            <div class="menu-card card-danger" onclick="logout()" style="padding: 1rem;">SALIR</div>
         </div>
     </div>
 
@@ -252,7 +275,7 @@
                 <input type="text" id="inv-lot" placeholder="Lote...">
             </div>
 
-            <button type="submit" style="margin-top:1rem; background-color: #8B5CF6;">Registrar Lectura</button>
+            <button type="submit" style="margin-top:1rem; background-color: var(--primary-blue);">Registrar Lectura</button>
         </form>
         <button type="button" style="background-color: var(--danger); width: 100%; margin-top: 1.5rem; padding: 1rem; border: none; border-radius: 6px; color: white; font-weight: bold; text-transform: uppercase;" onclick="finishInventorySession()">Finalizar Conteo</button>
     </div>
@@ -286,7 +309,7 @@
                 <input type="text" id="spot-check-lot" placeholder="Lote...">
             </div>
 
-            <button type="submit" style="margin-top:1rem; background-color: #6366F1;">Verificar Stock</button>
+            <button type="submit" style="margin-top:1rem; background-color: var(--primary-blue);">Verificar Stock</button>
         </form>
 
         <div id="spot-check-result" style="display:none; margin-top:1.5rem; padding:1.5rem; border-radius:8px; text-align:center;"></div>
@@ -299,9 +322,7 @@
         <button type="button" class="btn-close-cam" onclick="stopCameraScanner()">Cerrar</button>
     </div>
 
-    <!-- Modulos JavaScript Tracker360 -->
     <script src="js/api.js"></script>
-    <script src="js/mobile.js?v=20260806_1"></script>
-    <script src="js/preparador-init.js"></script>
+    <script src="js/mobile.js?v=20260806_3"></script>
 </body>
 </html>
