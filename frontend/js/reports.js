@@ -31,7 +31,7 @@ function generateTimestampString() {
     return `${yyyy}-${mm}-${dd}_${hh}.${min}.${ss}.${ms}`;
 }
 
-// === 1. REPORTE DE STOCK CONSOLIDADO ===
+// === 1. REPORTE DE STOCK CONSOLIDADO (MATRIZ POR SUCURSAL) ===
 
 window.loadReportStockSelectors = async function() {
     if (!cachedBranches || cachedBranches.length === 0) {
@@ -67,10 +67,11 @@ window.onRepStockBranchChange = function() {
 window.generateStockReport = async function(e) {
     if (e) e.preventDefault();
     const tbody = document.getElementById('table-rep-stock-body');
+    const thead = document.querySelector('#section-rep-stock table thead');
     const btn = document.querySelector('#form-rep-stock button[type="submit"]');
     
     if (btn) { btn.disabled = true; btn.textContent = "Generando..."; }
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem; font-weight:bold; color:var(--primary-blue);">Procesando Base de Datos...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:2rem; font-weight:bold; color:var(--primary-blue);">Procesando Base de Datos...</td></tr>';
 
     const sku = document.getElementById('rep-stock-sku').value.trim();
     const branch = document.getElementById('rep-stock-branch').value;
@@ -101,26 +102,67 @@ window.generateStockReport = async function(e) {
         lastStockReportData = rows || [];
 
         if (lastStockReportData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--error-red); font-weight:bold;">El reporte no arrojó resultados.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:2rem; color:var(--error-red); font-weight:bold;">El reporte no arrojó resultados.</td></tr>';
             return;
         }
 
-        tbody.innerHTML = lastStockReportData.map(r => {
-            const qtyColor = r.quantity > 0 ? 'var(--success-green)' : (r.quantity < 0 ? 'var(--error-red)' : 'var(--text-muted)');
+        // Determinar columnas de Sucursales dinámicas
+        let branchColumns = [];
+        if (typeof cachedBranches !== 'undefined' && cachedBranches.length > 0) {
+            branchColumns = cachedBranches.map(b => b.name);
+        } else {
+            branchColumns = Array.from(new Set(lastStockReportData.map(r => r.branch_name)));
+        }
+
+        // Reconstruir Thead para Matriz Consolidada por Sucursales (Sin columna Ubicación)
+        thead.innerHTML = `
+            <tr>
+                <th>SKU</th>
+                <th>Descripción</th>
+                ${branchColumns.map(b => `<th style="text-align:right;">${escapeHTML(b)}</th>`).join('')}
+                <th style="text-align:right;">Stock Total</th>
+            </tr>
+        `;
+
+        // Agrupar filas por SKU
+        const matrix = {};
+        lastStockReportData.forEach(r => {
+            const key = r.sku;
+            if (!matrix[key]) {
+                matrix[key] = {
+                    sku: r.sku,
+                    description: r.description,
+                    branches: {},
+                    total: 0
+                };
+            }
+            const qty = parseFloat(r.quantity) || 0;
+            const bName = r.branch_name || 'Sin Sucursal';
+            matrix[key].branches[bName] = (matrix[key].branches[bName] || 0) + qty;
+            matrix[key].total += qty;
+        });
+
+        tbody.innerHTML = Object.values(matrix).map(item => {
+            const bColsHtml = branchColumns.map(bName => {
+                const val = item.branches[bName] || 0;
+                const colColor = val > 0 ? 'var(--success-green)' : (val < 0 ? 'var(--error-red)' : 'var(--text-muted)');
+                return `<td style="text-align:right; font-weight:bold; color:${colColor};">${val}</td>`;
+            }).join('');
+
+            const totalColor = item.total > 0 ? 'var(--primary-blue)' : (item.total < 0 ? 'var(--error-red)' : 'var(--text-muted)');
+
             return `
                 <tr style="border-bottom:1px solid #E5E7EB;">
-                    <td>${escapeHTML(r.branch_name)}</td>
-                    <td>${escapeHTML(r.sector_name)}</td>
-                    <td style="font-family:monospace; font-weight:bold;">${escapeHTML(r.location_code)}</td>
-                    <td style="color:var(--primary-blue); font-weight:bold;">${escapeHTML(r.sku)}</td>
-                    <td><small>${escapeHTML(r.description)}</small></td>
-                    <td style="text-align:right; font-weight:900; color:${qtyColor}; font-size:1.1rem;">${r.quantity}</td>
+                    <td style="color:var(--primary-blue); font-weight:bold;"><code>${escapeHTML(item.sku)}</code></td>
+                    <td><small>${escapeHTML(item.description)}</small></td>
+                    ${bColsHtml}
+                    <td style="text-align:right; font-weight:900; color:${totalColor}; font-size:1.05rem;">${item.total}</td>
                 </tr>
             `;
         }).join('');
 
     } catch (err) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--error-red);">Error al generar reporte.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:2rem; color:var(--error-red);">Error al generar reporte.</td></tr>';
     } finally {
         if (btn) { btn.disabled = false; btn.textContent = "Generar Reporte"; }
     }
@@ -745,11 +787,12 @@ window.exportPOReportCSV = function() {
     document.body.removeChild(link);
 };
 
-
 // Inicializador modificado para inyectar selectores correctamente en todos los reportes
 const originalSwitchView = window.switchView;
 window.switchView = function(secId, btnElement = null) {
-    originalSwitchView(secId, btnElement);
+    if (typeof originalSwitchView === 'function') {
+        originalSwitchView(secId, btnElement);
+    }
     if(secId === 'section-rep-stock') { window.loadReportStockSelectors(); }
     if(secId === 'section-kardex') { window.loadKardexSelectors(); }
     if(secId === 'section-rep-remitos') { window.loadReportRemitosSelectors(); }

@@ -54,7 +54,7 @@ async function handleSearchItems(page = 1) {
             const itemLoc = escapeHTML(item.locations_summary || item.locations || item.location_code || 'Sin asignación');
             const stockTotal = item.total_stock || 0;
             
-            // Renderizado condicional del color del stock (Ingeniería visual)
+            // Renderizado condicional del color del stock
             const stockColor = stockTotal > 0 ? 'var(--success-green)' : (stockTotal < 0 ? 'var(--error-red)' : 'var(--text-muted)');
 
             return `
@@ -165,6 +165,94 @@ async function openStockBreakdownModal(sku) {
     }
 }
 
+// === IMPORTACIÓN DE CSV (CATÁLOGO Y UBICACIONES) ===
+function openImportModal(type) {
+    const modal = document.getElementById('modal-import');
+    if (!modal) return;
+    
+    document.getElementById('import-type').value = type;
+    const title = document.getElementById('import-modal-title');
+    if (type === 'items') title.textContent = 'Importar Catálogo de Artículos';
+    else if (type === 'item_locations') title.textContent = 'Importar Ubicaciones de Artículos';
+    else title.textContent = 'Importar CSV';
+
+    document.getElementById('import-file').value = '';
+    document.getElementById('import-file-name').style.display = 'none';
+    
+    if (typeof window.openModal === 'function') {
+        window.openModal('modal-import');
+    } else {
+        modal.style.display = 'flex';
+    }
+}
+
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    const nameLabel = document.getElementById('import-file-name');
+    if (file) {
+        nameLabel.textContent = file.name;
+        nameLabel.style.display = 'block';
+    } else {
+        nameLabel.style.display = 'none';
+    }
+}
+
+async function uploadCSV() {
+    const fileInput = document.getElementById('import-file');
+    const type = document.getElementById('import-type').value;
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert("Por favor seleccione un archivo CSV primero.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    let url = '';
+    if (type === 'items') url = '/api/admin/items/import';
+    else if (type === 'item_locations') url = '/api/admin/items/locations/import';
+    else return;
+
+    const btn = document.getElementById('btn-upload-csv');
+    btn.disabled = true;
+    btn.textContent = 'Procesando...';
+
+    try {
+        const token = document.cookie.split('; ').find(row => row.startsWith('access_token='));
+        const headers = {};
+        if (token) headers['Authorization'] = decodeURIComponent(token.split('=')[1]);
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: formData
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+            alert(result.message || "Archivo procesado con éxito.");
+            if (typeof window.closeModal === 'function') {
+                window.closeModal('modal-import');
+            } else {
+                document.getElementById('modal-import').style.display = 'none';
+            }
+            handleSearchItems(1);
+        } else {
+            alert(result.detail || "Error al procesar el archivo.");
+        }
+    } catch (err) {
+        console.error("Error upload:", err);
+        alert("Fallo de conexión al subir el archivo.");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Procesar Archivo';
+    }
+}
+
+// === EDICIÓN DE ARTÍCULO ===
 function openEditItemModal(sku) {
     const modalEl = document.getElementById('modal-edit-item');
     if (!modalEl) return;
@@ -190,11 +278,53 @@ function openEditItemModal(sku) {
     
     if (descInp) descInp.value = descVal === '-' ? '' : descVal;
     if (catInp) catInp.value = catVal === '-' ? '' : catVal;
+}
 
-    // Las ubicaciones se cargan en la ficha mediante el backend, tal como estaba.
-    if (typeof loadItemLocations === 'function') {
-        loadItemLocations(sku);
+async function saveItemEdit(event) {
+    event.preventDefault();
+    const sku = document.getElementById('edit-item-sku').value;
+    const desc = document.getElementById('edit-item-desc').value.trim();
+    const cat = document.getElementById('edit-item-cat').value.trim();
+
+    const btn = event.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    try {
+        const res = await fetchAPI(`/api/admin/items/${encodeURIComponent(sku)}`, {
+            method: 'PUT',
+            body: { description: desc, category: cat }
+        });
+        if (res && res.status === 'success') {
+            if (typeof window.closeModal === 'function') {
+                window.closeModal('modal-edit-item');
+            } else {
+                document.getElementById('modal-edit-item').style.display = 'none';
+            }
+            handleSearchItems(itemsCurrentPage);
+        } else {
+            alert("Error al guardar los cambios.");
+        }
+    } catch (e) {
+        console.error(e);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Guardar Cambios';
     }
+}
+
+// === IMPRESIÓN DE ETIQUETAS ===
+function addDynamicLineBatchPrint() {
+    const list = document.getElementById('batch-print-lines');
+    if (!list) return;
+    const div = document.createElement('div');
+    div.className = 'dynamic-row';
+    div.innerHTML = `
+        <input type="text" placeholder="Código SKU" style="flex:2;" required>
+        <input type="number" placeholder="Cantidad" style="flex:1;" min="1" value="1" required>
+        <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
+    `;
+    list.appendChild(div);
 }
 
 async function openBatchPrintModal() {
@@ -296,10 +426,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 150);
 });
 
-// Exponer funciones globales
+// Exponer funciones globales para que los modales puedan llamarlas
 window.handleSearchItems = handleSearchItems;
 window.loadItems = handleSearchItems;
 window.openBatchPrintModal = openBatchPrintModal;
 window.openEditItemModal = openEditItemModal;
 window.sendBatchPrintJobs = sendBatchPrintJobs;
 window.openStockBreakdownModal = openStockBreakdownModal;
+window.addDynamicLineBatchPrint = addDynamicLineBatchPrint;
+window.openImportModal = openImportModal;
+window.handleFileSelect = handleFileSelect;
+window.uploadCSV = uploadCSV;
+window.saveItemEdit = saveItemEdit;

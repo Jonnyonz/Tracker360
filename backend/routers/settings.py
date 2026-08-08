@@ -23,17 +23,38 @@ DEFAULT_ORDER_ZPL = """^XA
 ^FO380,60^BQN,2,5^FDLA,{{ORDER_NUM}}^FS
 ^XZ"""
 
+DEFAULT_LOCATION_ZPL = """^XA
+^PW400
+^LL200
+^LS0
+^FO30,25^A0N,28,28^FDUBICACION: {{LOCATION_CODE}}^FS
+^FO30,65^A0N,20,18^FD{{BRANCH}} - {{SECTOR}}^FS
+^FO30,105^BY3,2.0,60^BCN,70,Y,N,N^FD{{LOCATION_CODE}}^FS
+^XZ"""
+
 DEFAULT_SETTINGS = {
     "app_name": "Tracker360",
     "company_cuit": "30-00000000-0",
-    "zebra_ip": "192.168.1.50",
     "enable_stock_management": "true",
     "allow_negative_stock": "false",
     "enable_committed_stock": "true",
     "require_mobile_reception": "false",
     "allow_multiproduct_locations": "false",
     "enable_item_dimensions": "false",
-    "enable_lots_expiration": "false", # MODIFICACIÓN FASE 1
+    "enable_lots_expiration": "false",
+    "session_timeout_minutes": "240",
+    "max_login_attempts": "5",
+    "lockout_time_minutes": "15",
+    "enable_google_sso": "false",
+    "google_client_id": "",
+    "google_client_secret": "",
+    "google_allowed_domain": "",
+    "transfer_number_prefix": "TR-",
+    "sales_order_prefix": "PED-",
+    "correlative_zeros_pad": "6",
+    "auto_complete_picking": "true",
+    "default_print_queue": "PRINT-SEC-01",
+    "default_inventory_count_type": "HOT",
     "zpl_item_width": "38",
     "zpl_item_height": "20",
     "zpl_item_template": DEFAULT_ITEM_ZPL,
@@ -41,6 +62,9 @@ DEFAULT_SETTINGS = {
     "zpl_order_width": "100",
     "zpl_order_height": "150",
     "zpl_order_template": DEFAULT_ORDER_ZPL,
+    "zpl_location_width": "50",
+    "zpl_location_height": "25",
+    "zpl_location_template": DEFAULT_LOCATION_ZPL,
     "tracker360_api_key": "",
     "api_key": ""
 }
@@ -48,14 +72,14 @@ DEFAULT_SETTINGS = {
 async def _gen_key_db(conn: asyncpg.Connection):
     new_key = secrets.token_hex(24)
     await conn.execute("""
-        INSERT INTO settings (key, value, updated_at)
-        VALUES ('tracker360_api_key', $1, NOW())
-        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+        INSERT INTO system_settings (key, value)
+        VALUES ('tracker360_api_key', $1)
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
     """, new_key)
     await conn.execute("""
-        INSERT INTO settings (key, value, updated_at)
-        VALUES ('api_key', $1, NOW())
-        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+        INSERT INTO system_settings (key, value)
+        VALUES ('api_key', $1)
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
     """, new_key)
     return {"status": "ok", "new_key": new_key, "api_key": new_key, "value": new_key}
 
@@ -69,23 +93,19 @@ async def generate_key_exact_endpoint(conn: asyncpg.Connection = Depends(get_db_
 @router.get("/api/settings")
 @router.get("/api/admin/settings")
 async def get_all_settings(conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("SELECT key, value FROM settings")
+    rows = await conn.fetch("SELECT key, value FROM system_settings")
     db_res = {r["key"]: r["value"] for r in rows}
     
-    # Iniciar con el diccionario de valores por defecto
     res = DEFAULT_SETTINGS.copy()
     
-    # Sobrescribir con lo guardado en la base de datos (siempre que no esté vacío)
     for k, v in db_res.items():
         if v is not None and str(v).strip() != "":
             res[k] = str(v)
             
-    # Sincronización de API Key
     key_val = db_res.get("tracker360_api_key") or db_res.get("api_key") or res.get("tracker360_api_key") or ""
     res["tracker360_api_key"] = key_val
     res["api_key"] = key_val
 
-    # Sincronización de Plantillas ZPL
     item_tpl = db_res.get("zpl_item_template") or db_res.get("zpl_template")
     if not item_tpl or not str(item_tpl).strip():
         item_tpl = DEFAULT_ITEM_ZPL
@@ -94,9 +114,14 @@ async def get_all_settings(conn: asyncpg.Connection = Depends(get_db_connection)
     if not order_tpl or not str(order_tpl).strip():
         order_tpl = DEFAULT_ORDER_ZPL
 
+    loc_tpl = db_res.get("zpl_location_template")
+    if not loc_tpl or not str(loc_tpl).strip():
+        loc_tpl = DEFAULT_LOCATION_ZPL
+
     res["zpl_item_template"] = str(item_tpl)
     res["zpl_template"] = str(item_tpl)
     res["zpl_order_template"] = str(order_tpl)
+    res["zpl_location_template"] = str(loc_tpl)
     return res
 
 @router.post("/api/settings")
@@ -111,11 +136,12 @@ async def save_bulk_settings(request: Request, conn: asyncpg.Connection = Depend
                 if k is not None:
                     val_str = str(v) if v is not None else ""
                     
-                    # Evitar guardar textos vacíos en parámetros críticos
                     if k in ["zpl_item_template", "zpl_template"] and not val_str.strip():
                         val_str = DEFAULT_ITEM_ZPL
                     elif k == "zpl_order_template" and not val_str.strip():
                         val_str = DEFAULT_ORDER_ZPL
+                    elif k == "zpl_location_template" and not val_str.strip():
+                        val_str = DEFAULT_LOCATION_ZPL
                     elif k == "zpl_item_width" and not val_str.strip():
                         val_str = "38"
                     elif k == "zpl_item_height" and not val_str.strip():
@@ -124,18 +150,22 @@ async def save_bulk_settings(request: Request, conn: asyncpg.Connection = Depend
                         val_str = "100"
                     elif k == "zpl_order_height" and not val_str.strip():
                         val_str = "150"
+                    elif k == "zpl_location_width" and not val_str.strip():
+                        val_str = "50"
+                    elif k == "zpl_location_height" and not val_str.strip():
+                        val_str = "25"
 
                     await conn.execute("""
-                        INSERT INTO settings (key, value, updated_at)
-                        VALUES ($1, $2, NOW())
-                        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+                        INSERT INTO system_settings (key, value)
+                        VALUES ($1, $2)
+                        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
                     """, str(k).strip(), val_str)
                     
                     if k == "zpl_item_template":
                         await conn.execute("""
-                            INSERT INTO settings (key, value, updated_at)
-                            VALUES ('zpl_template', $1, NOW())
-                            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+                            INSERT INTO system_settings (key, value)
+                            VALUES ('zpl_template', $1)
+                            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
                         """, val_str)
 
         return {"status": "ok", "message": "Configuración guardada exitosamente"}
@@ -148,7 +178,7 @@ async def save_bulk_settings(request: Request, conn: asyncpg.Connection = Depend
 async def get_setting_by_key(key: str, conn: asyncpg.Connection = Depends(get_db_connection)):
     if key.strip().lower() in ["generate-key", "generate-api-key", "api-key"]:
         return await _gen_key_db(conn)
-    row = await conn.fetchrow("SELECT value FROM settings WHERE key = $1", key.strip())
+    row = await conn.fetchrow("SELECT value FROM system_settings WHERE key = $1", key.strip())
     val = row["value"] if row else DEFAULT_SETTINGS.get(key.strip(), "")
     return {"key": key, "value": val}
 
@@ -169,8 +199,8 @@ async def update_setting_by_key(key: str, request: Request, conn: asyncpg.Connec
     except Exception:
         pass
     await conn.execute("""
-        INSERT INTO settings (key, value, updated_at)
-        VALUES ($1, $2, NOW())
-        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at
+        INSERT INTO system_settings (key, value)
+        VALUES ($1, $2)
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
     """, key.strip(), body_val)
     return {"status": "ok", "key": key, "value": body_val}

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tracker360 - Acceso Seguro</title>
     <link rel="icon" type="image/png" href="/favicon.png">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         :root {
             --bg-dark: #121212;
@@ -38,7 +39,7 @@
             border-radius: 8px;
             border: 1px solid var(--border-muted);
             width: 100%;
-            max-width: 400px;
+            max-width: 420px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         }
 
@@ -113,16 +114,41 @@
             text-align: center;
             border: 1px solid #8e0000;
         }
+
+        .google-section {
+            display: none;
+            margin-top: 1.5rem;
+            text-align: center;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 1.5rem 0 1rem 0;
+        }
+
+        .divider-line {
+            flex: 1;
+            height: 1px;
+            background: var(--border-muted);
+        }
+
+        .divider-text {
+            padding: 0 10px;
+            color: #888888;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
     <div class="login-container">
         <h1>Tracker360</h1>
         <div id="errorBox" class="error-box"></div>
+        
         <form id="loginForm">
             <div class="form-group">
                 <label for="username">Usuario o PIN</label>
-                <!-- APB: autofocus para que el operario no tenga que tocar la pantalla antes de escribir -->
                 <input type="text" id="username" autocomplete="off" required autofocus>
             </div>
             <div class="form-group">
@@ -131,10 +157,19 @@
             </div>
             <button type="submit" id="btnSubmit" class="btn-submit">Ingresar al Sistema</button>
         </form>
+
+        <div id="googleSection" class="google-section">
+            <div class="divider">
+                <div class="divider-line"></div>
+                <span class="divider-text">O ACCEDER CON</span>
+                <div class="divider-line"></div>
+            </div>
+            <div id="googleBtn" style="display: flex; justify-content: center;"></div>
+        </div>
     </div>
 
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
+        document.addEventListener("DOMContentLoaded", async () => {
             const loginForm = document.getElementById('loginForm');
             const btnSubmit = document.getElementById('btnSubmit');
             const errorBox = document.getElementById('errorBox');
@@ -144,7 +179,6 @@
             const showError = (message) => {
                 errorBox.textContent = message;
                 errorBox.style.display = 'block';
-                // Ingeniería Defensiva: Limpiar la contraseña si hay error, pero mantener el usuario
                 passwordInput.value = '';
                 passwordInput.focus();
             };
@@ -153,11 +187,65 @@
                 errorBox.style.display = 'none';
             };
 
+            // Inicializar comprobación condicional de Google SSO
+            try {
+                const confResp = await fetch('/api/auth/google/config');
+                if (confResp.ok) {
+                    const googleConf = await confResp.json();
+                    if (googleConf.enabled && googleConf.client_id) {
+                        document.getElementById('googleSection').style.display = 'block';
+                        
+                        window.handleCredentialResponse = async (googleResponse) => {
+                            hideError();
+                            btnSubmit.disabled = true;
+                            btnSubmit.textContent = 'Verificando con Google...';
+
+                            try {
+                                const resp = await fetch('/api/auth/google/verify', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ id_token: googleResponse.credential })
+                                });
+
+                                const data = await resp.json();
+                                if (!resp.ok) {
+                                    throw new Error(data.detail || 'Error al autenticar con Google.');
+                                }
+
+                                const userRole = (data.role || '').toUpperCase();
+                                if (userRole === 'ADMIN') {
+                                    window.location.href = '/admin.html';
+                                } else if (userRole === 'PREPARADOR') {
+                                    window.location.href = '/preparador.html';
+                                } else {
+                                    window.location.href = '/admin.html';
+                                }
+                            } catch (err) {
+                                showError(err.message);
+                                btnSubmit.disabled = false;
+                                btnSubmit.textContent = 'Ingresar al Sistema';
+                            }
+                        };
+
+                        google.accounts.id.initialize({
+                            client_id: googleConf.client_id,
+                            callback: handleCredentialResponse
+                        });
+
+                        google.accounts.id.renderButton(
+                            document.getElementById("googleBtn"),
+                            { theme: "outline", size: "large", text: "signin_with", locale: "es", width: 300 }
+                        );
+                    }
+                }
+            } catch (err) {
+                console.warn("No se pudo cargar la configuración SSO:", err);
+            }
+
             loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 hideError();
 
-                // APB: Evitar que el usuario toque el botón 5 veces seguidas por impaciencia
                 btnSubmit.disabled = true;
                 btnSubmit.textContent = 'Verificando...';
 
@@ -167,22 +255,18 @@
                 };
 
                 try {
-                    // Petición a nuestro endpoint de seguridad
                     const response = await fetch('/api/auth/login', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(credentials)
                     });
 
-                    // MODIFICACIÓN CLAVE: Leer el mensaje detallado del backend
                     if (!response.ok) {
                         let errorMsg = 'Error en el servidor. Intente nuevamente.';
                         try {
                             const errData = await response.json();
                             if (errData && errData.detail) {
-                                errorMsg = errData.detail; // Captura "Bloqueado por 15 min." o "Credenciales incorrectas"
+                                errorMsg = errData.detail;
                             }
                         } catch (err) {
                             if (response.status === 401 || response.status === 403) {
@@ -193,12 +277,8 @@
                     }
 
                     const data = await response.json();
-
-                    // Tipado elástico y validación de nulidad para el rol
                     const userRole = (data.role || '').toUpperCase();
 
-                    // El backend ya inyectó la cookie HttpOnly de forma invisible.
-                    // Solo redireccionamos según el rol asignado.
                     if (userRole === 'ADMIN') {
                         window.location.href = '/admin.html';
                     } else if (userRole === 'PREPARADOR') {

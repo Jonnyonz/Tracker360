@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone
-import asyncpg, uuid
+import asyncpg, uuid, re
 
 try:
     from backend.database import (
@@ -48,12 +48,26 @@ class ManualOrderInput(BaseModel):
     address_label: str = "Principal"
     lines: List[ManualOrderLine]
 
-# Modelos del Motor de Inventario Cíclico
+class TransferLineInput(BaseModel):
+    sku: str
+    quantity: float
+    origin_location_code: Optional[str] = None
+    destination_location_code: Optional[str] = None
+    lot_number: Optional[str] = ""
+
+class TransferOrderCreateInput(BaseModel):
+    transfer_number: str
+    origin_branch_id: str
+    origin_sector_id: str
+    destination_branch_id: str
+    destination_sector_id: str
+    lines: List[TransferLineInput]
+
 class InventorySessionCreate(BaseModel):
     branch_id: str
     sector_id: str
     count_type: str = "HOT"
-    assigned_operator: str  # NUEVO CAMPO
+    assigned_operator: str
 
 class InventoryCountScan(BaseModel):
     sku: str
@@ -61,7 +75,6 @@ class InventoryCountScan(BaseModel):
     location_code: Optional[str] = None
     lot_number: str = ""
 
-# Modelos para Auditoría Rápida (Spot Check)
 class SpotCheckInput(BaseModel):
     sku: str
     quantity: float
@@ -195,18 +208,15 @@ async def list_inventory_sessions(conn: asyncpg.Connection = Depends(get_db_conn
 @router.post("/api/inventory/sessions")
 async def create_inventory_session(data: InventorySessionCreate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     async with conn.transaction():
-        # Validar si ya hay un conteo abierto para ese sector
         active = await conn.fetchval("SELECT id FROM inventory_sessions WHERE sector_id = $1 AND status IN ('OPEN', 'REVIEW')", uuid.UUID(data.sector_id))
         if active:
             raise HTTPException(400, "Ya existe un conteo activo para este sector. Ciérrelo antes de abrir uno nuevo.")
 
-        # Crear Sesión
         session_id = await conn.fetchval(
             "INSERT INTO inventory_sessions (branch_id, sector_id, count_type, created_by, assigned_operator) VALUES ($1, $2, $3, $4, $5) RETURNING id",
             uuid.UUID(data.branch_id), uuid.UUID(data.sector_id), data.count_type, admin["username"], data.assigned_operator
         )
 
-        # Tomar la 'FOTO' del sector (Snapshot ultra liviano)
         await conn.execute("""
             INSERT INTO inventory_snapshots (session_id, sku, location_id, lot_number, expected_quantity)
             SELECT $1, sku, location_id, lot_number, quantity 
@@ -241,7 +251,6 @@ async def scan_inventory_count(session_id: str, data: InventoryCountScan, user: 
 
 @router.post("/api/inventory/sessions/{session_id}/finish")
 async def finish_inventory_count(session_id: str, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
-    # El operario avisa que terminó de escanear. Pasa a revisión del Admin.
     res = await conn.execute("UPDATE inventory_sessions SET status = 'REVIEW' WHERE id = $1 AND status = 'OPEN'", uuid.UUID(session_id))
     if res == "UPDATE 0":
         raise HTTPException(400, "No se pudo finalizar. Sesión inválida o ya cerrada.")
@@ -249,7 +258,6 @@ async def finish_inventory_count(session_id: str, user: dict = Depends(get_curre
 
 @router.get("/api/inventory/sessions/{session_id}/review")
 async def review_inventory_deltas(session_id: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    # Motor de Deltas: Cruza la Foto (Snapshot) con los Conteos agrupados. Costo de procesamiento: casi 0.
     rows = await conn.fetch("""
         WITH snapshot_agg AS (
             SELECT sku, location_id, lot_number, SUM(expected_quantity) as expected
@@ -260,16 +268,18 @@ async def review_inventory_deltas(session_id: str, admin: dict = Depends(require
             FROM inventory_counts WHERE session_id = $1 GROUP BY sku, location_id, lot_number
         )
         SELECT 
-            COALESCE(s.sku, c.sku) as sku,
-            COALESCE(s.location_id, c.location_id) as location_id,
+            c.sku,
+            c.location_id,
             l.location_code,
-            COALESCE(s.lot_number, c.lot_number) as lot_number,
+            c.lot_number,
             COALESCE(s.expected, 0) as expected_quantity,
-            COALESCE(c.counted, 0) as counted_quantity,
-            (COALESCE(c.counted, 0) - COALESCE(s.expected, 0)) as delta
-        FROM snapshot_agg s
-        FULL OUTER JOIN count_agg c ON s.sku = c.sku AND s.location_id IS NOT DISTINCT FROM c.location_id AND s.lot_number IS NOT DISTINCT FROM c.lot_number
-        LEFT JOIN locations l ON COALESCE(s.location_id, c.location_id) = l.id
+            c.counted as counted_quantity,
+            (c.counted - COALESCE(s.expected, 0)) as delta
+        FROM count_agg c
+        LEFT JOIN snapshot_agg s ON c.sku = s.sku 
+            AND c.location_id IS NOT DISTINCT FROM s.location_id 
+            AND c.lot_number IS NOT DISTINCT FROM s.lot_number
+        LEFT JOIN locations l ON c.location_id = l.id
     """, uuid.UUID(session_id))
     return [dict(r) for r in rows]
 
@@ -280,24 +290,30 @@ async def apply_inventory_adjustments(session_id: str, admin: dict = Depends(req
         if not sess or sess["status"] != "REVIEW":
             raise HTTPException(400, "La sesión no está en estado de revisión.")
 
-        # Traer los deltas calculados
         deltas = await conn.fetch("""
             WITH snapshot_agg AS (
-                SELECT sku, location_id, lot_number, SUM(expected_quantity) as expected FROM inventory_snapshots WHERE session_id = $1 GROUP BY sku, location_id, lot_number
+                SELECT sku, location_id, lot_number, SUM(expected_quantity) as expected 
+                FROM inventory_snapshots WHERE session_id = $1 GROUP BY sku, location_id, lot_number
             ),
             count_agg AS (
-                SELECT sku, location_id, lot_number, SUM(counted_quantity) as counted FROM inventory_counts WHERE session_id = $1 GROUP BY sku, location_id, lot_number
+                SELECT sku, location_id, lot_number, SUM(counted_quantity) as counted 
+                FROM inventory_counts WHERE session_id = $1 GROUP BY sku, location_id, lot_number
             )
-            SELECT COALESCE(s.sku, c.sku) as sku, COALESCE(s.location_id, c.location_id) as location_id, COALESCE(s.lot_number, c.lot_number) as lot_number, (COALESCE(c.counted, 0) - COALESCE(s.expected, 0)) as delta
-            FROM snapshot_agg s FULL OUTER JOIN count_agg c ON s.sku = c.sku AND s.location_id IS NOT DISTINCT FROM c.location_id AND s.lot_number IS NOT DISTINCT FROM c.lot_number
+            SELECT 
+                c.sku, 
+                c.location_id, 
+                c.lot_number, 
+                (c.counted - COALESCE(s.expected, 0)) as delta
+            FROM count_agg c 
+            LEFT JOIN snapshot_agg s ON c.sku = s.sku 
+                AND c.location_id IS NOT DISTINCT FROM s.location_id 
+                AND c.lot_number IS NOT DISTINCT FROM s.lot_number
         """, sess["id"])
 
-        # Aplicar el ajuste usando la lógica matemática de sumarle el Delta al stock actual.
         for row in deltas:
             if row["delta"] != 0:
                 await record_stock_movement(conn, row["sku"], sess["branch_id"], sess["sector_id"], row["location_id"], float(row["delta"]), 'AJUSTE', f"CONTEO-{session_id}", admin["username"], row["lot_number"])
 
-        # Cerrar Sesión
         await conn.execute("UPDATE inventory_sessions SET status = 'CLOSED', closed_at = CURRENT_TIMESTAMP, closed_by = $1 WHERE id = $2", admin["username"], sess["id"])
         await log_action(conn, admin["username"], "INVENTORY_APPLIED", f"Ajustes de inventario aplicados para sesión {session_id}.")
         return {"status": "success", "message": "Ajustes de inventario aplicados correctamente al stock actual."}
@@ -475,6 +491,61 @@ async def scan_reception_item(remito_number: str, data: MobileRemitoScanInput, u
         return {"status": "success", "message": f"Ingresado {data.quantity} un de {sku_clean}", "remito_completed": pending == 0}
 
 # === TRASPASOS ===
+@router.get("/api/admin/transfer-orders/next-number")
+async def get_next_transfer_number(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    val = await conn.fetchval("""
+        SELECT transfer_number FROM transfer_orders 
+        ORDER BY created_at DESC LIMIT 1
+    """)
+    if val:
+        digits = re.findall(r'\d+', val)
+        if digits:
+            last_num = int(digits[-1]) + 1
+            next_num = f"TR-{last_num:06d}"
+        else:
+            next_num = "TR-000001"
+    else:
+        next_num = "TR-000001"
+    return {"next_number": next_num}
+
+@router.post("/api/admin/transfer-orders")
+async def create_transfer_order(data: TransferOrderCreateInput, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    async with conn.transaction():
+        existing = await conn.fetchval("SELECT id FROM transfer_orders WHERE UPPER(transfer_number) = $1", data.transfer_number.strip().upper())
+        if existing:
+            raise HTTPException(400, "El número de traspaso ya existe.")
+
+        tr_id = await conn.fetchval("""
+            INSERT INTO transfer_orders (transfer_number, origin_branch_id, origin_sector_id, destination_branch_id, destination_sector_id, status, created_by)
+            VALUES ($1, $2, $3, $4, $5, 'PENDING', $6)
+            RETURNING id
+        """, data.transfer_number.strip().upper(), uuid.UUID(data.origin_branch_id), uuid.UUID(data.origin_sector_id), uuid.UUID(data.destination_branch_id), uuid.UUID(data.destination_sector_id), admin["username"])
+
+        for line in data.lines:
+            orig_loc_id = None
+            if line.origin_location_code and line.origin_location_code.strip():
+                loc = await conn.fetchrow("SELECT id FROM locations WHERE sector_id = $1 AND UPPER(location_code) = $2", uuid.UUID(data.origin_sector_id), line.origin_location_code.strip().upper())
+                if loc: 
+                    orig_loc_id = loc["id"]
+                else:
+                    raise HTTPException(400, f"Ubicación Origen '{line.origin_location_code}' no existe en el sector.")
+
+            dest_loc_id = None
+            if line.destination_location_code and line.destination_location_code.strip():
+                loc = await conn.fetchrow("SELECT id FROM locations WHERE sector_id = $1 AND UPPER(location_code) = $2", uuid.UUID(data.destination_sector_id), line.destination_location_code.strip().upper())
+                if loc: 
+                    dest_loc_id = loc["id"]
+                else:
+                    raise HTTPException(400, f"Ubicación Destino '{line.destination_location_code}' no existe en el sector.")
+
+            await conn.execute("""
+                INSERT INTO transfer_order_lines (transfer_order_id, sku, quantity_sent, quantity_received, origin_location_id, destination_location_id, lot_number)
+                VALUES ($1, $2, $3, 0, $4, $5, $6)
+            """, tr_id, line.sku.strip().upper(), line.quantity, orig_loc_id, dest_loc_id, line.lot_number or "")
+
+        await log_action(conn, admin["username"], "TRANSFER_CREATED", f"Orden de traspaso {data.transfer_number} creada.")
+        return {"status": "success", "message": "Orden de Traspaso (ODT) generada correctamente."}
+
 @router.get("/api/transfers/orders")
 @router.get("/api/transfers/pending")
 async def get_transfer_orders(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
@@ -561,7 +632,6 @@ async def get_admin_integrations_op(admin: dict = Depends(require_admin)):
 
 @router.get("/api/admin/dashboard")
 async def get_admin_dashboard_op(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    # 1. Pedidos Pendientes (Top 5)
     pending_orders = await conn.fetch("""
         SELECT d.document_number, COALESCE(e.company_name, 'Consumidor Final') as company_name, d.status 
         FROM documents d 
@@ -570,7 +640,6 @@ async def get_admin_dashboard_op(admin: dict = Depends(require_admin), conn: asy
         ORDER BY d.created_at ASC LIMIT 5
     """)
     
-    # 2. Traspasos Activos (Top 5)
     active_transfers = await conn.fetch("""
         SELECT t.transfer_number, COALESCE(ob.name, 'N/A') as origin_branch, COALESCE(db.name, 'N/A') as destination_branch
         FROM transfer_orders t
@@ -580,7 +649,6 @@ async def get_admin_dashboard_op(admin: dict = Depends(require_admin), conn: asy
         ORDER BY t.created_at ASC LIMIT 5
     """)
     
-    # 3. Auditoría Reciente (Top 5)
     latest_logs = await conn.fetch("""
         SELECT created_at, username, action 
         FROM audit_logs 

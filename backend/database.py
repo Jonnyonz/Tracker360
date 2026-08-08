@@ -3,13 +3,13 @@ from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 import jwt, asyncpg
 from fastapi import HTTPException, Header, Request, Depends
-from passlib.context import CryptContext
 from typing import Optional, Dict
+from passlib.context import CryptContext
 
 # === SEGURIDAD Y CONFIGURACIÓN ===
 SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_hex(32))
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 240  # 4 horas de sesión estricta
+ACCESS_TOKEN_EXPIRE_MINUTES = 240  # Fallback en caso de no leer la DB
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
@@ -20,9 +20,13 @@ def verify_password(p, h):
 def get_password_hash(p): 
     return pwd_context.hash(p)
 
-def create_access_token(data: dict):
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
-    to_encode.update({"exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)})
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 class DB:
@@ -36,7 +40,7 @@ async def log_action(conn: asyncpg.Connection, username: str, action: str, detai
     try: await conn.execute("INSERT INTO audit_logs (username, action, details) VALUES ($1, $2, $3)", username, action, f"[{ip_address}] {details}")
     except Exception: pass
 
-# === PROTECCIÓN ANTI-FUERZA BRUTA PERSISTENTE ===
+# === PROTECCIÓN ANTI-FUERZA BRUTA DINÁMICA ===
 async def check_rate_limit(ip: str, conn: asyncpg.Connection):
     now = datetime.now(timezone.utc)
     row = await conn.fetchrow("SELECT attempts, blocked_until FROM auth_rate_limits WHERE ip_address = $1", ip)
@@ -53,9 +57,19 @@ async def record_failed_login(ip: str, conn: asyncpg.Connection):
         INSERT INTO auth_rate_limits (ip_address, attempts) VALUES ($1, 1)
         ON CONFLICT (ip_address) DO UPDATE SET attempts = auth_rate_limits.attempts + 1
     """, ip)
+    
     attempts = await conn.fetchval("SELECT attempts FROM auth_rate_limits WHERE ip_address = $1", ip)
-    if attempts >= 5:
-        await conn.execute("UPDATE auth_rate_limits SET blocked_until = $1 WHERE ip_address = $2", now + timedelta(minutes=15), ip)
+    max_attempts_str = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'max_login_attempts'") or "5"
+    lockout_mins_str = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'lockout_time_minutes'") or "15"
+    
+    try: max_attempts = int(max_attempts_str)
+    except ValueError: max_attempts = 5
+    
+    try: lockout_mins = int(lockout_mins_str)
+    except ValueError: lockout_mins = 15
+
+    if attempts >= max_attempts:
+        await conn.execute("UPDATE auth_rate_limits SET blocked_until = $1 WHERE ip_address = $2", now + timedelta(minutes=lockout_mins), ip)
 
 async def reset_failed_login(ip: str, conn: asyncpg.Connection):
     await conn.execute("DELETE FROM auth_rate_limits WHERE ip_address = $1", ip)
@@ -133,12 +147,10 @@ async def verify_system_api_key(request: Request, x_api_key: Optional[str] = Hea
         await log_action(conn, "SYSTEM", "API_INTRUSION", f"Acceso a API denegado (Falta Cabecera)", client_ip)
         raise HTTPException(status_code=401, detail="Cabecera X-API-Key requerida.")
     
-    # 1. Comprobar Clave Maestra Legacy (Por retrocompatibilidad)
     valid_key = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'tracker360_api_key'")
     if valid_key and secrets.compare_digest(x_api_key.strip(), valid_key.strip()): 
         return True
         
-    # 2. Comprobar Claves de Canales Múltiples (Nuevo Estándar)
     valid_channel = await conn.fetchval("SELECT name FROM inbound_api_keys WHERE api_key = $1 AND is_active = TRUE", x_api_key.strip())
     if valid_channel:
         return valid_channel
@@ -177,11 +189,6 @@ async def init_db_schema():
                     "ALTER TABLE entity_addresses ADD COLUMN IF NOT EXISTS city_neighborhood VARCHAR(150);",
                     "ALTER TABLE entity_addresses ADD COLUMN IF NOT EXISTS is_default BOOLEAN DEFAULT FALSE;",
                     "CREATE TABLE IF NOT EXISTS items (sku VARCHAR(100) PRIMARY KEY, description TEXT NOT NULL, category VARCHAR(100), length FLOAT DEFAULT 0, width FLOAT DEFAULT 0, height FLOAT DEFAULT 0, weight FLOAT DEFAULT 0, volume FLOAT DEFAULT 0, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
-                    "ALTER TABLE items ADD COLUMN IF NOT EXISTS length FLOAT DEFAULT 0;",
-                    "ALTER TABLE items ADD COLUMN IF NOT EXISTS width FLOAT DEFAULT 0;",
-                    "ALTER TABLE items ADD COLUMN IF NOT EXISTS height FLOAT DEFAULT 0;",
-                    "ALTER TABLE items ADD COLUMN IF NOT EXISTS weight FLOAT DEFAULT 0;",
-                    "ALTER TABLE items ADD COLUMN IF NOT EXISTS volume FLOAT DEFAULT 0;",
                     "CREATE TABLE IF NOT EXISTS sectors (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), branch_id UUID REFERENCES branches(id) ON DELETE CASCADE, name VARCHAR(100) UNIQUE NOT NULL, print_queue_code VARCHAR(50) UNIQUE NOT NULL, uses_locations BOOLEAN DEFAULT FALSE, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "CREATE TABLE IF NOT EXISTS locations (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), sector_id UUID REFERENCES sectors(id) ON DELETE CASCADE, location_code VARCHAR(100) NOT NULL, description VARCHAR(255), is_active BOOLEAN DEFAULT TRUE);",
                     "CREATE TABLE IF NOT EXISTS item_locations (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), item_sku VARCHAR(100) NOT NULL, location_id UUID REFERENCES locations(id) ON DELETE CASCADE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, UNIQUE(item_sku, location_id));",
@@ -217,8 +224,12 @@ async def init_db_schema():
                     "CREATE TABLE IF NOT EXISTS purchase_invoice_lines (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), purchase_invoice_id UUID REFERENCES purchase_invoices(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, quantity NUMERIC NOT NULL, unit_price NUMERIC DEFAULT 0);",
                     "CREATE TABLE IF NOT EXISTS purchase_invoice_remitos (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), purchase_invoice_id UUID REFERENCES purchase_invoices(id) ON DELETE CASCADE, purchase_remito_id UUID REFERENCES purchase_remitos(id) ON DELETE CASCADE);",
                     "CREATE TABLE IF NOT EXISTS purchase_invoice_orders (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), purchase_invoice_id UUID REFERENCES purchase_invoices(id) ON DELETE CASCADE, purchase_order_id UUID REFERENCES purchase_orders(id) ON DELETE CASCADE);",
+                    
                     "CREATE TABLE IF NOT EXISTS transfer_orders (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), transfer_number VARCHAR(50) UNIQUE NOT NULL, origin_branch_id UUID REFERENCES branches(id), origin_sector_id UUID REFERENCES sectors(id), destination_branch_id UUID REFERENCES branches(id), destination_sector_id UUID REFERENCES sectors(id), status VARCHAR(20) DEFAULT 'PENDING_CONTROL', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
+                    "ALTER TABLE transfer_orders ADD COLUMN IF NOT EXISTS created_by VARCHAR(50);",
                     "CREATE TABLE IF NOT EXISTS transfer_order_lines (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), transfer_order_id UUID REFERENCES transfer_orders(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, quantity_sent NUMERIC NOT NULL, quantity_received NUMERIC DEFAULT 0, origin_location_id UUID REFERENCES locations(id), destination_location_id UUID REFERENCES locations(id));",
+                    "ALTER TABLE transfer_order_lines ADD COLUMN IF NOT EXISTS lot_number VARCHAR(100) DEFAULT '';",
+                    
                     "CREATE TABLE IF NOT EXISTS integration_channels (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name VARCHAR(100) NOT NULL, channel_type VARCHAR(50) NOT NULL, target_url TEXT NOT NULL, api_key TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
 
                     "CREATE TABLE IF NOT EXISTS inventory_sessions (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), branch_id UUID REFERENCES branches(id), sector_id UUID REFERENCES sectors(id), count_type VARCHAR(20) NOT NULL DEFAULT 'HOT', status VARCHAR(20) NOT NULL DEFAULT 'OPEN', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, created_by VARCHAR(50), closed_at TIMESTAMP WITH TIME ZONE, closed_by VARCHAR(50));",
@@ -226,19 +237,46 @@ async def init_db_schema():
                     "CREATE TABLE IF NOT EXISTS inventory_snapshots (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), session_id UUID REFERENCES inventory_sessions(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, location_id UUID REFERENCES locations(id), lot_number VARCHAR(100) DEFAULT '', expected_quantity NUMERIC DEFAULT 0);",
                     "CREATE TABLE IF NOT EXISTS inventory_counts (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), session_id UUID REFERENCES inventory_sessions(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, location_id UUID REFERENCES locations(id), lot_number VARCHAR(100) DEFAULT '', counted_quantity NUMERIC NOT NULL, scanned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, scanned_by VARCHAR(50));",
 
-                    # TABLAS DE SEGURIDAD BLINDADA
                     "CREATE TABLE IF NOT EXISTS auth_rate_limits (ip_address VARCHAR(50) PRIMARY KEY, attempts INT DEFAULT 0, blocked_until TIMESTAMP WITH TIME ZONE);",
                     "CREATE TABLE IF NOT EXISTS inbound_api_keys (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name VARCHAR(100) NOT NULL, api_key TEXT UNIQUE NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
 
+                    # === CONFIGURACIONES POR DEFECTO DEL SISTEMA ===
                     "INSERT INTO system_settings (key, value) VALUES ('allow_multiproduct_locations', 'false') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('require_mobile_reception', 'false') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('enable_item_dimensions', 'false') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('enable_lots_expiration', 'false') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('app_name', 'Tracker360') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('company_cuit', '30-00000000-0') ON CONFLICT (key) DO NOTHING;",
+                    
+                    # SEGURIDAD Y SESIÓN
+                    "INSERT INTO system_settings (key, value) VALUES ('session_timeout_minutes', '240') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('max_login_attempts', '5') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('lockout_time_minutes', '15') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('enable_google_sso', 'false') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('google_client_id', '') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('google_client_secret', '') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('google_allowed_domain', '') ON CONFLICT (key) DO NOTHING;",
+                    
+                    # DOCUMENTOS Y CORRELATIVOS
+                    "INSERT INTO system_settings (key, value) VALUES ('transfer_number_prefix', 'TR-') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('sales_order_prefix', 'PED-') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('correlative_zeros_pad', '6') ON CONFLICT (key) DO NOTHING;",
+                    
+                    # OPERATIVA
+                    "INSERT INTO system_settings (key, value) VALUES ('auto_complete_picking', 'true') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('default_print_queue', 'PRINT-SEC-01') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('default_inventory_count_type', 'HOT') ON CONFLICT (key) DO NOTHING;",
+
+                    # ZPL
+                    "INSERT INTO system_settings (key, value) VALUES ('zpl_item_width', '38') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('zpl_item_height', '20') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('zpl_order_width', '100') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('zpl_order_height', '150') ON CONFLICT (key) DO NOTHING;",
-                    "INSERT INTO system_settings (key, value) VALUES ('zpl_order_template', '^XA^FO50,50^A0N,40,40^FDPEDIDO: {order_number}^FS^FO50,110^A0N,30,30^FDCLIENTE: {client_name}^FS^FO50,170^A0N,25,25^FDDIR: {delivery_address}^FS^FO50,230^BY3^BCN,100,Y,N,N^FD{order_number}^FS^XZ') ON CONFLICT (key) DO NOTHING;",
-                    "INSERT INTO system_settings (key, value) VALUES ('zpl_item_template', '^XA^FO50,30^A0N,30,30^FD{description}^FS^FO50,70^A0N,25,25^FDSKU: {sku}^FS^FO50,110^BY2^BCN,80,Y,N,N^FD{sku}^FS^XZ') ON CONFLICT (key) DO NOTHING;"
+                    "INSERT INTO system_settings (key, value) VALUES ('zpl_location_width', '50') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('zpl_location_height', '25') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('zpl_order_template', '^XA^FO50,50^A0N,40,40^FDPEDIDO: {{ORDER_NUM}}^FS^FO50,110^A0N,30,30^FDCLIENTE: {{DESTINATION}}^FS^FO50,170^BY3^BCN,100,Y,N,N^FD{{ORDER_NUM}}^FS^XZ') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('zpl_item_template', '^XA^FO50,30^A0N,30,30^FD{{DESC}}^FS^FO50,70^A0N,25,25^FDSKU: {{SKU}}^FS^FO50,110^BY2^BCN,80,Y,N,N^FD{{SKU}}^FS^XZ') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('zpl_location_template', '^XA^FO30,25^A0N,28,28^FDUBICACION: {{LOCATION_CODE}}^FS^FO30,65^A0N,20,18^FD{{BRANCH}} - {{SECTOR}}^FS^FO30,105^BY3,2.0,60^BCN,70,Y,N,N^FD{{LOCATION_CODE}}^FS^XZ') ON CONFLICT (key) DO NOTHING;"
                 ]
 
                 for stmt in ddl_statements:
