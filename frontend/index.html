@@ -30,12 +30,13 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
+            min-height: 100vh;
+            padding: 1.5rem;
         }
 
         .login-container {
             background-color: var(--panel-bg);
-            padding: 3rem;
+            padding: 3rem 2.5rem 2rem 2.5rem;
             border-radius: 8px;
             border: 1px solid var(--border-muted);
             width: 100%;
@@ -139,6 +140,30 @@
             font-size: 0.8rem;
             font-weight: bold;
         }
+
+        .legal-footer {
+            margin-top: 2rem;
+            padding-top: 1.2rem;
+            border-top: 1px solid var(--border-muted);
+            text-align: center;
+            font-size: 0.78rem;
+            color: #888888;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .legal-footer a {
+            color: #aaaaaa;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .legal-footer a:hover {
+            color: var(--accent-blue);
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -165,6 +190,12 @@
                 <div class="divider-line"></div>
             </div>
             <div id="googleBtn" style="display: flex; justify-content: center;"></div>
+        </div>
+
+        <div class="legal-footer">
+            <a href="/privacy.html" target="_blank">Pol&iacute;tica de Privacidad</a>
+            <span>&bull;</span>
+            <a href="/terms.html" target="_blank">T&eacute;rminos y Condiciones</a>
         </div>
     </div>
 

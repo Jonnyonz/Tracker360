@@ -189,6 +189,14 @@ async def init_db_schema():
                     "ALTER TABLE entity_addresses ADD COLUMN IF NOT EXISTS city_neighborhood VARCHAR(150);",
                     "ALTER TABLE entity_addresses ADD COLUMN IF NOT EXISTS is_default BOOLEAN DEFAULT FALSE;",
                     "CREATE TABLE IF NOT EXISTS items (sku VARCHAR(100) PRIMARY KEY, description TEXT NOT NULL, category VARCHAR(100), length FLOAT DEFAULT 0, width FLOAT DEFAULT 0, height FLOAT DEFAULT 0, weight FLOAT DEFAULT 0, volume FLOAT DEFAULT 0, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
+                    "ALTER TABLE items ADD COLUMN IF NOT EXISTS is_combo BOOLEAN DEFAULT FALSE;",
+                    
+                    "CREATE TABLE IF NOT EXISTS item_combos (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), combo_sku VARCHAR(100) NOT NULL REFERENCES items(sku) ON DELETE CASCADE, component_sku VARCHAR(100) NOT NULL REFERENCES items(sku) ON DELETE CASCADE, quantity NUMERIC NOT NULL DEFAULT 1, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, UNIQUE(combo_sku, component_sku));",
+
+                    # TABLA DDL AISLADA PARA RFID (ESTÁNDAR EPC GLOBAL)
+                    "CREATE TABLE IF NOT EXISTS rfid_tags (epc VARCHAR(100) PRIMARY KEY, sku VARCHAR(100) NOT NULL REFERENCES items(sku) ON DELETE CASCADE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, created_by VARCHAR(50));",
+                    "CREATE INDEX IF NOT EXISTS idx_rfid_tags_sku ON rfid_tags (sku);",
+
                     "CREATE TABLE IF NOT EXISTS sectors (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), branch_id UUID REFERENCES branches(id) ON DELETE CASCADE, name VARCHAR(100) UNIQUE NOT NULL, print_queue_code VARCHAR(50) UNIQUE NOT NULL, uses_locations BOOLEAN DEFAULT FALSE, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "CREATE TABLE IF NOT EXISTS locations (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), sector_id UUID REFERENCES sectors(id) ON DELETE CASCADE, location_code VARCHAR(100) NOT NULL, description VARCHAR(255), is_active BOOLEAN DEFAULT TRUE);",
                     "CREATE TABLE IF NOT EXISTS item_locations (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), item_sku VARCHAR(100) NOT NULL, location_id UUID REFERENCES locations(id) ON DELETE CASCADE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, UNIQUE(item_sku, location_id));",
@@ -240,15 +248,13 @@ async def init_db_schema():
                     "CREATE TABLE IF NOT EXISTS auth_rate_limits (ip_address VARCHAR(50) PRIMARY KEY, attempts INT DEFAULT 0, blocked_until TIMESTAMP WITH TIME ZONE);",
                     "CREATE TABLE IF NOT EXISTS inbound_api_keys (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name VARCHAR(100) NOT NULL, api_key TEXT UNIQUE NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
 
-                    # === CONFIGURACIONES POR DEFECTO DEL SISTEMA ===
+                    # INSERTS DE CONFIGURACIONES INICIALES
                     "INSERT INTO system_settings (key, value) VALUES ('allow_multiproduct_locations', 'false') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('require_mobile_reception', 'false') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('enable_item_dimensions', 'false') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('enable_lots_expiration', 'false') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('app_name', 'Tracker360') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('company_cuit', '30-00000000-0') ON CONFLICT (key) DO NOTHING;",
-                    
-                    # SEGURIDAD Y SESIÓN
                     "INSERT INTO system_settings (key, value) VALUES ('session_timeout_minutes', '240') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('max_login_attempts', '5') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('lockout_time_minutes', '15') ON CONFLICT (key) DO NOTHING;",
@@ -256,18 +262,12 @@ async def init_db_schema():
                     "INSERT INTO system_settings (key, value) VALUES ('google_client_id', '') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('google_client_secret', '') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('google_allowed_domain', '') ON CONFLICT (key) DO NOTHING;",
-                    
-                    # DOCUMENTOS Y CORRELATIVOS
                     "INSERT INTO system_settings (key, value) VALUES ('transfer_number_prefix', 'TR-') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('sales_order_prefix', 'PED-') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('correlative_zeros_pad', '6') ON CONFLICT (key) DO NOTHING;",
-                    
-                    # OPERATIVA
                     "INSERT INTO system_settings (key, value) VALUES ('auto_complete_picking', 'true') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('default_print_queue', 'PRINT-SEC-01') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('default_inventory_count_type', 'HOT') ON CONFLICT (key) DO NOTHING;",
-
-                    # ZPL
                     "INSERT INTO system_settings (key, value) VALUES ('zpl_item_width', '38') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('zpl_item_height', '20') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('zpl_order_width', '100') ON CONFLICT (key) DO NOTHING;",

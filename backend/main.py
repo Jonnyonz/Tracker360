@@ -9,10 +9,10 @@ import jwt
 
 try:
     from backend.database import init_db_schema, DB, SECRET_KEY, ALGORITHM
-    from backend.routers import auth, users, entities, items, warehouse, settings, printing, operations, reports
+    from backend.routers import auth, users, entities, items, warehouse, settings, printing, operations, reports, rfid
 except ImportError:
     from database import init_db_schema, DB, SECRET_KEY, ALGORITHM
-    from routers import auth, users, entities, items, warehouse, settings, printing, operations, reports
+    from routers import auth, users, entities, items, warehouse, settings, printing, operations, reports, rfid
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -26,7 +26,6 @@ app = FastAPI(title="Tracker360 API", version="2.0 Modular", lifespan=lifespan)
 # === MIDDLEWARE SEGURIDAD BANCARIA (HTTPS & HEADERS) ===
 @app.middleware("http")
 async def security_middleware(request: Request, call_next):
-    # 1. Forzar HTTPS (ignora redes locales/internas para no romper desarrollo/pruebas)
     client_ip = request.client.host if request.client else ""
     forwarded_proto = request.headers.get("x-forwarded-proto", request.url.scheme)
     
@@ -34,7 +33,6 @@ async def security_middleware(request: Request, call_next):
     if not is_local and forwarded_proto != "https":
         return Response(content="Acceso denegado. Se requiere conexión HTTPS segura.", status_code=403)
 
-    # 2. Inyectar cabeceras contra ataques de inyección y sniffing
     response = await call_next(request)
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
@@ -53,7 +51,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# === REGISTRO DE ROUTERS MODULARES ===
+# === REGISTRO DE ROUTERS MODULARES (INCLUYE ROUTER AISLADO RFID) ===
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(entities.router)
@@ -63,6 +61,7 @@ app.include_router(settings.router)
 app.include_router(printing.router)
 app.include_router(operations.router)
 app.include_router(reports.router)
+app.include_router(rfid.router)
 
 # === ENDPOINTS EXPLICITOS DE FAVICON ===
 @app.get("/favicon.png", include_in_schema=False)
@@ -125,14 +124,10 @@ async def serve_mobile(request: Request):
     if not role:
         return RedirectResponse(url="/index.html", status_code=303)
     
-    # Todos (incluyendo Admins y Supervisores) pueden acceder a la vista móvil
     return FileResponse("frontend/preparador.html")
-
 
 # === ARCHIVOS ESTÁTICOS AL FINAL ABSOLUTO ===
 os.makedirs("downloads", exist_ok=True)
 os.makedirs("frontend", exist_ok=True)
 app.mount("/downloads", StaticFiles(directory="downloads"), name="downloads")
-
-# Excluimos html principal de StaticFiles porque ya las manejamos arriba de forma inteligente
 app.mount("/", StaticFiles(directory="frontend", html=False), name="frontend")

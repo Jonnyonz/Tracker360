@@ -23,13 +23,9 @@
         .header { background-color: var(--primary-blue); color: white; padding: 1.2rem 1rem; text-align: center; font-weight: 800; text-transform: uppercase; position: relative; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .btn-back { position: absolute; left: 1rem; top: 1.2rem; color: #93C5FD; text-decoration: none; font-size: 0.9rem; display: none; cursor: pointer; font-weight: 600; text-transform: uppercase; }
         
-        /* Ajuste de cuadrícula a UNA SOLA COLUMNA */
         .menu-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; padding: 1rem; }
-        
-        /* Contenedor inferior dinámico para Escritorio/Salir en DOS COLUMNAS */
         .bottom-actions { display: grid; grid-template-columns: 1fr; gap: 1rem; padding: 0 1rem 1.5rem 1rem; }
         
-        /* TARJETAS DE MENÚ UNIFICADAS (Cero Arcoíris) */
         .menu-card { 
             background-color: var(--card-bg); 
             padding: 1.5rem 1rem; 
@@ -49,26 +45,79 @@
         }
         .menu-card small { display: block; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-weight: 500; }
         
-        /* Modificador exclusivo para acción destructiva (Salir) */
         .card-danger { color: var(--danger); border-color: #FECACA; }
         .card-danger:hover, .card-danger:active { background-color: #FEF2F2; border-color: var(--danger); }
 
         .view { display: none; padding: 1rem; padding-bottom: 5rem; }
         .view.active { display: block; }
         h3 { color: var(--primary-blue); margin-bottom: 1rem; text-transform: uppercase; font-size: 1.1rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; }
+        
         .list-item { background: var(--card-bg); padding: 1rem; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 0.8rem; cursor: pointer; transition: background 0.2s; }
         .list-item:active { background: #F9FAFB; }
         .list-item strong { display: block; font-size: 1.05rem; color: var(--primary-blue); margin-bottom: 0.3rem; }
         .list-item p { margin-bottom: 0; font-size: 0.9rem; color: var(--text-muted); }
+        
         form { display: flex; flex-direction: column; gap: 0.8rem; }
         label { font-size: 0.85rem; font-weight: 700; color: var(--text-main); text-transform: uppercase; }
         .input-group { display: flex; gap: 6px; align-items: center; }
         .input-group input { flex: 1; }
-        .btn-cam { background-color: #374151; color: white; border: none; padding: 0.85rem; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-        .btn-cam svg { width: 22px; height: 22px; }
+        
         input { width: 100%; padding: 0.9rem; border: 1px solid var(--border-color); border-radius: 6px; font-size: 1rem; background-color: #F9FAFB; }
         button { background-color: var(--primary-blue); color: white; border: none; padding: 1rem; border-radius: 6px; font-weight: 700; text-transform: uppercase; font-size: 1rem; cursor: pointer; }
         
+        .picking-camera-container {
+            position: relative;
+            width: 100%;
+            height: 220px;
+            background: #000000;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+            border: 2px solid var(--primary-blue);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+        .picking-camera-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .step-banner {
+            padding: 0.85rem;
+            border-radius: 6px;
+            font-weight: 800;
+            text-align: center;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+            letter-spacing: 0.5px;
+            transition: all 0.2s ease;
+        }
+        .step-banner-sku { background-color: #DBEAFE; color: #1E40AF; border: 1px solid #BFDBFE; }
+        .step-banner-loc { background-color: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; }
+        .step-banner-qty { background-color: #D1FAE5; color: #065F46; border: 1px solid #A7F3D0; }
+
+        .items-sheet {
+            background: white;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        .items-sheet-title {
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: var(--primary-blue);
+            text-transform: uppercase;
+            margin-bottom: 0.8rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.4rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
         .camera-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 99999; flex-direction: column; align-items: center; justify-content: space-between; padding: 1rem; }
         .camera-viewport { position: relative; width: 100%; max-width: 500px; height: 60vh; background: #000; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
         .camera-viewport video { width: 100%; height: 100%; object-fit: cover; }
@@ -81,7 +130,6 @@
 
         .net-status { display: none; background: #DC2626; color: white; text-align: center; padding: 6px; font-weight: bold; font-size: 0.8rem; text-transform: uppercase; border-bottom: 2px solid #B91C1C; }
 
-        /* CONTENEDOR TOAST FLOTANTE MÓVIL */
         .toast-container { position: fixed; top: 1rem; right: 1rem; left: 1rem; z-index: 100000; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
         .toast { background: #FFFFFF; color: var(--text-main); border: 1px solid var(--border-color); padding: 0.85rem 1rem; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.15); font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 10px; animation: slideDown 0.2s ease forwards; pointer-events: auto; }
         .toast-success { border-left: 5px solid var(--success); }
@@ -89,12 +137,11 @@
         .toast-warning { border-left: 5px solid var(--warning); }
         @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 
-        /* UTILIDAD FEFO */
         .lot-input { display: none; }
     </style>
 </head>
 <body>
-    <div id="net-banner" class="net-status">Sin conexión a la red local</div>
+    <div id="net-banner" class="net-status">Sin conexi&oacute;n a la red local</div>
     <div id="toast-container" class="toast-container"></div>
 
     <div class="header">
@@ -102,143 +149,173 @@
         <span id="header-title">TERMINAL OPERATIVA</span>
     </div>
 
-    <!-- MENÚ PRINCIPAL -->
+    <!-- MEN� PRINCIPAL -->
     <div id="view-home" class="view active">
-        <!-- Bloque Operativo de Una Columna, Paleta Unificada -->
         <div class="menu-grid">
-            <div class="menu-card" onclick="openView('view-picking', loadPicking)">PICKING<br><small>Armado de Pedidos</small></div>
-            <div class="menu-card" onclick="openView('view-packing', loadPacking)">PACKING<br><small>Empaque y Despacho</small></div>
-            <div class="menu-card" onclick="openView('view-receptions', loadReceptions)">RECEPCIÓN<br><small>Control Ingresos</small></div>
-            <div class="menu-card" onclick="openView('view-transfers', loadTransfers)">TRASPASOS<br><small>Entre Sucursales</small></div>
+            <div class="menu-card" onclick="openView('view-picking', loadPicking)">PICKING<br><small>Armado Guiado de Pedidos</small></div>
+            <div class="menu-card" onclick="openView('view-receptions', loadReceptions)">RECEPCI&Oacute;N<br><small>Control Ingresos Remitos</small></div>
+            <div class="menu-card" onclick="openView('view-transfers', loadTransfers)">TRASPASOS<br><small>Movimientos entre Sucursales (ODT)</small></div>
             <div class="menu-card" onclick="openView('view-inventory', loadInventory)">INVENTARIO<br><small>Conteos Pendientes</small></div>
-            <div class="menu-card" onclick="openSpotCheck()">AUDITORIA RÁPIDA<br><small>Verificación de Estantes</small></div>
+            <div class="menu-card" onclick="openSpotCheck()">AUDITOR&Iacute;A R&Aacute;PIDA<br><small>Verificaci&oacute;n de Estantes</small></div>
         </div>
         
-        <!-- Botonera Inferior Dinámica -->
         <div id="bottom-actions" class="bottom-actions">
             <div id="btn-switch-desktop" class="menu-card" onclick="window.location.href='/admin'" style="display:none; background: #EFF6FF; padding: 1rem;">MODO ESCRITORIO</div>
             <div class="menu-card card-danger" onclick="logout()" style="padding: 1rem;">SALIR</div>
         </div>
     </div>
 
-    <!-- 1. PICKING CON AUTO-SUBMIT -->
+    <!-- 1. PICKING GUIADO POR C�MARA -->
     <div id="view-picking" class="view">
         <h3>Pedidos Pendientes</h3>
         <div id="picking-list"></div>
     </div>
+    
     <div id="view-picking-scan" class="view">
         <h3 id="pick-title"></h3>
-        <div id="pick-details" style="font-size:0.9rem; margin-bottom:1.5rem; background:white; padding:10px; border-radius:6px; border:1px solid var(--border-color);"></div>
-        <form id="form-picking" onsubmit="scanPicking(event)">
+        
+        <div class="picking-camera-container">
+            <video id="picking-video-stream" playsinline autoplay muted></video>
+        </div>
+
+        <div id="picking-step-banner" class="step-banner step-banner-sku">
+            PASO 1: ESCANEE C&Oacute;DIGO/QR DEL ART&Iacute;CULO
+        </div>
+
+        <form id="form-picking" onsubmit="handlePickingFormSubmit(event)">
             <input type="hidden" id="pick-number">
             
-            <label>Ubicación de Extracción</label>
-            <div class="input-group">
-                <input type="text" id="pick-loc" required autofocus placeholder="Escanee ubicación..." onkeydown="handleScannerEnter(event, 'pick-sku')">
-                <button type="button" class="btn-cam" onclick="startCameraScanner('pick-loc')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                </button>
+            <div id="grp-pick-sku" class="form-group">
+                <label>1. SKU del Producto *</label>
+                <div class="input-group">
+                    <input type="text" id="pick-sku" placeholder="A la espera de escaneo..." autocomplete="off" oninput="onModuleInputProcess('PICKING', 'sku')" onkeydown="if(event.key==='Enter'){event.preventDefault(); onModuleInputProcess('PICKING', 'sku');}">
+                </div>
             </div>
-            
-            <label>SKU Escaneado</label>
-            <div class="input-group">
-                <input type="text" id="pick-sku" required placeholder="Escanee SKU..." onkeydown="handleScannerEnter(event, null, 'form-picking')">
-                <button type="button" class="btn-cam" onclick="startCameraScanner('pick-sku')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                </button>
+
+            <div id="grp-pick-loc" class="form-group" style="display:none;">
+                <label>2. Ubicaci&oacute;n de Extracci&oacute;n *</label>
+                <div class="input-group">
+                    <input type="text" id="pick-loc" placeholder="Escanee etiqueta de rack..." autocomplete="off" oninput="onModuleInputProcess('PICKING', 'loc')" onkeydown="if(event.key==='Enter'){event.preventDefault(); onModuleInputProcess('PICKING', 'loc');}">
+                </div>
             </div>
-            
-            <label>Cantidad</label>
-            <input type="number" id="pick-qty" min="0.01" step="0.01" required value="1">
-            <button type="submit" style="margin-top:1rem;">Extraer del Stock</button>
+
+            <div id="grp-pick-qty" class="form-group" style="display:none;">
+                <label>3. Cantidad a Confirmar *</label>
+                <input type="number" id="pick-qty" min="0.01" step="0.01" value="1" style="font-size:1.2rem; font-weight:bold; color:var(--success);">
+                <button type="submit" style="margin-top:0.5rem; background-color:var(--success);">Confirmar Extracci&oacute;n</button>
+            </div>
         </form>
+
+        <div class="items-sheet">
+            <div class="items-sheet-title">
+                <span>Art&iacute;culos del Pedido</span>
+                <span id="pick-items-count-badge">0/0</span>
+            </div>
+            <div id="pick-items-sheet-body"></div>
+        </div>
     </div>
 
-    <!-- 2. PACKING -->
-    <div id="view-packing" class="view">
-        <h3>Mesa de Empaque y Despacho</h3>
-        <div id="packing-list"></div>
-    </div>
-    <div id="view-packing-form" class="view">
-        <h3 id="pack-title"></h3>
-        <div id="pack-details" style="font-size:0.9rem; margin-bottom:1rem; background:white; padding:10px; border-radius:6px; border:1px solid var(--border-color); color:var(--primary-blue); font-weight:bold;"></div>
-        <div id="pack-metrics-summary" style="display:none; background:#ECFDF5; border:1px solid #10B981; padding:10px; border-radius:6px; margin-bottom:1.5rem; font-size:0.85rem; color:#065F46; font-weight:bold;"></div>
-
-        <form id="form-packing" onsubmit="dispatchPacking(event)">
-            <input type="hidden" id="pack-number">
-            <label>Cantidad de Cajas / Bultos *</label>
-            <input type="number" id="pack-boxes" required value="1" min="1" autofocus onkeydown="handleScannerEnter(event, null, 'form-packing')">
-            <button type="submit" style="margin-top:1.5rem; background-color:var(--success);">Sellar Caja y Despachar</button>
-        </form>
-    </div>
-
-    <!-- 3. RECEPCIÓN CON AUTO-SUBMIT -->
+    <!-- 2. RECEPCI�N GUIADA POR C�MARA (REMITOS) -->
     <div id="view-receptions" class="view">
         <h3>Remitos Pendientes</h3>
         <div id="receptions-list"></div>
     </div>
+
     <div id="view-reception-scan" class="view">
         <h3 id="rec-title"></h3>
-        <div id="rec-details" style="font-size:0.9rem; margin-bottom:1.5rem; background:white; padding:10px; border-radius:6px; border:1px solid var(--border-color);"></div>
-        <form id="form-reception" onsubmit="scanReception(event)">
+        
+        <div class="picking-camera-container">
+            <video id="reception-video-stream" playsinline autoplay muted></video>
+        </div>
+
+        <div id="reception-step-banner" class="step-banner step-banner-sku">
+            PASO 1: ESCANEE C&Oacute;DIGO/QR DEL ART&Iacute;CULO RECIBIDO
+        </div>
+
+        <form id="form-reception" onsubmit="handleReceptionFormSubmit(event)">
             <input type="hidden" id="rec-number">
             
-            <label>SKU Recibido *</label>
-            <div class="input-group">
-                <input type="text" id="rec-sku" required autofocus placeholder="Escanee SKU..." onkeydown="handleScannerEnter(event, 'rec-loc')">
-                <button type="button" class="btn-cam" onclick="startCameraScanner('rec-sku')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                </button>
+            <div id="grp-rec-sku" class="form-group">
+                <label>1. SKU Recibido *</label>
+                <div class="input-group">
+                    <input type="text" id="rec-sku" placeholder="A la espera de escaneo..." autocomplete="off" oninput="onModuleInputProcess('RECEPTION', 'sku')" onkeydown="if(event.key==='Enter'){event.preventDefault(); onModuleInputProcess('RECEPTION', 'sku');}">
+                </div>
             </div>
-            
-            <label>Cantidad *</label>
-            <input type="number" id="rec-qty" min="0.01" step="0.01" required value="1">
-            
-            <label>Ubicación Destino (Opcional)</label>
-            <div class="input-group">
-                <input type="text" id="rec-loc" placeholder="Ej: RACK-01" onkeydown="handleScannerEnter(event, null, 'form-reception')">
-                <button type="button" class="btn-cam" onclick="startCameraScanner('rec-loc')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                </button>
+
+            <div id="grp-rec-loc" class="form-group" style="display:none;">
+                <label>2. Ubicaci&oacute;n Destino (Opcional)</label>
+                <div class="input-group">
+                    <input type="text" id="rec-loc" placeholder="Escanee ubicaci&oacute;n o d&eacute;jelo vac&iacute;o..." autocomplete="off" oninput="onModuleInputProcess('RECEPTION', 'loc')" onkeydown="if(event.key==='Enter'){event.preventDefault(); onModuleInputProcess('RECEPTION', 'loc');}">
+                </div>
             </div>
-            <button type="submit" style="margin-top:1rem; background-color:var(--success);">Confirmar Ingreso</button>
+
+            <div id="grp-rec-qty" class="form-group" style="display:none;">
+                <label>3. Cantidad a Confirmar *</label>
+                <input type="number" id="rec-qty" min="0.01" step="0.01" value="1" style="font-size:1.2rem; font-weight:bold; color:var(--success);">
+                <button type="submit" style="margin-top:0.5rem; background-color:var(--success);">Confirmar Ingreso</button>
+            </div>
         </form>
+
+        <div class="items-sheet">
+            <div class="items-sheet-title">
+                <span>L&iacute;neas del Remito</span>
+                <span id="rec-items-count-badge">0/0</span>
+            </div>
+            <div id="rec-items-sheet-body"></div>
+        </div>
     </div>
 
-    <!-- 4. TRASPASOS CON AUTO-SUBMIT -->
+    <!-- 3. TRASPASOS GUIADOS POR C�MARA (ODTs) -->
     <div id="view-transfers" class="view">
-        <h3>Órdenes de Traspaso Activas</h3>
+        <h3>&Oacute;rdenes de Traspaso Activas</h3>
         <div id="transfers-list"></div>
     </div>
+
     <div id="view-transfer-scan" class="view">
         <h3 id="tr-title"></h3>
-        <div id="tr-details" style="font-size:0.9rem; margin-bottom:1.5rem; background:white; padding:10px; border-radius:6px; border:1px solid var(--border-color);"></div>
-        <form id="form-transfer-scan" onsubmit="scanTransfer(event)">
+
+        <div class="picking-camera-container">
+            <video id="transfer-video-stream" playsinline autoplay muted></video>
+        </div>
+
+        <div id="transfer-step-banner" class="step-banner step-banner-sku">
+            PASO 1: ESCANEE C&Oacute;DIGO/QR DEL ART&Iacute;CULO A TRASPASAR
+        </div>
+
+        <form id="form-transfer-scan" onsubmit="handleTransferFormSubmit(event)">
             <input type="hidden" id="tr-number">
             
-            <label>SKU a Transferir *</label>
-            <div class="input-group">
-                <input type="text" id="tr-sku" required autofocus placeholder="Escanee SKU..." onkeydown="handleScannerEnter(event, 'tr-dest-loc')">
-                <button type="button" class="btn-cam" onclick="startCameraScanner('tr-sku')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                </button>
+            <div id="grp-tr-sku" class="form-group">
+                <label>1. SKU a Transferir *</label>
+                <div class="input-group">
+                    <input type="text" id="tr-sku" placeholder="A la espera de escaneo..." autocomplete="off" oninput="onModuleInputProcess('TRANSFER', 'sku')" onkeydown="if(event.key==='Enter'){event.preventDefault(); onModuleInputProcess('TRANSFER', 'sku');}">
+                </div>
             </div>
-            
-            <label>Cantidad *</label>
-            <input type="number" id="tr-qty" min="0.01" step="0.01" required value="1">
-            
-            <label>Ubicación Destino *</label>
-            <div class="input-group">
-                <input type="text" id="tr-dest-loc" placeholder="Ej: RACK-DEST-01" onkeydown="handleScannerEnter(event, null, 'form-transfer-scan')">
-                <button type="button" class="btn-cam" onclick="startCameraScanner('tr-dest-loc')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                </button>
+
+            <div id="grp-tr-loc" class="form-group" style="display:none;">
+                <label>2. Ubicaci&oacute;n Destino *</label>
+                <div class="input-group">
+                    <input type="text" id="tr-dest-loc" placeholder="Escanee ubicaci&oacute;n destino..." autocomplete="off" oninput="onModuleInputProcess('TRANSFER', 'loc')" onkeydown="if(event.key==='Enter'){event.preventDefault(); onModuleInputProcess('TRANSFER', 'loc');}">
+                </div>
             </div>
-            <button type="submit" style="margin-top:1rem; background-color:var(--accent-blue);">Procesar Traspaso</button>
+
+            <div id="grp-tr-qty" class="form-group" style="display:none;">
+                <label>3. Cantidad a Confirmar *</label>
+                <input type="number" id="tr-qty" min="0.01" step="0.01" value="1" style="font-size:1.2rem; font-weight:bold; color:var(--accent-blue);">
+                <button type="submit" style="margin-top:0.5rem; background-color:var(--accent-blue);">Procesar Traspaso</button>
+            </div>
         </form>
+
+        <div class="items-sheet">
+            <div class="items-sheet-title">
+                <span>Art&iacute;culos de la ODT</span>
+                <span id="tr-items-count-badge">0/0</span>
+            </div>
+            <div id="tr-items-sheet-body"></div>
+        </div>
     </div>
 
-    <!-- 5. INVENTARIO (CONTEOS CÍCLICOS) -->
+    <!-- 4. INVENTARIO (CONTEOS C�CLICOS) -->
     <div id="view-inventory" class="view">
         <h3>Conteos Pendientes</h3>
         <div id="inventory-list"></div>
@@ -246,83 +323,61 @@
     <div id="view-inventory-scan" class="view">
         <h3 id="inv-title">Escaneo de Sector</h3>
         <div style="background:#DBEAFE; color:#1E3A8A; padding:8px 12px; border-radius:6px; font-size:0.85rem; font-weight:bold; margin-bottom:1.5rem;">
-            ID Sesión: <span id="inv-session-id-label"></span>
+            ID Sesi&oacute;n: <span id="inv-session-id-label"></span>
         </div>
         <form id="form-inventory-scan" onsubmit="scanInventoryCount(event)">
             <input type="hidden" id="inv-session-id">
-            
-            <label>Ubicación (Si aplica)</label>
+            <label>Ubicaci&oacute;n (Si aplica)</label>
             <div class="input-group">
-                <input type="text" id="inv-loc" placeholder="Ej: RACK-01" onkeydown="handleScannerEnter(event, 'inv-sku')">
-                <button type="button" class="btn-cam" onclick="startCameraScanner('inv-loc')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                </button>
+                <input type="text" id="inv-loc" placeholder="Ej: RACK-01">
             </div>
-            
             <label>SKU *</label>
             <div class="input-group">
-                <input type="text" id="inv-sku" required placeholder="Escanee SKU..." onkeydown="handleScannerEnter(event, 'inv-qty')">
-                <button type="button" class="btn-cam" onclick="startCameraScanner('inv-sku')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                </button>
+                <input type="text" id="inv-sku" required placeholder="Escanee SKU...">
             </div>
-            
             <label>Cantidad Contada *</label>
             <input type="number" id="inv-qty" min="0.01" step="0.01" required placeholder="0">
-            
             <div class="lot-input" style="margin-top:0.8rem;">
                 <label>Lote / Vto</label>
                 <input type="text" id="inv-lot" placeholder="Lote...">
             </div>
-
             <button type="submit" style="margin-top:1rem; background-color: var(--primary-blue);">Registrar Lectura</button>
         </form>
         <button type="button" style="background-color: var(--danger); width: 100%; margin-top: 1.5rem; padding: 1rem; border: none; border-radius: 6px; color: white; font-weight: bold; text-transform: uppercase;" onclick="finishInventorySession()">Finalizar Conteo</button>
     </div>
 
-    <!-- 6. SPOT CHECK (AUDITORÍA RÁPIDA) -->
+    <!-- 5. SPOT CHECK -->
     <div id="view-spot-check" class="view">
-        <h3>Auditoría Rápida</h3>
-        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Verificación en caliente. No altera stock.</p>
+        <h3>Auditor&iacute;a R&aacute;pida</h3>
+        <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1rem;">Verificaci&oacute;n en caliente. No altera stock.</p>
         <form id="form-spot-check" onsubmit="runSpotCheck(event)">
-            <label>Ubicación (Opcional)</label>
+            <label>Ubicaci&oacute;n (Opcional)</label>
             <div class="input-group">
-                <input type="text" id="spot-check-loc" placeholder="Ej: RACK-A-01" onkeydown="handleScannerEnter(event, 'spot-check-sku')">
-                <button type="button" class="btn-cam" onclick="startCameraScanner('spot-check-loc')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                </button>
+                <input type="text" id="spot-check-loc" placeholder="Ej: RACK-A-01">
             </div>
-            
             <label>SKU *</label>
             <div class="input-group">
-                <input type="text" id="spot-check-sku" required placeholder="Escanee SKU..." onkeydown="handleScannerEnter(event, 'spot-check-qty')">
-                <button type="button" class="btn-cam" onclick="startCameraScanner('spot-check-sku')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-                </button>
+                <input type="text" id="spot-check-sku" required placeholder="Escanee SKU...">
             </div>
-            
-            <label>Cantidad Física *</label>
+            <label>Cantidad F&iacute;sica *</label>
             <input type="number" id="spot-check-qty" min="0.01" step="0.01" required placeholder="0">
-            
             <div class="lot-input" style="margin-top:0.8rem;">
                 <label>Lote / Vto</label>
                 <input type="text" id="spot-check-lot" placeholder="Lote...">
             </div>
-
             <button type="submit" style="margin-top:1rem; background-color: var(--primary-blue);">Verificar Stock</button>
         </form>
-
         <div id="spot-check-result" style="display:none; margin-top:1.5rem; padding:1.5rem; border-radius:8px; text-align:center;"></div>
     </div>
 
-    <!-- MODAL CÁMARA -->
+    <!-- MODAL POPUP C�MARA DE FALLBACK -->
     <div id="camera-modal" class="camera-modal">
-        <div style="color:white; font-weight:800; text-transform:uppercase; margin-bottom:0.5rem;">Apunte al código</div>
+        <div style="color:white; font-weight:800; text-transform:uppercase; margin-bottom:0.5rem;">Apunte al c&oacute;digo</div>
         <div class="camera-viewport"><video id="camera-video" playsinline autoplay></video></div>
         <button type="button" class="btn-close-cam" onclick="stopCameraScanner()">Cerrar</button>
     </div>
 
     <script src="js/api.js"></script>
-    <script src="js/mobile.js?v=20260806_3"></script>
+    <script src="js/mobile.js?v=20260812_3"></script>
 </body>
 </html>

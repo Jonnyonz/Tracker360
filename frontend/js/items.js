@@ -2,7 +2,6 @@
 let itemsCurrentPage = 1;
 let itemsCache = {};
 
-// Utilidad de sanitización
 function escapeHTML(str) {
     if (str === null || str === undefined) return '';
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -13,7 +12,6 @@ async function handleSearchItems(page = 1) {
     const tbody = document.getElementById('table-items-body');
     if (!tbody) return;
 
-    // Inyección dinámica de la columna "Stock Total" para no tocar el HTML
     const theadTr = document.querySelector('#section-items table thead tr');
     if (theadTr && theadTr.children.length === 4) {
         const stockTh = document.createElement('th');
@@ -53,22 +51,23 @@ async function handleSearchItems(page = 1) {
             const itemDesc = escapeHTML(item.description || item.name || '-');
             const itemLoc = escapeHTML(item.locations_summary || item.locations || item.location_code || 'Sin asignación');
             const stockTotal = item.total_stock || 0;
-            
-            // Renderizado condicional del color del stock
+            const isCombo = item.is_combo;
+
             const stockColor = stockTotal > 0 ? 'var(--success-green)' : (stockTotal < 0 ? 'var(--error-red)' : 'var(--text-muted)');
+            const comboBadge = isCombo ? `<span class="badge badge-info" style="margin-left:6px; font-size:0.7rem;">COMBO</span>` : '';
 
             return `
                 <tr>
-                    <td style="font-weight:600; color:var(--primary-blue);"><code>${itemSku}</code></td>
+                    <td style="font-weight:600; color:var(--primary-blue);"><code>${itemSku}</code>${comboBadge}</td>
                     <td>${itemDesc}</td>
                     <td><span class="badge badge-neutral">${itemLoc}</span></td>
                     <td style="font-weight:bold; color:${stockColor}; font-size:1.1rem;">${stockTotal}</td>
                     <td>
                         <div style="display:flex; gap:6px;">
-                            <button type="button" class="btn-secondary" style="padding:0.3rem 0.8rem; font-size:0.8rem;" onclick="openStockBreakdownModal('${itemSku}')">
-                                Ver Stock
+                            <button type="button" class="btn-secondary" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="openStockBreakdownModal('${itemSku}')">
+                                Stock
                             </button>
-                            <button type="button" class="btn-submit" style="width:auto; margin:0; padding:0.3rem 0.8rem; font-size:0.8rem;" onclick="openEditItemModal('${itemSku}')">
+                            <button type="button" class="btn-submit" style="width:auto; margin:0; padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="openEditItemModal('${itemSku}')">
                                 Editar
                             </button>
                         </div>
@@ -83,7 +82,178 @@ async function handleSearchItems(page = 1) {
     }
 }
 
-// === LÓGICA DE DESGLOSE DE STOCK (MODAL DINÁMICO) ===
+// === EDICIÓN DE ARTÍCULO Y GESTIÓN DE COMBOS/DIMENSIONES ===
+async function openEditItemModal(sku) {
+    const modalEl = document.getElementById('modal-edit-item');
+    if (!modalEl) return;
+
+    const item = itemsCache[sku] || { sku: sku, description: '', category: '', is_combo: false };
+
+    const titleEl = document.getElementById('edit-item-sku-label');
+    if (titleEl) titleEl.textContent = sku;
+
+    document.getElementById('edit-item-sku').value = sku;
+    
+    const descVal = item.description || item.name || '';
+    const catVal = item.category || '';
+    
+    const descInp = document.getElementById('edit-item-desc');
+    const catInp = document.getElementById('edit-item-cat');
+    if (descInp) descInp.value = descVal === '-' ? '' : descVal;
+    if (catInp) catInp.value = catVal === '-' ? '' : catVal;
+
+    // Lógica para Dimensiones y Pesos
+    const dimSection = document.getElementById('edit-item-dimensions-section');
+    if (dimSection) {
+        if (typeof AppConfig !== 'undefined' && AppConfig.enable_item_dimensions === 'true') {
+            dimSection.style.display = 'flex';
+            document.getElementById('edit-item-length').value = item.length || 0;
+            document.getElementById('edit-item-width').value = item.width || 0;
+            document.getElementById('edit-item-height').value = item.height || 0;
+            document.getElementById('edit-item-weight').value = item.weight || 0;
+        } else {
+            dimSection.style.display = 'none';
+        }
+    }
+
+    // Manejo del checkbox de Combo
+    const isComboCheck = document.getElementById('edit-item-is-combo');
+    const comboSection = document.getElementById('edit-combo-section');
+    const list = document.getElementById('edit-combo-components-list');
+
+    if (isComboCheck) {
+        isComboCheck.checked = item.is_combo;
+        
+        if (item.is_combo) {
+            comboSection.style.display = 'block';
+            list.innerHTML = '<p style="text-align:center; padding:1rem; color:var(--text-muted);">Cargando componentes...</p>';
+            
+            try {
+                const data = await fetchAPI(`/api/admin/items/${encodeURIComponent(sku)}/combo`);
+                list.innerHTML = '';
+                if (data && data.components && data.components.length > 0) {
+                    data.components.forEach(comp => addComboComponentRow(comp.component_sku, comp.quantity));
+                } else {
+                    addComboComponentRow('', 1);
+                }
+            } catch (e) {
+                list.innerHTML = '';
+                addComboComponentRow('', 1);
+            }
+        } else {
+            comboSection.style.display = 'none';
+            list.innerHTML = '';
+        }
+    }
+
+    if (typeof window.openModal === 'function') {
+        window.openModal('modal-edit-item');
+    } else {
+        modalEl.style.display = 'flex';
+    }
+}
+
+function toggleEditComboSection() {
+    const isChecked = document.getElementById('edit-item-is-combo').checked;
+    const section = document.getElementById('edit-combo-section');
+    const list = document.getElementById('edit-combo-components-list');
+    
+    if (isChecked) {
+        section.style.display = 'block';
+        if (list.children.length === 0) {
+            addComboComponentRow('', 1);
+        }
+    } else {
+        section.style.display = 'none';
+        list.innerHTML = '';
+    }
+}
+
+function addComboComponentRow(compSku = '', qty = 1) {
+    const list = document.getElementById('edit-combo-components-list');
+    if (!list) return;
+
+    const div = document.createElement('div');
+    div.className = 'dynamic-row';
+    div.style.marginBottom = '8px';
+    div.innerHTML = `
+        <input type="text" placeholder="SKU Componente" class="combo-comp-sku" value="${escapeHTML(compSku)}" style="flex:2;" required autocomplete="off">
+        <input type="number" placeholder="Cantidad" class="combo-comp-qty" value="${qty}" style="flex:1;" min="0.01" step="0.01" required>
+        <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
+    `;
+    list.appendChild(div);
+}
+
+async function saveItemEdit(event) {
+    event.preventDefault();
+    const sku = document.getElementById('edit-item-sku').value;
+    const desc = document.getElementById('edit-item-desc').value.trim();
+    const cat = document.getElementById('edit-item-cat').value.trim();
+    const isCombo = document.getElementById('edit-item-is-combo').checked;
+
+    // Valores de Dimensiones
+    let length = 0, width = 0, height = 0, weight = 0;
+    if (typeof AppConfig !== 'undefined' && AppConfig.enable_item_dimensions === 'true') {
+        length = parseFloat(document.getElementById('edit-item-length').value) || 0;
+        width = parseFloat(document.getElementById('edit-item-width').value) || 0;
+        height = parseFloat(document.getElementById('edit-item-height').value) || 0;
+        weight = parseFloat(document.getElementById('edit-item-weight').value) || 0;
+    }
+
+    const components = [];
+    if (isCombo) {
+        const rows = document.querySelectorAll('#edit-combo-components-list .dynamic-row');
+        rows.forEach(r => {
+            const compSku = r.querySelector('.combo-comp-sku')?.value.trim().toUpperCase();
+            const qty = parseFloat(r.querySelector('.combo-comp-qty')?.value);
+            if (compSku && !isNaN(qty) && qty > 0) {
+                components.push({ component_sku: compSku, quantity: qty });
+            }
+        });
+    }
+
+    const payload = { 
+        description: desc, 
+        category: cat,
+        length: length,
+        width: width,
+        height: height,
+        weight: weight,
+        is_combo: isCombo,
+        components: components
+    };
+
+    const btn = event.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Guardando...';
+
+    try {
+        const res = await fetchAPI(`/api/admin/items/${encodeURIComponent(sku)}`, {
+            method: 'PUT',
+            body: payload
+        });
+        
+        if (res && res.status === 'success') {
+            if (typeof window.closeModal === 'function') {
+                window.closeModal('modal-edit-item');
+            } else {
+                document.getElementById('modal-edit-item').style.display = 'none';
+            }
+            if (typeof showToast === 'function') showToast(res.message, "success");
+            handleSearchItems(itemsCurrentPage);
+        } else {
+            alert("Error al guardar los cambios.");
+        }
+    } catch (e) {
+        console.error(e);
+        if (typeof showToast === 'function') showToast(e.message, "error");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Guardar Cambios';
+    }
+}
+
+// === DESGLOSE DE STOCK Y MODALES ===
 function ensureStockModalExists() {
     if (document.getElementById('modal-stock-breakdown')) return;
     
@@ -149,7 +319,6 @@ async function openStockBreakdownModal(sku) {
             total += (parseFloat(r.quantity) || 0);
         });
 
-        // Fila de totalizador
         html += `
             <tr style="background:#F8FAFC;">
                 <td colspan="3" style="padding:12px; text-align:right; font-weight:800; color:var(--primary-blue); text-transform:uppercase;">TOTAL CONSOLIDADO:</td>
@@ -211,8 +380,8 @@ async function uploadCSV() {
     formData.append("file", file);
 
     let url = '';
-    if (type === 'items') url = '/api/admin/items/import';
-    else if (type === 'item_locations') url = '/api/admin/items/locations/import';
+    if (type === 'items') url = '/api/admin/import/items';
+    else if (type === 'item_locations') url = '/api/admin/import/item-locations';
     else return;
 
     const btn = document.getElementById('btn-upload-csv');
@@ -249,67 +418,6 @@ async function uploadCSV() {
     } finally {
         btn.disabled = false;
         btn.textContent = 'Procesar Archivo';
-    }
-}
-
-// === EDICIÓN DE ARTÍCULO ===
-function openEditItemModal(sku) {
-    const modalEl = document.getElementById('modal-edit-item');
-    if (!modalEl) return;
-
-    const item = itemsCache[sku] || { sku: sku, description: '', category: '', locations: '' };
-
-    if (typeof window.openModal === 'function') {
-        window.openModal('modal-edit-item');
-    } else {
-        modalEl.style.display = 'flex';
-    }
-
-    const titleEl = document.getElementById('edit-item-sku-label');
-    if (titleEl) titleEl.textContent = sku;
-
-    document.getElementById('edit-item-sku').value = sku;
-    
-    const descVal = item.description || item.name || '';
-    const catVal = item.category || '';
-    
-    const descInp = document.getElementById('edit-item-desc');
-    const catInp = document.getElementById('edit-item-cat');
-    
-    if (descInp) descInp.value = descVal === '-' ? '' : descVal;
-    if (catInp) catInp.value = catVal === '-' ? '' : catVal;
-}
-
-async function saveItemEdit(event) {
-    event.preventDefault();
-    const sku = document.getElementById('edit-item-sku').value;
-    const desc = document.getElementById('edit-item-desc').value.trim();
-    const cat = document.getElementById('edit-item-cat').value.trim();
-
-    const btn = event.target.querySelector('button[type="submit"]');
-    btn.disabled = true;
-    btn.textContent = 'Guardando...';
-
-    try {
-        const res = await fetchAPI(`/api/admin/items/${encodeURIComponent(sku)}`, {
-            method: 'PUT',
-            body: { description: desc, category: cat }
-        });
-        if (res && res.status === 'success') {
-            if (typeof window.closeModal === 'function') {
-                window.closeModal('modal-edit-item');
-            } else {
-                document.getElementById('modal-edit-item').style.display = 'none';
-            }
-            handleSearchItems(itemsCurrentPage);
-        } else {
-            alert("Error al guardar los cambios.");
-        }
-    } catch (e) {
-        console.error(e);
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Guardar Cambios';
     }
 }
 
@@ -396,7 +504,7 @@ async function sendBatchPrintJobs() {
     if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
 
     try {
-        const res = await fetchAPI('/api/admin/print-jobs', {
+        const res = await fetchAPI('/api/admin/items/batch-print-labels', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -426,7 +534,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 150);
 });
 
-// Exponer funciones globales para que los modales puedan llamarlas
+// Exponer funciones globales
 window.handleSearchItems = handleSearchItems;
 window.loadItems = handleSearchItems;
 window.openBatchPrintModal = openBatchPrintModal;
@@ -438,3 +546,5 @@ window.openImportModal = openImportModal;
 window.handleFileSelect = handleFileSelect;
 window.uploadCSV = uploadCSV;
 window.saveItemEdit = saveItemEdit;
+window.toggleEditComboSection = toggleEditComboSection;
+window.addComboComponentRow = addComboComponentRow;

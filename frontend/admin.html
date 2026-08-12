@@ -853,7 +853,7 @@
                         </tr>
                     </thead>
                     <tbody id="table-rep-remitos-body">
-                        <tr><td colspan="5" style="text-align:center; padding:2rem;">Seleccione los filtros y presione 'Generar Reporte'</td></tr>
+                        <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">Seleccione los filtros y presione 'Generar Reporte'</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -908,7 +908,7 @@
                         </tr>
                     </thead>
                     <tbody id="table-rep-invoices-body">
-                        <tr><td colspan="5" style="text-align:center; padding:2rem;">Seleccione los filtros y presione 'Generar Reporte'</td></tr>
+                        <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">Seleccione los filtros y presione 'Generar Reporte'</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -963,7 +963,7 @@
                         </tr>
                     </thead>
                     <tbody id="table-rep-po-body">
-                        <tr><td colspan="5" style="text-align:center; padding:2rem;">Seleccione los filtros y presione 'Generar Reporte'</td></tr>
+                        <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">Seleccione los filtros y presione 'Generar Reporte'</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -988,7 +988,9 @@
             </div>
         </div>
 
-        <!-- CONFIGURACIÓN RE-DISEÑADA Y 100% UNIFICADA EN PANELES TEMÁTICOS -->
+        <!-- ========================================================================= -->
+        <!-- CONFIGURACIÓN RE-DISEÑADA Y 100% UNIFICADA EN PANELES TEMÁTICOS         -->
+        <!-- ========================================================================= -->
         <div id="section-settings" class="view-section settings-panel">
             <h2>Configuración del Sistema</h2>
             
@@ -1092,6 +1094,10 @@
                                 <div class="control-wrap"><select id="cfg-allow-multiproduct"><option value="false">NO</option><option value="true">SÍ</option></select></div>
                             </div>
                             <div class="settings-row">
+                                <label for="cfg-enable-item-dimensions">Trabaja con Pesos y Volúmenes</label>
+                                <div class="control-wrap"><select id="cfg-enable-item-dimensions"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                            </div>
+                            <div class="settings-row">
                                 <label for="cfg-default-inventory-count-type">Modalidad Predeterminada de Conteo Cíclico</label>
                                 <div class="control-wrap">
                                     <select id="cfg-default-inventory-count-type">
@@ -1191,7 +1197,68 @@
 
     </div>
 
-    <!-- MODAL SOLICITUDES PENDIENTES GOOGLE OAUTH2 -->
+    <!-- MODALES DE EDICIÓN Y SISTEMA -->
+    <div id="modal-edit-item" class="modal">
+        <div class="modal-content" style="max-width:600px;">
+            <span class="close-modal" onclick="closeModal('modal-edit-item')">&times;</span>
+            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Editar Artículo: <span id="edit-item-sku-label"></span></h3>
+            <form id="form-edit-item" onsubmit="saveItemEdit(event)">
+                <input type="hidden" id="edit-item-sku">
+                
+                <div class="form-row">
+                    <div class="form-group" style="flex:2;">
+                        <label>Descripción</label>
+                        <input type="text" id="edit-item-desc" required>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label>Categoría</label>
+                        <input type="text" id="edit-item-cat">
+                    </div>
+                </div>
+
+                <div id="edit-item-dimensions-section" class="form-row" style="display:none; background:#F8FAFC; padding:1rem; border-radius:8px; border:1px solid #E2E8F0; margin-bottom:1.2rem;">
+                    <div class="form-group" style="flex:1; margin-bottom:0;">
+                        <label>Largo (cm)</label>
+                        <input type="number" id="edit-item-length" min="0" step="0.01">
+                    </div>
+                    <div class="form-group" style="flex:1; margin-bottom:0;">
+                        <label>Ancho (cm)</label>
+                        <input type="number" id="edit-item-width" min="0" step="0.01">
+                    </div>
+                    <div class="form-group" style="flex:1; margin-bottom:0;">
+                        <label>Alto (cm)</label>
+                        <input type="number" id="edit-item-height" min="0" step="0.01">
+                    </div>
+                    <div class="form-group" style="flex:1; margin-bottom:0;">
+                        <label>Peso (kg)</label>
+                        <input type="number" id="edit-item-weight" min="0" step="0.01">
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; background:#F8FAFC; padding:1rem; border-radius:8px; border:1px solid #E2E8F0; margin-bottom:1.2rem;">
+                    <span style="font-weight:700; color:var(--primary-blue); font-size:0.95rem;">¿Es un Artículo Combo (Kit)?</span>
+                    <label class="switch">
+                        <input type="checkbox" id="edit-item-is-combo" onchange="toggleEditComboSection()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+
+                <div id="edit-combo-section" style="display:none;">
+                    <label style="margin-bottom:8px; display:block; font-weight:bold; font-size:0.88rem;">Artículos del Combo (Componentes requeridos para armar 1 unidad):</label>
+                    <div class="dynamic-list" id="edit-combo-components-list">
+                        <!-- Filas dinámicas -->
+                    </div>
+                    <button type="button" onclick="addComboComponentRow()" style="background:none; border:1px solid var(--accent-blue); color:var(--accent-blue); padding:6px 14px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:0.82rem; margin-bottom:1rem;">+ Añadir Componente</button>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px;">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modal-edit-item')">Cancelar</button>
+                    <button type="submit" class="btn-submit" style="width:auto; margin:0; padding:0.75rem 2rem;">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="modal-pending-requests" class="modal">
         <div class="modal-content" style="max-width:700px; width:95%;">
             <span class="close-modal" onclick="closeModal('modal-pending-requests')">&times;</span>
@@ -1219,7 +1286,6 @@
         </div>
     </div>
 
-    <!-- MODAL CREAR USUARIO NATIVO -->
     <div id="modal-create-user" class="modal">
         <div class="modal-content" style="max-width:500px;">
             <span class="close-modal" onclick="closeModal('modal-create-user')">&times;</span>
@@ -1262,7 +1328,6 @@
         </div>
     </div>
 
-    <!-- MODAL EDITAR USUARIO -->
     <div id="modal-edit-user" class="modal">
         <div class="modal-content" style="max-width:500px;">
             <span class="close-modal" onclick="closeModal('modal-edit-user')">&times;</span>
@@ -1313,7 +1378,6 @@
         </div>
     </div>
 
-    <!-- MODAL APROBAR SOLICITUD GOOGLE OAUTH2 -->
     <div id="modal-approve-user" class="modal">
         <div class="modal-content" style="max-width:500px;">
             <span class="close-modal" onclick="closeModal('modal-approve-user')">&times;</span>
@@ -1345,7 +1409,6 @@
         </div>
     </div>
 
-    <!-- MODAL EDITAR GOOGLE OAUTH2 -->
     <div id="modal-edit-google-sso" class="modal">
         <div class="modal-content" style="max-width:550px;">
             <span class="close-modal" onclick="closeModal('modal-edit-google-sso')">&times;</span>
@@ -1388,7 +1451,6 @@
         </div>
     </div>
 
-    <!-- MODAL EDITAR PLANTILLAS ZPL -->
     <div id="modal-edit-zpl" class="modal">
         <div class="modal-content" style="max-width:750px; width:95%;">
             <span class="close-modal" onclick="closeModal('modal-edit-zpl')">&times;</span>
@@ -1443,7 +1505,6 @@
         </div>
     </div>
 
-    <!-- MODAL CLAVE API GENERADA -->
     <div id="modal-show-api-key" class="modal">
         <div class="modal-content" style="max-width:520px;">
             <span class="close-modal" onclick="closeModal('modal-show-api-key')">&times;</span>
@@ -1464,7 +1525,6 @@
         </div>
     </div>
 
-    <!-- OTROS MODALES DE SISTEMA -->
     <div id="modal-add-channel" class="modal">
         <div class="modal-content" style="max-width:500px;">
             <span class="close-modal" onclick="closeModal('modal-add-channel')">&times;</span>
@@ -1506,25 +1566,6 @@
             <input type="file" id="import-file" accept=".csv" style="display:none;" onchange="handleFileSelect(event)">
             <p id="import-file-name" style="text-align:center; font-weight:bold; color:var(--primary-blue); display:none;"></p>
             <button type="button" class="btn-submit" id="btn-upload-csv" style="margin-top:1rem;" onclick="uploadCSV()">Procesar Archivo</button>
-        </div>
-    </div>
-
-    <div id="modal-edit-item" class="modal">
-        <div class="modal-content" style="max-width:500px;">
-            <span class="close-modal" onclick="closeModal('modal-edit-item')">&times;</span>
-            <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Editar Artículo: <span id="edit-item-sku-label"></span></h3>
-            <form id="form-edit-item" onsubmit="saveItemEdit(event)">
-                <input type="hidden" id="edit-item-sku">
-                <div class="form-group">
-                    <label>Descripción</label>
-                    <input type="text" id="edit-item-desc" required>
-                </div>
-                <div class="form-group">
-                    <label>Categoría</label>
-                    <input type="text" id="edit-item-cat">
-                </div>
-                <button type="submit" class="btn-submit" style="margin-top:1rem;">Guardar Cambios</button>
-            </form>
         </div>
     </div>
 
@@ -1749,7 +1790,7 @@
     <script src="js/api.js"></script>
     <script src="js/users.js?v=20260808_1"></script>
     <script src="js/entities.js"></script>
-    <script src="js/items.js?v=20260806_9"></script>
+    <script src="js/items.js?v=20260812_3"></script>
     <script src="js/warehouse.js"></script>
     <script src="js/operations.js?v=20260807_5"></script>
     <script src="js/reports.js?v=20260807_1"></script>

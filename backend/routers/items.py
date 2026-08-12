@@ -2,7 +2,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from typing import Optional, List
-import asyncpg, uuid, csv
+import asyncpg, csv
 from io import StringIO
 
 try:
@@ -12,6 +12,10 @@ except ImportError:
 
 router = APIRouter(tags=["Items"])
 
+class ComboComponentLine(BaseModel):
+    component_sku: str
+    quantity: float
+
 class ItemUpdate(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
@@ -20,6 +24,8 @@ class ItemUpdate(BaseModel):
     height: Optional[float] = 0.0
     weight: Optional[float] = 0.0
     volume: Optional[float] = 0.0
+    is_combo: Optional[bool] = False
+    components: Optional[List[ComboComponentLine]] = None
 
 class BatchItemPrintLine(BaseModel):
     sku: str
@@ -42,9 +48,8 @@ async def list_items(sku: str = "", description: str = "", page: int = 1, limit:
     
     total_count = await conn.fetchval("SELECT COUNT(*) FROM items WHERE sku ILIKE $1 AND description ILIKE $2", f"%{sku}%", f"%{description}%")
     
-    # Inyección de Subconsulta (COALESCE con SUM) para Stock Total en tiempo real
     q = f"""
-        SELECT i.sku, i.description, i.category, i.length, i.width, i.height, i.weight, i.volume, 
+        SELECT i.sku, i.description, i.category, i.length, i.width, i.height, i.weight, i.volume, COALESCE(i.is_combo, FALSE) as is_combo,
                COALESCE((SELECT string_agg(l.location_code, ', ') FROM item_locations il JOIN locations l ON il.location_id = l.id WHERE il.item_sku = i.sku), 'Sin asignación') as locations_summary,
                COALESCE((SELECT SUM(si.quantity) FROM stock_inventory si WHERE si.sku = i.sku), 0)::float as total_stock
         FROM items i 
@@ -62,7 +67,28 @@ async def list_items(sku: str = "", description: str = "", page: int = 1, limit:
         "total_pages": total_pages
     }
 
-# === NUEVO ENDPOINT: DESGLOSE DE STOCK POR SKU ===
+@router.get("/api/admin/items/{sku}/combo")
+async def get_item_combo_components(sku: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    clean_sku = sku.strip().upper()
+    item = await conn.fetchrow("SELECT sku, description, COALESCE(is_combo, FALSE) as is_combo FROM items WHERE UPPER(sku) = $1", clean_sku)
+    if not item:
+        raise HTTPException(status_code=404, detail="Artículo no encontrado.")
+    
+    rows = await conn.fetch("""
+        SELECT ic.id::text, ic.component_sku, i.description as component_description, ic.quantity::float as quantity
+        FROM item_combos ic
+        JOIN items i ON UPPER(ic.component_sku) = UPPER(i.sku)
+        WHERE UPPER(ic.combo_sku) = $1
+        ORDER BY ic.component_sku ASC
+    """, clean_sku)
+    
+    return {
+        "combo_sku": item["sku"],
+        "description": item["description"],
+        "is_combo": item["is_combo"],
+        "components": [dict(r) for r in rows]
+    }
+
 @router.get("/api/admin/items/{sku}/stock-breakdown")
 async def get_item_stock_breakdown(sku: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
@@ -80,13 +106,42 @@ async def get_item_stock_breakdown(sku: str, admin: dict = Depends(require_admin
 
 @router.put("/api/admin/items/{sku}")
 async def update_item(sku: str, data: ItemUpdate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    clean_sku = sku.strip().upper()
     calculated_vol = (data.length * data.width * data.height) / 1000000.0 if (data.length and data.width and data.height) else (data.volume or 0.0)
-    await conn.execute("""
-        UPDATE items 
-        SET description = $1, category = $2, length = COALESCE($3, length), width = COALESCE($4, width), height = COALESCE($5, height), weight = COALESCE($6, weight), volume = $7 
-        WHERE UPPER(sku) = $8
-    """, data.description, data.category, data.length, data.width, data.height, data.weight, calculated_vol, sku.upper())
-    return {"status": "success", "message": "Ficha de artículo actualizada."}
+    
+    async with conn.transaction():
+        # 1. Actualizar los datos básicos del artículo
+        await conn.execute("""
+            UPDATE items 
+            SET description = $1, category = $2, length = COALESCE($3, length), width = COALESCE($4, width), height = COALESCE($5, height), weight = COALESCE($6, weight), volume = $7, is_combo = COALESCE($8, is_combo) 
+            WHERE UPPER(sku) = $9
+        """, data.description, data.category, data.length, data.width, data.height, data.weight, calculated_vol, data.is_combo, clean_sku)
+        
+        # 2. Limpiar la tabla de combos (por si desmarcó el checkbox o para sobrescribir)
+        await conn.execute("DELETE FROM item_combos WHERE UPPER(combo_sku) = $1", clean_sku)
+        
+        # 3. Insertar los componentes si es combo y se enviaron datos
+        if data.is_combo and data.components:
+            valid_count = 0
+            for comp in data.components:
+                comp_sku = comp.component_sku.strip().upper()
+                if comp_sku == clean_sku:
+                    continue # Evitar bucles infinitos (el combo no puede incluirse a sí mismo)
+                
+                comp_exists = await conn.fetchval("SELECT COUNT(*) FROM items WHERE UPPER(sku) = $1", comp_sku)
+                if comp_exists and comp.quantity > 0:
+                    await conn.execute("""
+                        INSERT INTO item_combos (combo_sku, component_sku, quantity)
+                        VALUES ($1, $2, $3)
+                        ON CONFLICT (combo_sku, component_sku) DO UPDATE SET quantity = EXCLUDED.quantity
+                    """, clean_sku, comp_sku, comp.quantity)
+                    valid_count += 1
+            
+            # Si marcó "Es Combo" pero ningún componente era válido, revertimos la marca por integridad de base de datos
+            if valid_count == 0:
+                await conn.execute("UPDATE items SET is_combo = FALSE WHERE UPPER(sku) = $1", clean_sku)
+
+    return {"status": "success", "message": "Ficha de artículo y configuración de combo actualizados."}
 
 @router.get("/api/admin/items/{sku}/locations")
 async def get_item_locations(sku: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
@@ -182,7 +237,7 @@ async def batch_print_items_labels(req: dict, conn: asyncpg.Connection = Depends
         if not skus:
             raise HTTPException(status_code=400, detail="Debe proporcionar al menos un SKU.")
 
-        template_row = await conn.fetchrow("SELECT value FROM settings WHERE key = 'zpl_template'")
+        template_row = await conn.fetchrow("SELECT value FROM system_settings WHERE key = 'zpl_item_template'")
         custom_tpl = template_row["value"] if template_row and template_row["value"] else None
 
         inserted = 0
