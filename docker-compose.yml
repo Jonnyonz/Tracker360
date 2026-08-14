@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:15-alpine
@@ -5,6 +7,8 @@ services:
     restart: always
     env_file:
       - .env
+    environment:
+      - TZ=${TZ:-America/Argentina/Buenos_Aires}
     volumes:
       - tracker360_pgdata:/var/lib/postgresql/data
     ports:
@@ -22,6 +26,8 @@ services:
     restart: always
     env_file:
       - .env
+    environment:
+      - TZ=${TZ:-America/Argentina/Buenos_Aires}
     depends_on:
       db:
         condition: service_healthy

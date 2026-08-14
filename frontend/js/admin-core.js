@@ -8,6 +8,9 @@ let AppConfig = {};
 let cachedOrdersList = [];
 let cachedLogsList = [];
 
+// ESTADO GLOBAL DEL MODO AYUDA CONTEXTUAL (VANILLA JS SOBERANO)
+let isHelpModeActive = false;
+
 function escapeHTML(str) {
     if (str === null || str === undefined) return '';
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -37,6 +40,81 @@ function getFormVal(id) {
 
 window.addEventListener('online', () => { const b = document.getElementById('net-banner'); if(b) b.style.display = 'none'; });
 window.addEventListener('offline', () => { const b = document.getElementById('net-banner'); if(b) b.style.display = 'block'; });
+
+// === MOTOR NATIVO DE MODO AYUDA CONTEXTUAL ===
+
+function toggleHelpMode() {
+    isHelpModeActive = !isHelpModeActive;
+    const badge = document.getElementById('help-mode-badge');
+    const popover = document.getElementById('help-popover');
+    
+    if (isHelpModeActive) {
+        document.body.classList.add('help-mode-active');
+        if (badge) { badge.textContent = 'ON'; badge.className = 'badge badge-success'; }
+        showToast('Modo Ayuda ACTIVADO. Pase el cursor sobre los elementos resaltados.', 'info');
+    } else {
+        document.body.classList.remove('help-mode-active');
+        if (badge) { badge.textContent = 'OFF'; badge.className = 'badge badge-neutral'; }
+        if (popover) popover.style.display = 'none';
+        showToast('Modo Ayuda DESACTIVADO.', 'neutral');
+    }
+}
+
+function initHelpModeListeners() {
+    const popover = document.getElementById('help-popover');
+    const popTitle = document.getElementById('help-popover-title');
+    const popBody = document.getElementById('help-popover-body');
+    const popRule = document.getElementById('help-popover-rule');
+
+    document.addEventListener('mouseover', (e) => {
+        if (!isHelpModeActive) return;
+        const target = e.target.closest('[data-help]');
+        if (!target || !popover) return;
+
+        const rawData = target.getAttribute('data-help') || '';
+        const parts = rawData.split('|');
+        
+        const title = parts[0] || 'Ayuda Contextual';
+        const body = parts[1] || '';
+        const rule = parts[2] || '';
+
+        if (popTitle) popTitle.textContent = title;
+        if (popBody) popBody.textContent = body;
+        if (popRule) {
+            if (rule) {
+                popRule.textContent = 'Regla de Negocio: ' + rule;
+                popRule.style.display = 'block';
+            } else {
+                popRule.style.display = 'none';
+            }
+        }
+
+        const rect = target.getBoundingClientRect();
+        popover.style.display = 'block';
+        
+        let top = rect.bottom + 8;
+        let left = rect.left;
+
+        if (top + popover.offsetHeight > window.innerHeight) {
+            top = rect.top - popover.offsetHeight - 8;
+        }
+        if (left + popover.offsetWidth > window.innerWidth) {
+            left = window.innerWidth - popover.offsetWidth - 16;
+        }
+        if (left < 10) left = 10;
+
+        popover.style.top = `${Math.max(10, top)}px`;
+        popover.style.left = `${left}px`;
+    });
+
+    document.addEventListener('mouseout', (e) => {
+        if (!isHelpModeActive || !popover) return;
+        const target = e.target.closest('[data-help]');
+        if (target) {
+            popover.style.display = 'none';
+        }
+    });
+}
 
 // === CONTROL DEL ACORDEÓN DE REPORTES ===
 function toggleAccordion(id) {
@@ -940,6 +1018,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.href = '/index.html';
         });
     }
+    initHelpModeListeners();
 });
 
 window.onload = async () => {
@@ -948,3 +1027,5 @@ window.onload = async () => {
     }
     try { await loadDashboard(); } catch (err) { console.error("Error en loadDashboard:", err); }
 };
+
+window.toggleHelpMode = toggleHelpMode;

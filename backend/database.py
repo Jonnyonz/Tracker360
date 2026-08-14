@@ -99,13 +99,28 @@ async def dispatch_event_to_channels(conn: asyncpg.Connection, event_type: str, 
         if ch["target_url"] and ch["target_url"].startswith("http"):
             asyncio.create_task(asyncio.to_thread(send_webhook_sync, ch["target_url"], payload, ch["api_key"] or ""))
 
-async def record_stock_movement(conn: asyncpg.Connection, sku: str, branch_id: uuid.UUID, sector_id: uuid.UUID, location_id: Optional[uuid.UUID], quantity: float, movement_type: str, ref_doc: str, username: str, lot_number: str = "", expiration_date = None):
-    await conn.execute("INSERT INTO stock_movements (sku, branch_id, sector_id, location_id, quantity, movement_type, reference_document, username, lot_number, expiration_date) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)", sku.upper(), branch_id, sector_id, location_id, quantity, movement_type, ref_doc, username, lot_number, expiration_date)
+async def record_stock_movement(conn: asyncpg.Connection, sku: str, branch_id: uuid.UUID, sector_id: uuid.UUID, location_id: Optional[uuid.UUID], quantity: float, movement_type: str, ref_doc: str, username: str, lot_number: str = "", expiration_date = None, condition: str = "OPERATIVO"):
+    cond_clean = condition.strip().upper() if condition else "OPERATIVO"
+    
+    await conn.execute("""
+        INSERT INTO stock_movements (sku, branch_id, sector_id, location_id, quantity, movement_type, reference_document, username, lot_number, expiration_date, condition) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    """, sku.upper(), branch_id, sector_id, location_id, quantity, movement_type, ref_doc, username, lot_number, expiration_date, cond_clean)
     
     if location_id:
-        await conn.execute("INSERT INTO stock_inventory (branch_id, sector_id, location_id, sku, lot_number, expiration_date, quantity) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (branch_id, sector_id, location_id, sku, lot_number) DO UPDATE SET quantity = stock_inventory.quantity + EXCLUDED.quantity, updated_at = CURRENT_TIMESTAMP", branch_id, sector_id, location_id, sku.upper(), lot_number, expiration_date, quantity)
+        await conn.execute("""
+            INSERT INTO stock_inventory (branch_id, sector_id, location_id, sku, lot_number, expiration_date, quantity, condition) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+            ON CONFLICT (branch_id, sector_id, location_id, sku, lot_number, condition) 
+            DO UPDATE SET quantity = stock_inventory.quantity + EXCLUDED.quantity, updated_at = CURRENT_TIMESTAMP
+        """, branch_id, sector_id, location_id, sku.upper(), lot_number, expiration_date, quantity, cond_clean)
     else:
-        await conn.execute("INSERT INTO stock_inventory (branch_id, sector_id, location_id, sku, lot_number, expiration_date, quantity) VALUES ($1, $2, NULL, $3, $4, $5, $6) ON CONFLICT (branch_id, sector_id, sku, lot_number) WHERE location_id IS NULL DO UPDATE SET quantity = stock_inventory.quantity + EXCLUDED.quantity, updated_at = CURRENT_TIMESTAMP", branch_id, sector_id, sku.upper(), lot_number, expiration_date, quantity)
+        await conn.execute("""
+            INSERT INTO stock_inventory (branch_id, sector_id, location_id, sku, lot_number, expiration_date, quantity, condition) 
+            VALUES ($1, $2, NULL, $3, $4, $5, $6, $7) 
+            ON CONFLICT (branch_id, sector_id, sku, lot_number, condition) WHERE location_id IS NULL 
+            DO UPDATE SET quantity = stock_inventory.quantity + EXCLUDED.quantity, updated_at = CURRENT_TIMESTAMP
+        """, branch_id, sector_id, sku.upper(), lot_number, expiration_date, quantity, cond_clean)
 
     total_qty = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE UPPER(sku) = $1", sku.upper())
     stock_payload = { "event": "stock.updated", "sku": sku.upper(), "available_quantity": float(total_qty), "timestamp": datetime.now(timezone.utc).isoformat() }
@@ -123,7 +138,7 @@ async def get_current_user(request: Request, conn: asyncpg.Connection = Depends(
         raise HTTPException(status_code=401, detail="Sesión expirada.")
     try:
         payload = jwt.decode(token.split(" ")[1], SECRET_KEY, algorithms=[ALGORITHM])
-        user = await conn.fetchrow("SELECT id, username, role, is_active FROM users WHERE username = $1", payload.get("sub"))
+        user = await conn.fetchrow("SELECT id, username, role, branch_id, sector_id, is_active FROM users WHERE username = $1", payload.get("sub"))
         
         if not user or not user["is_active"]: 
             await log_action(conn, payload.get("sub", "Unknown"), "SECURITY_ALERT", f"Usuario desactivado o eliminado intentó operar desde {client_ip}", client_ip)
@@ -193,7 +208,7 @@ async def init_db_schema():
                     
                     "CREATE TABLE IF NOT EXISTS item_combos (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), combo_sku VARCHAR(100) NOT NULL REFERENCES items(sku) ON DELETE CASCADE, component_sku VARCHAR(100) NOT NULL REFERENCES items(sku) ON DELETE CASCADE, quantity NUMERIC NOT NULL DEFAULT 1, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, UNIQUE(combo_sku, component_sku));",
 
-                    # TABLA DDL AISLADA PARA RFID (ESTÁNDAR EPC GLOBAL)
+                    # TABLA DDL AISLADA PARA RFID
                     "CREATE TABLE IF NOT EXISTS rfid_tags (epc VARCHAR(100) PRIMARY KEY, sku VARCHAR(100) NOT NULL REFERENCES items(sku) ON DELETE CASCADE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, created_by VARCHAR(50));",
                     "CREATE INDEX IF NOT EXISTS idx_rfid_tags_sku ON rfid_tags (sku);",
 
@@ -215,14 +230,23 @@ async def init_db_schema():
                     "CREATE TABLE IF NOT EXISTS stock_inventory (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), branch_id UUID REFERENCES branches(id) ON DELETE CASCADE, sector_id UUID REFERENCES sectors(id) ON DELETE CASCADE, location_id UUID REFERENCES locations(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, quantity NUMERIC DEFAULT 0, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "ALTER TABLE stock_inventory ADD COLUMN IF NOT EXISTS lot_number VARCHAR(100) DEFAULT '';",
                     "ALTER TABLE stock_inventory ADD COLUMN IF NOT EXISTS expiration_date DATE;",
+                    "ALTER TABLE stock_inventory ADD COLUMN IF NOT EXISTS condition VARCHAR(50) DEFAULT 'OPERATIVO';",
+                    
                     "DROP INDEX IF EXISTS idx_stock_loc_sku;",
                     "DROP INDEX IF EXISTS idx_stock_noloc_sku;",
-                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_loc_sku_lot ON stock_inventory (branch_id, sector_id, location_id, sku, lot_number) WHERE location_id IS NOT NULL;",
-                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_noloc_sku_lot ON stock_inventory (branch_id, sector_id, sku, lot_number) WHERE location_id IS NULL;",
+                    "DROP INDEX IF EXISTS idx_stock_loc_sku_lot;",
+                    "DROP INDEX IF EXISTS idx_stock_noloc_sku_lot;",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_loc_sku_lot_cond ON stock_inventory (branch_id, sector_id, location_id, sku, lot_number, condition) WHERE location_id IS NOT NULL;",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_stock_noloc_sku_lot_cond ON stock_inventory (branch_id, sector_id, sku, lot_number, condition) WHERE location_id IS NULL;",
                     
                     "CREATE TABLE IF NOT EXISTS stock_movements (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), sku VARCHAR(100) NOT NULL, branch_id UUID REFERENCES branches(id), sector_id UUID REFERENCES sectors(id), location_id UUID REFERENCES locations(id), quantity NUMERIC NOT NULL, movement_type VARCHAR(50) NOT NULL, reference_document VARCHAR(100), username VARCHAR(50) NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS lot_number VARCHAR(100) DEFAULT '';",
                     "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS expiration_date DATE;",
+                    "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS condition VARCHAR(50) DEFAULT 'OPERATIVO';",
+
+                    # TABLAS DDL PARA DEVOLUCIONES DE CLIENTES (RMA)
+                    "CREATE TABLE IF NOT EXISTS customer_returns (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), return_number VARCHAR(50) UNIQUE NOT NULL, customer_id UUID REFERENCES entities(id), document_id UUID REFERENCES documents(id), branch_id UUID REFERENCES branches(id), sector_id UUID REFERENCES sectors(id), status VARCHAR(20) DEFAULT 'COMPLETED', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, created_by VARCHAR(50));",
+                    "CREATE TABLE IF NOT EXISTS customer_return_lines (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), return_id UUID REFERENCES customer_returns(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, quantity NUMERIC NOT NULL, condition VARCHAR(50) DEFAULT 'OPERATIVO', location_id UUID REFERENCES locations(id));",
                     
                     "CREATE TABLE IF NOT EXISTS purchase_orders (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), order_number VARCHAR(50) UNIQUE NOT NULL, supplier_id UUID REFERENCES entities(id), status VARCHAR(20) DEFAULT 'PENDING', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "CREATE TABLE IF NOT EXISTS purchase_order_lines (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), purchase_order_id UUID REFERENCES purchase_orders(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, quantity_ordered NUMERIC NOT NULL, quantity_received NUMERIC DEFAULT 0);",
@@ -253,6 +277,9 @@ async def init_db_schema():
                     "INSERT INTO system_settings (key, value) VALUES ('require_mobile_reception', 'false') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('enable_item_dimensions', 'false') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('enable_lots_expiration', 'false') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('enable_stock_conditions', 'false') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('enable_quarantine_on_return', 'false') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('return_number_prefix', 'DEV-') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('app_name', 'Tracker360') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('company_cuit', '30-00000000-0') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('session_timeout_minutes', '240') ON CONFLICT (key) DO NOTHING;",

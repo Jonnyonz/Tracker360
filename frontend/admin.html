@@ -87,7 +87,7 @@
 
         .dynamic-list { border: 1px solid var(--border-color); padding: 1rem; border-radius: 6px; margin-bottom: 1rem; background: #F8FAFC; }
         .dynamic-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
-        .dynamic-row input { flex: 1; min-width: 80px; }
+        .dynamic-row input, .dynamic-row select { flex: 1; min-width: 80px; }
 
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(15, 23, 42, 0.65); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
         .modal-content { background: var(--card-bg); width: 95%; max-width: 650px; max-height: 90vh; overflow-y: auto; overflow-x: hidden; border-radius: 10px; border: 1px solid var(--border-color); padding: 1.5rem; position: relative; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); color: var(--text-main); margin: auto; }
@@ -104,6 +104,51 @@
 
         .lot-input { display: none; }
 
+        /* ESTILOS DEL MODO AYUDA CONTEXTUAL (100% SOBERANO Y NATIVO) */
+        body.help-mode-active [data-help] {
+            outline: 2px dashed var(--accent-blue) !important;
+            outline-offset: 2px;
+            cursor: help !important;
+        }
+        .help-popover {
+            display: none;
+            position: fixed;
+            z-index: 100000;
+            background: #FFFFFF;
+            color: var(--text-main);
+            border: 1px solid var(--primary-blue);
+            border-left: 5px solid var(--accent-blue);
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
+            max-width: 320px;
+            font-size: 0.85rem;
+            pointer-events: none;
+            transition: opacity 0.15s ease;
+        }
+        .help-popover-title {
+            font-weight: 800;
+            color: var(--primary-blue);
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            margin-bottom: 0.4rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.3rem;
+        }
+        .help-popover-body {
+            color: var(--text-main);
+            line-height: 1.4;
+        }
+        .help-popover-rule {
+            margin-top: 0.4rem;
+            font-size: 0.78rem;
+            color: #1E40AF;
+            background: #EFF6FF;
+            padding: 0.4rem;
+            border-radius: 4px;
+            border-left: 3px solid #3B82F6;
+        }
+
         /* Estilos Panel de Configuración Modular */
         .settings-panel .card { padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
         .settings-subtitle { font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 1rem; }
@@ -115,7 +160,6 @@
         .settings-row select { width: 100%; margin: 0; padding: 0.4rem; font-weight: bold; background-color: #F8FAFC; text-align: center; }
         .settings-row input[type="number"], .settings-row input[type="text"] { width: 100%; margin: 0; padding: 0.4rem; text-align: center; font-weight: bold; }
         
-        /* Toggle Switch Compacto */
         .switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; margin: 0; }
         .switch input { opacity: 0; width: 0 !important; height: 0 !important; min-width: 0 !important; margin: 0 !important; padding: 0 !important; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #CBD5E1; transition: .3s; border-radius: 24px; }
@@ -179,7 +223,13 @@
                 <button class="tab-btn" onclick="switchView('section-logs', this)">Auditoría General</button>
                 <button class="tab-btn" onclick="switchView('section-settings', this)">Configuración</button>
                 
-                <button class="tab-btn" onclick="window.location.href='/mobile'" style="margin-top: 1.5rem; color: #FCD34D; border: 1px solid #FCD34D; justify-content: center; font-weight: bold; background: rgba(252, 211, 77, 0.1);">
+                <!-- BOTÓN INTERRUPTOR DEL MODO AYUDA CONTEXTUAL -->
+                <button class="tab-btn" id="btn-toggle-help" onclick="toggleHelpMode()" style="color: #93C5FD; border: 1px dashed #3B82F6; justify-content: space-between; font-weight: bold; margin-top: 1rem;">
+                    <span>Modo Ayuda</span>
+                    <span id="help-mode-badge" class="badge badge-neutral" style="font-size: 0.7rem;">OFF</span>
+                </button>
+
+                <button class="tab-btn" onclick="window.location.href='/mobile'" style="margin-top: 0.8rem; color: #FCD34D; border: 1px solid #FCD34D; justify-content: center; font-weight: bold; background: rgba(252, 211, 77, 0.1);">
                     Modo Colectora
                 </button>
             </div>
@@ -194,26 +244,27 @@
         <div id="section-dashboard" class="view-section active">
             <h2>Tablero Resumen de Operaciones</h2>
             <div class="grid-layout">
-                <div class="card">
+                <div class="card" data-help="Pedidos Pendientes|Muestra las órdenes de salida pendientes de preparado enviadas por la API o cargadas manualmente.|Priorice el armado de pedidos con mayor tiempo en cola.">
                     <h3 style="color:var(--primary-blue); margin-bottom:1rem;">1. Pedidos Pendientes</h3>
                     <table><thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th></tr></thead><tbody id="dash-orders-body"></tbody></table>
                     <button class="btn-dash-more" onclick="switchView('section-orders')">Ver Todos los Pedidos</button>
                 </div>
-                <div class="card">
+                <div class="card" data-help="Traspasos Activos|Órdenes de movimiento de mercadería (ODT) entre sucursales o sectores.|El stock de origen se descuenta de inmediato y el destino se suma cuando la colectora confirma la recepción.">
                     <h3 style="color:var(--primary-blue); margin-bottom:1rem;">2. Traspasos Activos</h3>
                     <table><thead><tr><th>Nº Traspaso</th><th>Origen</th><th>Destino</th></tr></thead><tbody id="dash-transfers-body"></tbody></table>
                     <button class="btn-dash-more" onclick="navigateToSubTab('section-purchases', 'tab-transfer')">Ver Todos los Traspasos</button>
                 </div>
-                <div class="card">
+                <div class="card" data-help="Carga de Mercadería|Accesos directos para la carga de comprobantes de ingreso, devoluciones y traspasos.|Garantiza que la mercadería ingrese asignada a la sucursal y sector del operador logístico.">
                     <h3 style="color:var(--primary-blue); margin-bottom:1rem;">3. Cargar Mercadería y Movimientos</h3>
                     <div style="display:flex; flex-direction:column; gap:0.5rem;">
+                        <div class="dash-action-item"><span>Ingreso por Devolución</span><button class="btn-submit" style="width:auto; margin:0; padding:0.4rem 1rem;" onclick="navigateToSubTab('section-purchases', 'tab-return')">Cargar</button></div>
                         <div class="dash-action-item"><span>Crear Orden de Traspaso (ODT)</span><button class="btn-submit" style="width:auto; margin:0; padding:0.4rem 1rem;" onclick="navigateToSubTab('section-purchases', 'tab-transfer')">Crear</button></div>
                         <div class="dash-action-item"><span>Crear Remito de Compra</span><button class="btn-submit" style="width:auto; margin:0; padding:0.4rem 1rem;" onclick="navigateToSubTab('section-purchases', 'tab-remito')">Crear</button></div>
                         <div class="dash-action-item"><span>Crear Factura de Compra</span><button class="btn-submit" style="width:auto; margin:0; padding:0.4rem 1rem;" onclick="navigateToSubTab('section-purchases', 'tab-invoice')">Crear</button></div>
                         <div class="dash-action-item"><span>Crear Orden de Compra</span><button class="btn-submit" style="width:auto; margin:0; padding:0.4rem 1rem;" onclick="navigateToSubTab('section-purchases', 'tab-po')">Crear</button></div>
                     </div>
                 </div>
-                <div class="card">
+                <div class="card" data-help="Registros de Auditoría|Bitácora inmutable de eventos de seguridad y operaciones realizadas.|Permite rastrear qué usuario ejecutó cada cambio o ajuste de inventario.">
                     <h3 style="color:var(--primary-blue); margin-bottom:1rem;">4. Registros de Auditoría Recientes</h3>
                     <table><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th></tr></thead><tbody id="dash-logs-body"></tbody></table>
                     <button class="btn-dash-more" onclick="switchView('section-logs')">Ver Registro Completo</button>
@@ -251,7 +302,7 @@
                 </select>
             </div>
 
-            <div class="card">
+            <div class="card" data-help="Personal y Contexto de Operador|Asignación de roles y fijación de Sucursal/Sector por usuario.|Los operarios preparadores heredan su sucursal fija para evitar errores en recepciones y conteos.">
                 <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Usuarios Activos en el Sistema</h3>
                 <table><thead><tr><th>Usuario</th><th>Nombre Completo</th><th>Correo</th><th>Rol</th><th>Sucursal</th><th>Sector</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="table-users-body"></tbody></table>
             </div>
@@ -263,7 +314,7 @@
                 <h2 style="margin:0;">Gestión de Clientes y Proveedores</h2>
                 <button type="button" class="btn-submit" onclick="openEntityModal()" style="width:auto; margin:0;">+ Crear Entidad</button>
             </div>
-            <div class="card">
+            <div class="card" data-help="Clientes y Proveedores|Registro de CUIT/RUT y direcciones fiscales/entrega de la empresa.|Permite asociar múltiples direcciones de entrega por cliente para remitos y etiquetas ZPL.">
                 <table><thead><tr><th>CUIT / RUT</th><th>Razón Social</th><th>Rol</th><th>Direcciones Asignadas</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="table-entities-body"></tbody></table>
             </div>
         </div>
@@ -281,7 +332,7 @@
             </div>
 
             <div class="grid-layout">
-                <div class="card">
+                <div class="card" data-help="Sucursales|Puntos físicos de almacenamiento o tiendas de la empresa.|Define los almacenes independientes entre los cuales se pueden realizar traspasos ODT.">
                     <h3 style="color:var(--primary-blue); margin-bottom:1rem;">1. Sucursales Registradas</h3>
                     <table>
                         <thead><tr><th>Código</th><th>Nombre Sucursal</th><th>Estado</th></tr></thead>
@@ -289,7 +340,7 @@
                     </table>
                 </div>
 
-                <div class="card">
+                <div class="card" data-help="Sectors de Depósito|Divisiones lógicas dentro de una sucursal (ej: Picking, Pulmón, Recepción).|Cada sector posee su propia cola de impresión predeterminada para etiquetas.">
                     <h3 style="color:var(--primary-blue); margin-bottom:1rem;">2. Sectores por Sucursal</h3>
                     <table>
                         <thead><tr><th>Sucursal</th><th>Nombre Sector</th><th>Cola Impresión</th><th>Ubicaciones</th></tr></thead>
@@ -298,7 +349,7 @@
                 </div>
             </div>
 
-            <div class="card">
+            <div class="card" data-help="Ubicaciones Físicas (Racks)|Nomenclatura de estantes y posiciones (ej: RACK-A-01-02).|Garantiza la ruta de armado óptima durante el picking guiado por cámara.">
                 <h3 style="color:var(--primary-blue); margin-bottom:1rem;">3. Maestro de Ubicaciones Físicas</h3>
                 <table>
                     <thead>
@@ -330,7 +381,7 @@
                     <button id="btn-search-items" onclick="handleSearchItems()" class="btn-submit" style="width:auto; margin:0; padding:0.8rem 1.5rem;">Buscar</button>
                 </div>
             </div>
-            <div class="card">
+            <div class="card" data-help="Catálogo de Productos|Listado maestro de productos con soporte para Artículos Combo (Kit/BOM).|Permite definir dimensiones, pesos y ubicaciones fijas de extracción.">
                 <table>
                     <thead>
                         <tr>
@@ -358,11 +409,12 @@
                 <button class="purchase-subtab-btn" onclick="switchPurchaseTab('tab-remito', this)">Remitos de Entrada</button>
                 <button class="purchase-subtab-btn" onclick="switchPurchaseTab('tab-invoice', this)">Facturas</button>
                 <button class="purchase-subtab-btn" onclick="switchPurchaseTab('tab-transfer', this)">Traspasos</button>
+                <button class="purchase-subtab-btn" onclick="switchPurchaseTab('tab-return', this)">Devoluciones</button>
             </div>
 
             <div id="tab-po" class="purchase-tab" style="display:block;">
                 <div class="grid-layout">
-                    <div class="card">
+                    <div class="card" data-help="Emisión de Órdenes de Compra|Solicitud formal de mercadería a un proveedor.|Sirve como plantilla para controlar las cantidades al recibir el remito físico.">
                         <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Emitir Orden de Compra</h3>
                         <form id="form-po" onsubmit="savePO(event)">
                             <div class="grid-layout" style="margin-bottom:0;">
@@ -398,7 +450,7 @@
 
             <div id="tab-remito" class="purchase-tab" style="display:none;">
                 <div class="grid-layout">
-                    <div class="card">
+                    <div class="card" data-help="Remitos de Entrada|Ingreso físico de mercadería del proveedor al inventario.|Incrementa el stock de la sucursal y sector seleccionados.">
                         <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Registrar Remito</h3>
                         <form id="form-remito" onsubmit="saveRemito(event)">
                             <div class="grid-layout" style="margin-bottom:0;">
@@ -438,7 +490,7 @@
 
             <div id="tab-invoice" class="purchase-tab" style="display:none;">
                 <div class="grid-layout">
-                    <div class="card">
+                    <div class="card" data-help="Facturas de Compra|Comprobante administrativo contable enviado por el proveedor.|Permite asociar remitos ya ingresados o hacer un ingreso directo por compra.">
                         <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Cargar Factura</h3>
                         <form id="form-invoice" onsubmit="saveInvoice(event)">
                             <div class="grid-layout" style="margin-bottom:0;">
@@ -490,7 +542,7 @@
 
             <div id="tab-transfer" class="purchase-tab" style="display:none;">
                 <div class="grid-layout">
-                    <div class="card">
+                    <div class="card" data-help="Órdenes de Traspaso (ODT)|Movimientos entre sucursales y sectores.|Descuenta el stock de origen y genera una tarea de control en la colectora móvil del sector destino.">
                         <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Generar Orden de Traspaso (ODT)</h3>
                         <form id="form-transfer" onsubmit="saveTransfer(event)">
                             <div class="form-group">
@@ -534,6 +586,55 @@
                     </div>
                 </div>
             </div>
+
+            <!-- SUBTAB DEVOLUCIONES -->
+            <div id="tab-return" class="purchase-tab" style="display:none;">
+                <div class="grid-layout">
+                    <div class="card" data-help="Ingreso por Devolución|Recepción de paquetes devueltos por clientes vinculados a un pedido entregado.|Asigna la sucursal/sector del usuario activo y califica la mercadería como Operativo, Outlet o Dañado.">
+                        <h3 style="color:var(--primary-blue); margin-bottom:1rem;">Registrar Devolución de Cliente</h3>
+                        <form id="form-return" onsubmit="saveCustomerReturn(event)">
+                            <div class="form-group">
+                                <label>Nº de Comprobante Devolución</label>
+                                <input type="text" id="rma-num" readonly placeholder="Cargando..." style="background:#F3F4F6; font-weight:bold; color:var(--primary-blue);" required>
+                            </div>
+                            <div class="grid-layout" style="margin-bottom:0;">
+                                <div class="form-group">
+                                    <label>1. Cliente Origen *</label>
+                                    <select id="rma-customer" onchange="onRMACustomerChange()" required>
+                                        <option value="">-- Seleccionar Cliente --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>2. Pedido de Venta Relacionado *</label>
+                                    <select id="rma-order" onchange="onRMAOrderChange()" required disabled>
+                                        <option value="">-- Seleccione un Cliente --</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <label style="margin-bottom:8px; display:block; font-weight:bold; font-size:0.88rem;">3. Artículos a Devolver (Indique cantidad recibida y estado físico):</label>
+                            <div id="rma-items-container" style="border:1px solid var(--border-color); border-radius:6px; padding:0.5rem; background:#F8FAFC; margin-bottom:1.2rem; min-height:100px;">
+                                <p style="text-align:center; color:var(--text-muted); padding:1.5rem; font-size:0.85rem;">Seleccione un Pedido para visualizar sus artículos.</p>
+                            </div>
+
+                            <button type="submit" class="btn-submit" style="margin-top:0.5rem;">Confirmar Ingreso por Devolución</button>
+                        </form>
+                    </div>
+
+                    <div class="card">
+                        <h3 style="color:var(--primary-blue); margin-bottom:0.5rem;">Historial de Devoluciones</h3>
+                        <div style="display:flex; gap:8px; margin-bottom:1rem;">
+                            <input type="text" id="search-rma-text" placeholder="Buscar devolución..." style="padding:6px; font-size:0.85rem;" onkeyup="loadReturnData()">
+                            <button class="btn-secondary" style="padding:6px 12px;" onclick="loadReturnData('', 50)">Ver Todos</button>
+                        </div>
+                        <table style="font-size:0.85rem;">
+                            <thead><tr><th>Nº Devolución</th><th>Cliente</th><th>Pedido</th><th>Fecha</th><th>Usuario</th></tr></thead>
+                            <tbody id="table-returns-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <!-- 8. PEDIDOS -->
@@ -555,7 +656,7 @@
                 <button class="btn-secondary" onclick="loadOrders()" style="padding:8px 16px;">Actualizar</button>
             </div>
 
-            <div class="card">
+            <div class="card" data-help="Monitoreo de Pedidos|Panel de control de avance del armado de pedidos.|Muestra la barra de porcentaje (%) en tiempo real a medida que los preparadores escanean en la colectora.">
                 <table>
                     <thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th><th>Progreso</th><th>Acción</th></tr></thead>
                     <tbody id="table-orders-body">
@@ -582,7 +683,7 @@
                 <button class="btn-secondary" onclick="loadInventorySessions()" style="padding:8px 16px;">Actualizar Panel</button>
             </div>
 
-            <div class="card">
+            <div class="card" data-help="Sesiones de Conteo Ciego|Apertura de foto congelada (Snapshot) del inventario para auditoría.|HOT: Permite seguir operando. COLD: Congela el sector para máxima precisión.">
                 <table>
                     <thead>
                         <tr>
@@ -646,6 +747,7 @@
                                 <select id="kardex-filter-type">
                                     <option value="">-- Todas las Operaciones --</option>
                                     <option value="INGRESO_COMPRA">Ingreso por Compra</option>
+                                    <option value="IN_RETURN">Ingreso por Devolución</option>
                                     <option value="SALIDA_VENTA">Salida por Venta / Pedido</option>
                                     <option value="TRASPASO">Movimiento / Traspaso Interno</option>
                                     <option value="AJUSTE">Ajuste de Inventario</option>
@@ -658,7 +760,7 @@
                     </div>
                 </form>
             </div>
-            <div class="card">
+            <div class="card" data-help="Traza de Artículos (Kardex)|Historial inmutable de movimientos de stock con fecha, hora y usuario.|Registra cada alta, baja, despacho o traspaso para auditorías y peritajes.">
                 <table style="font-size:0.85rem;">
                     <thead>
                         <tr>
@@ -666,6 +768,7 @@
                             <th>SKU</th>
                             <th>Descripción</th>
                             <th>Operación</th>
+                            <th>Estado Stock</th>
                             <th>Sucursal > Sector</th>
                             <th>Ubicación</th>
                             <th>Ingreso</th>
@@ -674,7 +777,7 @@
                         </tr>
                     </thead>
                     <tbody id="table-kardex-body">
-                        <tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:2rem;">Seleccione los filtros y presione 'Generar Reporte' para visualizar la trazabilidad.</td></tr>
+                        <tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:2rem;">Seleccione los filtros y presione 'Generar Reporte' para visualizar la trazabilidad.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -725,11 +828,12 @@
                         <tr>
                             <th>SKU</th>
                             <th>Descripción</th>
+                            <th>Estado Stock</th>
                             <th style="text-align:right;">Stock Total</th>
                         </tr>
                     </thead>
                     <tbody id="table-rep-stock-body">
-                        <tr><td colspan="10" style="text-align:center; color:var(--text-muted); padding:2rem;">Seleccione los filtros y presione 'Generar Reporte'</td></tr>
+                        <tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:2rem;">Seleccione los filtros y presione 'Generar Reporte'</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -988,9 +1092,7 @@
             </div>
         </div>
 
-        <!-- ========================================================================= -->
-        <!-- CONFIGURACIÓN RE-DISEÑADA Y 100% UNIFICADA EN PANELES TEMÁTICOS         -->
-        <!-- ========================================================================= -->
+        <!-- CONFIGURACIÓN RE-DISEÑADA -->
         <div id="section-settings" class="view-section settings-panel">
             <h2>Configuración del Sistema</h2>
             
@@ -1018,7 +1120,6 @@
                                 <div class="control-wrap"><input type="number" id="cfg-lockout-time-minutes" min="1"></div>
                             </div>
 
-                            <!-- GOOGLE OAUTH2 DENTRO DE SEGURIDAD Y SESIONES -->
                             <div class="settings-group-header" style="margin-top:1rem;">Autenticación Google OAUTH2</div>
                             <div class="settings-row" style="border:none; padding-bottom:0;">
                                 <div>
@@ -1046,6 +1147,10 @@
                                 <div class="control-wrap"><input type="text" id="cfg-sales-order-prefix"></div>
                             </div>
                             <div class="settings-row">
+                                <label for="cfg-return-number-prefix">Prefijo para Devoluciones</label>
+                                <div class="control-wrap"><input type="text" id="cfg-return-number-prefix"></div>
+                            </div>
+                            <div class="settings-row">
                                 <label for="cfg-correlative-zeros-pad">Relleno de Ceros Correlativos (Padding)</label>
                                 <div class="control-wrap"><input type="number" id="cfg-correlative-zeros-pad" min="3" max="10"></div>
                             </div>
@@ -1069,13 +1174,17 @@
                     <div style="display:flex; flex-direction:column; gap:1.5rem;">
                         
                         <!-- CARD 3: OPERATIVA Y DEPÓSITO -->
-                        <div class="card">
+                        <div class="card" data-help="Reglas de Depósito|Ajustes avanzados para comportamiento de picking, quiebres de stock y calidades.|Active 'Estados de Stock' para clasificar mercadería en Operativo, Outlet o Dañado.">
                             <h3 style="color:var(--primary-blue); margin-bottom:0.2rem;">Operativa y Depósito</h3>
                             <span class="settings-subtitle">Reglas de negocio logístico, inventarios y stock</span>
                             
                             <div class="settings-row">
                                 <label for="cfg-auto-complete-picking">Auto-completar Pedido al finalizar Picking</label>
                                 <div class="control-wrap"><select id="cfg-auto-complete-picking"><option value="true">SÍ</option><option value="false">NO</option></select></div>
+                            </div>
+                            <div class="settings-row">
+                                <label for="cfg-enable-stock-conditions">Habilitar Estados de Stock (Operativo, Outlet, Dañado)</label>
+                                <div class="control-wrap"><select id="cfg-enable-stock-conditions"><option value="false">NO</option><option value="true">SÍ</option></select></div>
                             </div>
                             <div class="settings-row">
                                 <label for="cfg-enable-stock-management">Gestión de Stock Estricta Activa</label>
@@ -1157,13 +1266,11 @@
 
                 </div>
 
-                <!-- BOTÓN DE GUARDADO PROLIJO -->
                 <div style="margin-top:1rem; margin-bottom:1.5rem;">
                     <button type="submit" class="btn-submit" style="width:100%; padding:1.1rem; font-size:1rem; background:var(--primary-blue); box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);">Guardar Toda la Configuración General</button>
                 </div>
             </form>
 
-            <!-- SECCIÓN "VINCULACIONES VÍA API" CENTRALIZADA ABAJO (FULL WIDTH) -->
             <div class="card" style="margin-top:1.5rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:12px;">
                     <div>
@@ -1195,6 +1302,13 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- TARJETA FLOTANTE NATIVA PARA MODO AYUDA (POPOVER) -->
+    <div id="help-popover" class="help-popover">
+        <div id="help-popover-title" class="help-popover-title"></div>
+        <div id="help-popover-body" class="help-popover-body"></div>
+        <div id="help-popover-rule" class="help-popover-rule"></div>
     </div>
 
     <!-- MODALES DE EDICIÓN Y SISTEMA -->
@@ -1245,9 +1359,7 @@
 
                 <div id="edit-combo-section" style="display:none;">
                     <label style="margin-bottom:8px; display:block; font-weight:bold; font-size:0.88rem;">Artículos del Combo (Componentes requeridos para armar 1 unidad):</label>
-                    <div class="dynamic-list" id="edit-combo-components-list">
-                        <!-- Filas dinámicas -->
-                    </div>
+                    <div class="dynamic-list" id="edit-combo-components-list"></div>
                     <button type="button" onclick="addComboComponentRow()" style="background:none; border:1px solid var(--accent-blue); color:var(--accent-blue); padding:6px 14px; border-radius:4px; font-weight:bold; cursor:pointer; font-size:0.82rem; margin-bottom:1rem;">+ Añadir Componente</button>
                 </div>
 
@@ -1786,13 +1898,13 @@
     </div>
 
     <!-- SCRIPTS DEL SISTEMA -->
-    <script src="js/admin-core.js?v=20260805"></script>
+    <script src="js/admin-core.js?v=20260814_2"></script>
     <script src="js/api.js"></script>
     <script src="js/users.js?v=20260808_1"></script>
     <script src="js/entities.js"></script>
     <script src="js/items.js?v=20260812_3"></script>
     <script src="js/warehouse.js"></script>
-    <script src="js/operations.js?v=20260807_5"></script>
+    <script src="js/operations.js?v=20260814_1"></script>
     <script src="js/reports.js?v=20260807_1"></script>
     <script src="js/settings.js?v=20260807_10"></script>
     <script src="js/admin-init.js"></script>

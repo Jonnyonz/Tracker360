@@ -9,10 +9,10 @@ import jwt
 
 try:
     from backend.database import init_db_schema, DB, SECRET_KEY, ALGORITHM
-    from backend.routers import auth, users, entities, items, warehouse, settings, printing, operations, reports, rfid
+    from backend.routers import auth, users, entities, items, warehouse, settings, printing, operations, reports, rfid, updater
 except ImportError:
     from database import init_db_schema, DB, SECRET_KEY, ALGORITHM
-    from routers import auth, users, entities, items, warehouse, settings, printing, operations, reports, rfid
+    from routers import auth, users, entities, items, warehouse, settings, printing, operations, reports, rfid, updater
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -51,7 +51,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# === REGISTRO DE ROUTERS MODULARES (INCLUYE ROUTER AISLADO RFID) ===
+# === REGISTRO DE ROUTERS MODULARES (INCLUYE ROUTER DE ACTUALIZACIONES) ===
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(entities.router)
@@ -62,6 +62,7 @@ app.include_router(printing.router)
 app.include_router(operations.router)
 app.include_router(reports.router)
 app.include_router(rfid.router)
+app.include_router(updater.router)
 
 # === ENDPOINTS EXPLICITOS DE FAVICON ===
 @app.get("/favicon.png", include_in_schema=False)

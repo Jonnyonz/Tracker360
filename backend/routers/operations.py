@@ -81,13 +81,71 @@ class SpotCheckInput(BaseModel):
     location_code: Optional[str] = None
     lot_number: str = ""
 
+# MODELOS PYDANTIC PARA DEVOLUCIONES (RMA)
+class CustomerReturnLineInput(BaseModel):
+    sku: str
+    quantity: float
+    condition: str = "OPERATIVO"
+    location_code: Optional[str] = None
+
+class CustomerReturnCreateInput(BaseModel):
+    return_number: str
+    customer_id: str
+    document_id: str
+    branch_id: Optional[str] = None
+    sector_id: Optional[str] = None
+    lines: List[CustomerReturnLineInput]
+
+# === DASHBOARD E INTEGRACIONES ===
+
+@router.get("/api/admin/dashboard")
+async def get_admin_dashboard_op(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    pending_orders = await conn.fetch("""
+        SELECT d.document_number, COALESCE(e.company_name, 'Consumidor Final') as company_name, d.status 
+        FROM documents d 
+        LEFT JOIN entities e ON d.customer_id = e.id 
+        WHERE d.status IN ('PENDING', 'IN_PROGRESS') 
+        ORDER BY d.created_at ASC LIMIT 5
+    """)
+    
+    active_transfers = await conn.fetch("""
+        SELECT t.transfer_number, COALESCE(ob.name, 'N/A') as origin_branch, COALESCE(db.name, 'N/A') as destination_branch
+        FROM transfer_orders t
+        LEFT JOIN branches ob ON t.origin_branch_id = ob.id
+        LEFT JOIN branches db ON t.destination_branch_id = db.id
+        WHERE t.status IN ('PENDING', 'PENDING_CONTROL', 'IN_PROGRESS')
+        ORDER BY t.created_at ASC LIMIT 5
+    """)
+    
+    latest_logs = await conn.fetch("""
+        SELECT created_at, username, action 
+        FROM audit_logs 
+        ORDER BY created_at DESC LIMIT 5
+    """)
+    
+    return {
+        "status": "ok",
+        "pending_orders": [dict(r) for r in pending_orders],
+        "active_transfers": [dict(r) for r in active_transfers],
+        "latest_logs": [dict(r) for r in latest_logs]
+    }
+
+@router.get("/api/admin/integrations")
+async def get_admin_integrations_op(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    rows = await conn.fetch("""
+        SELECT id::text, name, channel_type, target_url, is_active, created_at
+        FROM integration_channels
+        ORDER BY created_at DESC
+    """)
+    return [dict(r) for r in rows]
+
 # === STOCK Y KARDEX ===
 @router.get("/api/admin/stock")
 async def list_admin_stock(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
         SELECT si.sku, i.description, b.name as branch_name, sec.name as sector_name, 
                COALESCE(l.location_code, 'Sin ubicación') as location_code, 
-               si.quantity::float as quantity, si.updated_at
+               si.quantity::float as quantity, COALESCE(si.condition, 'OPERATIVO') as condition, si.updated_at
         FROM stock_inventory si
         LEFT JOIN items i ON si.sku = i.sku
         LEFT JOIN branches b ON si.branch_id = b.id
@@ -113,7 +171,7 @@ async def list_admin_stock_kardex(
 ):
     query = """
         SELECT sm.id::text as id, sm.sku, COALESCE(i.description, 'Sin descripción') as description,
-               sm.movement_type, sm.quantity::float as quantity, 
+               sm.movement_type, sm.quantity::float as quantity, COALESCE(sm.condition, 'OPERATIVO') as condition,
                sm.reference_document, sm.username, sm.created_at,
                b.name as branch_name, sec.name as sector_name, l.location_code
         FROM stock_movements sm
@@ -190,7 +248,7 @@ async def list_admin_stock_kardex(
         return [dict(r) for r in rows]
     except Exception as e:
         print(f"Error procesando Kardex: {e}")
-        raise HTTPException(status_code=400, detail="Error al procesar la consulta. Verifique los filtros aplicados.")
+        raise HTTPException(status_code=400, detail="Error al procesar la consulta.")
 
 # === INVENTARIO FÍSICO / CONTEOS ===
 @router.get("/api/inventory/sessions")
@@ -349,10 +407,9 @@ async def spot_check_inventory(data: SpotCheckInput, admin: dict = Depends(requi
         "match": match
     }
 
-# === PICKING & PACKING (REPARADO Y BLINDADO EN PYTHON) ===
+# === PICKING & PACKING ===
 @router.get("/api/picking/orders")
 async def get_picking_mailbox(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
-    # Ejecutamos consultas simples separadas para evitar colapsos por subconsultas correlacionadas en Asyncpg
     rows = await conn.fetch("""
         SELECT d.id, d.document_number, d.status, COALESCE(c.company_name, 'Consumidor Final') as company_name
         FROM documents d 
@@ -395,7 +452,6 @@ async def get_picking_order_details(document_number: str, user: dict = Depends(g
     result_lines = []
     for l in lines:
         ldict = dict(l)
-        # Obtenemos las locaciones de manera separada y construimos el string en Python (A prueba de fallos)
         locs = await conn.fetch("""
             SELECT l.location_code, si.quantity::float 
             FROM stock_inventory si 
@@ -430,7 +486,6 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
         if needed <= 0:
             raise HTTPException(400, f"El SKU '{sku_clean}' ya fue recolectado totalmente.")
 
-        # Manejo flexible de ubicación (Sectores con o sin ubicación)
         loc_id = None
         branch_id = None
         sector_id = None
@@ -443,7 +498,6 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
                 branch_id = loc["branch_id"]
 
         if not loc_id:
-            # Fallback a stock de ubicación general
             stock_entry = await conn.fetchrow("SELECT branch_id, sector_id, location_id FROM stock_inventory WHERE UPPER(sku) = $1 AND quantity > 0 LIMIT 1", sku_clean)
             if stock_entry:
                 branch_id = stock_entry["branch_id"]
@@ -455,14 +509,12 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
                 branch_id = default_branch
                 sector_id = default_sector
 
-        # Verificar stock si está estricto
         allow_neg = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'allow_negative_stock'")
         if allow_neg != "true" and loc_id:
             avail = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE branch_id = $1 AND sector_id = $2 AND UPPER(sku) = $3 AND location_id = $4", branch_id, sector_id, sku_clean, loc_id)
             if float(avail or 0) < data.quantity: 
                 raise HTTPException(400, f"Stock insuficiente en la ubicación (Disponible: {avail}).")
 
-        # Registrar el picking de la línea
         await conn.execute("UPDATE document_lines SET quantity_picked = quantity_picked + $1 WHERE id = $2", data.quantity, line["id"])
         
         if branch_id and sector_id:
@@ -472,7 +524,6 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
         
         pending = await conn.fetchval("SELECT COUNT(*) FROM document_lines WHERE document_id = $1 AND quantity_picked < quantity_requested", doc["id"])
         
-        # Auto-completar el pedido si la regla está activa
         auto_complete = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'auto_complete_picking'") or "true"
         order_completed = (pending == 0)
         if order_completed and auto_complete == "true": 
@@ -596,6 +647,143 @@ async def scan_reception_item(remito_number: str, data: MobileRemitoScanInput, u
         
         return {"status": "success", "message": f"Ingresado {data.quantity} un de {sku_clean}", "remito_completed": pending == 0}
 
+# === DEVOLUCIONES DE CLIENTES (RMA) ===
+
+@router.get("/api/admin/returns/next-number")
+async def get_next_return_number(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    prefix = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'return_number_prefix'") or "DEV-"
+    val = await conn.fetchval("SELECT return_number FROM customer_returns ORDER BY created_at DESC LIMIT 1")
+    if val:
+        digits = re.findall(r'\d+', val)
+        if digits:
+            next_num = f"{prefix}{int(digits[-1]) + 1:06d}"
+        else:
+            next_num = f"{prefix}000001"
+    else:
+        next_num = f"{prefix}000001"
+    return {"next_number": next_num}
+
+@router.get("/api/admin/returns/customers")
+async def get_return_customers(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    rows = await conn.fetch("""
+        SELECT DISTINCT e.id::text, e.tax_id, e.company_name
+        FROM entities e
+        JOIN documents d ON d.customer_id = e.id
+        WHERE e.is_customer = TRUE AND d.status IN ('COMPLETED', 'DISPATCHED')
+        ORDER BY e.company_name ASC
+    """)
+    return [dict(r) for r in rows]
+
+@router.get("/api/admin/returns/orders-by-customer/{customer_id}")
+async def get_return_orders_by_customer(customer_id: str, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    rows = await conn.fetch("""
+        SELECT d.id::text, d.document_number, d.created_at, d.status
+        FROM documents d
+        WHERE d.customer_id = $1 AND d.status IN ('COMPLETED', 'DISPATCHED')
+        ORDER BY d.created_at DESC
+    """, uuid.UUID(customer_id))
+    return [dict(r) for r in rows]
+
+@router.get("/api/admin/returns/order-details/{document_id}")
+async def get_return_order_details(document_id: str, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    doc = await conn.fetchrow("SELECT id, document_number, customer_id FROM documents WHERE id = $1", uuid.UUID(document_id))
+    if not doc: raise HTTPException(404, "Pedido no encontrado")
+    
+    lines = await conn.fetch("""
+        SELECT dl.id::text, dl.sku, COALESCE(i.description, dl.sku) as description, 
+               dl.quantity_requested::float, dl.quantity_picked::float
+        FROM document_lines dl
+        LEFT JOIN items i ON UPPER(dl.sku) = UPPER(i.sku)
+        WHERE dl.document_id = $1
+        ORDER BY dl.sku ASC
+    """, doc["id"])
+    return {"document": dict(doc), "lines": [dict(l) for l in lines]}
+
+@router.post("/api/admin/returns")
+async def create_customer_return(data: CustomerReturnCreateInput, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    async with conn.transaction():
+        ret_num = data.return_number.strip().upper()
+        existing = await conn.fetchval("SELECT id FROM customer_returns WHERE UPPER(return_number) = $1", ret_num)
+        if existing:
+            raise HTTPException(400, "El número de devolución ya fue registrado.")
+
+        # Determinar Sucursal y Sector (Contexto Usuario o Payload o Defaults)
+        target_branch_id = None
+        target_sector_id = None
+
+        if user.get("branch_id"):
+            try: target_branch_id = uuid.UUID(user["branch_id"])
+            except Exception: pass
+        if user.get("sector_id"):
+            try: target_sector_id = uuid.UUID(user["sector_id"])
+            except Exception: pass
+
+        if not target_branch_id and data.branch_id:
+            try: target_branch_id = uuid.UUID(data.branch_id)
+            except Exception: pass
+        if not target_sector_id and data.sector_id:
+            try: target_sector_id = uuid.UUID(data.sector_id)
+            except Exception: pass
+
+        if not target_branch_id:
+            target_branch_id = await conn.fetchval("SELECT id FROM branches LIMIT 1")
+        if not target_sector_id:
+            target_sector_id = await conn.fetchval("SELECT id FROM sectors LIMIT 1")
+
+        if not target_branch_id or not target_sector_id:
+            raise HTTPException(400, "Debe configurar al menos una Sucursal y Sector de destino.")
+
+        return_id = await conn.fetchval("""
+            INSERT INTO customer_returns (return_number, customer_id, document_id, branch_id, sector_id, created_by)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id
+        """, ret_num, uuid.UUID(data.customer_id), uuid.UUID(data.document_id), target_branch_id, target_sector_id, user["username"])
+
+        items_processed = 0
+        for line in data.lines:
+            if line.quantity > 0:
+                sku_clean = line.sku.strip().upper()
+                cond_clean = line.condition.strip().upper() if line.condition else "OPERATIVO"
+                
+                loc_id = None
+                if line.location_code and line.location_code.strip():
+                    loc = await conn.fetchrow("SELECT id FROM locations WHERE sector_id = $1 AND UPPER(location_code) = $2", target_sector_id, line.location_code.strip().upper())
+                    if loc: loc_id = loc["id"]
+
+                await conn.execute("""
+                    INSERT INTO customer_return_lines (return_id, sku, quantity, condition, location_id)
+                    VALUES ($1, $2, $3, $4, $5)
+                """, return_id, sku_clean, line.quantity, cond_clean, loc_id)
+
+                await record_stock_movement(
+                    conn, sku_clean, target_branch_id, target_sector_id, loc_id, 
+                    line.quantity, 'IN_RETURN', ret_num, user["username"], condition=cond_clean
+                )
+                items_processed += 1
+
+        if items_processed == 0:
+            raise HTTPException(400, "Debe ingresar una cantidad mayor a 0 para al menos un artículo devuelto.")
+
+        await log_action(conn, user["username"], "RETURN_CREATED", f"Devolución {ret_num} procesada para el pedido {data.document_id}.")
+        return {"status": "success", "message": f"Devolución {ret_num} registrada exitosamente."}
+
+@router.get("/api/admin/returns")
+async def list_customer_returns(search: str = "", limit: int = 50, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    rows = await conn.fetch("""
+        SELECT cr.id::text as id, cr.return_number, cr.created_at, cr.created_by,
+               COALESCE(e.company_name, 'Cliente') as customer_name,
+               COALESCE(d.document_number, 'N/A') as document_number,
+               b.name as branch_name, sec.name as sector_name
+        FROM customer_returns cr
+        LEFT JOIN entities e ON cr.customer_id = e.id
+        LEFT JOIN documents d ON cr.document_id = d.id
+        LEFT JOIN branches b ON cr.branch_id = b.id
+        LEFT JOIN sectors sec ON cr.sector_id = sec.id
+        WHERE cr.return_number ILIKE $1 OR e.company_name ILIKE $1 OR d.document_number ILIKE $1
+        ORDER BY cr.created_at DESC LIMIT $2
+    """, f"%{search}%", limit)
+    return [dict(r) for r in rows]
+
 # === TRASPASOS ===
 @router.get("/api/admin/transfer-orders/next-number")
 async def get_next_transfer_number(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
@@ -710,3 +898,80 @@ async def scan_transfer_item(transfer_number: str, data: MobileTransferScanInput
         if pending == 0: await conn.execute("UPDATE transfer_orders SET status = 'COMPLETED' WHERE id = $1", tr["id"])
 
         return {"status": "success", "message": f"Transferido {data.quantity} un de {sku_clean}", "transfer_completed": pending == 0}
+
+# === CONSULTAS LISTADOS ADMIN ===
+@router.get("/api/admin/purchase-orders")
+async def list_admin_purchase_orders(search: str = "", limit: int = 50, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    rows = await conn.fetch("SELECT po.id::text as id, po.order_number, po.status, po.created_at, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name FROM purchase_orders po LEFT JOIN entities e ON po.supplier_id = e.id WHERE po.order_number ILIKE $1 ORDER BY po.created_at DESC LIMIT $2", f"%{search}%", limit)
+    return [dict(r) for r in rows]
+
+@router.get("/api/admin/purchase-remitos")
+async def list_admin_purchase_remitos(search: str = "", limit: int = 50, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    rows = await conn.fetch("SELECT pr.id::text as id, pr.remito_number, pr.status, pr.created_at, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name, b.name as branch_name, sec.name as sector_name FROM purchase_remitos pr LEFT JOIN entities e ON pr.supplier_id = e.id LEFT JOIN branches b ON pr.branch_id = b.id LEFT JOIN sectors sec ON pr.sector_id = sec.id WHERE pr.remito_number ILIKE $1 ORDER BY pr.created_at DESC LIMIT $2", f"%{search}%", limit)
+    return [dict(r) for r in rows]
+
+@router.get("/api/admin/purchase-invoices")
+async def list_admin_purchase_invoices(search: str = "", limit: int = 50, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    rows = await conn.fetch("SELECT pi.id::text as id, pi.invoice_number, pi.invoice_type, pi.created_at, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name FROM purchase_invoices pi LEFT JOIN entities e ON pi.supplier_id = e.id WHERE pi.invoice_number ILIKE $1 ORDER BY pi.created_at DESC LIMIT $2", f"%{search}%", limit)
+    return [dict(r) for r in rows]
+
+@router.get("/api/admin/transfer-orders")
+async def list_admin_transfer_orders(search: str = "", limit: int = 50, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    rows = await conn.fetch("SELECT t.id::text as id, t.transfer_number, t.status, t.created_at, COALESCE(ob.name, 'N/A') as origin_branch, COALESCE(db.name, 'N/A') as destination_branch, COALESCE(os.name, 'N/A') as origin_sector, COALESCE(ds.name, 'N/A') as destination_sector FROM transfer_orders t LEFT JOIN branches ob ON t.origin_branch_id = ob.id LEFT JOIN branches db ON t.destination_branch_id = db.id LEFT JOIN sectors os ON t.origin_sector_id = os.id LEFT JOIN sectors ds ON t.destination_sector_id = ds.id WHERE t.transfer_number ILIKE $1 ORDER BY t.created_at DESC LIMIT $2", f"%{search}%", limit)
+    return [dict(r) for r in rows]
+
+@router.get("/api/admin/logs")
+async def list_admin_logs(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    rows = await conn.fetch("SELECT created_at, username, action, details FROM audit_logs ORDER BY created_at DESC LIMIT 100")
+    return [dict(r) for r in rows]
+
+@router.get("/api/admin/documents")
+async def list_admin_documents(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    rows = await conn.fetch("""
+        SELECT d.document_number, COALESCE(e.company_name, 'Consumidor Final') as company_name, 
+               d.status, 
+               COALESCE((SELECT SUM(quantity_picked) * 100.0 / NULLIF(SUM(quantity_requested), 0) 
+                         FROM document_lines WHERE document_id = d.id), 0)::int as progress_pct
+        FROM documents d 
+        LEFT JOIN entities e ON d.customer_id = e.id 
+        ORDER BY d.created_at DESC LIMIT 100
+    """)
+    return [dict(r) for r in rows]
+
+@router.get("/api/admin/sales-orders/next-number")
+async def get_next_order_number(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    val = await conn.fetchval("SELECT document_number FROM documents WHERE document_number ~ '^[0-9]+$' ORDER BY document_number::bigint DESC LIMIT 1")
+    next_num = str(int(val) + 1).zfill(6) if val else "000001"
+    return {"next_number": next_num}
+
+@router.post("/api/admin/sales-orders")
+async def create_manual_sales_order(data: ManualOrderInput, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    async with conn.transaction():
+        ent = await conn.fetchrow("SELECT id FROM entities WHERE tax_id = $1", data.customer_tax_id)
+        ent_id = ent["id"] if ent else None
+        
+        doc_id = await conn.fetchval(
+            "INSERT INTO documents (document_number, customer_id, status, channel_origin) VALUES ($1, $2, 'PENDING', 'MANUAL') RETURNING id",
+            data.document_number, ent_id
+        )
+        
+        for line in data.lines:
+            await conn.execute(
+                "INSERT INTO document_lines (document_id, sku, quantity_requested, quantity_picked) VALUES ($1, $2, $3, 0)",
+                doc_id, line.sku.strip().upper(), line.quantity
+            )
+        
+        await log_action(conn, admin.get("username"), "ORDER_CREATED", f"Pedido manual {data.document_number} creado.")
+        return {"status": "success", "message": "Pedido creado correctamente."}
+
+@router.post("/api/admin/sales-orders/{document_number}/print-label")
+async def reprint_order_label(document_number: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    doc = await conn.fetchrow("SELECT d.document_number, COALESCE(c.company_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, 'A coordinar') as delivery_address FROM documents d LEFT JOIN entities c ON d.customer_id = c.id LEFT JOIN entity_addresses a ON d.customer_address_id = a.id WHERE d.document_number = $1", document_number.strip().upper())
+    if not doc: raise HTTPException(404, "Pedido no encontrado.")
+    template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_order_template'")
+    if template:
+        zpl = template.replace("{order_number}", doc["document_number"]).replace("{client_name}", doc["client_name"]).replace("{delivery_address}", doc["delivery_address"])
+        default_queue = await conn.fetchval("SELECT print_queue_code FROM sectors WHERE uses_locations = FALSE LIMIT 1") or "PRINT-SEC-01"
+        await queue_zpl_print_job(conn, default_queue, zpl)
+        return {"status": "success", "message": "Etiqueta re-enviada a impresión."}
+    raise HTTPException(400, "Plantilla ZPL no configurada.")
