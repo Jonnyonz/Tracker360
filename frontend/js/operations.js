@@ -1,5 +1,8 @@
 // === MÓDULO DE OPERACIONES, STOCK, REPORTES E INTEGRACIONES (DESKTOP / ADMIN) ===
 
+// Caché local y aislado exclusiva para este módulo (Cero adivinanzas)
+let opsSectorsCache = [];
+
 function switchPurchaseTab(tabId, btn) {
     document.querySelectorAll('.purchase-tab').forEach(t => t.style.display = 'none');
     document.querySelectorAll('.purchase-subtab-btn').forEach(b => b.classList.remove('active'));
@@ -15,6 +18,318 @@ function switchPurchaseTab(tabId, btn) {
     }
 }
 
+// === PUTAWAY (GUARDADO INTELIGENTE) FASE 2 ===
+async function fetchPutawaySuggestion(sku, inputElement) {
+    if (!sku || !inputElement) return;
+    try {
+        const res = await fetchAPI(`/api/admin/putaway/${encodeURIComponent(sku)}`);
+        if (res && res.suggested_location) {
+            inputElement.value = res.suggested_location;
+            if (res.type === 'FIXED_LOCATION') {
+                inputElement.style.border = '2px solid var(--accent)';
+                if (typeof showToast === 'function') showToast(`Ubicación fija sugerida: ${res.suggested_location}`, 'info');
+            } else if (res.type === 'EXISTING_STOCK') {
+                inputElement.style.border = '2px solid var(--warning)';
+                if (typeof showToast === 'function') showToast(`Sugerencia (Agrupación de stock): ${res.suggested_location}`, 'warning');
+            }
+        }
+    } catch (e) { console.error("Error cargando sugerencia Putaway", e); }
+}
+
+// === REPLENISHMENT (REABASTECIMIENTO) FASE 2 ===
+async function loadReplenishmentSuggestions() {
+    const tbody = document.getElementById('table-replenishment-body');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Buscando sugerencias...</td></tr>';
+    
+    try {
+        const res = await fetchAPI('/api/admin/replenishment-suggestions');
+        if (res.status === 'disabled') {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:1.5rem; color:var(--text-muted);">El módulo de Reabastecimiento Automático está desactivado en Configuración.</td></tr>';
+            return;
+        }
+        if (!res.suggestions || res.suggestions.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:1.5rem; color:var(--success);">Las áreas de picking están completamente abastecidas.</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = res.suggestions.map(s => `
+            <tr>
+                <td style="font-weight:bold; color:var(--accent);">${escapeHTML(s.sku)}</td>
+                <td>${escapeHTML(s.description)}</td>
+                <td style="color:var(--danger); font-weight:bold;">${s.stock_picking}</td>
+                <td style="color:var(--success); font-weight:bold;">${s.stock_pulmon}</td>
+                <td><code class="font-mono">${escapeHTML(s.origin_location || 'N/A')}</code></td>
+                <td><code class="font-mono">${escapeHTML(s.destination_location)}</code></td>
+                <td style="text-align:right;">
+                    <button class="btn-submit" style="padding:4px 8px; font-size:0.75rem;" onclick="createReplenishmentTransfer('${escapeHTML(s.sku)}', '${escapeHTML(s.origin_location || '')}', '${escapeHTML(s.destination_location)}', ${s.stock_pulmon})">Crear ODT</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:1.5rem; color:var(--danger);">Error al cargar sugerencias.</td></tr>';
+    }
+}
+
+async function createReplenishmentTransfer(sku, origLoc, destLoc, availableQty) {
+    if (typeof switchView === 'function') switchView('section-purchases');
+    switchPurchaseTab('tab-transfer');
+    document.getElementById('form-transfer').reset();
+    await loadNextTransferNumber();
+    
+    // Forzamos carga de selectores de traspaso
+    await loadTransferSelectors();
+    
+    document.getElementById('tr-lines').innerHTML = '';
+    addDynamicLineTransfer();
+    
+    setTimeout(() => {
+        const firstRow = document.querySelector('#tr-lines .dynamic-row');
+        if (firstRow) {
+            firstRow.querySelector('.tr-sku').value = sku;
+            firstRow.querySelector('.tr-qty').value = availableQty > 10 ? 10 : availableQty;
+            firstRow.querySelector('.tr-orig-loc').value = origLoc;
+            firstRow.querySelector('.tr-dest-loc').value = destLoc;
+        }
+        if (typeof showToast === 'function') showToast('Formulario ODT autocompletado para reabastecimiento.', 'info');
+    }, 300);
+}
+
+// === INVENTARIO FÍSICO / CONTEOS CIEGOS ===
+function openSpotCheckModal() {
+    document.getElementById('form-spot-check').reset();
+    document.getElementById('spot-check-result').style.display = 'none';
+    openModal('modal-spot-check');
+}
+
+async function runSpotCheck(e) {
+    e.preventDefault();
+    const payload = {
+        sku: document.getElementById('spot-check-sku').value.trim(),
+        quantity: parseFloat(document.getElementById('spot-check-qty').value),
+        location_code: document.getElementById('spot-check-loc').value.trim() || null,
+        lot_number: document.getElementById('spot-check-lot').value.trim() || ""
+    };
+
+    const btn = e.target.querySelector('button[type="submit"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Verificando...'; }
+
+    try {
+        const r = await fetchAPI('/api/inventory/spot-check', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+        if(r) {
+            const resDiv = document.getElementById('spot-check-result');
+            resDiv.style.display = 'block';
+            if(r.match) {
+                resDiv.style.backgroundColor = 'rgba(0, 200, 83, 0.1)';
+                resDiv.style.border = '1px solid var(--success)';
+                resDiv.innerHTML = `<h4 style="color:var(--success); margin:0;">ACTUALIZADO: ¡STOCK CORRECTO!</h4><p style="margin:5px 0 0 0;">Físico Contado: <strong>${r.counted}</strong> | Sistema: <strong>${r.expected}</strong></p>`;
+            } else {
+                resDiv.style.backgroundColor = 'rgba(213, 0, 0, 0.1)';
+                resDiv.style.border = '1px solid var(--danger)';
+                resDiv.innerHTML = `<h4 style="color:var(--danger); margin:0;">ALERTA: DESCUADRE DETECTADO (DELTA: ${r.delta > 0 ? '+'+r.delta : r.delta})</h4><p style="margin:5px 0 0 0;">Físico Contado: <strong>${r.counted}</strong> | Sistema Esperaba: <strong>${r.expected}</strong></p>`;
+            }
+        }
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Verificar Stock'; }
+    }
+}
+
+async function loadInventorySessions() {
+    const tbody = document.getElementById('table-inventory-sessions-body');
+    if(!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">Cargando sesiones...</td></tr>';
+    
+    try {
+        const data = await fetchAPI('/api/inventory/sessions');
+        if(!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">No hay sesiones de conteo registradas.</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = data.map(s => {
+            let btn = '';
+            let badge = '';
+            
+            if(s.status === 'OPEN') {
+                badge = '<span class="badge badge-warning">ABIERTO (ESCANEO)</span>';
+                btn = `<button class="btn-secondary" onclick="openScanInventoryModal('${s.id}')" style="padding:4px 8px; font-size:0.75rem;">Escanear Físico</button>`;
+            } else if (s.status === 'REVIEW') {
+                badge = '<span class="badge badge-info">EN REVISIÓN (DELTAS)</span>';
+                btn = `<button class="btn-submit" onclick="openReviewInventoryModal('${s.id}')" style="padding:4px 8px; font-size:0.75rem;">Auditar Deltas</button>`;
+            } else {
+                badge = '<span class="badge badge-success">CERRADO</span>';
+                btn = `<span style="color:var(--text-muted); font-size:0.8rem; padding-right:8px;">Finalizado</span>`;
+            }
+            
+            return `<tr>
+                <td>${escapeHTML(s.branch_name)}</td>
+                <td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(s.sector_name)}</td>
+                <td><span class="badge badge-neutral">${escapeHTML(s.count_type)}</span></td>
+                <td>${badge}</td>
+                <td>${new Date(s.created_at).toLocaleDateString()}</td>
+                <td>${escapeHTML(s.assigned_operator)}</td>
+                <td style="text-align:right;">${btn}</td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--danger); padding:2rem;">Error al cargar sesiones.</td></tr>';
+    }
+}
+
+async function openCreateInventoryModal() {
+    document.getElementById('form-create-inventory').reset();
+    const bSelect = document.getElementById('inv-session-branch');
+    const sSelect = document.getElementById('inv-session-sector');
+    const oSelect = document.getElementById('inv-session-operator');
+    
+    bSelect.innerHTML = '<option value="">Cargando Sucursales...</option>';
+    sSelect.innerHTML = '<option value="">-- Seleccionar Sector --</option>';
+    oSelect.innerHTML = '<option value="">Cargando Operadores...</option>';
+    
+    openModal('modal-create-inventory');
+
+    try {
+        // Petición in situ e independiente a la API
+        const [branches, sectors, users] = await Promise.all([
+            fetchAPI('/api/admin/branches'),
+            fetchAPI('/api/admin/sectors'),
+            fetchAPI('/api/admin/users')
+        ]);
+        
+        opsSectorsCache = sectors || [];
+        
+        if (branches && branches.length > 0) {
+            bSelect.innerHTML = '<option value="">-- Seleccione Sucursal --</option>' + 
+                branches.map(b => `<option value="${b.id}">${escapeHTML(b.name)}</option>`).join('');
+        } else {
+            bSelect.innerHTML = '<option value="">-- Sin Sucursales --</option>';
+        }
+        
+        if (users && users.length > 0) {
+            const ops = users.filter(u => u.role !== 'ADMIN' && u.is_active);
+            oSelect.innerHTML = '<option value="">-- Seleccione Operador --</option>' + 
+                ops.map(u => `<option value="${u.username}">${escapeHTML(u.full_name)} (${escapeHTML(u.username)})</option>`).join('');
+        } else {
+            oSelect.innerHTML = '<option value="">-- Sin Operadores Activos --</option>';
+        }
+    } catch (e) {
+        console.error(e);
+        if (typeof showToast === 'function') showToast("Error cargando dependencias para la auditoría.", "error");
+    }
+}
+
+function onInvSessionBranchChange() {
+    const branchId = document.getElementById('inv-session-branch').value;
+    const sSelect = document.getElementById('inv-session-sector');
+    sSelect.innerHTML = '<option value="">-- Seleccionar Sector --</option>';
+    
+    if (opsSectorsCache && opsSectorsCache.length > 0) {
+        opsSectorsCache.filter(s => String(s.branch_id) === String(branchId)).forEach(s => {
+            sSelect.innerHTML += `<option value="${s.id}">${escapeHTML(s.name)}</option>`;
+        });
+    }
+}
+
+async function saveInventorySession(e) {
+    e.preventDefault();
+    const payload = {
+        branch_id: document.getElementById('inv-session-branch').value,
+        sector_id: document.getElementById('inv-session-sector').value,
+        count_type: document.getElementById('inv-session-type').value,
+        assigned_operator: document.getElementById('inv-session-operator').value
+    };
+    const r = await fetchAPI('/api/inventory/sessions', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+    if(r) {
+        showToast('Sesión de inventario iniciada. Foto (Snapshot) capturada.', 'success');
+        closeModal('modal-create-inventory');
+        loadInventorySessions();
+    }
+}
+
+function openScanInventoryModal(sessionId) {
+    document.getElementById('form-scan-inventory').reset();
+    document.getElementById('scan-inv-session-id').value = sessionId;
+    document.getElementById('scan-inv-session-id-label').textContent = sessionId.substring(0, 8) + '...';
+    openModal('modal-scan-inventory');
+}
+
+async function scanInventoryCount(e) {
+    e.preventDefault();
+    const sessionId = document.getElementById('scan-inv-session-id').value;
+    const payload = {
+        sku: document.getElementById('scan-inv-sku').value.trim(),
+        quantity: parseFloat(document.getElementById('scan-inv-qty').value),
+        location_code: document.getElementById('scan-inv-loc').value.trim() || null,
+        lot_number: document.getElementById('scan-inv-lot').value.trim() || ""
+    };
+    
+    const r = await fetchAPI(`/api/inventory/sessions/${sessionId}/scan`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+    if(r) {
+        showToast(r.message, 'success');
+        document.getElementById('scan-inv-sku').value = '';
+        document.getElementById('scan-inv-qty').value = '';
+        document.getElementById('scan-inv-sku').focus();
+    }
+}
+
+async function finishInventorySession() {
+    const sessionId = document.getElementById('scan-inv-session-id').value;
+    if(!confirm("¿Está seguro de finalizar el escaneo físico y enviar el conteo a Revisión de Deltas?")) return;
+    
+    const r = await fetchAPI(`/api/inventory/sessions/${sessionId}/finish`, { method: 'POST' });
+    if(r) {
+        showToast('Escaneo finalizado. Sesión enviada a revisión.', 'success');
+        closeModal('modal-scan-inventory');
+        loadInventorySessions();
+    }
+}
+
+async function openReviewInventoryModal(sessionId) {
+    document.getElementById('review-inv-session-id').value = sessionId;
+    const tbody = document.getElementById('table-review-inventory-body');
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem;">Analizando cruce de datos y calculando deltas...</td></tr>';
+    openModal('modal-review-inventory');
+    
+    try {
+        const data = await fetchAPI(`/api/inventory/sessions/${sessionId}/review`);
+        if(!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem;">No hay discrepancias registradas en esta sesión.</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = data.map(d => {
+            const delta = parseFloat(d.delta);
+            let deltaColor = 'var(--text-primary)';
+            if (delta > 0) deltaColor = 'var(--success)';
+            if (delta < 0) deltaColor = 'var(--danger)';
+            
+            return `<tr>
+                <td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(d.sku)}</td>
+                <td><code class="font-mono">${escapeHTML(d.location_code || 'N/A')}</code></td>
+                <td class="lot-input">${escapeHTML(d.lot_number || '-')}</td>
+                <td style="text-align:center;">${d.expected_quantity}</td>
+                <td style="text-align:center; font-weight:bold;">${d.counted_quantity}</td>
+                <td style="text-align:center; font-weight:bold; color:${deltaColor};">${delta > 0 ? '+'+delta : delta}</td>
+            </tr>`;
+        }).join('');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--danger); padding:2rem;">Error al calcular cruce de inventario.</td></tr>';
+    }
+}
+
+async function applyInventoryAdjustments() {
+    const sessionId = document.getElementById('review-inv-session-id').value;
+    if(!confirm("ATENCIÓN: Esto inyectará movimientos de ajuste automático en el Kardex e impactará el stock activo real. ¿Desea proceder y cerrar el conteo?")) return;
+    
+    const r = await fetchAPI(`/api/inventory/sessions/${sessionId}/apply`, { method: 'POST' });
+    if(r) {
+        showToast('Ajustes aplicados al Kardex y Stock exitosamente.', 'success');
+        closeModal('modal-review-inventory');
+        loadInventorySessions();
+    }
+}
+
+// === FUNCIONES DE RED DE MOVIMIENTOS Y TRASPASOS ===
 async function loadNextTransferNumber() {
     const trInput = document.getElementById('tr-num');
     if (!trInput) return;
@@ -22,7 +337,7 @@ async function loadNextTransferNumber() {
     trInput.readOnly = true;
     trInput.style.backgroundColor = '#F3F4F6';
     trInput.style.fontWeight = 'bold';
-    trInput.style.color = 'var(--primary-blue)';
+    trInput.style.color = 'var(--accent)';
     trInput.value = 'Cargando...';
 
     try {
@@ -37,19 +352,33 @@ async function loadNextTransferNumber() {
     }
 }
 
-function loadTransferSelectors() {
+async function loadTransferSelectors() {
     const origBranch = document.getElementById('tr-orig-branch');
     const destBranch = document.getElementById('tr-dest-branch');
     if (!origBranch || !destBranch) return;
 
-    origBranch.innerHTML = '<option value="">-- Seleccionar --</option>';
-    destBranch.innerHTML = '<option value="">-- Seleccionar --</option>';
+    origBranch.innerHTML = '<option value="">Cargando...</option>';
+    destBranch.innerHTML = '<option value="">Cargando...</option>';
 
-    if (typeof cachedBranches !== 'undefined' && cachedBranches.length > 0) {
-        cachedBranches.forEach(b => {
-            origBranch.innerHTML += `<option value="${b.id}">${escapeHTML(b.name)}</option>`;
-            destBranch.innerHTML += `<option value="${b.id}">${escapeHTML(b.name)}</option>`;
-        });
+    try {
+        const [branches, sectors] = await Promise.all([
+            fetchAPI('/api/admin/branches'),
+            fetchAPI('/api/admin/sectors')
+        ]);
+
+        opsSectorsCache = sectors || [];
+
+        const defaultOpt = '<option value="">-- Seleccionar --</option>';
+        if (branches && branches.length > 0) {
+            const branchOpts = branches.map(b => `<option value="${b.id}">${escapeHTML(b.name)}</option>`).join('');
+            origBranch.innerHTML = defaultOpt + branchOpts;
+            destBranch.innerHTML = defaultOpt + branchOpts;
+        } else {
+            origBranch.innerHTML = defaultOpt;
+            destBranch.innerHTML = defaultOpt;
+        }
+    } catch (e) {
+        console.error("Error cargando sucursales para traspaso:", e);
     }
 }
 
@@ -59,8 +388,8 @@ function onTrOrigBranchChange() {
     if (!sectorSelect) return;
     
     sectorSelect.innerHTML = '<option value="">-- Seleccionar --</option>';
-    if (typeof cachedSectors !== 'undefined') {
-        cachedSectors.filter(s => s.branch_id === branchId).forEach(s => {
+    if (opsSectorsCache && opsSectorsCache.length > 0) {
+        opsSectorsCache.filter(s => String(s.branch_id) === String(branchId)).forEach(s => {
             sectorSelect.innerHTML += `<option value="${s.id}">${escapeHTML(s.name)}</option>`;
         });
     }
@@ -72,8 +401,8 @@ function onTrDestBranchChange() {
     if (!sectorSelect) return;
     
     sectorSelect.innerHTML = '<option value="">-- Seleccionar --</option>';
-    if (typeof cachedSectors !== 'undefined') {
-        cachedSectors.filter(s => s.branch_id === branchId).forEach(s => {
+    if (opsSectorsCache && opsSectorsCache.length > 0) {
+        opsSectorsCache.filter(s => String(s.branch_id) === String(branchId)).forEach(s => {
             sectorSelect.innerHTML += `<option value="${s.id}">${escapeHTML(s.name)}</option>`;
         });
     }
@@ -89,7 +418,7 @@ async function saveTransfer(event) {
     const destSector = document.getElementById('tr-dest-sector').value;
 
     if (!origBranch || !origSector || !destBranch || !destSector) {
-        alert("Por favor complete sucursales y sectores de origen y destino.");
+        showToast("Por favor complete sucursales y sectores de origen y destino.", "error");
         return;
     }
 
@@ -109,13 +438,14 @@ async function saveTransfer(event) {
                 quantity: qty,
                 origin_location_code: origLoc || null,
                 destination_location_code: destLoc || null,
-                lot_number: lot || ""
+                lot_number: lot || "",
+                serial_numbers: []
             });
         }
     });
 
     if (lines.length === 0) {
-        alert("Ingrese al menos un artículo válido.");
+        showToast("Ingrese al menos un artículo válido.", "error");
         return;
     }
 
@@ -132,7 +462,12 @@ async function saveTransfer(event) {
     if (btn) { btn.disabled = true; btn.textContent = 'Procesando...'; }
 
     try {
-        await fetchAPI('/api/admin/transfer-orders', { method: 'POST', body: payload });
+        const headers = {'Content-Type': 'application/json'};
+        if (AppConfig.enable_api_idempotency === 'true') {
+            headers['X-Idempotency-Key'] = `TR-${num}-${Date.now()}`;
+        }
+        
+        await fetchAPI('/api/admin/transfer-orders', { method: 'POST', headers: headers, body: JSON.stringify(payload) });
         showToast("Orden de Traspaso (ODT) generada correctamente.", "success");
         
         document.getElementById('form-transfer').reset();
@@ -158,14 +493,14 @@ async function loadTransferData(search = "", limit = 50) {
 
         tbody.innerHTML = rows.map(r => `
             <tr>
-                <td style="color:var(--primary-blue); font-weight:bold;">${escapeHTML(r.transfer_number)}</td>
+                <td style="color:var(--accent); font-weight:bold;">${escapeHTML(r.transfer_number)}</td>
                 <td><small>${escapeHTML(r.origin_branch)} (${escapeHTML(r.origin_sector)})</small></td>
                 <td><small>${escapeHTML(r.destination_branch)} (${escapeHTML(r.destination_sector)})</small></td>
                 <td><span class="badge badge-warning">${escapeHTML(r.status)}</span></td>
             </tr>
         `).join('');
     } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--error-red);">Error al cargar historial.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--danger);">Error al cargar historial.</td></tr>';
     }
 }
 
@@ -214,6 +549,11 @@ function fallbackCopyText(inputEl) {
     }
 }
 
+function addDynamicLinePO() { document.getElementById('po-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="po-sku font-mono" style="flex:2;" required><input type="number" placeholder="Cantidad" class="po-qty" style="flex:1;" min="0.01" step="0.01" required><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`; }
+function addDynamicLineRemito() { document.getElementById('rem-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="rem-sku font-mono" style="flex:2;" required onblur="fetchPutawaySuggestion(this.value, this.parentElement.querySelector('.rem-loc'))"><input type="number" placeholder="Cant" class="rem-qty" style="flex:1;" min="0.01" step="0.01" required><input type="text" placeholder="Ubicación" class="rem-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="rem-lot lot-input font-mono" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`; }
+function addDynamicLineInvoice() { document.getElementById('inv-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="inv-sku font-mono" style="flex:2;" onblur="fetchPutawaySuggestion(this.value, this.parentElement.querySelector('.inv-loc'))"><input type="number" placeholder="Cantidad" class="inv-qty" style="flex:1;" min="0.01" step="0.01"><input type="text" placeholder="Ubicación" class="inv-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="inv-lot lot-input" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`; }
+function addDynamicLineTransfer() { document.getElementById('tr-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="tr-sku font-mono" style="flex:2;" required><input type="number" placeholder="Cant" class="tr-qty" style="flex:1;" min="0.01" step="0.01" required><input type="text" placeholder="Origen" class="tr-orig-loc font-mono" style="flex:1;"><input type="text" placeholder="Destino" class="tr-dest-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="tr-lot lot-input" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`; }
+
 window.loadNextTransferNumber = loadNextTransferNumber;
 window.switchPurchaseTab = switchPurchaseTab;
 window.onTrOrigBranchChange = onTrOrigBranchChange;
@@ -221,3 +561,23 @@ window.onTrDestBranchChange = onTrDestBranchChange;
 window.saveTransfer = saveTransfer;
 window.generateApiKey = generateApiKey;
 window.copyApiKeyToClipboard = copyApiKeyToClipboard;
+window.fetchPutawaySuggestion = fetchPutawaySuggestion;
+window.loadReplenishmentSuggestions = loadReplenishmentSuggestions;
+window.createReplenishmentTransfer = createReplenishmentTransfer;
+window.addDynamicLinePO = addDynamicLinePO;
+window.addDynamicLineRemito = addDynamicLineRemito;
+window.addDynamicLineInvoice = addDynamicLineInvoice;
+window.addDynamicLineTransfer = addDynamicLineTransfer;
+
+// === VINCULACIÓN DEL MÓDULO DE INVENTARIO FÍSICO ===
+window.openSpotCheckModal = openSpotCheckModal;
+window.runSpotCheck = runSpotCheck;
+window.loadInventorySessions = loadInventorySessions;
+window.openCreateInventoryModal = openCreateInventoryModal;
+window.onInvSessionBranchChange = onInvSessionBranchChange;
+window.saveInventorySession = saveInventorySession;
+window.openScanInventoryModal = openScanInventoryModal;
+window.scanInventoryCount = scanInventoryCount;
+window.finishInventorySession = finishInventorySession;
+window.openReviewInventoryModal = openReviewInventoryModal;
+window.applyInventoryAdjustments = applyInventoryAdjustments;

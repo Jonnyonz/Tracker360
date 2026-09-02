@@ -1,4 +1,4 @@
-// === MÓDULO DE USUARIOS Y APROBACIÓN DE SOLICITUDES (TRACKER360) ===
+// === MÓDULO DE USUARIOS Y APROBACIÓN DE SOLICITUDES (SOBERANO) ===
 
 let cachedUsersList = [];
 
@@ -20,13 +20,12 @@ async function loadUsers() {
             countBadge.className = pendingUsers.length > 0 ? 'badge badge-warning' : 'badge badge-neutral';
         }
 
-        // Renderizado de usuarios activos
         if (activeUsers.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1rem;">Sin usuarios activos registrados.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Sin usuarios activos registrados.</td></tr>';
         } else {
             tbody.innerHTML = activeUsers.map(u => `
                 <tr>
-                    <td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(u.username)}</td>
+                    <td style="font-weight:bold; color:var(--accent);">${escapeHTML(u.username)}</td>
                     <td>${escapeHTML(u.full_name)}</td>
                     <td><small>${escapeHTML(u.email || '-')}</small></td>
                     <td><span class="badge ${u.role === 'ADMIN' ? 'badge-info' : 'badge-neutral'}">${escapeHTML(u.role)}</span></td>
@@ -40,21 +39,20 @@ async function loadUsers() {
             `).join('');
         }
 
-        // Renderizado de solicitudes pendientes en el modal
         if (tbodyPending) {
             if (pendingUsers.length === 0) {
-                tbodyPending.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No hay solicitudes pendientes de Google OAuth.</td></tr>';
+                tbodyPending.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No hay solicitudes pendientes.</td></tr>';
             } else {
                 tbodyPending.innerHTML = pendingUsers.map(u => `
-                    <tr style="background:#FFFBEB;">
-                        <td style="font-weight:bold; color:#92400E;">${escapeHTML(u.full_name)}</td>
-                        <td><code>${escapeHTML(u.email || u.username)}</code></td>
+                    <tr>
+                        <td style="font-weight:bold; color:var(--warning);">${escapeHTML(u.full_name)}</td>
+                        <td><code class="font-mono">${escapeHTML(u.email || u.username)}</code></td>
                         <td><small class="text-muted">${new Date(u.created_at || Date.now()).toLocaleDateString()}</small></td>
                         <td><span class="badge badge-warning">PENDIENTE</span></td>
                         <td>
                             <div style="display:flex; gap:6px;">
-                                <button class="btn-submit" style="padding:4px 10px; width:auto; font-size:0.75rem; background:var(--success-green);" onclick="openApproveUserModal('${u.id}')">Aprobar</button>
-                                <button class="btn-secondary" style="padding:4px 10px; width:auto; font-size:0.75rem; color:var(--error-red); border-color:var(--error-red);" onclick="rejectUser('${u.id}')">Rechazar</button>
+                                <button class="btn-submit" style="padding:4px 10px; font-size:0.75rem; background:var(--success);" onclick="openApproveUserModal('${u.id}')">Aprobar</button>
+                                <button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; color:var(--danger); border-color:var(--danger);" onclick="rejectUser('${u.id}')">Rechazar</button>
                             </div>
                         </td>
                     </tr>
@@ -63,15 +61,13 @@ async function loadUsers() {
         }
 
     } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--error-red); padding:1rem;">Error al cargar usuarios.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--danger); padding:1.5rem;">Error al cargar usuarios.</td></tr>';
     }
 }
 
 function openPendingRequestsModal() {
     loadUsers();
-    if (typeof openModal === 'function') {
-        openModal('modal-pending-requests');
-    }
+    openModal('modal-pending-requests');
 }
 
 function populateUserBranchSectorDropdowns(branchSelectId, sectorSelectId) {
@@ -105,9 +101,7 @@ function openUserModal() {
     const form = document.getElementById('form-create-user');
     if (form) form.reset();
     populateUserBranchSectorDropdowns('user-branch', 'user-sector');
-    if (typeof openModal === 'function') {
-        openModal('modal-create-user');
-    }
+    openModal('modal-create-user');
 }
 
 async function submitCreateUser(event) {
@@ -123,12 +117,12 @@ async function submitCreateUser(event) {
     };
 
     try {
-        await fetchAPI('/api/admin/users', { method: 'POST', body: payload });
+        await fetchAPI('/api/admin/users', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
         showToast("Usuario creado exitosamente.", "success");
         closeModal('modal-create-user');
         loadUsers();
     } catch (e) {
-        showToast(e.message, "error");
+        showToast(e.message || "Error al crear usuario", "error");
     }
 }
 
@@ -141,9 +135,7 @@ function openApproveUserModal(userId) {
     document.getElementById('approve-user-email').textContent = user.email || user.username;
     
     populateUserBranchSectorDropdowns('approve-user-branch', 'approve-user-sector');
-    if (typeof openModal === 'function') {
-        openModal('modal-approve-user');
-    }
+    openModal('modal-approve-user');
 }
 
 async function submitApproveUser(event) {
@@ -161,12 +153,12 @@ async function submitApproveUser(event) {
     };
 
     try {
-        await fetchAPI(`/api/admin/users/${userId}`, { method: 'PUT', body: payload });
+        await fetchAPI(`/api/admin/users/${userId}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
         showToast("Usuario aprobado y activado en el sistema.", "success");
         closeModal('modal-approve-user');
         loadUsers();
     } catch (e) {
-        showToast(e.message, "error");
+        showToast(e.message || "Error al aprobar usuario", "error");
     }
 }
 
@@ -181,7 +173,7 @@ async function rejectUser(userId) {
         showToast("Solicitud rechazada y eliminada correctamente.", "success");
         loadUsers();
     } catch (e) {
-        showToast(e.message, "error");
+        showToast(e.message || "Error al rechazar usuario", "error");
     }
 }
 
@@ -206,9 +198,7 @@ function openEditUserModal(userId) {
         document.getElementById('edit-user-sector').value = user.sector_id;
     }
 
-    if (typeof openModal === 'function') {
-        openModal('modal-edit-user');
-    }
+    openModal('modal-edit-user');
 }
 
 async function submitEditUser(event) {
@@ -230,12 +220,12 @@ async function submitEditUser(event) {
     }
 
     try {
-        await fetchAPI(`/api/admin/users/${userId}`, { method: 'PUT', body: payload });
+        await fetchAPI(`/api/admin/users/${userId}`, { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
         showToast("Usuario actualizado correctamente.", "success");
         closeModal('modal-edit-user');
         loadUsers();
     } catch (e) {
-        showToast(e.message, "error");
+        showToast(e.message || "Error al actualizar usuario", "error");
     }
 }
 

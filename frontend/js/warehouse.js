@@ -1,206 +1,143 @@
-// === MÓDULO DE DEPÓSITO (SUCURSALES, SECTORES Y UBICACIONES) ===
+// === MÓDULO DE DEPÓSITO (SUCURSALES, SECTORES Y UBICACIONES - SOBERANO) ===
 
-async function legacy_loadBranches() {
-    const tbody = document.getElementById('branchesTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="3" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Cargando sucursales...</td></tr>';
+async function loadWarehouseData() {
+    const [branches, sectors, locations] = await Promise.all([ 
+        fetchAPI('/api/admin/branches'), 
+        fetchAPI('/api/admin/sectors'), 
+        fetchAPI('/api/admin/locations') 
+    ]);
 
-    try {
-        const branches = await fetchAPI('/api/admin/branches');
-        
-        // Actualizar selects globales de sucursales
-        const selects = document.querySelectorAll('.branch-select-populate');
-        selects.forEach(sel => {
-            sel.innerHTML = '<option value="">-- Seleccionar Sucursal --</option>' + 
-                branches.map(b => `<option value="${b.id}">${b.name} (${b.code})</option>`).join('');
-        });
-
-        if (!branches || branches.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No hay sucursales registradas.</td></tr>';
-            return;
+    if (branches) {
+        cachedBranches = branches; 
+        const bBody = document.getElementById('table-branches-body');
+        if(bBody) {
+            bBody.innerHTML = ''; 
+            if(branches.length === 0) {
+                bBody.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center;">Sin sucursales registradas.</td></tr>';
+            } else {
+                branches.forEach(b => {
+                    bBody.innerHTML += `<tr><td style="font-weight:bold;">${escapeHTML(b.code)}</td><td>${escapeHTML(b.name)}</td><td><span class="badge badge-success">ACTIVA</span></td></tr>`;
+                });
+            }
         }
+        const sBranchSelect = document.getElementById('sector-branch'); 
+        if(sBranchSelect) {
+            sBranchSelect.innerHTML = '<option value="">-- Seleccionar Sucursal --</option>' + branches.map(b => `<option value="${b.id}">${escapeHTML(b.name)} (${escapeHTML(b.code)})</option>`).join('');
+        }
+    }
 
-        tbody.innerHTML = branches.map(b => `
-            <tr>
-                <td class="fw-bold"><code>${b.code}</code></td>
-                <td>${b.name}</td>
-                <td><span class="badge ${b.is_active ? 'bg-success' : 'bg-secondary'}">${b.is_active ? 'Activa' : 'Inactiva'}</span></td>
-            </tr>
-        `).join('');
-    } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-danger">Error al cargar sucursales.</td></tr>';
+    if (sectors) {
+        cachedSectors = sectors; 
+        const sBody = document.getElementById('table-sectors-body');
+        if(sBody) {
+            sBody.innerHTML = ''; 
+            if(sectors.length === 0) {
+                sBody.innerHTML = '<tr><td colspan="4" style="color:var(--text-muted); text-align:center;">Sin sectores registrados.</td></tr>';
+            } else {
+                sectors.forEach(s => {
+                    sBody.innerHTML += `<tr><td>${escapeHTML(s.branch_name||'-')}</td><td style="font-weight:bold;">${escapeHTML(s.name)}</td><td><span class="badge badge-info">${escapeHTML(s.print_queue_code)}</span></td><td><span class="badge badge-neutral">${s.uses_locations ? 'SÍ' : 'NO'}</span></td></tr>`;
+                });
+            }
+        }
+        const locSecSelect = document.getElementById('loc-sector'); 
+        const impSecSelect = document.getElementById('import-loc-sector');
+        const optionsHtml = '<option value="">-- Seleccionar Sector --</option>' + sectors.map(s => `<option value="${s.id}">${escapeHTML(s.branch_name || 'Sin Sucursal')} > ${escapeHTML(s.name)}</option>`).join('');
+        if(locSecSelect) locSecSelect.innerHTML = optionsHtml; 
+        if(impSecSelect) impSecSelect.innerHTML = optionsHtml;
+    }
+
+    if (locations) {
+        cachedLocations = locations; 
+        const lBody = document.getElementById('table-locations-body');
+        if(lBody) {
+            lBody.innerHTML = ''; 
+            if(locations.length === 0) {
+                lBody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted); text-align:center;">Sin ubicaciones registradas.</td></tr>';
+            } else {
+                locations.forEach(l => {
+                    lBody.innerHTML += `<tr><td>${escapeHTML(l.branch_name||'-')}</td><td>${escapeHTML(l.sector_name||'-')}</td><td style="font-weight:bold; color:var(--accent);">${escapeHTML(l.location_code)}</td><td>${escapeHTML(l.description||'-')}</td><td><span class="badge badge-success">ACTIVA</span></td></tr>`;
+                });
+            }
+        }
     }
 }
 
-async function saveBranchForm(event) {
-    if (event) event.preventDefault();
-    const payload = {
-        code: document.getElementById('branchCode').value.trim(),
-        name: document.getElementById('branchName').value.trim()
-    };
-
-    try {
-        await fetchAPI('/api/admin/branches', { method: 'POST', body: payload });
-        showToast("Sucursal creada con éxito.", "success");
-        
-        const modalEl = document.getElementById('branchModal');
-        if (modalEl) {
-            const modal = bootstrap.Modal.getInstance(modalEl);
-            if (modal) modal.hide();
-        }
-        loadBranches();
-    } catch (e) {}
+async function saveBranch(e) { 
+    e.preventDefault(); 
+    const payload = { 
+        code: document.getElementById('branch-code').value.trim(), 
+        name: document.getElementById('branch-name').value.trim() 
+    }; 
+    const r = await fetchAPI('/api/admin/branches', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); 
+    if(r) { 
+        showToast('Sucursal creada exitosamente.', 'success'); 
+        closeModal('modal-branch'); 
+        document.getElementById('form-branch').reset();
+        loadWarehouseData(); 
+    } 
 }
 
-async function legacy_loadSectors() {
-    const tbody = document.getElementById('sectorsTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Cargando sectores...</td></tr>';
-
-    try {
-        const sectors = await fetchAPI('/api/admin/sectors');
-        
-        // Actualizar selects globales de sectores
-        const selects = document.querySelectorAll('.sector-select-populate');
-        selects.forEach(sel => {
-            sel.innerHTML = '<option value="">-- Seleccionar Sector --</option>' + 
-                sectors.map(s => `<option value="${s.id}">${s.name} (${s.branch_name || 'Sin Sucursal'})</option>`).join('');
-        });
-
-        if (!sectors || sectors.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No hay sectores registrados.</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = sectors.map(s => `
-            <tr>
-                <td class="fw-bold">${s.name}</td>
-                <td><code>${s.print_queue_code}</code></td>
-                <td>${s.branch_name || 'Sin Sucursal'}</td>
-                <td><span class="badge ${s.uses_locations ? 'bg-info text-dark' : 'bg-secondary'}">${s.uses_locations ? 'Usa Ubicaciones' : 'Sector Plano'}</span></td>
-                <td class="text-end">
-                    ${s.uses_locations ? `<button class="btn btn-sm btn-outline-primary" onclick="openImportLocationsModal('${s.id}', '${s.name}')">📤 Importar Ubicaciones</button>` : ''}
-                </td>
-            </tr>
-        `).join('');
-    } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error al cargar sectores.</td></tr>';
-    }
-}
-
-async function saveSectorForm(event) {
-    if (event) event.preventDefault();
-    const payload = {
-        name: document.getElementById('sectorName').value.trim(),
-        print_queue_code: document.getElementById('sectorPrintQueue').value.trim(),
-        uses_locations: document.getElementById('sectorUsesLocations').checked,
-        branch_id: document.getElementById('sectorBranchId').value
-    };
-
-    if (!payload.branch_id) {
-        showToast("Debe seleccionar una sucursal para el sector.", "danger");
+async function saveSector(e) { 
+    e.preventDefault(); 
+    const payload = { 
+        branch_id: document.getElementById('sector-branch').value, 
+        name: document.getElementById('sector-name').value.trim(), 
+        print_queue_code: document.getElementById('sector-print-code').value.trim(), 
+        uses_locations: document.getElementById('sector-uses-locations').checked 
+    }; 
+    if(!payload.branch_id) {
+        showToast('Debe seleccionar una sucursal.', 'error');
         return;
     }
-
-    try {
-        await fetchAPI('/api/admin/sectors', { method: 'POST', body: payload });
-        showToast("Sector creado con éxito.", "success");
-        
-        const modalEl = document.getElementById('sectorModal');
-        if (modalEl) {
-            const modal = bootstrap.Modal.getInstance(modalEl);
-            if (modal) modal.hide();
-        }
-        loadSectors();
-    } catch (e) {}
+    const r = await fetchAPI('/api/admin/sectors', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); 
+    if(r) { 
+        showToast('Sector creado exitosamente.', 'success'); 
+        closeModal('modal-sector'); 
+        document.getElementById('form-sector').reset();
+        loadWarehouseData(); 
+    } 
 }
 
-async function legacy_loadLocations() {
-    const tbody = document.getElementById('locationsTableBody');
-    if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="4" class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Cargando ubicaciones...</td></tr>';
-
-    try {
-        const locations = await fetchAPI('/api/admin/locations');
-        if (!locations || locations.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No hay ubicaciones registradas.</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = locations.map(l => `
-            <tr>
-                <td class="fw-bold text-primary"><code>${l.location_code}</code></td>
-                <td>${l.description || '-'}</td>
-                <td>${l.sector_name || 'Sin sector'}</td>
-                <td>${l.branch_name || 'Sin sucursal'}</td>
-            </tr>
-        `).join('');
-    } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error al cargar ubicaciones.</td></tr>';
-    }
-}
-
-async function saveLocationForm(event) {
-    if (event) event.preventDefault();
-    const payload = {
-        sector_id: document.getElementById('locationSectorId').value,
-        location_code: document.getElementById('locationCode').value.trim(),
-        description: document.getElementById('locationDesc').value.trim()
-    };
-
-    if (!payload.sector_id) {
-        showToast("Debe seleccionar un sector.", "danger");
+async function saveLocation(e) { 
+    e.preventDefault(); 
+    const payload = { 
+        sector_id: document.getElementById('loc-sector').value, 
+        location_code: document.getElementById('loc-code').value.trim(), 
+        description: document.getElementById('loc-desc').value.trim() || null 
+    }; 
+    if(!payload.sector_id) {
+        showToast('Debe seleccionar un sector.', 'error');
         return;
     }
-
-    try {
-        await fetchAPI('/api/admin/locations', { method: 'POST', body: payload });
-        showToast("Ubicación creada con éxito.", "success");
-        
-        const modalEl = document.getElementById('locationModal');
-        if (modalEl) {
-            const modal = bootstrap.Modal.getInstance(modalEl);
-            if (modal) modal.hide();
-        }
-        loadLocations();
-    } catch (e) {}
+    const r = await fetchAPI('/api/admin/locations', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); 
+    if(r) { 
+        showToast('Ubicación registrada exitosamente.', 'success'); 
+        closeModal('modal-location'); 
+        document.getElementById('form-location').reset();
+        loadWarehouseData(); 
+    } 
 }
 
-function openImportLocationsModal(sectorId, sectorName) {
-    document.getElementById('importSectorIdHidden').value = sectorId;
-    document.getElementById('importSectorNameTitle').innerText = sectorName;
-    const modalEl = document.getElementById('importLocationsModal');
-    if (modalEl) new bootstrap.Modal(modalEl).show();
+async function uploadLocationsCSV(e) { 
+    e.preventDefault(); 
+    const sectorId = document.getElementById('import-loc-sector').value; 
+    const fileInput = document.getElementById('import-loc-file'); 
+    if(!fileInput.files[0]) { 
+        showToast('Seleccione un archivo CSV.', 'warning'); 
+        return; 
+    } 
+    const formData = new FormData(); 
+    formData.append('file', fileInput.files[0]); 
+    const r = await fetchAPI(`/api/admin/sectors/${sectorId}/locations/import`, { method: 'POST', body: formData }); 
+    if(r) { 
+        showToast(r.message || 'Ubicaciones importadas correctamente.', 'success'); 
+        closeModal('modal-import-locations'); 
+        loadWarehouseData(); 
+    } 
 }
 
-async function submitImportLocationsCSV() {
-    const fileInput = document.getElementById('importLocationsFileInput');
-    const sectorId = document.getElementById('importSectorIdHidden').value;
-
-    if (!fileInput.files || fileInput.files.length === 0) {
-        showToast("Seleccione un archivo CSV.", "danger");
-        return;
-    }
-
-    const formData = new FormData();
-    formData.append('file', fileInput.files[0]);
-
-    try {
-        showToast("Importando ubicaciones...", "info");
-        const res = await fetch(`/api/admin/sectors/${sectorId}/locations/import`, { method: 'POST', body: formData, credentials: 'include' });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.detail || "Error al importar ubicaciones.");
-        showToast(data.message || "Ubicaciones importadas correctamente.", "success");
-        
-        const modalEl = document.getElementById('importLocationsModal');
-        if (modalEl) {
-            const modal = bootstrap.Modal.getInstance(modalEl);
-            if (modal) modal.hide();
-        }
-        loadLocations();
-    } catch (e) {
-        showToast(e.message, "danger");
-    } finally {
-        fileInput.value = '';
-    }
-}
+window.loadWarehouseData = loadWarehouseData;
+window.saveBranch = saveBranch;
+window.saveSector = saveSector;
+window.saveLocation = saveLocation;
+window.uploadLocationsCSV = uploadLocationsCSV;

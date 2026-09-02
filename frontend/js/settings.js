@@ -80,6 +80,16 @@ async function loadSettings() {
         setVal('cfg-auto-complete-picking', String(data.auto_complete_picking ?? 'true'));
         setVal('cfg-default-inventory-count-type', data.default_inventory_count_type || 'HOT');
 
+        // Módulos Enterprise WMS
+        setVal('cfg-enable-api-idempotency', String(data.enable_api_idempotency ?? 'false'));
+        setVal('cfg-enable-serial-tracking', String(data.enable_serial_tracking ?? 'false'));
+        setVal('cfg-enable-putaway-suggestions', String(data.enable_putaway_suggestions ?? 'false'));
+        setVal('cfg-enable-replenishment', String(data.enable_replenishment ?? 'false'));
+        setVal('cfg-enable-wave-picking', String(data.enable_wave_picking ?? 'false'));
+        setVal('cfg-enable-optimal-routing', String(data.enable_optimal_routing ?? 'false'));
+        setVal('cfg-enable-packing-station', String(data.enable_packing_station ?? 'false'));
+        setVal('cfg-enable-labor-management', String(data.enable_labor_management ?? 'false'));
+
         // Configuración Google OAUTH2
         const ssoEnabled = (data.enable_google_sso === 'true');
         const ssoCheck = document.getElementById('cfg-enable-google-sso');
@@ -117,7 +127,7 @@ async function loadSettings() {
             loadIntegrations();
         }
 
-        // Comprobación silenciosa de actualizaciones al abrir el módulo
+        await loadWebhookLogs();
         checkSystemUpdates();
 
     } catch (err) {
@@ -154,6 +164,15 @@ async function saveSettings(e) {
         auto_complete_picking: getVal('cfg-auto-complete-picking'),
         default_inventory_count_type: getVal('cfg-default-inventory-count-type'),
         
+        enable_api_idempotency: getVal('cfg-enable-api-idempotency'),
+        enable_serial_tracking: getVal('cfg-enable-serial-tracking'),
+        enable_putaway_suggestions: getVal('cfg-enable-putaway-suggestions'),
+        enable_replenishment: getVal('cfg-enable-replenishment'),
+        enable_wave_picking: getVal('cfg-enable-wave-picking'),
+        enable_optimal_routing: getVal('cfg-enable-optimal-routing'),
+        enable_packing_station: getVal('cfg-enable-packing-station'),
+        enable_labor_management: getVal('cfg-enable-labor-management'),
+
         enable_google_sso: enable_google_sso,
         google_client_id: getVal('cfg-google-client-id'),
         google_client_secret: getVal('cfg-google-client-secret'),
@@ -183,6 +202,57 @@ async function saveSettings(e) {
     }
 }
 
+// === AUDITORÍA Y RE-INTENTOS DE WEBHOOKS ===
+
+async function loadWebhookLogs() {
+    try {
+        const logs = await fetchAPI('/api/admin/webhooks/logs');
+        const tbody = document.getElementById('webhookLogsTableBody');
+        if (!tbody) return;
+        
+        if (!logs || logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Sin eventos de webhook registrados.</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = logs.map(l => {
+            const statusBadge = l.status === 'SUCCESS' 
+                ? `<span class="badge badge-success">HTTP ${l.response_status || '200'}</span>`
+                : `<span class="badge badge-danger">${l.response_status ? 'HTTP ' + l.response_status : 'FALLO'} - ${escapeHTML(l.error_message || 'Error de red')}</span>`;
+            
+            const dateStr = new Date(l.created_at).toLocaleString('es-AR');
+            
+            return `<tr>
+                <td class="font-mono">${escapeHTML(dateStr)}</td>
+                <td><strong>${escapeHTML(l.channel_name || 'Desconocido')}</strong></td>
+                <td><span class="badge badge-info">${escapeHTML(l.event_type)}</span></td>
+                <td class="font-mono" style="font-size:0.8rem;" title="${escapeHTML(l.target_url)}">${escapeHTML(l.target_url.length > 35 ? l.target_url.substring(0, 35) + '...' : l.target_url)}</td>
+                <td>${statusBadge}</td>
+                <td style="text-align:right;">
+                    <button type="button" class="btn-secondary" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="retryWebhook('${l.id}')">Reintentar</button>
+                </td>
+            </tr>`;
+        }).join('');
+    } catch (err) {
+        console.error("[WEBHOOK LOGS ERROR]:", err);
+    }
+}
+
+async function retryWebhook(logId) {
+    if (!confirm("¿Desea re-disparar el envío de este evento de webhook?")) return;
+    try {
+        const res = await fetchAPI(`/api/admin/webhooks/retry/${logId}`, { method: 'POST' });
+        if (res) {
+            if (typeof showToast === 'function') {
+                showToast(`Webhook reintentado. Estado: ${res.webhook_status}`, res.webhook_status === 'SUCCESS' ? 'success' : 'error');
+            }
+            await loadWebhookLogs();
+        }
+    } catch (e) {
+        if (typeof showToast === 'function') showToast("Error al reintentar webhook: " + (e.message || "Fallo"), "error");
+    }
+}
+
 // === ACTUALIZADOR IN-APP (GITHUB RELEASES) ===
 
 async function checkSystemUpdates() {
@@ -197,7 +267,7 @@ async function checkSystemUpdates() {
         if (!res) return;
 
         if (res.update_available) {
-            if (badge) { badge.textContent = `NUEVA VERSIONAL: v${res.latest_version}`; badge.className = 'badge badge-info'; }
+            if (badge) { badge.textContent = `NUEVA VERSIÓN: v${res.latest_version}`; badge.className = 'badge badge-info'; }
             if (infoText) {
                 infoText.innerHTML = `Versión actual: <strong>v${res.current_version}</strong>. Disponible: <strong>v${res.latest_version}</strong><br><small style="color:var(--text-muted);">${escapeHTML(res.release_notes)}</small>`;
             }
@@ -302,6 +372,8 @@ function switchZPLTab(tabId, btn) {
 
 window.loadSettings = loadSettings;
 window.saveSettings = saveSettings;
+window.loadWebhookLogs = loadWebhookLogs;
+window.retryWebhook = retryWebhook;
 window.checkSystemUpdates = checkSystemUpdates;
 window.applySystemUpdate = applySystemUpdate;
 window.editGoogleSSO = editGoogleSSO;

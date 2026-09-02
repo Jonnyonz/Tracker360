@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from backend.database import get_db_connection
-import asyncpg, secrets
+from backend.database import get_db_connection, send_webhook_sync
+import asyncpg, secrets, json, uuid, asyncio
 
 router = APIRouter()
 
@@ -55,6 +55,14 @@ DEFAULT_SETTINGS = {
     "auto_complete_picking": "true",
     "default_print_queue": "PRINT-SEC-01",
     "default_inventory_count_type": "HOT",
+    "enable_api_idempotency": "false",
+    "enable_serial_tracking": "false",
+    "enable_putaway_suggestions": "false",
+    "enable_replenishment": "false",
+    "enable_wave_picking": "false",
+    "enable_optimal_routing": "false",
+    "enable_packing_station": "false",
+    "enable_labor_management": "false",
     "zpl_item_width": "38",
     "zpl_item_height": "20",
     "zpl_item_template": DEFAULT_ITEM_ZPL,
@@ -204,3 +212,39 @@ async def update_setting_by_key(key: str, request: Request, conn: asyncpg.Connec
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
     """, key.strip(), body_val)
     return {"status": "ok", "key": key, "value": body_val}
+
+# === AUDITORÍA Y RE-INTENTOS DE WEBHOOKS ===
+@router.get("/api/admin/webhooks/logs")
+async def get_webhook_logs(limit: int = 50, conn: asyncpg.Connection = Depends(get_db_connection)):
+    rows = await conn.fetch("""
+        SELECT id, channel_id, channel_name, event_type, target_url, payload::text, response_status, response_body, error_message, status, created_at
+        FROM webhook_logs ORDER BY created_at DESC LIMIT $1
+    """, limit)
+    return [dict(r) for r in rows]
+
+@router.post("/api/admin/webhooks/retry/{log_id}")
+async def retry_webhook_log(log_id: str, conn: asyncpg.Connection = Depends(get_db_connection)):
+    try:
+        log_uuid = uuid.UUID(log_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="ID de log inválido.")
+    
+    log_row = await conn.fetchrow("SELECT * FROM webhook_logs WHERE id = $1", log_uuid)
+    if not log_row:
+        raise HTTPException(status_code=404, detail="Registro de webhook no encontrado.")
+    
+    api_key = ""
+    if log_row["channel_id"]:
+        api_key = await conn.fetchval("SELECT api_key FROM integration_channels WHERE id = $1", log_row["channel_id"]) or ""
+    
+    payload = json.loads(log_row["payload"]) if isinstance(log_row["payload"], str) else dict(log_row["payload"])
+    
+    status, body, err = await asyncio.to_thread(send_webhook_sync, log_row["target_url"], payload, api_key)
+    new_status = "SUCCESS" if (status and 200 <= status < 300) else "FAILED"
+    
+    await conn.execute("""
+        UPDATE webhook_logs SET response_status = $1, response_body = $2, error_message = $3, status = $4, created_at = CURRENT_TIMESTAMP
+        WHERE id = $5
+    """, status, body, err, new_status, log_uuid)
+    
+    return {"status": "ok", "response_status": status, "webhook_status": new_status, "error_message": err}

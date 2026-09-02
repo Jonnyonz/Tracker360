@@ -1,121 +1,154 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Tracker360 - Acceso Seguro</title>
+    <title>Tracker360 - JZTech Suite</title>
     <link rel="icon" type="image/png" href="/favicon.png">
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
+        /* Variables JZTech Suite */
         :root {
-            --bg-dark: #121212;
-            --panel-bg: #1e1e1e;
-            --text-main: #ffffff;
-            --accent-blue: #2962ff;
-            --error-red: #d50000;
-            --input-bg: #2c2c2c;
-            --border-muted: #444444;
+            --bg-page: #f4f6f9; 
+            --bg-surface: #ffffff; 
+            --accent: #2962ff; 
+            --accent-hover: #1f4fd1; 
+            --danger: #d50000; 
+            --text-primary: #212529; 
+            --text-secondary: #666666; 
+            --text-muted: #999999; 
+            --border: #e0e0e0; 
+            --shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        
+        [data-theme="dark"] {
+            --bg-page: #121212; 
+            --bg-surface: #1e1e1e; 
+            --accent: #3d70ff; 
+            --accent-hover: #5a85ff; 
+            --danger: #ff5252; 
+            --text-primary: #e0e0e0; 
+            --text-secondary: #aaaaaa; 
+            --text-muted: #777777; 
+            --border: #333333; 
+            --shadow: 0 4px 12px rgba(0,0,0,0.3);
         }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: system-ui, -apple-system, sans-serif;
-        }
-
-        body {
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            display: flex;
+        /* Reseteo y Base */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body { 
+            background-color: var(--bg-page); 
+            color: var(--text-primary); 
+            font-family: system-ui, -apple-system, sans-serif; 
+            display: flex; 
+            flex-direction: column;
+            min-height: 100vh; 
+            align-items: center; 
             justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 1.5rem;
+            transition: background-color 0.2s, color 0.2s;
         }
 
+        /* Contenedor Principal */
         .login-container {
-            background-color: var(--panel-bg);
-            padding: 3rem 2.5rem 2rem 2.5rem;
-            border-radius: 8px;
-            border: 1px solid var(--border-muted);
-            width: 100%;
+            background: var(--bg-surface);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            width: 90%;
             max-width: 420px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            border: 1px solid var(--border);
+            z-index: 10;
         }
 
-        h1 {
-            text-align: center;
+        /* Marca y Logo */
+        .brand-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             margin-bottom: 2rem;
-            color: var(--accent-blue);
-            font-size: 1.8rem;
-            letter-spacing: 1px;
-            text-transform: uppercase;
         }
 
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        label {
-            display: block;
+        .brand-logo-svg {
+            height: 150px;
+            width: 150px;
             margin-bottom: 0.5rem;
-            font-weight: bold;
-            color: #cccccc;
+            color: var(--text-primary);
         }
 
+        /* Formularios */
+        .form-group { margin-bottom: 1.2rem; }
+        
+        label { 
+            display: block; 
+            margin-bottom: 0.5rem; 
+            font-weight: 500; 
+            font-size: 0.85rem; 
+            color: var(--text-secondary); 
+        }
+        
         input {
-            width: 100%;
-            padding: 1rem;
-            border: 2px solid var(--border-muted);
-            border-radius: 4px;
-            background-color: var(--input-bg);
-            color: var(--text-main);
-            font-size: 1.1rem;
-            transition: border-color 0.2s;
+            width: 100%; 
+            padding: 0.8rem 1rem; 
+            border: 1px solid var(--border); 
+            border-radius: 8px; 
+            background-color: var(--bg-page); 
+            color: var(--text-primary); 
+            font-size: 1rem; 
+            transition: all 0.2s;
+        }
+        
+        input:focus { 
+            outline: none; 
+            border-color: var(--accent); 
+            box-shadow: 0 0 0 3px rgba(41, 98, 255, 0.1); 
         }
 
-        input:focus {
-            border-color: var(--accent-blue);
-            outline: none;
+        /* Tipografía Monospace para Códigos */
+        .font-mono { 
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important; 
+            letter-spacing: 0.02em;
         }
 
+        /* Botones */
         .btn-submit {
-            width: 100%;
-            padding: 1rem;
-            background-color: var(--accent-blue);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-size: 1.2rem;
-            font-weight: bold;
-            cursor: pointer;
-            text-transform: uppercase;
+            width: 100%; 
+            background-color: var(--accent); 
+            color: #ffffff; 
+            border: none; 
+            padding: 0.85rem; 
+            font-size: 0.95rem; 
+            font-weight: 600; 
+            border-radius: 8px; 
+            cursor: pointer; 
+            transition: background 0.2s; 
             margin-top: 1rem;
-            transition: opacity 0.2s;
         }
-
-        .btn-submit:active {
-            opacity: 0.8;
+        
+        .btn-submit:hover { 
+            background-color: var(--accent-hover); 
         }
-
+        
         .btn-submit:disabled {
-            opacity: 0.5;
+            opacity: 0.7;
             cursor: not-allowed;
         }
 
+        /* Manejo de Errores */
         .error-box {
-            color: white;
-            background-color: var(--error-red);
-            padding: 1rem;
-            border-radius: 4px;
-            margin-bottom: 1.5rem;
+            background-color: rgba(213, 0, 0, 0.08); 
+            color: var(--danger); 
+            padding: 0.8rem; 
+            border-radius: 8px; 
+            border: 1px solid rgba(213, 0, 0, 0.2); 
+            margin-bottom: 1.5rem; 
+            font-size: 0.85rem; 
+            font-weight: 600; 
+            text-align: center; 
             display: none;
-            font-weight: bold;
-            text-align: center;
-            border: 1px solid #8e0000;
         }
 
+        /* Sección Google SSO */
         .google-section {
             display: none;
             margin-top: 1.5rem;
@@ -131,56 +164,125 @@
         .divider-line {
             flex: 1;
             height: 1px;
-            background: var(--border-muted);
+            background: var(--border);
         }
 
         .divider-text {
             padding: 0 10px;
-            color: #888888;
-            font-size: 0.8rem;
-            font-weight: bold;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 600;
         }
-
-        .legal-footer {
-            margin-top: 2rem;
-            padding-top: 1.2rem;
-            border-top: 1px solid var(--border-muted);
-            text-align: center;
-            font-size: 0.78rem;
-            color: #888888;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
+        
+        /* Footer Fijo JZTech */
+        .app-footer {
+            position: absolute; 
+            bottom: 1.5rem; 
+            text-align: center; 
+            font-size: 0.8rem; 
+            color: var(--text-muted); 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 8px;
         }
-
-        .legal-footer a {
-            color: #aaaaaa;
-            text-decoration: none;
+        
+        .app-footer a { 
+            color: var(--text-secondary); 
+            text-decoration: none; 
+            font-weight: 600; 
             transition: color 0.2s;
         }
+        
+        .app-footer a:hover {
+            color: var(--accent);
+        }
 
-        .legal-footer a:hover {
-            color: var(--accent-blue);
-            text-decoration: underline;
+        .footer-logo-svg { 
+            height: 18px; 
+            width: auto; 
+            color: var(--text-muted);
+            opacity: 0.8;
+        }
+
+        /* Toggle Tema Claro/Oscuro */
+        .theme-toggle { 
+            position: absolute; 
+            top: 1.5rem; 
+            right: 1.5rem; 
+            background: none; 
+            border: none; 
+            color: var(--text-secondary); 
+            cursor: pointer; 
+            padding: 0.5rem; 
+            border-radius: 50%; 
+            transition: background 0.2s;
+        }
+        
+        .theme-toggle:hover { 
+            background: rgba(0,0,0,0.05); 
+        }
+        
+        [data-theme="dark"] .theme-toggle:hover { 
+            background: rgba(255,255,255,0.05); 
         }
     </style>
 </head>
 <body>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Cambiar Tema">
+        <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+    </button>
+
     <div class="login-container">
-        <h1>Tracker360</h1>
+        <div class="brand-header">
+            <!-- VERSIÓN GRANDE: TRACKER360 (4 Meridianos + Trópicos Cortados) -->
+            <svg class="brand-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+                <defs>
+                    <clipPath id="lg-top-hemi-clean">
+                        <rect x="0" y="0" width="400" height="168" />
+                    </clipPath>
+                    <clipPath id="lg-bottom-hemi-clean">
+                        <rect x="0" y="232" width="400" height="168" />
+                    </clipPath>
+                    <g id="clean-orbital-arrow-v3">
+                        <path d="M 68,130 A 148,148 0 0,1 332,130" fill="none" stroke="var(--text-muted)" stroke-width="6" stroke-linecap="round" />
+                        <path d="M -8,-8 L 8,0 L -8,8 Z" fill="var(--text-muted)" stroke="none" transform="translate(332, 130) rotate(62)" />
+                    </g>
+                </defs>
+                <use href="#clean-orbital-arrow-v3" />
+                <use href="#clean-orbital-arrow-v3" transform="rotate(180 200 200)" />
+                <g stroke="currentColor" stroke-width="7.5" fill="none" stroke-linejoin="round" stroke-linecap="round">
+                    <g clip-path="url(#lg-top-hemi-clean)">
+                        <circle cx="200" cy="200" r="120" />
+                        <line x1="200" y1="80" x2="200" y2="320" />
+                        <ellipse cx="200" cy="200" rx="60" ry="120" />
+                    </g>
+                    <line x1="84.35" y1="168" x2="315.65" y2="168" />
+                    <g clip-path="url(#lg-bottom-hemi-clean)">
+                        <circle cx="200" cy="200" r="120" />
+                        <line x1="200" y1="80" x2="200" y2="320" />
+                        <ellipse cx="200" cy="200" rx="60" ry="120" />
+                    </g>
+                    <line x1="84.35" y1="232" x2="315.65" y2="232" />
+                </g>
+                <text x="200" y="213" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="38" text-anchor="middle" letter-spacing="1">
+                    <tspan fill="currentColor">TRACKER</tspan><tspan fill="var(--accent)"> 360</tspan>
+                </text>
+            </svg>
+        </div>
+
         <div id="errorBox" class="error-box"></div>
-        
+
         <form id="loginForm">
             <div class="form-group">
                 <label for="username">Usuario o PIN</label>
-                <input type="text" id="username" autocomplete="off" required autofocus>
+                <input type="text" id="username" class="font-mono" required autocomplete="username" autofocus>
             </div>
             <div class="form-group">
                 <label for="password">Contraseña</label>
-                <input type="password" id="password" required>
+                <input type="password" id="password" required autocomplete="current-password">
             </div>
-            <button type="submit" id="btnSubmit" class="btn-submit">Ingresar al Sistema</button>
+            <button type="submit" class="btn-submit" id="btnSubmit">Ingresar al Sistema</button>
         </form>
 
         <div id="googleSection" class="google-section">
@@ -191,16 +293,61 @@
             </div>
             <div id="googleBtn" style="display: flex; justify-content: center;"></div>
         </div>
-
-        <div class="legal-footer">
-            <a href="/privacy.html" target="_blank">Pol&iacute;tica de Privacidad</a>
-            <span>&bull;</span>
-            <a href="/terms.html" target="_blank">T&eacute;rminos y Condiciones</a>
-        </div>
     </div>
 
+    <footer class="app-footer">
+        <!-- VERSIÓN MÍNIMA (Favicon / Isotipo) -->
+        <svg class="footer-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+            <defs>
+                <clipPath id="top-hemi-min">
+                    <rect x="0" y="0" width="200" height="78" />
+                </clipPath>
+                <clipPath id="bottom-hemi-min">
+                    <rect x="0" y="122" width="200" height="80" />
+                </clipPath>
+                <g id="min-orbital-arrow">
+                    <path d="M 22.7,79.3 A 80,80 0 0,1 177.3,79.3" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" />
+                    <path d="M -6,-6 L 6,0 L -6,6 Z" fill="currentColor" stroke="none" transform="translate(177.3, 79.3) rotate(75)" />
+                </g>
+            </defs>
+            <use href="#min-orbital-arrow" />
+            <use href="#min-orbital-arrow" transform="rotate(180 100 100)" />
+            <g stroke="currentColor" stroke-width="5.5" fill="none" stroke-linejoin="round">
+                <g clip-path="url(#top-hemi-min)">
+                    <circle cx="100" cy="100" r="60" />
+                    <line x1="100" y1="40" x2="100" y2="160" />
+                    <ellipse cx="100" cy="100" rx="26" ry="60" />
+                    <ellipse cx="100" cy="100" rx="60" ry="20" />
+                </g>
+                <line x1="44.5" y1="78" x2="155.5" y2="78" stroke-linecap="round" />
+                <g clip-path="url(#bottom-hemi-min)">
+                    <circle cx="100" cy="100" r="60" />
+                    <line x1="100" y1="40" x2="100" y2="160" />
+                    <ellipse cx="100" cy="100" rx="26" ry="60" />
+                    <ellipse cx="100" cy="100" rx="60" ry="20" />
+                </g>
+                <line x1="44.5" y1="122" x2="155.5" y2="122" stroke-linecap="round" />
+            </g>
+            <text x="100" y="114" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="38" text-anchor="middle" letter-spacing="1">
+                <tspan fill="currentColor">T</tspan><tspan fill="currentColor">360</tspan>
+            </text>
+        </svg>
+        <span>Powered by <a href="https://jz-tech.mywire.org" target="_blank">JZ Tech Solutions</a></span>
+    </footer>
+
     <script>
-        document.addEventListener("DOMContentLoaded", async () => {
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('jztech-theme', newTheme);
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const savedTheme = localStorage.getItem('jztech-theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+
             const loginForm = document.getElementById('loginForm');
             const btnSubmit = document.getElementById('btnSubmit');
             const errorBox = document.getElementById('errorBox');
@@ -218,7 +365,6 @@
                 errorBox.style.display = 'none';
             };
 
-            // Inicializar comprobación condicional de Google SSO
             try {
                 const confResp = await fetch('/api/auth/google/config');
                 if (confResp.ok) {
@@ -240,9 +386,10 @@
 
                                 const data = await resp.json();
                                 if (!resp.ok) {
-                                    throw new Error(data.detail || 'Error al autenticar con Google.');
+                                    const msg = typeof data.detail === 'string' ? data.detail : 'Error al autenticar con Google.';
+                                    throw new Error(msg);
                                 }
-
+                                
                                 const userRole = (data.role || '').toUpperCase();
                                 if (userRole === 'ADMIN') {
                                     window.location.href = '/admin.html';
@@ -258,15 +405,16 @@
                             }
                         };
 
-                        google.accounts.id.initialize({
-                            client_id: googleConf.client_id,
-                            callback: handleCredentialResponse
-                        });
-
-                        google.accounts.id.renderButton(
-                            document.getElementById("googleBtn"),
-                            { theme: "outline", size: "large", text: "signin_with", locale: "es", width: 300 }
-                        );
+                        if (typeof google !== 'undefined') {
+                            google.accounts.id.initialize({
+                                client_id: googleConf.client_id,
+                                callback: handleCredentialResponse
+                            });
+                            google.accounts.id.renderButton(
+                                document.getElementById("googleBtn"),
+                                { theme: "outline", size: "large", text: "signin_with", locale: "es", width: 300 }
+                            );
+                        }
                     }
                 }
             } catch (err) {
@@ -293,11 +441,15 @@
                     });
 
                     if (!response.ok) {
-                        let errorMsg = 'Error en el servidor. Intente nuevamente.';
+                        let errorMsg = 'Error al iniciar sesión.';
                         try {
                             const errData = await response.json();
                             if (errData && errData.detail) {
-                                errorMsg = errData.detail;
+                                if (typeof errData.detail === 'string') {
+                                    errorMsg = errData.detail;
+                                } else if (Array.isArray(errData.detail)) {
+                                    errorMsg = errData.detail.map(item => item.msg || 'Dato inválido').join(', ');
+                                }
                             }
                         } catch (err) {
                             if (response.status === 401 || response.status === 403) {
@@ -315,7 +467,7 @@
                     } else if (userRole === 'PREPARADOR') {
                         window.location.href = '/preparador.html';
                     } else {
-                        throw new Error('Rol no reconocido por el sistema.');
+                        window.location.href = '/admin.html';
                     }
 
                 } catch (error) {

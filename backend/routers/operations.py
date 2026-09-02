@@ -1,18 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone
-import asyncpg, uuid, re
+import asyncpg, uuid, re, json
 
 try:
     from backend.database import (
         get_db_connection, get_current_user, require_admin,
-        record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job
+        record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job,
+        check_idempotency, save_idempotency
     )
 except ImportError:
     from database import (
         get_db_connection, get_current_user, require_admin,
-        record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job
+        record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job,
+        check_idempotency, save_idempotency
     )
 
 router = APIRouter(tags=["Operations & Logistics"])
@@ -21,6 +23,14 @@ class PickScanInput(BaseModel):
     sku: str
     quantity: float
     location_code: Optional[str] = None
+    serial_numbers: Optional[List[str]] = []
+
+class WavePickScanInput(BaseModel):
+    order_numbers: List[str]
+    sku: str
+    quantity: float
+    location_code: Optional[str] = None
+    serial_numbers: Optional[List[str]] = []
 
 class PackOrderInput(BaseModel):
     boxes: int
@@ -30,16 +40,19 @@ class MobileRemitoScanInput(BaseModel):
     sku: str
     quantity: float
     location_code: Optional[str] = None
+    serial_numbers: Optional[List[str]] = []
 
 class MobileTransferScanInput(BaseModel):
     transfer_number: str
     sku: str
     quantity: float
     destination_location_code: Optional[str] = None
+    serial_numbers: Optional[List[str]] = []
 
 class ManualOrderLine(BaseModel):
     sku: str
     quantity: float
+    serial_numbers: Optional[List[str]] = []
 
 class ManualOrderInput(BaseModel):
     document_number: str
@@ -54,6 +67,7 @@ class TransferLineInput(BaseModel):
     origin_location_code: Optional[str] = None
     destination_location_code: Optional[str] = None
     lot_number: Optional[str] = ""
+    serial_numbers: Optional[List[str]] = []
 
 class TransferOrderCreateInput(BaseModel):
     transfer_number: str
@@ -81,12 +95,12 @@ class SpotCheckInput(BaseModel):
     location_code: Optional[str] = None
     lot_number: str = ""
 
-# MODELOS PYDANTIC PARA DEVOLUCIONES (RMA)
 class CustomerReturnLineInput(BaseModel):
     sku: str
     quantity: float
     condition: str = "OPERATIVO"
     location_code: Optional[str] = None
+    serial_numbers: Optional[List[str]] = []
 
 class CustomerReturnCreateInput(BaseModel):
     return_number: str
@@ -96,8 +110,58 @@ class CustomerReturnCreateInput(BaseModel):
     sector_id: Optional[str] = None
     lines: List[CustomerReturnLineInput]
 
-# === DASHBOARD E INTEGRACIONES ===
+# === PUTAWAY & REPLENISHMENT (FASE 2) ===
+@router.get("/api/admin/putaway/{sku}")
+async def get_putaway_suggestion(sku: str, conn: asyncpg.Connection = Depends(get_db_connection)):
+    enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_putaway_suggestions'")
+    if enabled != "true":
+        return {"suggested_location": "", "type": "DISABLED"}
+    
+    sku_clean = sku.strip().upper()
+    
+    fixed = await conn.fetchrow("""
+        SELECT l.location_code 
+        FROM item_locations il 
+        JOIN locations l ON il.location_id = l.id 
+        WHERE UPPER(il.item_sku) = $1 LIMIT 1
+    """, sku_clean)
+    
+    if fixed:
+        return {"suggested_location": fixed["location_code"], "type": "FIXED_LOCATION"}
+        
+    current = await conn.fetchrow("""
+        SELECT l.location_code 
+        FROM stock_inventory si 
+        JOIN locations l ON si.location_id = l.id 
+        WHERE UPPER(si.sku) = $1 AND si.quantity > 0 LIMIT 1
+    """, sku_clean)
+    
+    if current:
+        return {"suggested_location": current["location_code"], "type": "EXISTING_STOCK"}
+        
+    return {"suggested_location": "", "type": "NONE"}
 
+@router.get("/api/admin/replenishment-suggestions")
+async def get_replenishment_suggestions(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_replenishment'")
+    if enabled != "true":
+        return {"status": "disabled", "suggestions": []}
+        
+    query = """
+        SELECT il.item_sku as sku, i.description, 
+               l.location_code as destination_location,
+               COALESCE((SELECT SUM(quantity) FROM stock_inventory WHERE sku = il.item_sku AND location_id = il.location_id), 0) as stock_picking,
+               COALESCE((SELECT SUM(quantity) FROM stock_inventory WHERE sku = il.item_sku AND location_id != il.location_id), 0) as stock_pulmon,
+               (SELECT l2.location_code FROM stock_inventory si2 JOIN locations l2 ON si2.location_id = l2.id WHERE si2.sku = il.item_sku AND si2.location_id != il.location_id AND si2.quantity > 0 LIMIT 1) as origin_location
+        FROM item_locations il
+        JOIN locations l ON il.location_id = l.id
+        JOIN items i ON il.item_sku = i.sku
+    """
+    rows = await conn.fetch(query)
+    suggestions = [dict(r) for r in rows if r["stock_picking"] <= 0 and r["stock_pulmon"] > 0]
+    return {"status": "enabled", "suggestions": suggestions}
+
+# === DASHBOARD E INTEGRACIONES ===
 @router.get("/api/admin/dashboard")
 async def get_admin_dashboard_op(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     pending_orders = await conn.fetch("""
@@ -247,7 +311,6 @@ async def list_admin_stock_kardex(
         rows = await conn.fetch(query, *params)
         return [dict(r) for r in rows]
     except Exception as e:
-        print(f"Error procesando Kardex: {e}")
         raise HTTPException(status_code=400, detail="Error al procesar la consulta.")
 
 # === INVENTARIO FÍSICO / CONTEOS ===
@@ -442,7 +505,7 @@ async def get_picking_order_details(document_number: str, user: dict = Depends(g
     
     lines = await conn.fetch("""
         SELECT dl.id::text, dl.sku, dl.quantity_requested::float, dl.quantity_picked::float,
-               COALESCE(i.description, dl.sku) as description
+               COALESCE(i.description, dl.sku) as description, dl.serial_numbers
         FROM document_lines dl 
         LEFT JOIN items i ON UPPER(dl.sku) = UPPER(i.sku)
         WHERE dl.document_id = $1 
@@ -461,10 +524,17 @@ async def get_picking_order_details(document_number: str, user: dict = Depends(g
         
         if locs:
             ldict["suggested_locations"] = " | ".join([f"{loc['location_code']} ({loc['quantity']})" for loc in locs])
+            ldict["sort_key"] = locs[0]['location_code']
         else:
             ldict["suggested_locations"] = "Sin ubicación asignada o stock agotado"
+            ldict["sort_key"] = "ZZZZZ"
             
         result_lines.append(ldict)
+
+    # FASE 3: Enrutamiento Óptimo
+    routing_enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_optimal_routing'") == "true"
+    if routing_enabled:
+        result_lines.sort(key=lambda x: (x["sort_key"], x["sku"]))
     
     return {"document": dict(doc), "lines": result_lines}
 
@@ -485,6 +555,12 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
         needed = line["quantity_requested"] - line["quantity_picked"]
         if needed <= 0:
             raise HTTPException(400, f"El SKU '{sku_clean}' ya fue recolectado totalmente.")
+
+        # Validación SNT
+        snt_enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_serial_tracking'")
+        if snt_enabled == "true" and data.serial_numbers and len(data.serial_numbers) > 0:
+            if len(data.serial_numbers) != int(data.quantity):
+                raise HTTPException(400, f"La cantidad de números de serie ({len(data.serial_numbers)}) debe coincidir con la cantidad ({data.quantity}).")
 
         loc_id = None
         branch_id = None
@@ -515,10 +591,15 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
             if float(avail or 0) < data.quantity: 
                 raise HTTPException(400, f"Stock insuficiente en la ubicación (Disponible: {avail}).")
 
-        await conn.execute("UPDATE document_lines SET quantity_picked = quantity_picked + $1 WHERE id = $2", data.quantity, line["id"])
+        await conn.execute("""
+            UPDATE document_lines 
+            SET quantity_picked = quantity_picked + $1,
+                serial_numbers = COALESCE(serial_numbers, '[]'::jsonb) || $2::jsonb 
+            WHERE id = $3
+        """, data.quantity, json.dumps(data.serial_numbers or []), line["id"])
         
         if branch_id and sector_id:
-            await record_stock_movement(conn, sku_clean, branch_id, sector_id, loc_id, -data.quantity, 'OUT_PICKING', document_number.strip().upper(), user.get("username"))
+            await record_stock_movement(conn, sku_clean, branch_id, sector_id, loc_id, -data.quantity, 'OUT_PICKING', document_number.strip().upper(), user.get("username"), serial_numbers=data.serial_numbers)
         
         await conn.execute("UPDATE documents SET status = 'IN_PROGRESS' WHERE id = $1 AND status = 'PENDING'", doc["id"])
         
@@ -534,6 +615,148 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
             "message": f"Extraído {data.quantity} un de {sku_clean}", 
             "order_completed": order_completed,
             "remaining_lines": pending
+        }
+
+# === FASE 3: PICKING POR OLAS (WAVE PICKING) ===
+@router.get("/api/picking/waves/pending")
+async def get_wave_picking_pending(limit: int = 5, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_wave_picking'")
+    if enabled != "true": 
+        raise HTTPException(400, "Picking por Olas inactivo en la Configuración Enterprise.")
+        
+    orders = await conn.fetch("SELECT id, document_number FROM documents WHERE status IN ('PENDING', 'IN_PROGRESS') AND document_type = 'PICKING' ORDER BY created_at ASC LIMIT $1", limit)
+    if not orders: 
+        raise HTTPException(400, "No hay pedidos pendientes para agrupar.")
+        
+    order_ids = [o["id"] for o in orders]
+    order_nums = [o["document_number"] for o in orders]
+    
+    lines = await conn.fetch("""
+        SELECT dl.sku, MAX(i.description) as description, 
+               SUM(dl.quantity_requested) as quantity_requested, 
+               SUM(dl.quantity_picked) as quantity_picked
+        FROM document_lines dl
+        LEFT JOIN items i ON UPPER(dl.sku) = UPPER(i.sku)
+        WHERE dl.document_id = ANY($1::uuid[])
+        GROUP BY dl.sku
+    """, order_ids)
+    
+    routing_enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_optimal_routing'") == "true"
+    
+    result_lines = []
+    for l in lines:
+        ldict = dict(l)
+        locs = await conn.fetch("SELECT l.location_code, si.quantity::float FROM stock_inventory si JOIN locations l ON si.location_id = l.id WHERE UPPER(si.sku) = $1 AND si.quantity > 0", l["sku"].strip().upper())
+        
+        if locs:
+            ldict["suggested_locations"] = " | ".join([f"{loc['location_code']} ({loc['quantity']})" for loc in locs])
+            ldict["sort_key"] = locs[0]["location_code"]
+        else:
+            ldict["suggested_locations"] = "Sin ubicación asignada o stock agotado"
+            ldict["sort_key"] = "ZZZZZ"
+            
+        result_lines.append(ldict)
+        
+    if routing_enabled:
+        result_lines.sort(key=lambda x: (x["sort_key"], x["sku"]))
+        
+    return {"order_numbers": order_nums, "lines": result_lines}
+
+@router.post("/api/picking/waves/scan")
+async def scan_wave_picking_item(data: WavePickScanInput, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    async with conn.transaction():
+        sku_clean = data.sku.strip().upper()
+        qty_to_distribute = float(data.quantity)
+        
+        snt_enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_serial_tracking'")
+        if snt_enabled == "true" and data.serial_numbers and len(data.serial_numbers) > 0:
+            if len(data.serial_numbers) != int(data.quantity):
+                raise HTTPException(400, "Descuadre en trazabilidad. La cantidad de números de serie debe coincidir con la cantidad física extraída.")
+        
+        docs = await conn.fetch("SELECT id, document_number, status FROM documents WHERE document_number = ANY($1::text[]) FOR UPDATE", data.order_numbers)
+        if not docs: 
+            raise HTTPException(404, "Pedidos de la ola no encontrados.")
+        
+        total_needed = 0
+        lines_to_update = []
+        
+        for doc in docs:
+            line = await conn.fetchrow("SELECT id, quantity_requested, quantity_picked FROM document_lines WHERE document_id = $1 AND UPPER(sku) = $2", doc["id"], sku_clean)
+            if line:
+                needed = float(line["quantity_requested"]) - float(line["quantity_picked"])
+                if needed > 0:
+                    lines_to_update.append({"line_id": line["id"], "doc_id": doc["id"], "doc_number": doc["document_number"], "needed": needed})
+                    total_needed += needed
+        
+        if qty_to_distribute > total_needed:
+            raise HTTPException(400, f"La cantidad escaneada supera lo solicitado en esta Ola. Restante requerido: {total_needed}")
+            
+        serial_idx = 0
+        serials_list = data.serial_numbers or []
+        
+        for lu in lines_to_update:
+            if qty_to_distribute <= 0: break
+            
+            apply_qty = min(lu["needed"], qty_to_distribute)
+            apply_serials = serials_list[serial_idx : serial_idx + int(apply_qty)]
+            serial_idx += int(apply_qty)
+            
+            await conn.execute("""
+                UPDATE document_lines 
+                SET quantity_picked = quantity_picked + $1,
+                    serial_numbers = COALESCE(serial_numbers, '[]'::jsonb) || $2::jsonb
+                WHERE id = $3
+            """, apply_qty, json.dumps(apply_serials), lu["line_id"])
+            
+            qty_to_distribute -= apply_qty
+            await conn.execute("UPDATE documents SET status = 'IN_PROGRESS' WHERE id = $1 AND status = 'PENDING'", lu["doc_id"])
+        
+        loc_id = None
+        branch_id = None
+        sector_id = None
+        
+        if data.location_code and data.location_code.strip() and data.location_code.strip().upper() not in ["GENERAL", "SIN_UBICACION", "N/A"]:
+            loc = await conn.fetchrow("SELECT l.id, l.sector_id, s.branch_id FROM locations l JOIN sectors s ON l.sector_id = s.id WHERE UPPER(l.location_code) = $1", data.location_code.strip().upper())
+            if loc:
+                loc_id = loc["id"]
+                sector_id = loc["sector_id"]
+                branch_id = loc["branch_id"]
+
+        if not loc_id:
+            stock_entry = await conn.fetchrow("SELECT branch_id, sector_id, location_id FROM stock_inventory WHERE UPPER(sku) = $1 AND quantity > 0 LIMIT 1", sku_clean)
+            if stock_entry:
+                branch_id = stock_entry["branch_id"]
+                sector_id = stock_entry["sector_id"]
+                loc_id = stock_entry["location_id"]
+            else:
+                default_branch = await conn.fetchval("SELECT id FROM branches LIMIT 1")
+                default_sector = await conn.fetchval("SELECT id FROM sectors LIMIT 1")
+                branch_id = default_branch
+                sector_id = default_sector
+
+        allow_neg = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'allow_negative_stock'")
+        if allow_neg != "true" and loc_id:
+            avail = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE branch_id = $1 AND sector_id = $2 AND UPPER(sku) = $3 AND location_id = $4", branch_id, sector_id, sku_clean, loc_id)
+            if float(avail or 0) < data.quantity: 
+                raise HTTPException(400, f"Stock insuficiente en la ubicación (Disponible: {avail}).")
+
+        if branch_id and sector_id:
+            await record_stock_movement(conn, sku_clean, branch_id, sector_id, loc_id, -data.quantity, 'OUT_PICKING', "WAVE-PICK", user.get("username"), serial_numbers=data.serial_numbers)
+
+        auto_complete = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'auto_complete_picking'") or "true"
+        wave_completed = True
+        
+        for doc in docs:
+            pending = await conn.fetchval("SELECT COUNT(*) FROM document_lines WHERE document_id = $1 AND quantity_picked < quantity_requested", doc["id"])
+            if pending == 0 and auto_complete == "true":
+                await conn.execute("UPDATE documents SET status = 'COMPLETED' WHERE id = $1", doc["id"])
+            if pending > 0:
+                wave_completed = False
+        
+        return {
+            "status": "success", 
+            "message": f"Consolidado {data.quantity} un de {sku_clean} en Ola.", 
+            "wave_completed": wave_completed
         }
 
 @router.get("/api/packing/orders")
@@ -617,7 +840,7 @@ async def get_reception_remito_details(remito_number: str, user: dict = Depends(
     """, remito_number.strip().upper())
     if not rem: raise HTTPException(404, "Remito no encontrado")
     lines = await conn.fetch("""
-        SELECT prl.id::text as id, prl.sku, prl.quantity_sent::float as quantity_sent, prl.quantity_received::float as quantity_received, l.location_code
+        SELECT prl.id::text as id, prl.sku, prl.quantity_sent::float as quantity_sent, prl.quantity_received::float as quantity_received, l.location_code, prl.serial_numbers
         FROM purchase_remito_lines prl LEFT JOIN locations l ON prl.location_id = l.id WHERE prl.purchase_remito_id = $1 ORDER BY prl.sku ASC
     """, rem["id"])
     return {"remito": dict(rem), "lines": [dict(l) for l in lines]}
@@ -638,8 +861,14 @@ async def scan_reception_item(remito_number: str, data: MobileRemitoScanInput, u
             loc = await conn.fetchrow("SELECT id FROM locations WHERE UPPER(location_code) = $1", data.location_code.strip().upper())
             if loc: loc_id = loc["id"]
 
-        await conn.execute("UPDATE purchase_remito_lines SET quantity_received = quantity_received + $1 WHERE id = $2", data.quantity, line["id"])
-        await record_stock_movement(conn, sku_clean, rem["branch_id"], rem["sector_id"], loc_id, data.quantity, 'IN_RECEPTION', remito_number.strip().upper(), user.get("username"))
+        await conn.execute("""
+            UPDATE purchase_remito_lines 
+            SET quantity_received = quantity_received + $1,
+                serial_numbers = COALESCE(serial_numbers, '[]'::jsonb) || $2::jsonb 
+            WHERE id = $3
+        """, data.quantity, json.dumps(data.serial_numbers or []), line["id"])
+        
+        await record_stock_movement(conn, sku_clean, rem["branch_id"], rem["sector_id"], loc_id, data.quantity, 'IN_RECEPTION', remito_number.strip().upper(), user.get("username"), serial_numbers=data.serial_numbers)
         await conn.execute("UPDATE purchase_remitos SET status = 'IN_PROGRESS' WHERE id = $1 AND status IN ('PENDING', 'PENDING_CONTROL')", rem["id"])
         
         pending = await conn.fetchval("SELECT COUNT(*) FROM purchase_remito_lines WHERE purchase_remito_id = $1 AND quantity_received < quantity_sent", rem["id"])
@@ -648,7 +877,6 @@ async def scan_reception_item(remito_number: str, data: MobileRemitoScanInput, u
         return {"status": "success", "message": f"Ingresado {data.quantity} un de {sku_clean}", "remito_completed": pending == 0}
 
 # === DEVOLUCIONES DE CLIENTES (RMA) ===
-
 @router.get("/api/admin/returns/next-number")
 async def get_next_return_number(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     prefix = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'return_number_prefix'") or "DEV-"
@@ -691,7 +919,7 @@ async def get_return_order_details(document_id: str, user: dict = Depends(get_cu
     
     lines = await conn.fetch("""
         SELECT dl.id::text, dl.sku, COALESCE(i.description, dl.sku) as description, 
-               dl.quantity_requested::float, dl.quantity_picked::float
+               dl.quantity_requested::float, dl.quantity_picked::float, dl.serial_numbers
         FROM document_lines dl
         LEFT JOIN items i ON UPPER(dl.sku) = UPPER(i.sku)
         WHERE dl.document_id = $1
@@ -700,14 +928,22 @@ async def get_return_order_details(document_id: str, user: dict = Depends(get_cu
     return {"document": dict(doc), "lines": [dict(l) for l in lines]}
 
 @router.post("/api/admin/returns")
-async def create_customer_return(data: CustomerReturnCreateInput, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def create_customer_return(
+    data: CustomerReturnCreateInput, 
+    x_idempotency_key: Optional[str] = Header(None),
+    user: dict = Depends(get_current_user), 
+    conn: asyncpg.Connection = Depends(get_db_connection)
+):
+    cached_resp = await check_idempotency(conn, x_idempotency_key, "/api/admin/returns")
+    if cached_resp:
+        return cached_resp[0]
+
     async with conn.transaction():
         ret_num = data.return_number.strip().upper()
         existing = await conn.fetchval("SELECT id FROM customer_returns WHERE UPPER(return_number) = $1", ret_num)
         if existing:
             raise HTTPException(400, "El número de devolución ya fue registrado.")
 
-        # Determinar Sucursal y Sector (Contexto Usuario o Payload o Defaults)
         target_branch_id = None
         target_sector_id = None
 
@@ -751,13 +987,14 @@ async def create_customer_return(data: CustomerReturnCreateInput, user: dict = D
                     if loc: loc_id = loc["id"]
 
                 await conn.execute("""
-                    INSERT INTO customer_return_lines (return_id, sku, quantity, condition, location_id)
-                    VALUES ($1, $2, $3, $4, $5)
-                """, return_id, sku_clean, line.quantity, cond_clean, loc_id)
+                    INSERT INTO customer_return_lines (return_id, sku, quantity, condition, location_id, serial_numbers)
+                    VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+                """, return_id, sku_clean, line.quantity, cond_clean, loc_id, json.dumps(line.serial_numbers or []))
 
                 await record_stock_movement(
                     conn, sku_clean, target_branch_id, target_sector_id, loc_id, 
-                    line.quantity, 'IN_RETURN', ret_num, user["username"], condition=cond_clean
+                    line.quantity, 'IN_RETURN', ret_num, user["username"], condition=cond_clean,
+                    serial_numbers=line.serial_numbers
                 )
                 items_processed += 1
 
@@ -765,7 +1002,10 @@ async def create_customer_return(data: CustomerReturnCreateInput, user: dict = D
             raise HTTPException(400, "Debe ingresar una cantidad mayor a 0 para al menos un artículo devuelto.")
 
         await log_action(conn, user["username"], "RETURN_CREATED", f"Devolución {ret_num} procesada para el pedido {data.document_id}.")
-        return {"status": "success", "message": f"Devolución {ret_num} registrada exitosamente."}
+        res_data = {"status": "success", "message": f"Devolución {ret_num} registrada exitosamente."}
+        
+        await save_idempotency(conn, x_idempotency_key, "/api/admin/returns", res_data)
+        return res_data
 
 @router.get("/api/admin/returns")
 async def list_customer_returns(search: str = "", limit: int = 50, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
@@ -803,7 +1043,16 @@ async def get_next_transfer_number(admin: dict = Depends(require_admin), conn: a
     return {"next_number": next_num}
 
 @router.post("/api/admin/transfer-orders")
-async def create_transfer_order(data: TransferOrderCreateInput, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def create_transfer_order(
+    data: TransferOrderCreateInput, 
+    x_idempotency_key: Optional[str] = Header(None),
+    admin: dict = Depends(require_admin), 
+    conn: asyncpg.Connection = Depends(get_db_connection)
+):
+    cached_resp = await check_idempotency(conn, x_idempotency_key, "/api/admin/transfer-orders")
+    if cached_resp:
+        return cached_resp[0]
+
     async with conn.transaction():
         existing = await conn.fetchval("SELECT id FROM transfer_orders WHERE UPPER(transfer_number) = $1", data.transfer_number.strip().upper())
         if existing:
@@ -833,12 +1082,15 @@ async def create_transfer_order(data: TransferOrderCreateInput, admin: dict = De
                     raise HTTPException(400, f"Ubicación Destino '{line.destination_location_code}' no existe en el sector.")
 
             await conn.execute("""
-                INSERT INTO transfer_order_lines (transfer_order_id, sku, quantity_sent, quantity_received, origin_location_id, destination_location_id, lot_number)
-                VALUES ($1, $2, $3, 0, $4, $5, $6)
-            """, tr_id, line.sku.strip().upper(), line.quantity, orig_loc_id, dest_loc_id, line.lot_number or "")
+                INSERT INTO transfer_order_lines (transfer_order_id, sku, quantity_sent, quantity_received, origin_location_id, destination_location_id, lot_number, serial_numbers)
+                VALUES ($1, $2, $3, 0, $4, $5, $6, $7::jsonb)
+            """, tr_id, line.sku.strip().upper(), line.quantity, orig_loc_id, dest_loc_id, line.lot_number or "", json.dumps(line.serial_numbers or []))
 
         await log_action(conn, admin["username"], "TRANSFER_CREATED", f"Orden de traspaso {data.transfer_number} creada.")
-        return {"status": "success", "message": "Orden de Traspaso (ODT) generada correctamente."}
+        res_data = {"status": "success", "message": "Orden de Traspaso (ODT) generada correctamente."}
+        
+        await save_idempotency(conn, x_idempotency_key, "/api/admin/transfer-orders", res_data)
+        return res_data
 
 @router.get("/api/transfers/orders")
 @router.get("/api/transfers/pending")
@@ -868,7 +1120,7 @@ async def get_transfer_order_details(transfer_number: str, user: dict = Depends(
     if not tr: raise HTTPException(404, "Traspaso no encontrado")
     lines = await conn.fetch("""
         SELECT tol.id::text as id, tol.sku, tol.quantity_sent::float as quantity_sent, tol.quantity_received::float as quantity_received,
-               ol.location_code as origin_location, dl.location_code as destination_location
+               ol.location_code as origin_location, dl.location_code as destination_location, tol.serial_numbers
         FROM transfer_order_lines tol LEFT JOIN locations ol ON tol.origin_location_id = ol.id LEFT JOIN locations dl ON tol.destination_location_id = dl.id
         WHERE tol.transfer_order_id = $1 ORDER BY tol.sku ASC
     """, tr["id"])
@@ -889,9 +1141,15 @@ async def scan_transfer_item(transfer_number: str, data: MobileTransferScanInput
             loc = await conn.fetchrow("SELECT id FROM locations WHERE UPPER(location_code) = $1", data.destination_location_code.strip().upper())
             if loc: dest_loc_id = loc["id"]
 
-        await conn.execute("UPDATE transfer_order_lines SET quantity_received = quantity_received + $1 WHERE id = $2", data.quantity, line["id"])
-        await record_stock_movement(conn, sku_clean, tr["origin_branch_id"], tr["origin_sector_id"], line["origin_location_id"], -data.quantity, 'TRANSFER_OUT', transfer_number.strip().upper(), user.get("username"))
-        await record_stock_movement(conn, sku_clean, tr["destination_branch_id"], tr["destination_sector_id"], dest_loc_id, data.quantity, 'TRANSFER_IN', transfer_number.strip().upper(), user.get("username"))
+        await conn.execute("""
+            UPDATE transfer_order_lines 
+            SET quantity_received = quantity_received + $1,
+                serial_numbers = COALESCE(serial_numbers, '[]'::jsonb) || $2::jsonb 
+            WHERE id = $3
+        """, data.quantity, json.dumps(data.serial_numbers or []), line["id"])
+        
+        await record_stock_movement(conn, sku_clean, tr["origin_branch_id"], tr["origin_sector_id"], line["origin_location_id"], -data.quantity, 'TRANSFER_OUT', transfer_number.strip().upper(), user.get("username"), serial_numbers=data.serial_numbers)
+        await record_stock_movement(conn, sku_clean, tr["destination_branch_id"], tr["destination_sector_id"], dest_loc_id, data.quantity, 'TRANSFER_IN', transfer_number.strip().upper(), user.get("username"), serial_numbers=data.serial_numbers)
 
         await conn.execute("UPDATE transfer_orders SET status = 'IN_PROGRESS' WHERE id = $1 AND status IN ('PENDING', 'PENDING_CONTROL')", tr["id"])
         pending = await conn.fetchval("SELECT COUNT(*) FROM transfer_order_lines WHERE transfer_order_id = $1 AND quantity_received < quantity_sent", tr["id"])
@@ -945,7 +1203,16 @@ async def get_next_order_number(admin: dict = Depends(require_admin), conn: asyn
     return {"next_number": next_num}
 
 @router.post("/api/admin/sales-orders")
-async def create_manual_sales_order(data: ManualOrderInput, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def create_manual_sales_order(
+    data: ManualOrderInput, 
+    x_idempotency_key: Optional[str] = Header(None),
+    admin: dict = Depends(require_admin), 
+    conn: asyncpg.Connection = Depends(get_db_connection)
+):
+    cached_resp = await check_idempotency(conn, x_idempotency_key, "/api/admin/sales-orders")
+    if cached_resp:
+        return cached_resp[0]
+
     async with conn.transaction():
         ent = await conn.fetchrow("SELECT id FROM entities WHERE tax_id = $1", data.customer_tax_id)
         ent_id = ent["id"] if ent else None
@@ -957,12 +1224,15 @@ async def create_manual_sales_order(data: ManualOrderInput, admin: dict = Depend
         
         for line in data.lines:
             await conn.execute(
-                "INSERT INTO document_lines (document_id, sku, quantity_requested, quantity_picked) VALUES ($1, $2, $3, 0)",
-                doc_id, line.sku.strip().upper(), line.quantity
+                "INSERT INTO document_lines (document_id, sku, quantity_requested, quantity_picked, serial_numbers) VALUES ($1, $2, $3, 0, $4::jsonb)",
+                doc_id, line.sku.strip().upper(), line.quantity, json.dumps(line.serial_numbers or [])
             )
         
         await log_action(conn, admin.get("username"), "ORDER_CREATED", f"Pedido manual {data.document_number} creado.")
-        return {"status": "success", "message": "Pedido creado correctamente."}
+        res_data = {"status": "success", "message": "Pedido creado correctamente."}
+        
+        await save_idempotency(conn, x_idempotency_key, "/api/admin/sales-orders", res_data)
+        return res_data
 
 @router.post("/api/admin/sales-orders/{document_number}/print-label")
 async def reprint_order_label(document_number: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):

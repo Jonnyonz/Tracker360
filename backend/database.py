@@ -1,9 +1,9 @@
-import os, asyncio, uuid, secrets, json, urllib.request
+import os, asyncio, uuid, secrets, json, urllib.request, urllib.error
 from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 import jwt, asyncpg
 from fastapi import HTTPException, Header, Request, Depends
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from passlib.context import CryptContext
 
 # === SEGURIDAD Y CONFIGURACIÓN ===
@@ -74,6 +74,36 @@ async def record_failed_login(ip: str, conn: asyncpg.Connection):
 async def reset_failed_login(ip: str, conn: asyncpg.Connection):
     await conn.execute("DELETE FROM auth_rate_limits WHERE ip_address = $1", ip)
 
+# === AUXILIARES DE IDEMPOTENCIA Y SERIALES (WMS ENTERPRISE) ===
+async def check_idempotency(conn: asyncpg.Connection, idempotency_key: Optional[str], endpoint: str):
+    if not idempotency_key or not idempotency_key.strip():
+        return None
+    enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_api_idempotency'")
+    if enabled != "true":
+        return None
+        
+    row = await conn.fetchrow(
+        "SELECT response_body, status_code FROM api_idempotency_keys WHERE idempotency_key = $1 AND endpoint = $2",
+        idempotency_key.strip(), endpoint
+    )
+    if row:
+        return json.loads(row["response_body"]), row["status_code"]
+    return None
+
+async def save_idempotency(conn: asyncpg.Connection, idempotency_key: Optional[str], endpoint: str, response_data: dict, status_code: int = 200):
+    if not idempotency_key or not idempotency_key.strip():
+        return
+    enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_api_idempotency'")
+    if enabled != "true":
+        return
+    try:
+        await conn.execute(
+            "INSERT INTO api_idempotency_keys (idempotency_key, endpoint, response_body, status_code) VALUES ($1, $2, $3::jsonb, $4) ON CONFLICT (idempotency_key) DO NOTHING",
+            idempotency_key.strip(), endpoint, json.dumps(response_data), status_code
+        )
+    except Exception:
+        pass
+
 # === AUXILIARES DE NEGOCIO ===
 def build_full_address(street: Optional[str], number: Optional[str], zip_code: Optional[str], city_neighborhood: Optional[str], fallback: Optional[str] = "") -> str:
     parts = []
@@ -90,22 +120,41 @@ def send_webhook_sync(url: str, payload: dict, api_key: str = ""):
         headers['Authorization'] = f"Bearer {api_key.strip()}"
     req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=headers, method='POST')
     try:
-        with urllib.request.urlopen(req, timeout=5) as response: return response.status
-    except Exception: return None
+        with urllib.request.urlopen(req, timeout=5) as response:
+            body = response.read().decode('utf-8', errors='ignore')
+            return response.status, body, None
+    except urllib.error.HTTPError as e:
+        body = e.read().decode('utf-8', errors='ignore') if e.fp else ""
+        return e.code, body, str(e)
+    except Exception as e:
+        return None, "", str(e)
+
+async def execute_and_log_webhook(channel_id: Optional[uuid.UUID], channel_name: str, event_type: str, target_url: str, payload: dict, api_key: str = ""):
+    if DB.pool is None: return
+    status, body, err = await asyncio.to_thread(send_webhook_sync, target_url, payload, api_key)
+    log_status = "SUCCESS" if (status and 200 <= status < 300) else "FAILED"
+    try:
+        async with DB.pool.acquire() as conn:
+            await conn.execute("""
+                INSERT INTO webhook_logs (channel_id, channel_name, event_type, target_url, payload, response_status, response_body, error_message, status)
+                VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
+            """, channel_id, channel_name, event_type, target_url, json.dumps(payload), status, body, err, log_status)
+    except Exception: pass
 
 async def dispatch_event_to_channels(conn: asyncpg.Connection, event_type: str, payload: dict):
-    channels = await conn.fetch("SELECT target_url, api_key FROM integration_channels WHERE channel_type = $1 AND is_active = TRUE", event_type)
+    channels = await conn.fetch("SELECT id, name, target_url, api_key FROM integration_channels WHERE channel_type = $1 AND is_active = TRUE", event_type)
     for ch in channels:
         if ch["target_url"] and ch["target_url"].startswith("http"):
-            asyncio.create_task(asyncio.to_thread(send_webhook_sync, ch["target_url"], payload, ch["api_key"] or ""))
+            asyncio.create_task(execute_and_log_webhook(ch["id"], ch["name"], event_type, ch["target_url"], payload, ch["api_key"] or ""))
 
-async def record_stock_movement(conn: asyncpg.Connection, sku: str, branch_id: uuid.UUID, sector_id: uuid.UUID, location_id: Optional[uuid.UUID], quantity: float, movement_type: str, ref_doc: str, username: str, lot_number: str = "", expiration_date = None, condition: str = "OPERATIVO"):
+async def record_stock_movement(conn: asyncpg.Connection, sku: str, branch_id: uuid.UUID, sector_id: uuid.UUID, location_id: Optional[uuid.UUID], quantity: float, movement_type: str, ref_doc: str, username: str, lot_number: str = "", expiration_date = None, condition: str = "OPERATIVO", serial_numbers: Optional[List[str]] = None):
     cond_clean = condition.strip().upper() if condition else "OPERATIVO"
+    serials_json = json.dumps(serial_numbers) if serial_numbers else "[]"
     
     await conn.execute("""
-        INSERT INTO stock_movements (sku, branch_id, sector_id, location_id, quantity, movement_type, reference_document, username, lot_number, expiration_date, condition) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-    """, sku.upper(), branch_id, sector_id, location_id, quantity, movement_type, ref_doc, username, lot_number, expiration_date, cond_clean)
+        INSERT INTO stock_movements (sku, branch_id, sector_id, location_id, quantity, movement_type, reference_document, username, lot_number, expiration_date, condition, serial_numbers) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb)
+    """, sku.upper(), branch_id, sector_id, location_id, quantity, movement_type, ref_doc, username, lot_number, expiration_date, cond_clean, serials_json)
     
     if location_id:
         await conn.execute("""
@@ -121,6 +170,29 @@ async def record_stock_movement(conn: asyncpg.Connection, sku: str, branch_id: u
             ON CONFLICT (branch_id, sector_id, sku, lot_number, condition) WHERE location_id IS NULL 
             DO UPDATE SET quantity = stock_inventory.quantity + EXCLUDED.quantity, updated_at = CURRENT_TIMESTAMP
         """, branch_id, sector_id, sku.upper(), lot_number, expiration_date, quantity, cond_clean)
+
+    # Procesar Números de Serie Unitorios si aplican
+    if serial_numbers and len(serial_numbers) > 0:
+        if quantity > 0:
+            for sn in serial_numbers:
+                sn_clean = sn.strip().upper()
+                if sn_clean:
+                    await conn.execute("""
+                        INSERT INTO item_serials (sku, serial_number, status, branch_id, sector_id, location_id, lot_number)
+                        VALUES ($1, $2, 'IN_STOCK', $3, $4, $5, $6)
+                        ON CONFLICT (serial_number) DO UPDATE SET 
+                            status = 'IN_STOCK', branch_id = EXCLUDED.branch_id, sector_id = EXCLUDED.sector_id, 
+                            location_id = EXCLUDED.location_id, updated_at = CURRENT_TIMESTAMP
+                    """, sku.upper(), sn_clean, branch_id, sector_id, location_id, lot_number)
+        elif quantity < 0:
+            status_target = 'DISPATCHED' if 'OUT' in movement_type else 'TRANSFERRED'
+            for sn in serial_numbers:
+                sn_clean = sn.strip().upper()
+                if sn_clean:
+                    await conn.execute("""
+                        UPDATE item_serials SET status = $1, location_id = NULL, updated_at = CURRENT_TIMESTAMP
+                        WHERE UPPER(sku) = $2 AND UPPER(serial_number) = $3
+                    """, status_target, sku.upper(), sn_clean)
 
     total_qty = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE UPPER(sku) = $1", sku.upper())
     stock_payload = { "event": "stock.updated", "sku": sku.upper(), "available_quantity": float(total_qty), "timestamp": datetime.now(timezone.utc).isoformat() }
@@ -208,9 +280,15 @@ async def init_db_schema():
                     
                     "CREATE TABLE IF NOT EXISTS item_combos (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), combo_sku VARCHAR(100) NOT NULL REFERENCES items(sku) ON DELETE CASCADE, component_sku VARCHAR(100) NOT NULL REFERENCES items(sku) ON DELETE CASCADE, quantity NUMERIC NOT NULL DEFAULT 1, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, UNIQUE(combo_sku, component_sku));",
 
-                    # TABLA DDL AISLADA PARA RFID
+                    # TABLA DDL RFID & SNT
                     "CREATE TABLE IF NOT EXISTS rfid_tags (epc VARCHAR(100) PRIMARY KEY, sku VARCHAR(100) NOT NULL REFERENCES items(sku) ON DELETE CASCADE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, created_by VARCHAR(50));",
                     "CREATE INDEX IF NOT EXISTS idx_rfid_tags_sku ON rfid_tags (sku);",
+
+                    "CREATE TABLE IF NOT EXISTS item_serials (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), sku VARCHAR(100) NOT NULL REFERENCES items(sku) ON DELETE CASCADE, serial_number VARCHAR(100) UNIQUE NOT NULL, status VARCHAR(50) DEFAULT 'IN_STOCK', branch_id UUID REFERENCES branches(id) ON DELETE SET NULL, sector_id UUID REFERENCES sectors(id) ON DELETE SET NULL, location_id UUID REFERENCES locations(id) ON DELETE SET NULL, lot_number VARCHAR(100) DEFAULT '', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
+                    "CREATE INDEX IF NOT EXISTS idx_item_serials_sku_sn ON item_serials (sku, serial_number);",
+
+                    # TABLA DDL IDEMPOTENCIA API
+                    "CREATE TABLE IF NOT EXISTS api_idempotency_keys (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), idempotency_key VARCHAR(255) UNIQUE NOT NULL, endpoint VARCHAR(255) NOT NULL, response_body JSONB NOT NULL, status_code INT NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
 
                     "CREATE TABLE IF NOT EXISTS sectors (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), branch_id UUID REFERENCES branches(id) ON DELETE CASCADE, name VARCHAR(100) UNIQUE NOT NULL, print_queue_code VARCHAR(50) UNIQUE NOT NULL, uses_locations BOOLEAN DEFAULT FALSE, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "CREATE TABLE IF NOT EXISTS locations (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), sector_id UUID REFERENCES sectors(id) ON DELETE CASCADE, location_code VARCHAR(100) NOT NULL, description VARCHAR(255), is_active BOOLEAN DEFAULT TRUE);",
@@ -223,7 +301,10 @@ async def init_db_schema():
                     "ALTER TABLE documents ADD CONSTRAINT documents_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES entities(id) ON DELETE SET NULL;",
                     "ALTER TABLE documents DROP CONSTRAINT IF EXISTS documents_customer_address_id_fkey;",
                     "ALTER TABLE documents ADD CONSTRAINT documents_customer_address_id_fkey FOREIGN KEY (customer_address_id) REFERENCES entity_addresses(id) ON DELETE SET NULL;",
+                    
                     "CREATE TABLE IF NOT EXISTS document_lines (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), document_id UUID REFERENCES documents(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, quantity_requested NUMERIC NOT NULL, quantity_picked NUMERIC DEFAULT 0);",
+                    "ALTER TABLE document_lines ADD COLUMN IF NOT EXISTS serial_numbers JSONB DEFAULT '[]'::jsonb;",
+
                     "CREATE TABLE IF NOT EXISTS audit_logs (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), username VARCHAR(50) NOT NULL, action VARCHAR(50) NOT NULL, details TEXT, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "CREATE TABLE IF NOT EXISTS print_jobs (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), queue_code VARCHAR(50) NOT NULL, zpl_content TEXT NOT NULL, status VARCHAR(20) DEFAULT 'PENDING', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     
@@ -243,15 +324,18 @@ async def init_db_schema():
                     "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS lot_number VARCHAR(100) DEFAULT '';",
                     "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS expiration_date DATE;",
                     "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS condition VARCHAR(50) DEFAULT 'OPERATIVO';",
+                    "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS serial_numbers JSONB DEFAULT '[]'::jsonb;",
 
-                    # TABLAS DDL PARA DEVOLUCIONES DE CLIENTES (RMA)
                     "CREATE TABLE IF NOT EXISTS customer_returns (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), return_number VARCHAR(50) UNIQUE NOT NULL, customer_id UUID REFERENCES entities(id), document_id UUID REFERENCES documents(id), branch_id UUID REFERENCES branches(id), sector_id UUID REFERENCES sectors(id), status VARCHAR(20) DEFAULT 'COMPLETED', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, created_by VARCHAR(50));",
                     "CREATE TABLE IF NOT EXISTS customer_return_lines (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), return_id UUID REFERENCES customer_returns(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, quantity NUMERIC NOT NULL, condition VARCHAR(50) DEFAULT 'OPERATIVO', location_id UUID REFERENCES locations(id));",
-                    
+                    "ALTER TABLE customer_return_lines ADD COLUMN IF NOT EXISTS serial_numbers JSONB DEFAULT '[]'::jsonb;",
+
                     "CREATE TABLE IF NOT EXISTS purchase_orders (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), order_number VARCHAR(50) UNIQUE NOT NULL, supplier_id UUID REFERENCES entities(id), status VARCHAR(20) DEFAULT 'PENDING', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "CREATE TABLE IF NOT EXISTS purchase_order_lines (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), purchase_order_id UUID REFERENCES purchase_orders(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, quantity_ordered NUMERIC NOT NULL, quantity_received NUMERIC DEFAULT 0);",
                     "CREATE TABLE IF NOT EXISTS purchase_remitos (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), remito_number VARCHAR(50) UNIQUE NOT NULL, supplier_id UUID REFERENCES entities(id), purchase_order_id UUID REFERENCES purchase_orders(id), branch_id UUID REFERENCES branches(id), sector_id UUID REFERENCES sectors(id), status VARCHAR(20) DEFAULT 'PENDING_CONTROL', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "CREATE TABLE IF NOT EXISTS purchase_remito_lines (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), purchase_remito_id UUID REFERENCES purchase_remitos(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, quantity_sent NUMERIC NOT NULL, quantity_received NUMERIC DEFAULT 0, location_id UUID REFERENCES locations(id));",
+                    "ALTER TABLE purchase_remito_lines ADD COLUMN IF NOT EXISTS serial_numbers JSONB DEFAULT '[]'::jsonb;",
+
                     "CREATE TABLE IF NOT EXISTS purchase_invoices (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), invoice_number VARCHAR(50) UNIQUE NOT NULL, supplier_id UUID REFERENCES entities(id), invoice_type VARCHAR(10) DEFAULT 'A', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "CREATE TABLE IF NOT EXISTS purchase_invoice_lines (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), purchase_invoice_id UUID REFERENCES purchase_invoices(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, quantity NUMERIC NOT NULL, unit_price NUMERIC DEFAULT 0);",
                     "CREATE TABLE IF NOT EXISTS purchase_invoice_remitos (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), purchase_invoice_id UUID REFERENCES purchase_invoices(id) ON DELETE CASCADE, purchase_remito_id UUID REFERENCES purchase_remitos(id) ON DELETE CASCADE);",
@@ -261,8 +345,11 @@ async def init_db_schema():
                     "ALTER TABLE transfer_orders ADD COLUMN IF NOT EXISTS created_by VARCHAR(50);",
                     "CREATE TABLE IF NOT EXISTS transfer_order_lines (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), transfer_order_id UUID REFERENCES transfer_orders(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, quantity_sent NUMERIC NOT NULL, quantity_received NUMERIC DEFAULT 0, origin_location_id UUID REFERENCES locations(id), destination_location_id UUID REFERENCES locations(id));",
                     "ALTER TABLE transfer_order_lines ADD COLUMN IF NOT EXISTS lot_number VARCHAR(100) DEFAULT '';",
-                    
+                    "ALTER TABLE transfer_order_lines ADD COLUMN IF NOT EXISTS serial_numbers JSONB DEFAULT '[]'::jsonb;",
+
                     "CREATE TABLE IF NOT EXISTS integration_channels (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name VARCHAR(100) NOT NULL, channel_type VARCHAR(50) NOT NULL, target_url TEXT NOT NULL, api_key TEXT, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
+
+                    "CREATE TABLE IF NOT EXISTS webhook_logs (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), channel_id UUID REFERENCES integration_channels(id) ON DELETE SET NULL, channel_name VARCHAR(100) NOT NULL, event_type VARCHAR(50) NOT NULL, target_url TEXT NOT NULL, payload JSONB NOT NULL, response_status INT, response_body TEXT, error_message TEXT, status VARCHAR(20) DEFAULT 'PENDING', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
 
                     "CREATE TABLE IF NOT EXISTS inventory_sessions (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), branch_id UUID REFERENCES branches(id), sector_id UUID REFERENCES sectors(id), count_type VARCHAR(20) NOT NULL DEFAULT 'HOT', status VARCHAR(20) NOT NULL DEFAULT 'OPEN', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, created_by VARCHAR(50), closed_at TIMESTAMP WITH TIME ZONE, closed_by VARCHAR(50));",
                     "ALTER TABLE inventory_sessions ADD COLUMN IF NOT EXISTS assigned_operator VARCHAR(50);",
@@ -272,7 +359,7 @@ async def init_db_schema():
                     "CREATE TABLE IF NOT EXISTS auth_rate_limits (ip_address VARCHAR(50) PRIMARY KEY, attempts INT DEFAULT 0, blocked_until TIMESTAMP WITH TIME ZONE);",
                     "CREATE TABLE IF NOT EXISTS inbound_api_keys (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name VARCHAR(100) NOT NULL, api_key TEXT UNIQUE NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
 
-                    # INSERTS DE CONFIGURACIONES INICIALES
+                    # INSERTS DE CONFIGURACIONES INICIALES ENTERPRISE
                     "INSERT INTO system_settings (key, value) VALUES ('allow_multiproduct_locations', 'false') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('require_mobile_reception', 'false') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('enable_item_dimensions', 'false') ON CONFLICT (key) DO NOTHING;",
@@ -295,6 +382,14 @@ async def init_db_schema():
                     "INSERT INTO system_settings (key, value) VALUES ('auto_complete_picking', 'true') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('default_print_queue', 'PRINT-SEC-01') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('default_inventory_count_type', 'HOT') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('enable_api_idempotency', 'false') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('enable_serial_tracking', 'false') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('enable_putaway_suggestions', 'false') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('enable_replenishment', 'false') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('enable_wave_picking', 'false') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('enable_optimal_routing', 'false') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('enable_packing_station', 'false') ON CONFLICT (key) DO NOTHING;",
+                    "INSERT INTO system_settings (key, value) VALUES ('enable_labor_management', 'false') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('zpl_item_width', '38') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('zpl_item_height', '20') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('zpl_order_width', '100') ON CONFLICT (key) DO NOTHING;",

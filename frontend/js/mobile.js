@@ -1,18 +1,27 @@
 // === CONTROLADOR NATIVO COLECTORA MÓVIL (TRACKER360) ===
 // 100% SOBERANO: ZERO DEPENDENCIAS EXTERNAS NI CDN
 
-let activeModule = null; // 'PICKING' | 'RECEPTION' | 'TRANSFER'
+let activeModule = null; // 'PICKING' | 'RECEPTION' | 'TRANSFER' | 'WAVE'
 let moduleState = 'SKU'; // 'SKU' | 'LOCATION' | 'QTY'
 
 let activeDocumentData = null;
+let activeWaveOrders = [];
 let activeCameraStream = null;
 let cameraDetectorInterval = null;
 let genericCameraStream = null;
 let targetInputIdForCamera = null;
 
+let appSettingsCache = null;
+
 // =========================================================================================
 // === UTILIDADES NATIVAS ==================================================================
 // =========================================================================================
+
+window.onload = async () => {
+    try {
+        appSettingsCache = await fetchAPI('/api/settings');
+    } catch (e) { console.warn("No se pudo cargar configuración inicial."); }
+};
 
 function escapeHTML(str) {
     if (str === null || str === undefined) return '';
@@ -106,7 +115,7 @@ function goHome() {
 
 async function startModuleCameraStream(videoElementId, containerClass) {
     const video = document.getElementById(videoElementId);
-    const container = document.querySelector(`.${containerClass}`);
+    const container = document.querySelector(`#${videoElementId}`).parentElement;
     if (!video || !container) return;
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -176,6 +185,14 @@ function onCameraCodeDetected(code) {
         } else if (moduleState === 'LOCATION') {
             const el = document.getElementById('pick-loc');
             if (el) { el.value = code; onModuleInputProcess('PICKING', 'loc'); }
+        }
+    } else if (activeModule === 'WAVE') {
+        if (moduleState === 'SKU') {
+            const el = document.getElementById('wave-sku');
+            if (el) { el.value = code; onModuleInputProcess('WAVE', 'sku'); }
+        } else if (moduleState === 'LOCATION') {
+            const el = document.getElementById('wave-loc');
+            if (el) { el.value = code; onModuleInputProcess('WAVE', 'loc'); }
         }
     } else if (activeModule === 'RECEPTION') {
         if (moduleState === 'SKU') {
@@ -247,8 +264,8 @@ function setModuleStepState(moduleName, newState) {
     activeModule = moduleName;
     moduleState = newState;
 
-    const prefix = moduleName === 'PICKING' ? 'pick' : (moduleName === 'RECEPTION' ? 'rec' : 'tr');
-    const banner = document.getElementById(moduleName === 'PICKING' ? 'picking-step-banner' : (moduleName === 'RECEPTION' ? 'reception-step-banner' : 'transfer-step-banner'));
+    const prefix = moduleName === 'PICKING' ? 'pick' : (moduleName === 'RECEPTION' ? 'rec' : (moduleName === 'WAVE' ? 'wave' : 'tr'));
+    const banner = document.getElementById(moduleName === 'PICKING' ? 'picking-step-banner' : (moduleName === 'RECEPTION' ? 'reception-step-banner' : (moduleName === 'WAVE' ? 'wave-step-banner' : 'transfer-step-banner')));
     const grpSku = document.getElementById(`grp-${prefix}-sku`);
     const grpLoc = document.getElementById(`grp-${prefix}-loc`);
     const grpQty = document.getElementById(`grp-${prefix}-qty`);
@@ -282,7 +299,7 @@ function onModuleInputProcess(moduleName, inputType) {
     if (!activeDocumentData) return;
     const lines = activeDocumentData.lines || [];
 
-    const prefix = moduleName === 'PICKING' ? 'pick' : (moduleName === 'RECEPTION' ? 'rec' : 'tr');
+    const prefix = moduleName === 'PICKING' ? 'pick' : (moduleName === 'RECEPTION' ? 'rec' : (moduleName === 'WAVE' ? 'wave' : 'tr'));
     const skuInp = document.getElementById(`${prefix}-sku`);
     const qtyInp = document.getElementById(`${prefix}-qty`);
     const locInp = document.getElementById(prefix === 'tr' ? 'tr-dest-loc' : `${prefix}-loc`);
@@ -293,6 +310,9 @@ function onModuleInputProcess(moduleName, inputType) {
 
         let lineMatch = null;
         if (moduleName === 'PICKING') {
+            lineMatch = lines.find(l => l.sku.toUpperCase() === scannedSku && l.quantity_picked < l.quantity_requested);
+            if (lineMatch) qtyInp.value = lineMatch.quantity_requested - lineMatch.quantity_picked;
+        } else if (moduleName === 'WAVE') {
             lineMatch = lines.find(l => l.sku.toUpperCase() === scannedSku && l.quantity_picked < l.quantity_requested);
             if (lineMatch) qtyInp.value = lineMatch.quantity_requested - lineMatch.quantity_picked;
         } else if (moduleName === 'RECEPTION') {
@@ -308,7 +328,7 @@ function onModuleInputProcess(moduleName, inputType) {
             setModuleStepState(moduleName, 'LOCATION');
         } else {
             playErrorTone();
-            showToast(`El SKU '${scannedSku}' no pertenece al comprobante o ya está completo.`, 'error');
+            showToast(`El SKU '${scannedSku}' no pertenece a la tarea activa o ya está completo.`, 'error');
             if (skuInp) skuInp.value = '';
         }
     } else if (inputType === 'loc') {
@@ -318,11 +338,17 @@ function onModuleInputProcess(moduleName, inputType) {
 }
 
 // =========================================================================================
-// === 1. PICKING MÓVIL GUIADO =============================================================
+// === 1. PICKING MÓVIL GUIADO E INTELIGENTE ===============================================
 // =========================================================================================
 
 async function loadPicking() {
     const container = document.getElementById('picking-list');
+    const waveContainer = document.getElementById('wave-picking-container');
+    
+    if (appSettingsCache && appSettingsCache.enable_wave_picking === 'true' && waveContainer) {
+        waveContainer.style.display = 'block';
+    }
+
     if (!container) return;
     container.innerHTML = '<p style="text-align:center; padding:1.5rem; color:var(--text-muted);">Cargando pedidos pendientes...</p>';
 
@@ -381,7 +407,7 @@ async function refreshPickingOrderSheet(documentNumber) {
                                 <span class="badge badge-warning">Faltan: ${remaining} un</span>
                             </div>
                             <div style="color:var(--text-main); font-weight:600; margin-top:2px;">${escapeHTML(l.description)}</div>
-                            <div style="color:var(--text-muted); font-size:0.75rem; margin-top:2px;">Sugerido: ${escapeHTML(l.suggested_locations)}</div>
+                            <div style="color:var(--text-muted); font-size:0.75rem; margin-top:2px; font-weight:bold;">?? Ruta / Ubicación: ${escapeHTML(l.suggested_locations)}</div>
                         </div>
                     `;
                 }).join('');
@@ -410,6 +436,94 @@ async function handlePickingFormSubmit(event) {
         } else {
             await refreshPickingOrderSheet(docNumber);
             setModuleStepState('PICKING', 'SKU');
+        }
+    } catch (e) { showToast(e.message, "error"); }
+}
+
+// === FASE 3: PICKING POR OLAS (WAVE) ===
+async function startWavePicking(limit) {
+    try {
+        const data = await fetchAPI(`/api/picking/waves/pending?limit=${limit}`);
+        if (!data || !data.order_numbers || data.order_numbers.length === 0) {
+            showToast("No hay pedidos pendientes para agrupar.", "warning");
+            return;
+        }
+
+        activeWaveOrders = data.order_numbers;
+        activeDocumentData = data; 
+        
+        openView('view-wave-scan');
+        document.getElementById('wave-orders-subtitle').textContent = `Agrupando ${activeWaveOrders.length} pedidos en una sola ruta`;
+        
+        refreshWaveOrderSheet(data.lines);
+        startModuleCameraStream('wave-video-stream', 'picking-camera-container');
+        setModuleStepState('WAVE', 'SKU');
+        showToast(`Ola generada con éxito. Ruta optimizada.`, "success");
+
+    } catch (e) {
+        showToast(e.message || "Error al generar la Ola de Picking.", "error");
+    }
+}
+
+function refreshWaveOrderSheet(lines) {
+    const pendingLines = lines.filter(l => l.quantity_picked < l.quantity_requested);
+    document.getElementById('wave-items-count-badge').textContent = `${lines.length - pendingLines.length}/${lines.length} listos`;
+
+    const sheetBody = document.getElementById('wave-items-sheet-body');
+    if (sheetBody) {
+        if (pendingLines.length === 0) {
+            sheetBody.innerHTML = '<p style="text-align:center; color:var(--success); font-weight:bold; padding:1rem;">¡Toda la Ola recolectada con éxito!</p>';
+        } else {
+            sheetBody.innerHTML = pendingLines.map(l => {
+                const remaining = l.quantity_requested - l.quantity_picked;
+                return `
+                    <div style="padding:8px 0; border-bottom:1px solid var(--border-color); font-size:0.85rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <strong style="color:var(--primary-blue); font-family:monospace;">${escapeHTML(l.sku)}</strong>
+                            <span class="badge badge-warning" style="background:#FEF3C7; color:#B45309;">Extraer: ${remaining} un</span>
+                        </div>
+                        <div style="color:var(--text-main); font-weight:600; margin-top:2px;">${escapeHTML(l.description)}</div>
+                        <div style="color:var(--text-muted); font-size:0.75rem; margin-top:2px; font-weight:bold;">?? Ruta: ${escapeHTML(l.suggested_locations)}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+    }
+}
+
+async function handleWaveFormSubmit(event) {
+    event.preventDefault();
+    if (activeWaveOrders.length === 0) return;
+
+    const sku = document.getElementById('wave-sku').value.trim().toUpperCase();
+    const loc = document.getElementById('wave-loc').value.trim().toUpperCase() || 'GENERAL';
+    const qty = parseFloat(document.getElementById('wave-qty').value);
+
+    if (!sku || isNaN(qty) || qty <= 0) { showToast("Verifique SKU y cantidad.", "error"); return; }
+
+    try {
+        const payload = {
+            order_numbers: activeWaveOrders,
+            sku: sku,
+            quantity: qty,
+            location_code: loc
+        };
+
+        const res = await fetchAPI('/api/picking/waves/scan', {
+            method: 'POST', body: payload
+        });
+
+        showToast(res.message, "success");
+
+        if (res.wave_completed) {
+            showToast("¡Ola completada totalmente!", "success");
+            activeWaveOrders = [];
+            setTimeout(() => { openView('view-picking', loadPicking); }, 1500);
+        } else {
+            const freshData = await fetchAPI(`/api/picking/waves/pending?limit=${activeWaveOrders.length}`);
+            activeDocumentData = freshData;
+            refreshWaveOrderSheet(freshData.lines);
+            setModuleStepState('WAVE', 'SKU');
         }
     } catch (e) { showToast(e.message, "error"); }
 }
@@ -707,6 +821,9 @@ window.onModuleInputProcess = onModuleInputProcess;
 window.loadPicking = loadPicking;
 window.startOrderPicking = startOrderPicking;
 window.handlePickingFormSubmit = handlePickingFormSubmit;
+
+window.startWavePicking = startWavePicking;
+window.handleWaveFormSubmit = handleWaveFormSubmit;
 
 window.loadReceptions = loadReceptions;
 window.startReceptionScan = startReceptionScan;
