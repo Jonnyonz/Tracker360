@@ -5,541 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title id="html-title">Tracker360 - JZTech Suite</title>
-    <style>
-        :root { 
-            /* JZTech Suite Light Theme */
-            --bg-page: #f4f6f9; 
-            --bg-surface: #ffffff; 
-            --accent: #2962ff; 
-            --accent-hover: #1f4fd1; 
-            --success: #00c853; 
-            --danger: #d50000; 
-            --warning: #ffc107; 
-            --text-primary: #212529; 
-            --text-secondary: #666666; 
-            --text-muted: #999999; 
-            --border: #e0e0e0; 
-            
-            /* Derivados Semánticos */
-            --rail-bg: #ffffff;
-            --input-bg: #ffffff;
-            --input-border: #e0e0e0;
-            --shadow: 0 2px 8px rgba(0,0,0,0.04);
-            --header-bg: #ffffff;
-            --th-bg: #f8f9fa;
-        }
-
-        [data-theme="dark"] {
-            /* JZTech Suite Dark Theme */
-            --bg-page: #121212; 
-            --bg-surface: #1e1e1e; 
-            --accent: #3d70ff; 
-            --accent-hover: #5a85ff; 
-            --success: #00e676; 
-            --danger: #ff5252; 
-            --text-primary: #e0e0e0; 
-            --text-secondary: #aaaaaa; 
-            --text-muted: #777777; 
-            --border: #333333; 
-            
-            /* Derivados Semánticos Dark */
-            --rail-bg: #1a1a1a;
-            --input-bg: #2d2d2d;
-            --input-border: #444444;
-            --shadow: 0 4px 12px rgba(0,0,0,0.3);
-            --header-bg: #1e1e1e;
-            --th-bg: #2a2a2a;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        
-        body { 
-            background-color: var(--bg-page); 
-            color: var(--text-primary); 
-            font-family: system-ui, -apple-system, sans-serif; 
-            display: flex; 
-            height: 100vh; 
-            width: 100vw; 
-            overflow: hidden; 
-            transition: background-color 0.2s, color 0.2s;
-        }
-
-        /* Top Bar de Acento */
-        .top-accent-bar {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 4px;
-            background-color: var(--accent);
-            z-index: 10000;
-        }
-
-        .mobile-header { 
-            display: none !important; 
-        }
-
-        /* Tipografía Monospace Universal para Códigos */
-        .font-mono,
-        input[id*="sku"], input[id*="-num"], input[id*="-code"], input[id*="taxid"],
-        #table-orders-body td:nth-child(1), #table-transfers-body td:nth-child(1),
-        #table-entities-body td:nth-child(1), #table-branches-body td:nth-child(1),
-        #table-locations-body td:nth-child(3), #table-items-body td:nth-child(1),
-        #table-po-body td:nth-child(1), #table-remito-body td:nth-child(1),
-        #table-invoice-body td:nth-child(1), #table-returns-body td:nth-child(1),
-        #dash-orders-body td:nth-child(1), #dash-transfers-body td:nth-child(1),
-        #webhookLogsTableBody td:nth-child(1), #webhookLogsTableBody td:nth-child(4) {
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-            font-size: 0.9em;
-            letter-spacing: 0.02em;
-        }
-
-        /* BARRA LATERAL DINÁMICA (64px -> 240px ON HOVER) */
-        .nav-rail {
-            width: 64px;
-            min-width: 64px;
-            height: calc(100vh - 4px);
-            background-color: var(--rail-bg);
-            border-right: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            padding: 1rem 0.5rem;
-            z-index: 1000;
-            margin-top: 4px;
-            transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s, border-color 0.2s;
-            overflow-x: hidden;
-            overflow-y: auto;
-            position: relative;
-        }
-
-        .nav-rail:hover {
-            width: 240px;
-            min-width: 240px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-        }
-
-        /* Contenedor del Logo Superior */
-        .nav-rail-logo {
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: flex-start;
-            gap: 12px;
-            padding: 0 4px;
-            width: 100%;
-            height: 44px;
-        }
-
-        .jz-logo-svg {
-            height: 36px;
-            width: 36px;
-            flex-shrink: 0;
-            color: var(--text-primary);
-        }
-
-        .brand-title-text {
-            font-size: 1.15rem;
-            font-weight: 900;
-            color: var(--text-primary);
-            letter-spacing: 1px;
-            white-space: nowrap;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.2s ease, visibility 0.2s ease;
-        }
-
-        .nav-rail:hover .brand-title-text {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .rail-item {
-            position: relative;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            margin-bottom: 0.3rem;
-        }
-
-        .rail-btn {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            width: 100%;
-            height: 44px;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            padding: 0 10px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            white-space: nowrap;
-            gap: 14px;
-        }
-
-        .rail-btn svg {
-            width: 20px;
-            height: 20px;
-            flex-shrink: 0;
-        }
-
-        .rail-label {
-            font-size: 0.88rem;
-            font-weight: 500;
-            opacity: 0;
-            transition: opacity 0.15s ease;
-            white-space: nowrap;
-            flex: 1;
-            text-align: left;
-        }
-
-        .nav-rail:hover .rail-label {
-            opacity: 1;
-        }
-
-        .rail-btn:hover {
-            color: var(--accent);
-            background-color: rgba(41, 98, 255, 0.08);
-        }
-
-        .rail-btn.active {
-            color: var(--accent);
-            background-color: rgba(41, 98, 255, 0.12);
-        }
-
-        .rail-arrow {
-            font-size: 0.75rem;
-            opacity: 0;
-            transition: opacity 0.15s ease, transform 0.2s ease;
-        }
-
-        .nav-rail:hover .rail-arrow {
-            opacity: 1;
-        }
-
-        /* ACORDEÓN DE REPORTES REINTEGRADO EN EL FLUJO */
-        .rail-accordion {
-            display: none;
-            flex-direction: column;
-            gap: 2px;
-            padding-left: 2.2rem;
-            margin-top: 2px;
-            margin-bottom: 4px;
-            width: 100%;
-            overflow: hidden;
-        }
-
-        .rail-accordion.open {
-            display: flex;
-        }
-
-        .rail-sub-btn {
-            background: none;
-            border: none;
-            color: var(--text-secondary);
-            padding: 0.6rem 0.8rem;
-            text-align: left;
-            font-size: 0.82rem;
-            font-weight: 500;
-            cursor: pointer;
-            border-radius: 6px;
-            white-space: nowrap;
-            transition: all 0.2s;
-            opacity: 0;
-        }
-
-        .nav-rail:hover .rail-sub-btn {
-            opacity: 1;
-        }
-
-        .rail-sub-btn:hover {
-            color: var(--accent);
-            background-color: rgba(41, 98, 255, 0.08);
-        }
-
-        .rail-sub-btn.active {
-            color: var(--accent);
-            font-weight: 600;
-            background-color: rgba(41, 98, 255, 0.12);
-        }
-
-        .nav-rail-bottom {
-            margin-top: auto;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 100%;
-            gap: 0.3rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--border);
-        }
-
-        /* Contenido Principal */
-        .main-content { 
-            flex: 1; 
-            height: calc(100vh - 4px);
-            margin-top: 4px;
-            overflow-y: auto; 
-            overflow-x: hidden; 
-            position: relative; 
-            background-color: var(--bg-page); 
-            display: flex;
-            flex-direction: column;
-        }
-
-        .view-section { 
-            display: none; 
-            padding: 2rem;
-            flex: 1;
-        }
-        
-        .view-section.active { display: block; }
-        
-        .content-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-bottom: 1rem;
-            margin-bottom: 1.5rem;
-            border-bottom: 1px solid var(--border);
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .content-header h2 { 
-            margin: 0; 
-            color: var(--text-primary); 
-            font-size: 1.4rem; 
-            font-weight: 600;
-        }
-
-        .grid-layout { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 1.5rem; }
-        
-        .card { 
-            background-color: var(--bg-surface); 
-            border: 1px solid var(--border); 
-            border-radius: 10px; 
-            padding: 1.5rem; 
-            height: fit-content; 
-            box-shadow: var(--shadow); 
-            overflow-x: auto; 
-            max-width: 100%; 
-            transition: background-color 0.2s, border-color 0.2s;
-        }
-
-        .card h3 {
-            color: var(--text-primary);
-            font-size: 1.1rem;
-            font-weight: 600;
-            margin-bottom: 1rem;
-        }
-        
-        /* Formularios y Botones */
-        .form-group { margin-bottom: 1.2rem; }
-        .form-row { display: flex; gap: 10px; margin-bottom: 0.8rem; flex-wrap: wrap; }
-        .form-row .form-group { flex: 1; margin-bottom: 0; min-width: 0; }
-        label { display: block; margin-bottom: 0.4rem; font-weight: 500; color: var(--text-secondary); font-size: 0.85rem; }
-        
-        input, select, textarea { 
-            width: 100%; 
-            padding: 0.65rem 0.8rem; 
-            border: 1px solid var(--input-border); 
-            border-radius: 8px; 
-            background-color: var(--input-bg); 
-            color: var(--text-primary); 
-            font-family: inherit; 
-            font-size: 0.9rem; 
-            transition: all 0.2s; 
-            box-sizing: border-box; 
-        }
-        
-        input:focus, select:focus, textarea:focus { 
-            outline: none; 
-            border-color: var(--accent); 
-            box-shadow: 0 0 0 3px rgba(41, 98, 255, 0.1); 
-        }
-        
-        .btn-submit { 
-            background-color: var(--accent); 
-            color: white; 
-            border: none; 
-            padding: 0.65rem 1.2rem; 
-            font-weight: 500; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            font-size: 0.9rem; 
-            transition: background 0.2s; 
-        }
-        .btn-submit:hover { background-color: var(--accent-hover); }
-
-        .btn-secondary { 
-            background-color: transparent; 
-            color: var(--text-secondary); 
-            border: 1px solid var(--border); 
-            padding: 0.65rem 1.2rem; 
-            font-weight: 500; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            font-size: 0.85rem; 
-            transition: all 0.2s; 
-        }
-        .btn-secondary:hover { 
-            background-color: var(--bg-page); 
-            color: var(--text-primary); 
-            border-color: var(--text-muted);
-        }
-
-        .btn-danger {
-            background-color: rgba(213, 0, 0, 0.1);
-            color: var(--danger);
-            border: none;
-            padding: 0.4rem 0.8rem;
-            border-radius: 6px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .btn-danger:hover { background-color: rgba(213, 0, 0, 0.2); }
-
-        .purchase-subtab-btn { 
-            background-color: var(--bg-surface); 
-            color: var(--text-secondary); 
-            border: 1px solid var(--border); 
-            padding: 0.65rem 1.2rem; 
-            font-weight: 500; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            font-size: 0.85rem; 
-            transition: all 0.2s ease; 
-        }
-        .purchase-subtab-btn.active { 
-            background-color: rgba(41, 98, 255, 0.12); 
-            color: var(--accent); 
-            border-color: var(--accent); 
-        }
-
-        /* Tablas */
-        table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
-        th, td { text-align: left; padding: 0.8rem; border-bottom: 1px solid var(--border); font-size: 0.88rem; white-space: nowrap; color: var(--text-primary); }
-        th { background-color: var(--th-bg); color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; }
-        
-        /* Badges Semánticos JZTech */
-        .badge { 
-            padding: 0.25rem 0.6rem; 
-            border-radius: 6px; 
-            font-size: 0.75rem; 
-            font-weight: 600; 
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .badge-success { background: rgba(0, 200, 83, 0.15); color: var(--success); }
-        .badge-info { background: rgba(41, 98, 255, 0.15); color: var(--accent); }
-        .badge-warning { background: rgba(255, 193, 7, 0.15); color: var(--warning); }
-        .badge-danger { background: rgba(213, 0, 0, 0.15); color: var(--danger); }
-        .badge-neutral { background: var(--border); color: var(--text-secondary); }
-
-        .dash-action-item { display: flex; justify-content: space-between; align-items: center; padding: 0.8rem 0; border-bottom: 1px solid var(--border); color: var(--text-primary); font-weight: 500; flex-wrap: wrap; gap: 10px; }
-        .dash-action-item:last-child { border-bottom: none; }
-        
-        .dynamic-list { border: 1px solid var(--border); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; background: var(--bg-page); }
-        .dynamic-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
-        .dynamic-row input, .dynamic-row select { flex: 1; min-width: 80px; }
-
-        /* Modales */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.5); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
-        .modal-content { background: var(--bg-surface); width: 95%; max-width: 650px; max-height: 90vh; overflow-y: auto; overflow-x: hidden; border-radius: 12px; border: 1px solid var(--border); padding: 1.5rem; position: relative; box-shadow: var(--shadow); color: var(--text-primary); margin: auto; }
-        .close-modal { position: absolute; top: 1rem; right: 1.2rem; font-size: 1.5rem; cursor: pointer; color: var(--text-muted); transition: color 0.2s; }
-        .close-modal:hover { color: var(--text-primary); }
-
-        .dropzone { border: 2px dashed var(--accent); border-radius: 8px; padding: 2rem; text-align: center; background-color: rgba(41, 98, 255, 0.05); cursor: pointer; margin-bottom: 1.2rem; color: var(--accent); font-weight: 500; }
-
-        .net-status { display: none; background: var(--danger); color: white; text-align: center; padding: 8px; font-weight: 600; font-size: 0.85rem; border-radius: 0 0 8px 8px; margin-bottom: 1rem; }
-        
-        .toast-container { position: fixed; top: 1.2rem; right: 1.2rem; z-index: 10000; display: flex; flex-direction: column; gap: 0.6rem; max-width: 380px; pointer-events: none; }
-        .toast { background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border); padding: 1rem 1.2rem; border-radius: 8px; box-shadow: var(--shadow); font-size: 0.9rem; font-weight: 500; display: flex; align-items: center; justify-content: space-between; gap: 12px; pointer-events: auto; }
-        .toast-success { border-left: 4px solid var(--success); }
-        .toast-error { border-left: 4px solid var(--danger); }
-        .toast-info { border-left: 4px solid var(--accent); }
-        .toast-neutral { border-left: 4px solid var(--text-muted); }
-
-        .lot-input { display: none; }
-
-        /* Footer Fijo JZTech */
-        .app-footer {
-            margin-top: auto;
-            padding: 1.2rem;
-            text-align: center;
-            font-size: 0.82rem;
-            color: var(--text-muted);
-            border-top: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            background-color: var(--bg-surface);
-        }
-        .app-footer a {
-            color: var(--accent);
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .footer-logo-svg {
-            height: 18px;
-            width: auto;
-            color: var(--text-muted);
-            opacity: 0.8;
-        }
-
-        /* Responsivo Estricto Móvil */
-        @media (max-width: 850px) {
-            .mobile-header { 
-                display: flex !important; 
-                background-color: var(--bg-surface);
-                color: var(--text-primary);
-                padding: 0.75rem 1rem;
-                align-items: center;
-                justify-content: space-between;
-                position: fixed;
-                top: 4px; left: 0; width: 100%;
-                z-index: 9000;
-                border-bottom: 1px solid var(--border);
-                height: 50px;
-            }
-
-            .hamburger-btn { background: none; border: none; color: var(--text-primary); cursor: pointer; }
-
-            .nav-rail {
-                position: fixed;
-                left: -240px;
-                top: 54px;
-                height: calc(100vh - 54px);
-                margin-top: 0;
-                z-index: 9500;
-                width: 240px !important;
-                min-width: 240px !important;
-            }
-            .nav-rail.open { left: 0; }
-            .rail-label, .rail-sub-btn, .brand-title-text { opacity: 1 !important; visibility: visible !important; }
-
-            .sidebar-overlay.open { display: block; }
-
-            .main-content { 
-                margin-left: 0; 
-                margin-top: 54px;
-                height: calc(100vh - 54px);
-            }
-            .grid-layout { grid-template-columns: 1fr; gap: 1rem; }
-            .form-row { flex-direction: column; gap: 0.8rem; }
-            .form-row .form-group { width: 100%; max-width: 100% !important; }
-        }
-    </style>
+    
+    <!-- CSS Separado y Limpio -->
+    <link rel="stylesheet" href="css/admin.css?v=20260902_10">
 </head>
 <body>
     <div class="top-accent-bar"></div>
@@ -717,31 +185,74 @@
             <div class="content-header">
                 <h2>Tablero Resumen de Operaciones</h2>
             </div>
-            <div class="grid-layout">
+
+            <!-- FASE 5: TARJETAS DE KPIS SUPERIORES -->
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+                <div class="kpi-card success" data-help="Productividad Diaria|Muestra la suma total de artículos extraídos físicamente hoy por todo el equipo.">
+                    <div style="font-size:0.85rem; color:var(--text-secondary); text-transform:uppercase; font-weight:700; letter-spacing:0.04em;">Unidades Pickeadas Hoy</div>
+                    <div id="kpi-units-today" style="font-size:2.8rem; font-weight:800; color:var(--text-primary); margin-top:0.2rem; letter-spacing:-0.03em;">0</div>
+                </div>
+                <div class="kpi-card warning" data-help="Tiempo Promedio de Ciclo|Mide el promedio de tiempo desde que un pedido es cargado (PENDING) hasta que sale por la puerta empacado (DISPATCHED).">
+                    <div style="font-size:0.85rem; color:var(--text-secondary); text-transform:uppercase; font-weight:700; letter-spacing:0.04em;">Tiempo de Ciclo Promedio</div>
+                    <div id="kpi-cycle-time" style="font-size:2.8rem; font-weight:800; color:var(--text-primary); margin-top:0.2rem; letter-spacing:-0.03em;">0.0 hrs</div>
+                </div>
+            </div>
+
+            <div class="masonry-grid">
+                <!-- FASE 5: LEADERBOARD DE PRODUCTIVIDAD -->
+                <div class="card" data-help="Ranking de Productividad|Muestra el Top 5 de operarios con mayor volumen de recolección física en los últimos 7 días.">
+                    <h3 class="card-title">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15c-3 0-6-3-6-6h12c0 3-3 6-6 6z"/><path d="M12 15v7"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+                        Top Preparadores (Últimos 7 días)
+                    </h3>
+                    <table>
+                        <thead><tr><th>Operario</th><th style="text-align:center;">Líneas Extr.</th><th style="text-align:right;">Unid. Totales</th></tr></thead>
+                        <tbody id="dash-leaderboard-body"></tbody>
+                    </table>
+                </div>
+
                 <div class="card" data-help="Pedidos Pendientes|Muestra las órdenes de salida pendientes de preparado enviadas por la API o cargadas manualmente.|Priorice el armado de pedidos con mayor tiempo en cola.">
-                    <h3>1. Pedidos Pendientes</h3>
+                    <h3 class="card-title">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                        1. Pedidos Pendientes
+                    </h3>
                     <table><thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th></tr></thead><tbody id="dash-orders-body"></tbody></table>
-                    <button class="btn-secondary" style="width: 100%; margin-top: 1rem;" onclick="switchView('section-orders')">Ver Todos los Pedidos</button>
+                    <button class="btn-secondary" style="width: 100%; margin-top: 1.5rem;" onclick="switchView('section-orders')">Ver Todos los Pedidos</button>
                 </div>
+                
                 <div class="card" data-help="Traspasos Activos|Órdenes de movimiento de mercadería (ODT) entre sucursales o sectores.|El stock de origen se descuenta de inmediato y el destino se suma cuando la colectora confirma la recepción.">
-                    <h3>2. Traspasos Activos</h3>
+                    <h3 class="card-title">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
+                        2. Traspasos Activos
+                    </h3>
                     <table><thead><tr><th>Nº Traspaso</th><th>Origen</th><th>Destino</th></tr></thead><tbody id="dash-transfers-body"></tbody></table>
-                    <button class="btn-secondary" style="width: 100%; margin-top: 1rem;" onclick="navigateToSubTab('section-purchases', 'tab-transfer')">Ver Todos los Traspasos</button>
+                    <button class="btn-secondary" style="width: 100%; margin-top: 1.5rem;" onclick="switchPurchaseTab('tab-transfer'); switchView('section-purchases')">Ver Todos los Traspasos</button>
                 </div>
+
                 <div class="card" data-help="Carga de Mercadería|Accesos directos para la carga de comprobantes de ingreso, devoluciones y traspasos.|Garantiza que la mercadería ingrese asignada a la sucursal y sector del operador logístico.">
-                    <h3>3. Cargar Mercadería y Movimientos</h3>
-                    <div style="display:flex; flex-direction:column; gap:0.5rem;">
-                        <div class="dash-action-item"><span>Ingreso por Devolución</span><button class="btn-secondary" onclick="navigateToSubTab('section-purchases', 'tab-return')">Cargar</button></div>
-                        <div class="dash-action-item"><span>Crear Orden de Traspaso (ODT)</span><button class="btn-secondary" onclick="navigateToSubTab('section-purchases', 'tab-transfer')">Crear</button></div>
-                        <div class="dash-action-item"><span>Crear Remito de Compra</span><button class="btn-secondary" onclick="navigateToSubTab('section-purchases', 'tab-remito')">Crear</button></div>
-                        <div class="dash-action-item"><span>Crear Factura de Compra</span><button class="btn-secondary" onclick="navigateToSubTab('section-purchases', 'tab-invoice')">Crear</button></div>
-                        <div class="dash-action-item"><span>Crear Orden de Compra</span><button class="btn-secondary" onclick="navigateToSubTab('section-purchases', 'tab-po')">Crear</button></div>
+                    <h3 class="card-title">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                        3. Ingresos y Movimientos
+                    </h3>
+                    <div style="display:flex; flex-direction:column; gap:0.6rem; margin-top:0.5rem;">
+                        <div class="dash-action-item"><span>Ingreso por Devolución</span><button class="btn-secondary" onclick="switchPurchaseTab('tab-return'); switchView('section-purchases')">Cargar</button></div>
+                        <div class="dash-action-item"><span>Crear Orden de Traspaso (ODT)</span><button class="btn-secondary" onclick="switchPurchaseTab('tab-transfer'); switchView('section-purchases')">Crear</button></div>
+                        <div class="dash-action-item"><span>Crear Remito de Compra</span><button class="btn-secondary" onclick="switchPurchaseTab('tab-remito'); switchView('section-purchases')">Crear</button></div>
+                        <div class="dash-action-item"><span>Crear Factura de Compra</span><button class="btn-secondary" onclick="switchPurchaseTab('tab-invoice'); switchView('section-purchases')">Crear</button></div>
+                        <div class="dash-action-item"><span>Crear Orden de Compra</span><button class="btn-secondary" onclick="switchPurchaseTab('tab-po'); switchView('section-purchases')">Crear</button></div>
                     </div>
                 </div>
-                <div class="card" data-help="Registros de Auditoría|Bitácora inmutable de eventos de seguridad y operaciones realizadas.|Permite rastrear qué usuario ejecutó cada cambio o ajuste de inventario.">
-                    <h3>4. Registros de Auditoría Recientes</h3>
-                    <table><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th></tr></thead><tbody id="dash-logs-body"></tbody></table>
-                    <button class="btn-secondary" style="width: 100%; margin-top: 1rem;" onclick="switchView('section-logs')">Ver Registro Completo</button>
+            </div>
+
+            <!-- TARJETA FULL WIDTH AFUERA DEL MASONRY -->
+            <div class="card grid-full-width" data-help="Registros de Auditoría|Bitácora inmutable de eventos de seguridad y operaciones realizadas.|Permite rastrear qué usuario ejecutó cada cambio o ajuste de inventario.">
+                <h3 class="card-title">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    4. Registros de Auditoría Recientes
+                </h3>
+                <table><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th></tr></thead><tbody id="dash-logs-body"></tbody></table>
+                <div style="text-align:right;">
+                    <button class="btn-secondary" style="margin-top: 1.5rem;" onclick="switchView('section-logs')">Ver Registro Completo »</button>
                 </div>
             </div>
         </div>
@@ -780,7 +291,7 @@
             </div>
 
             <div class="card" data-help="Personal y Contexto de Operador|Asignación de roles y fijación de Sucursal/Sector por usuario.|Los operarios preparadores heredan su sucursal fija para evitar errores en recepciones y conteos.">
-                <h3>Usuarios Activos en el Sistema</h3>
+                <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg> Usuarios Activos en el Sistema</h3>
                 <table><thead><tr><th>Usuario</th><th>Nombre Completo</th><th>Correo</th><th>Rol</th><th>Sucursal</th><th>Sector</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="table-users-body"></tbody></table>
             </div>
         </div>
@@ -811,9 +322,9 @@
                 </div>
             </div>
 
-            <div class="grid-layout">
+            <div class="masonry-grid">
                 <div class="card" data-help="Sucursales|Puntos físicos de almacenamiento o tiendas de la empresa.|Define los almacenes independientes entre los cuales se pueden realizar traspasos ODT.">
-                    <h3>1. Sucursales Registradas</h3>
+                    <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> 1. Sucursales Registradas</h3>
                     <table>
                         <thead><tr><th>Código</th><th>Nombre Sucursal</th><th>Estado</th></tr></thead>
                         <tbody id="table-branches-body"></tbody>
@@ -821,7 +332,7 @@
                 </div>
 
                 <div class="card" data-help="Sectors de Depósito|Divisiones lógicas dentro de una sucursal (ej: Picking, Pulmón, Recepción).|Cada sector posee su propia cola de impresión predeterminada para etiquetas.">
-                    <h3>2. Sectores por Sucursal</h3>
+                    <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> 2. Sectores por Sucursal</h3>
                     <table>
                         <thead><tr><th>Sucursal</th><th>Nombre Sector</th><th>Cola Impresión</th><th>Ubicaciones</th></tr></thead>
                         <tbody id="table-sectors-body"></tbody>
@@ -829,8 +340,8 @@
                 </div>
             </div>
 
-            <div class="card" data-help="Ubicaciones Físicas (Racks)|Nomenclatura de estantes y posiciones (ej: RACK-A-01-02).|Garantiza la ruta de armado óptima durante el picking guiado por cámara.">
-                <h3>3. Maestro de Ubicaciones Físicas</h3>
+            <div class="card grid-full-width" data-help="Ubicaciones Físicas (Racks)|Nomenclatura de estantes y posiciones (ej: RACK-A-01-02).|Garantiza la ruta de armado óptima durante el picking guiado por cámara.">
+                <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> 3. Maestro de Ubicaciones Físicas</h3>
                 <table>
                     <thead>
                         <tr>
@@ -846,11 +357,10 @@
             </div>
 
             <!-- TARJETA: ALERTAS Y SUGERENCIAS DE REABASTECIMIENTO (REPLENISHMENT - FASE 2) -->
-            <div class="card" style="margin-top:1.5rem;" data-help="Reabastecimiento Automático|Sugerencias de traspaso desde sectores Pulmón hacia áreas de Picking con quiebre de stock.">
+            <div class="card grid-full-width" style="margin-top:1.5rem;" data-help="Reabastecimiento Automático|Sugerencias de traspaso desde sectores Pulmón hacia áreas de Picking con quiebre de stock.">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:12px;">
-                    <h3>Sugerencias de Reabastecimiento (Replenishment)</h3>
+                    <h3 class="card-title" style="margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sugerencias de Reabastecimiento (Replenishment)</h3>
                     <button type="button" class="btn-secondary" onclick="loadReplenishmentSuggestions()" style="font-size:0.8rem;">
-                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
                         Actualizar Alertas
                     </button>
                 </div>
@@ -926,7 +436,7 @@
             </div>
 
             <div id="tab-po" class="purchase-tab" style="display:block;">
-                <div class="grid-layout">
+                <div class="masonry-grid">
                     <div class="card" data-help="Emisión de Órdenes de Compra|Solicitud formal de mercadería a un proveedor.|Sirve como plantilla para controlar las cantidades al recibir el remito físico.">
                         <h3>Emitir Orden de Compra</h3>
                         <form id="form-po" onsubmit="savePO(event)">
@@ -962,7 +472,7 @@
             </div>
 
             <div id="tab-remito" class="purchase-tab" style="display:none;">
-                <div class="grid-layout">
+                <div class="masonry-grid">
                     <div class="card" data-help="Remitos de Entrada|Ingreso físico de mercadería del proveedor al inventario.|Incrementa el stock de la sucursal y sector seleccionados.">
                         <h3>Registrar Remito</h3>
                         <form id="form-remito" onsubmit="saveRemito(event)">
@@ -1002,7 +512,7 @@
             </div>
 
             <div id="tab-invoice" class="purchase-tab" style="display:none;">
-                <div class="grid-layout">
+                <div class="masonry-grid">
                     <div class="card" data-help="Facturas de Compra|Comprobante administrativo contable enviado por el proveedor.|Permite asociar remitos ya ingresados o hacer un ingreso directo por compra.">
                         <h3>Cargar Factura</h3>
                         <form id="form-invoice" onsubmit="saveInvoice(event)">
@@ -1054,7 +564,7 @@
             </div>
 
             <div id="tab-transfer" class="purchase-tab" style="display:none;">
-                <div class="grid-layout">
+                <div class="masonry-grid">
                     <div class="card" data-help="Órdenes de Traspaso (ODT)|Movimientos entre sucursales y sectores.|Descuenta el stock de origen y genera una tarea de control en la colectora móvil del sector destino.">
                         <h3>Generar Orden de Traspaso (ODT)</h3>
                         <form id="form-transfer" onsubmit="saveTransfer(event)">
@@ -1101,7 +611,7 @@
             </div>
 
             <div id="tab-return" class="purchase-tab" style="display:none;">
-                <div class="grid-layout">
+                <div class="masonry-grid">
                     <div class="card" data-help="Ingreso por Devolución|Recepción de paquetes devueltos por clientes vinculados a un pedido entregado.|Asigna la sucursal/sector del usuario activo y califica la mercadería como Operativo, Outlet o Dañado.">
                         <h3>Registrar Devolución de Cliente</h3>
                         <form id="form-return" onsubmit="saveCustomerReturn(event)">
@@ -1165,13 +675,13 @@
                     <option value="ALL">-- Todos los Estados --</option>
                     <option value="PENDING">PENDIENTES</option>
                     <option value="IN_PROGRESS">EN PROGRESO</option>
-                    <option value="COMPLETED">COMPLETADOS</option>
+                    <option value="COMPLETED">COMPLETADOS (Listos p/ Empaque)</option>
                     <option value="DISPATCHED">DESPACHADOS</option>
                 </select>
                 <button class="btn-secondary" onclick="loadOrders()">Actualizar</button>
             </div>
 
-            <div class="card" data-help="Monitoreo de Pedidos|Panel de control de avance del armado de pedidos.|Muestra la barra de porcentaje (%) en tiempo real a medida que los preparadores escanean en la colectora.">
+            <div class="card grid-full-width" data-help="Monitoreo de Pedidos|Panel de control de avance del armado de pedidos.|Muestra la barra de porcentaje (%) en tiempo real a medida que los preparadores escanean en la colectora.">
                 <table>
                     <thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th><th>Progreso</th><th>Acción</th></tr></thead>
                     <tbody id="table-orders-body">
@@ -1198,7 +708,7 @@
                 <button class="btn-secondary" onclick="loadInventorySessions()">Actualizar Panel</button>
             </div>
 
-            <div class="card" data-help="Sesiones de Conteo Ciego|Apertura de foto congelada (Snapshot) del inventario para auditoría.|HOT: Permite seguir operando. COLD: Congela el sector para máxima precisión.">
+            <div class="card grid-full-width" data-help="Sesiones de Conteo Ciego|Apertura de foto congelada (Snapshot) del inventario para auditoría.|HOT: Permite seguir operando. COLD: Congela el sector para máxima precisión.">
                 <table>
                     <thead>
                         <tr>
@@ -1224,7 +734,7 @@
                 <h2>Traza de Artículos (Kardex)</h2>
                 <button type="button" class="btn-submit" style="background-color: var(--success);" onclick="exportKardexReportCSV()">Exportar CSV</button>
             </div>
-            <div class="card" style="margin-bottom:1.5rem; background: var(--bg-page);">
+            <div class="card grid-full-width" style="margin-bottom:1.5rem; background: var(--bg-page);">
                 <h4 style="color:var(--text-primary); margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.5rem;">Filtros de Búsqueda</h4>
                 <form id="form-kardex-filters" onsubmit="loadKardexFiltered(event)">
                     <div class="grid-layout" style="margin-bottom:0;">
@@ -1275,7 +785,7 @@
                     </div>
                 </form>
             </div>
-            <div class="card" data-help="Traza de Artículos (Kardex)|Historial inmutable de movimientos de stock con fecha, hora y usuario.|Registra cada alta, baja, despacho o traspaso para auditorías y peritajes.">
+            <div class="card grid-full-width" data-help="Traza de Artículos (Kardex)|Historial inmutable de movimientos de stock con fecha, hora y usuario.|Registra cada alta, baja, despacho o traspaso para auditorías y peritajes.">
                 <table>
                     <thead>
                         <tr>
@@ -1304,7 +814,7 @@
                 <button type="button" class="btn-submit" style="background-color: var(--success);" onclick="exportStockReportCSV()">Exportar CSV</button>
             </div>
             
-            <div class="card" style="margin-bottom:1.5rem; background:var(--bg-page);">
+            <div class="card grid-full-width" style="margin-bottom:1.5rem; background:var(--bg-page);">
                 <h4 style="color:var(--text-primary); margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.5rem;">Filtros del Reporte</h4>
                 <form id="form-rep-stock" onsubmit="generateStockReport(event)">
                     <div class="grid-layout" style="margin-bottom:0;">
@@ -1337,7 +847,7 @@
                 </form>
             </div>
 
-            <div class="card">
+            <div class="card grid-full-width">
                 <table>
                     <thead>
                         <tr>
@@ -1360,7 +870,7 @@
                 <button type="button" class="btn-submit" style="background-color: var(--success);" onclick="exportOrdersReportCSV()">Exportar CSV</button>
             </div>
             
-            <div class="card" style="margin-bottom:1.5rem; background:var(--bg-page);">
+            <div class="card grid-full-width" style="margin-bottom:1.5rem; background:var(--bg-page);">
                 <h4 style="color:var(--text-primary); margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.5rem;">Filtros del Reporte</h4>
                 <form id="form-rep-orders" onsubmit="generateOrdersReport(event)">
                     <div class="grid-layout" style="margin-bottom:0;">
@@ -1399,7 +909,7 @@
                 </form>
             </div>
 
-            <div class="card">
+            <div class="card grid-full-width">
                 <table>
                     <thead>
                         <tr>
@@ -1424,7 +934,7 @@
                 <button type="button" class="btn-submit" style="background-color: var(--success);" onclick="exportRemitosReportCSV()">Exportar CSV</button>
             </div>
             
-            <div class="card" style="margin-bottom:1.5rem; background:var(--bg-page);">
+            <div class="card grid-full-width" style="margin-bottom:1.5rem; background:var(--bg-page);">
                 <h4 style="color:var(--text-primary); margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.5rem;">Filtros del Reporte</h4>
                 <form id="form-rep-remitos" onsubmit="generateRemitosReport(event)">
                     <div class="grid-layout" style="margin-bottom:0;">
@@ -1460,7 +970,7 @@
                 </form>
             </div>
 
-            <div class="card">
+            <div class="card grid-full-width">
                 <table>
                     <thead>
                         <tr>
@@ -1484,7 +994,7 @@
                 <button type="button" class="btn-submit" style="background-color: var(--success);" onclick="exportInvoicesReportCSV()">Exportar CSV</button>
             </div>
             
-            <div class="card" style="margin-bottom:1.5rem; background:var(--bg-page);">
+            <div class="card grid-full-width" style="margin-bottom:1.5rem; background:var(--bg-page);">
                 <h4 style="color:var(--text-primary); margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.5rem;">Filtros del Reporte</h4>
                 <form id="form-rep-invoices" onsubmit="generateInvoicesReport(event)">
                     <div class="grid-layout" style="margin-bottom:0;">
@@ -1515,7 +1025,7 @@
                 </form>
             </div>
 
-            <div class="card">
+            <div class="card grid-full-width">
                 <table>
                     <thead>
                         <tr>
@@ -1539,7 +1049,7 @@
                 <button type="button" class="btn-submit" style="background-color: var(--success);" onclick="exportPOReportCSV()">Exportar CSV</button>
             </div>
             
-            <div class="card" style="margin-bottom:1.5rem; background:var(--bg-page);">
+            <div class="card grid-full-width" style="margin-bottom:1.5rem; background:var(--bg-page);">
                 <h4 style="color:var(--text-primary); margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.5rem;">Filtros del Reporte</h4>
                 <form id="form-rep-po" onsubmit="generatePOReport(event)">
                     <div class="grid-layout" style="margin-bottom:0;">
@@ -1570,7 +1080,7 @@
                 </form>
             </div>
 
-            <div class="card">
+            <div class="card grid-full-width">
                 <table>
                     <thead>
                         <tr>
@@ -1597,7 +1107,7 @@
             <div style="display:flex; gap:10px; margin-bottom:1.5rem;">
                 <input type="text" id="search-log-text" placeholder="Buscar usuario, acción o detalles..." style="flex:1;" onkeyup="filterLogs()">
             </div>
-            <div class="card">
+            <div class="card grid-full-width">
                 <table>
                     <thead><tr><th>Fecha y Hora</th><th>Usuario</th><th>Acción</th><th>Detalles</th></tr></thead>
                     <tbody id="table-logs-body">
@@ -1614,224 +1124,214 @@
             </div>
             
             <form id="form-settings-unified" onsubmit="saveSettings(event)">
-                <div class="grid-layout">
+                <div class="masonry-grid">
                     
                     <!-- COLUMNA IZQUIERDA -->
-                    <div style="display:flex; flex-direction:column; gap:1.5rem;">
+                    <div class="card">
+                        <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Seguridad y Sesiones</h3>
+                        <span class="settings-subtitle" style="display:block; margin-top:-0.5rem; margin-bottom:1rem; color:var(--text-muted); font-size:0.85rem;">Autenticación, tiempos de expiración y acceso corporativo</span>
                         
-                        <!-- CARD 1: SEGURIDAD, SESIONES Y GOOGLE OAUTH2 -->
-                        <div class="card">
-                            <h3 style="color:var(--text-primary); margin-bottom:0.2rem;">Seguridad y Sesiones</h3>
-                            <span class="settings-subtitle">Autenticación, tiempos de expiración y acceso corporativo</span>
-                            
-                            <div class="settings-row">
-                                <label for="cfg-session-timeout-minutes">Expiración de Sesión Activa (minutos)</label>
-                                <div class="control-wrap"><input type="number" id="cfg-session-timeout-minutes" min="15"></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-max-login-attempts">Límite de Intentos Fallidos (Bloqueo)</label>
-                                <div class="control-wrap"><input type="number" id="cfg-max-login-attempts" min="1"></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-lockout-time-minutes">Tiempo de Penalización/Bloqueo (minutos)</label>
-                                <div class="control-wrap"><input type="number" id="cfg-lockout-time-minutes" min="1"></div>
-                            </div>
-
-                            <div class="settings-group-header" style="margin-top:1rem;">Autenticación Google OAUTH2</div>
-                            <div class="settings-row" style="border:none; padding-bottom:0;">
-                                <div>
-                                    <strong style="color:var(--text-primary); font-size:0.88rem;">Google Workspace SSO</strong>
-                                    <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Acceso institucional unificado</div>
-                                </div>
-                                <div style="display:flex; align-items:center; gap:10px;">
-                                    <span id="google-sso-status-badge" class="badge badge-neutral">INACTIVO</span>
-                                    <button type="button" class="btn-secondary" onclick="editGoogleSSO()" style="padding:0.4rem 0.9rem; font-size:0.78rem;">Editar</button>
-                                </div>
-                            </div>
+                        <div class="settings-row">
+                            <label for="cfg-session-timeout-minutes">Expiración de Sesión Activa (minutos)</label>
+                            <div class="control-wrap"><input type="number" id="cfg-session-timeout-minutes" min="15"></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-max-login-attempts">Límite de Intentos Fallidos (Bloqueo)</label>
+                            <div class="control-wrap"><input type="number" id="cfg-max-login-attempts" min="1"></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-lockout-time-minutes">Tiempo de Penalización/Bloqueo (minutos)</label>
+                            <div class="control-wrap"><input type="number" id="cfg-lockout-time-minutes" min="1"></div>
                         </div>
 
-                        <!-- CARD 2: DOCUMENTOS, CORRELATIVOS E IDENTIDAD -->
-                        <div class="card">
-                            <h3 style="color:var(--text-primary); margin-bottom:0.2rem;">Documentos y Correlativos</h3>
-                            <span class="settings-subtitle">Formato de numeración, prefijos e identidad corporativa</span>
-
-                            <div class="settings-row">
-                                <label for="cfg-transfer-number-prefix">Prefijo para Órdenes de Traspaso</label>
-                                <div class="control-wrap"><input type="text" id="cfg-transfer-number-prefix"></div>
+                        <div class="settings-group-header" style="margin-top:1.5rem; border-top:1px solid var(--border); padding-top:1rem; font-weight:600;">Autenticación Google OAUTH2</div>
+                        <div class="settings-row" style="border:none; padding-bottom:0; margin-top:0.5rem;">
+                            <div>
+                                <strong style="color:var(--text-primary); font-size:0.88rem;">Google Workspace SSO</strong>
+                                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Acceso institucional unificado</div>
                             </div>
-                            <div class="settings-row">
-                                <label for="cfg-sales-order-prefix">Prefijo para Pedidos de Venta</label>
-                                <div class="control-wrap"><input type="text" id="cfg-sales-order-prefix"></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-return-number-prefix">Prefijo para Devoluciones</label>
-                                <div class="control-wrap"><input type="text" id="cfg-return-number-prefix"></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-correlative-zeros-pad">Relleno de Ceros Correlativos (Padding)</label>
-                                <div class="control-wrap"><input type="number" id="cfg-correlative-zeros-pad" min="3" max="10"></div>
-                            </div>
-                            
-                            <div class="settings-group-header" style="margin-top:1rem;">Identidad Corporativa</div>
-                            <div class="form-row" style="margin-top:0.8rem;">
-                                <div class="form-group" style="flex:1; margin-bottom:0;">
-                                    <label>Nombre de la App</label>
-                                    <input type="text" id="cfg-app-name" placeholder="Nombre App">
-                                </div>
-                                <div class="form-group" style="flex:1; margin-bottom:0;">
-                                    <label>CUIT Empresa</label>
-                                    <input type="text" id="cfg-company-cuit" placeholder="CUIT">
-                                </div>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span id="google-sso-status-badge" class="badge badge-neutral">INACTIVO</span>
+                                <button type="button" class="btn-secondary" onclick="editGoogleSSO()" style="padding:0.4rem 0.9rem; font-size:0.78rem;">Editar</button>
                             </div>
                         </div>
-
                     </div>
 
-                    <!-- COLUMNA DERECHA -->
-                    <div style="display:flex; flex-direction:column; gap:1.5rem;">
+                    <!-- CARD 2: DOCUMENTOS, CORRELATIVOS E IDENTIDAD -->
+                    <div class="card">
+                        <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Documentos y Correlativos</h3>
+                        <span class="settings-subtitle" style="display:block; margin-top:-0.5rem; margin-bottom:1rem; color:var(--text-muted); font-size:0.85rem;">Formato de numeración, prefijos e identidad corporativa</span>
+
+                        <div class="settings-row">
+                            <label for="cfg-transfer-number-prefix">Prefijo para Órdenes de Traspaso</label>
+                            <div class="control-wrap"><input type="text" id="cfg-transfer-number-prefix"></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-sales-order-prefix">Prefijo para Pedidos de Venta</label>
+                            <div class="control-wrap"><input type="text" id="cfg-sales-order-prefix"></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-return-number-prefix">Prefijo para Devoluciones</label>
+                            <div class="control-wrap"><input type="text" id="cfg-return-number-prefix"></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-correlative-zeros-pad">Relleno de Ceros Correlativos (Padding)</label>
+                            <div class="control-wrap"><input type="number" id="cfg-correlative-zeros-pad" min="3" max="10"></div>
+                        </div>
                         
-                        <!-- CARD 3: OPERATIVA Y DEPÓSITO -->
-                        <div class="card" data-help="Reglas de Depósito|Ajustes avanzados para comportamiento de picking, quiebres de stock y calidades.|Active 'Estados de Stock' para clasificar mercadería en Operativo, Outlet o Dañado.">
-                            <h3 style="color:var(--text-primary); margin-bottom:0.2rem;">Operativa y Depósito</h3>
-                            <span class="settings-subtitle">Reglas de negocio logístico, inventarios y stock</span>
-                            
-                            <div class="settings-row">
-                                <label for="cfg-auto-complete-picking">Auto-completar Pedido al finalizar Picking</label>
-                                <div class="control-wrap"><select id="cfg-auto-complete-picking"><option value="true">SÍ</option><option value="false">NO</option></select></div>
+                        <div class="settings-group-header" style="margin-top:1.5rem; border-top:1px solid var(--border); padding-top:1rem; font-weight:600;">Identidad Corporativa</div>
+                        <div class="form-row" style="margin-top:0.8rem;">
+                            <div class="form-group" style="flex:1; margin-bottom:0;">
+                                <label>Nombre de la App</label>
+                                <input type="text" id="cfg-app-name" placeholder="Nombre App">
                             </div>
-                            <div class="settings-row">
-                                <label for="cfg-enable-stock-conditions">Habilitar Estados de Stock (Operativo, Outlet, Dañado)</label>
-                                <div class="control-wrap"><select id="cfg-enable-stock-conditions"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-enable-stock-management">Gestión de Stock Estricta Activa</label>
-                                <div class="control-wrap"><select id="cfg-enable-stock-management"><option value="true">SÍ</option><option value="false">NO</option></select></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-allow-negative-stock">Permitir Stock Negativo (Quiebres)</label>
-                                <div class="control-wrap"><select id="cfg-allow-negative-stock"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-enable-lots-expiration">Gestión de Lotes y Vencimientos (FEFO)</label>
-                                <div class="control-wrap"><select id="cfg-enable-lots-expiration"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-allow-multiproduct">Múltiples SKU en Misma Ubicación Física</label>
-                                <div class="control-wrap"><select id="cfg-allow-multiproduct"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-enable-item-dimensions">Trabaja con Pesos y Volúmenes</label>
-                                <div class="control-wrap"><select id="cfg-enable-item-dimensions"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-default-inventory-count-type">Modalidad Predeterminada de Conteo Cíclico</label>
-                                <div class="control-wrap">
-                                    <select id="cfg-default-inventory-count-type">
-                                        <option value="HOT">EN CALIENTE (HOT)</option>
-                                        <option value="COLD">EN FRÍO (COLD)</option>
-                                    </select>
-                                </div>
+                            <div class="form-group" style="flex:1; margin-bottom:0;">
+                                <label>CUIT Empresa</label>
+                                <input type="text" id="cfg-company-cuit" placeholder="CUIT">
                             </div>
                         </div>
-
-                        <!-- CARD 4: MÓDULOS ENTERPRISE WMS -->
-                        <div class="card">
-                            <h3 style="color:var(--text-primary); margin-bottom:0.2rem;">Módulos Enterprise WMS</h3>
-                            <span class="settings-subtitle">Parámetros avanzados de logística, trazabilidad y algoritmos</span>
-
-                            <div class="settings-row">
-                                <label for="cfg-enable-api-idempotency">Idempotencia API (Protección Doble Envío)</label>
-                                <div class="control-wrap"><select id="cfg-enable-api-idempotency"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-enable-serial-tracking">Trazabilidad por Número de Serie (SNT)</label>
-                                <div class="control-wrap"><select id="cfg-enable-serial-tracking"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-enable-putaway-suggestions">Sugerencias de Guardado Inteligente (Putaway)</label>
-                                <div class="control-wrap"><select id="cfg-enable-putaway-suggestions"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-enable-replenishment">Reabastecimiento Automático (Pulmón a Picking)</label>
-                                <div class="control-wrap"><select id="cfg-enable-replenishment"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-enable-wave-picking">Picking por Olas y Lotes (Wave/Batch)</label>
-                                <div class="control-wrap"><select id="cfg-enable-wave-picking"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-enable-optimal-routing">Enrutamiento Óptimo de Caminata en Colectora</label>
-                                <div class="control-wrap"><select id="cfg-enable-optimal-routing"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-enable-packing-station">Estación de Empaque (Verificación de Bultos)</label>
-                                <div class="control-wrap"><select id="cfg-enable-packing-station"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                            </div>
-                            <div class="settings-row">
-                                <label for="cfg-enable-labor-management">Medición de Rendimiento por Operario (KPIs)</label>
-                                <div class="control-wrap"><select id="cfg-enable-labor-management"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                            </div>
-                        </div>
-
-                        <!-- CARD 5: CONFIGURACIÓN DE IMPRESORAS DE ETIQUETAS -->
-                        <div class="card">
-                            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.5rem; flex-wrap:wrap; gap:12px;">
-                                <div>
-                                    <h3 style="color:var(--text-primary); margin:0;">Impresoras y Plantillas ZPL</h3>
-                                    <span class="settings-subtitle" style="margin-bottom:0; margin-top:4px;">Colas de impresión y diseño de etiquetas</span>
-                                </div>
-                                <a href="/downloads/tracker360-agent.zip" download="tracker360-agent.zip" class="btn-secondary" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Descargar Agente Windows (.exe)</a>
-                            </div>
-                            
-                            <div class="settings-row" style="background:var(--bg-page); border:1px solid var(--border); border-radius:8px; padding:1rem; margin-bottom:1rem;">
-                                <div>
-                                    <label for="cfg-default-print-queue" style="font-weight:600; color:var(--text-primary); margin-bottom:2px;">Cola de Impresión Predeterminada</label>
-                                    <div style="font-size:0.75rem; color:var(--text-muted);">Asignación de impresora principal para el depósito</div>
-                                </div>
-                                <div class="control-wrap" style="width:160px;">
-                                    <input type="text" id="cfg-default-print-queue" placeholder="Ej: PRINT-SEC-01">
-                                </div>
-                            </div>
-
-                            <div style="border:1px solid var(--border); border-radius:8px; overflow:hidden;">
-                                <div class="settings-row" style="padding:1rem; border-bottom:1px solid var(--border);">
-                                    <div>
-                                        <strong style="color:var(--text-primary); font-size:0.85rem;">Etiqueta de Artículo</strong>
-                                        <div style="font-size:0.75rem; color:var(--text-muted);">Productos individuales (SKU)</div>
-                                    </div>
-                                    <button type="button" class="btn-secondary" onclick="editZPLSettings('zpl-tab-item')" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Editar ZPL</button>
-                                </div>
-                                <div class="settings-row" style="padding:1rem; border-bottom:1px solid var(--border);">
-                                    <div>
-                                        <strong style="color:var(--text-primary); font-size:0.85rem;">Etiqueta de Bulto / Envío</strong>
-                                        <div style="font-size:0.75rem; color:var(--text-muted);">Pedidos empaquetados y despachos</div>
-                                    </div>
-                                    <button type="button" class="btn-secondary" onclick="editZPLSettings('zpl-tab-order')" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Editar ZPL</button>
-                                </div>
-                                <div class="settings-row" style="padding:1rem;">
-                                    <div>
-                                        <strong style="color:var(--text-primary); font-size:0.85rem;">Etiqueta de Ubicación / Rack</strong>
-                                        <div style="font-size:0.75rem; color:var(--text-muted);">Estanterías y posiciones físicas</div>
-                                    </div>
-                                    <button type="button" class="btn-secondary" onclick="editZPLSettings('zpl-tab-location')" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Editar ZPL</button>
-                                </div>
-                            </div>
-                        </div>
-
                     </div>
 
-                </div>
+                    <!-- CARD 3: OPERATIVA Y DEPÓSITO -->
+                    <div class="card" data-help="Reglas de Depósito|Ajustes avanzados para comportamiento de picking, quiebres de stock y calidades.|Active 'Estados de Stock' para clasificar mercadería en Operativo, Outlet o Dañado.">
+                        <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Operativa y Depósito</h3>
+                        <span class="settings-subtitle" style="display:block; margin-top:-0.5rem; margin-bottom:1rem; color:var(--text-muted); font-size:0.85rem;">Reglas de negocio logístico, inventarios y stock</span>
+                        
+                        <div class="settings-row">
+                            <label for="cfg-auto-complete-picking">Auto-completar Pedido al finalizar Picking</label>
+                            <div class="control-wrap"><select id="cfg-auto-complete-picking"><option value="true">SÍ</option><option value="false">NO</option></select></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-enable-stock-conditions">Habilitar Estados de Stock (Operativo, Outlet, Dañado)</label>
+                            <div class="control-wrap"><select id="cfg-enable-stock-conditions"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-enable-stock-management">Gestión de Stock Estricta Activa</label>
+                            <div class="control-wrap"><select id="cfg-enable-stock-management"><option value="true">SÍ</option><option value="false">NO</option></select></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-allow-negative-stock">Permitir Stock Negativo (Quiebres)</label>
+                            <div class="control-wrap"><select id="cfg-allow-negative-stock"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-enable-lots-expiration">Gestión de Lotes y Vencimientos (FEFO)</label>
+                            <div class="control-wrap"><select id="cfg-enable-lots-expiration"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-allow-multiproduct">Múltiples SKU en Misma Ubicación Física</label>
+                            <div class="control-wrap"><select id="cfg-allow-multiproduct"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-enable-item-dimensions">Trabaja con Pesos y Volúmenes</label>
+                            <div class="control-wrap"><select id="cfg-enable-item-dimensions"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-default-inventory-count-type">Modalidad Predeterminada de Conteo Cíclico</label>
+                            <div class="control-wrap">
+                                <select id="cfg-default-inventory-count-type">
+                                    <option value="HOT">EN CALIENTE (HOT)</option>
+                                    <option value="COLD">EN FRÍO (COLD)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- CARD 4: MÓDULOS ENTERPRISE WMS -->
+                    <div class="card">
+                        <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Módulos Enterprise WMS</h3>
+                        <span class="settings-subtitle" style="display:block; margin-top:-0.5rem; margin-bottom:1rem; color:var(--text-muted); font-size:0.85rem;">Parámetros avanzados de logística, trazabilidad y algoritmos</span>
+
+                        <div class="settings-row">
+                            <label for="cfg-enable-api-idempotency">Idempotencia API (Protección Doble Envío)</label>
+                            <div class="control-wrap"><select id="cfg-enable-api-idempotency"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-enable-serial-tracking">Trazabilidad por Número de Serie (SNT)</label>
+                            <div class="control-wrap"><select id="cfg-enable-serial-tracking"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-enable-putaway-suggestions">Sugerencias de Guardado Inteligente (Putaway)</label>
+                            <div class="control-wrap"><select id="cfg-enable-putaway-suggestions"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-enable-replenishment">Reabastecimiento Automático (Pulmón a Picking)</label>
+                            <div class="control-wrap"><select id="cfg-enable-replenishment"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-enable-wave-picking">Picking por Olas y Lotes (Wave/Batch)</label>
+                            <div class="control-wrap"><select id="cfg-enable-wave-picking"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-enable-optimal-routing">Enrutamiento Óptimo de Caminata en Colectora</label>
+                            <div class="control-wrap"><select id="cfg-enable-optimal-routing"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-enable-packing-station">Estación de Empaque (Verificación de Bultos)</label>
+                            <div class="control-wrap"><select id="cfg-enable-packing-station"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-enable-labor-management">Medición de Rendimiento por Operario (KPIs)</label>
+                            <div class="control-wrap"><select id="cfg-enable-labor-management"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                        </div>
+                    </div>
+
+                    <!-- CARD 5: CONFIGURACIÓN DE IMPRESORAS DE ETIQUETAS -->
+                    <div class="card">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem; flex-wrap:wrap; gap:12px;">
+                            <div>
+                                <h3 class="card-title" style="margin-bottom:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Impresoras y Plantillas ZPL</h3>
+                                <span class="settings-subtitle" style="display:block; margin-top:4px; color:var(--text-muted); font-size:0.85rem;">Colas de impresión y diseño de etiquetas</span>
+                            </div>
+                            <a href="/downloads/tracker360-agent.zip" download="tracker360-agent.zip" class="btn-secondary" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Descargar Agente Windows (.exe)</a>
+                        </div>
+                        
+                        <div class="settings-row" style="background:var(--bg-page); border:1px solid var(--border); border-radius:8px; padding:1rem; margin-bottom:1rem;">
+                            <div>
+                                <label for="cfg-default-print-queue" style="font-weight:600; color:var(--text-primary); margin-bottom:2px;">Cola de Impresión Predeterminada</label>
+                                <div style="font-size:0.75rem; color:var(--text-muted);">Asignación de impresora principal para el depósito</div>
+                            </div>
+                            <div class="control-wrap" style="width:160px;">
+                                <input type="text" id="cfg-default-print-queue" placeholder="Ej: PRINT-SEC-01">
+                            </div>
+                        </div>
+
+                        <div style="border:1px solid var(--border); border-radius:8px; overflow:hidden;">
+                            <div class="settings-row" style="padding:1rem; border-bottom:1px solid var(--border);">
+                                <div>
+                                    <strong style="color:var(--text-primary); font-size:0.85rem;">Etiqueta de Artículo</strong>
+                                    <div style="font-size:0.75rem; color:var(--text-muted);">Productos individuales (SKU)</div>
+                                </div>
+                                <button type="button" class="btn-secondary" onclick="editZPLSettings('zpl-tab-item')" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Editar ZPL</button>
+                            </div>
+                            <div class="settings-row" style="padding:1rem; border-bottom:1px solid var(--border);">
+                                <div>
+                                    <strong style="color:var(--text-primary); font-size:0.85rem;">Etiqueta de Bulto / Envío</strong>
+                                    <div style="font-size:0.75rem; color:var(--text-muted);">Pedidos empaquetados y despachos</div>
+                                </div>
+                                <button type="button" class="btn-secondary" onclick="editZPLSettings('zpl-tab-order')" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Editar ZPL</button>
+                            </div>
+                            <div class="settings-row" style="padding:1rem;">
+                                <div>
+                                    <strong style="color:var(--text-primary); font-size:0.85rem;">Etiqueta de Ubicación / Rack</strong>
+                                    <div style="font-size:0.75rem; color:var(--text-muted);">Estanterías y posiciones físicas</div>
+                                </div>
+                                <button type="button" class="btn-secondary" onclick="editZPLSettings('zpl-tab-location')" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Editar ZPL</button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div> <!-- Fin Masonry Settings -->
 
                 <div style="margin-top:1rem; margin-bottom:1.5rem;">
                     <button type="submit" class="btn-submit" style="width:100%; padding:1.1rem; font-size:1rem; justify-content:center;">Guardar Toda la Configuración General</button>
                 </div>
             </form>
 
-            <div class="card" style="margin-top:1.5rem;">
+            <div class="card grid-full-width" style="margin-top:1.5rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:12px;">
                     <div>
-                        <h3 style="color:var(--success); margin:0;">Vinculaciones vía API</h3>
-                        <span class="settings-subtitle" style="margin-bottom:0;">Documentación de endpoints, generación de claves de acceso y webhooks salientes</span>
+                        <h3 class="card-title" style="color:var(--success); margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> Vinculaciones vía API</h3>
+                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Documentación de endpoints, generación de claves de acceso y webhooks salientes</span>
                     </div>
                     <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
                         <a href="/docs" target="_blank" class="btn-secondary" style="font-size:0.8rem;">Swagger UI</a>
@@ -1858,11 +1358,11 @@
             </div>
 
             <!-- TARJETA: AUDITORÍA DE WEBHOOKS -->
-            <div class="card" style="margin-top:1.5rem;">
+            <div class="card grid-full-width" style="margin-top:1.5rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:12px;">
                     <div>
-                        <h3 style="color:var(--text-primary); margin:0;">Registro y Auditoría de Webhooks</h3>
-                        <span class="settings-subtitle" style="margin-bottom:0; font-size:0.85rem; color:var(--text-secondary);">Historial de eventos enviados y consola de reintentos manuales</span>
+                        <h3 class="card-title" style="margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> Registro y Auditoría de Webhooks</h3>
+                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Historial de eventos enviados y consola de reintentos manuales</span>
                     </div>
                     <button type="button" class="btn-secondary" onclick="loadWebhookLogs()" style="font-size:0.8rem;">
                         <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
@@ -1926,6 +1426,71 @@
         <div id="help-popover-title" class="help-popover-title"></div>
         <div id="help-popover-body" class="help-popover-body"></div>
         <div id="help-popover-rule" class="help-popover-rule"></div>
+    </div>
+
+    <!-- MODAL ESTACIÓN DE EMPAQUE (PACKING STATION) -->
+    <div id="modal-packing-station" class="modal">
+        <div class="modal-content" style="max-width:850px; background:var(--bg-page);">
+            <span class="close-modal" onclick="closeModal('modal-packing-station')">&times;</span>
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:1px solid var(--border); padding-bottom:1rem; margin-bottom:1.5rem;">
+                <div>
+                    <h2 style="color:var(--text-primary); margin:0; font-size:1.4rem;">Estación de Empaque</h2>
+                    <div style="font-size:0.9rem; color:var(--text-muted); margin-top:4px;">Verificación 1 a 1 de artículos contra pedido</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:0.8rem; color:var(--text-secondary); text-transform:uppercase; font-weight:600;">Pedido</div>
+                    <div id="pack-order-label" class="font-mono" style="font-size:1.2rem; font-weight:bold; color:var(--accent);">ORD-XXXX</div>
+                    <div id="pack-customer-label" style="font-size:0.85rem; color:var(--text-primary); font-weight:500;">Cliente S.A.</div>
+                </div>
+            </div>
+
+            <div class="grid-layout" style="gap:1rem;">
+                <div style="display:flex; flex-direction:column; gap:1rem;">
+                    <!-- Lector y Control de Caja -->
+                    <div style="background:var(--bg-surface); padding:1.2rem; border-radius:10px; border:1px solid var(--border); box-shadow:var(--shadow);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                            <span id="pack-current-box-label" style="background:rgba(41, 98, 255, 0.1); color:var(--accent); font-weight:bold; padding:4px 10px; border-radius:6px; border:1px solid rgba(41, 98, 255, 0.2);">Caja 1</span>
+                            <button type="button" class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="closeCurrentBox()">Sellar y Abrir Nueva Caja</button>
+                        </div>
+                        
+                        <form onsubmit="processPackingScan(event)" style="margin:0;">
+                            <label style="font-weight:600; font-size:0.85rem; color:var(--text-secondary); margin-bottom:6px; display:block;">Escanee SKU de la mesa:</label>
+                            <input type="text" id="pack-scan-sku" class="font-mono" style="font-size:1.1rem; padding:0.8rem; border-color:var(--accent);" placeholder="Código de Barras..." autocomplete="off">
+                        </form>
+                    </div>
+
+                    <!-- Resumen Caja Actual -->
+                    <div style="background:var(--bg-surface); padding:1.2rem; border-radius:10px; border:1px solid var(--border); box-shadow:var(--shadow); flex:1;">
+                        <h4 style="font-size:0.9rem; color:var(--text-primary); margin-bottom:0.8rem; border-bottom:1px solid var(--border); padding-bottom:4px;">Contenido Caja Actual</h4>
+                        <div id="pack-current-box-items" style="max-height:150px; overflow-y:auto; font-size:0.85rem;"></div>
+                    </div>
+                </div>
+
+                <!-- Lista Maestra a Verificar -->
+                <div style="background:var(--bg-surface); padding:1rem; border-radius:10px; border:1px solid var(--border); box-shadow:var(--shadow); overflow:hidden; display:flex; flex-direction:column;">
+                    <h4 style="font-size:0.9rem; color:var(--text-primary); margin-bottom:0.8rem; border-bottom:1px solid var(--border); padding-bottom:4px;">Verificación de Picking</h4>
+                    <div style="overflow-y:auto; max-height:280px;">
+                        <table style="margin:0;">
+                            <thead style="position:sticky; top:0; background:var(--bg-surface); box-shadow:0 1px 0 var(--border);">
+                                <tr>
+                                    <th>SKU</th>
+                                    <th>Descripción</th>
+                                    <th style="text-align:center;">Ped.</th>
+                                    <th style="text-align:center;">Emp.</th>
+                                    <th style="text-align:right;">Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-packing-lines"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:1.5rem; border-top:1px solid var(--border); padding-top:1.5rem;">
+                <button type="button" class="btn-secondary" onclick="closeModal('modal-packing-station')">Suspender Empaque</button>
+                <button type="button" id="btn-dispatch-packing" class="btn-submit" disabled style="background:var(--text-muted);" onclick="submitPackingStation()">Verificación Incompleta...</button>
+            </div>
+        </div>
     </div>
 
     <!-- MODALES DE CREACIÓN Y EDICIÓN -->
@@ -2501,16 +2066,16 @@
     </div>
 
     <!-- SCRIPTS DEL SISTEMA -->
-    <script src="js/admin-core.js?v=20260901_3"></script>
-    <script src="js/api.js?v=20260901_3"></script>
-    <script src="js/users.js?v=20260901_3"></script>
-    <script src="js/entities.js?v=20260901_3"></script>
-    <script src="js/items.js?v=20260901_3"></script>
-    <script src="js/warehouse.js?v=20260901_3"></script>
-    <script src="js/operations.js?v=20260901_3"></script>
-    <script src="js/reports.js?v=20260901_3"></script>
-    <script src="js/settings.js?v=20260901_3"></script>
-    <script src="js/admin-init.js?v=20260901_3"></script>
+    <script src="js/admin-core.js?v=20260902_9"></script>
+    <script src="js/api.js?v=20260902_9"></script>
+    <script src="js/users.js?v=20260902_9"></script>
+    <script src="js/entities.js?v=20260902_9"></script>
+    <script src="js/items.js?v=20260902_9"></script>
+    <script src="js/warehouse.js?v=20260902_9"></script>
+    <script src="js/operations.js?v=20260902_9"></script>
+    <script src="js/reports.js?v=20260902_9"></script>
+    <script src="js/settings.js?v=20260902_9"></script>
+    <script src="js/admin-init.js?v=20260902_9"></script>
     
     <script>
         function toggleSidebar() {

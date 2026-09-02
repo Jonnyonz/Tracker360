@@ -1,7 +1,14 @@
 // === MÓDULO DE OPERACIONES, STOCK, REPORTES E INTEGRACIONES (DESKTOP / ADMIN) ===
 
-// Caché local y aislado exclusiva para este módulo (Cero adivinanzas)
+// Caché local y aislado exclusiva para este módulo (Cero colisiones)
 let opsSectorsCache = [];
+let opsOrdersCache = [];
+
+let packingCurrentOrder = null;
+let packingExpectedItems = {};
+let packingScannedItems = {};
+let packingBoxes = [];
+let currentBoxIndex = 1;
 
 function switchPurchaseTab(tabId, btn) {
     document.querySelectorAll('.purchase-tab').forEach(t => t.style.display = 'none');
@@ -18,7 +25,371 @@ function switchPurchaseTab(tabId, btn) {
     }
 }
 
-// === PUTAWAY (GUARDADO INTELIGENTE) FASE 2 ===
+// === GESTIÓN DE PEDIDOS Y FILTROS ===
+
+async function loadOrders() {
+    const tbody = document.getElementById('table-orders-body');
+    if(!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Cargando pedidos...</td></tr>';
+    
+    try {
+        const res = await fetchAPI('/api/admin/documents');
+        if(!res || res.length === 0) {
+            opsOrdersCache = [];
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No hay pedidos registrados.</td></tr>';
+            return;
+        }
+        opsOrdersCache = res;
+        filterOrders();
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--danger);">Error: ${escapeHTML(e.message)}</td></tr>`;
+    }
+}
+
+function filterOrders() {
+    const tbody = document.getElementById('table-orders-body');
+    if(!tbody) return;
+    
+    const searchText = (document.getElementById('search-order-text')?.value || '').toLowerCase();
+    const statusFilter = document.getElementById('search-order-status')?.value || 'ALL';
+
+    const filtered = opsOrdersCache.filter(o => {
+        const matchText = o.document_number.toLowerCase().includes(searchText) || 
+                          (o.company_name && o.company_name.toLowerCase().includes(searchText));
+        const matchStatus = statusFilter === 'ALL' || o.status === statusFilter;
+        return matchText && matchStatus;
+    });
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No hay pedidos que coincidan con la búsqueda.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(o => {
+        let badgeClass = 'badge-neutral';
+        if (o.status === 'PENDING') badgeClass = 'badge-warning';
+        if (o.status === 'IN_PROGRESS') badgeClass = 'badge-info';
+        if (o.status === 'COMPLETED') badgeClass = 'badge-success';
+        
+        let actionBtn = `<span style="color:var(--text-muted); font-size:0.8rem;">Sin Acción</span>`;
+        if (o.status === 'COMPLETED') {
+            actionBtn = `<button class="btn-submit" style="padding:4px 10px; font-size:0.75rem; background:var(--accent);" onclick="openPackingStation('${escapeHTML(o.document_number)}', '${escapeHTML(o.company_name)}')">Empacar (Verificar)</button>`;
+        } else if (o.status === 'PENDING' || o.status === 'IN_PROGRESS') {
+            actionBtn = `<span style="color:var(--text-secondary); font-size:0.8rem;">En Picking</span>`;
+        } else if (o.status === 'DISPATCHED') {
+            actionBtn = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="reprintOrderLabel('${escapeHTML(o.document_number)}')">Re-imprimir</button>`;
+        }
+
+        return `<tr>
+            <td style="font-weight:bold; color:var(--accent); font-family:monospace;">${escapeHTML(o.document_number)}</td>
+            <td>${escapeHTML(o.company_name)}</td>
+            <td><span class="badge ${badgeClass}">${escapeHTML(o.status)}</span></td>
+            <td>
+                <div style="width:100%; background:var(--border); border-radius:4px; height:8px; overflow:hidden;">
+                    <div style="width:${o.progress_pct}%; background:${o.progress_pct === 100 ? 'var(--success)' : 'var(--accent)'}; height:100%;"></div>
+                </div>
+                <small style="display:block; text-align:right; margin-top:2px; font-weight:bold; color:var(--text-secondary);">${o.progress_pct}%</small>
+            </td>
+            <td style="text-align:right;">${actionBtn}</td>
+        </tr>`;
+    }).join('');
+}
+
+function openManualOrderModal() {
+    document.getElementById('form-manual-order').reset();
+    document.getElementById('manual-order-lines').innerHTML = '';
+    addDynamicLineManualOrder();
+    
+    fetchAPI('/api/admin/sales-orders/next-number').then(res => {
+        if(res && res.next_number) document.getElementById('manual-doc-num').value = res.next_number;
+    });
+    
+    openModal('modal-manual-order');
+}
+
+function addDynamicLineManualOrder() {
+    document.getElementById('manual-order-lines').innerHTML += `
+        <div class="dynamic-row">
+            <input type="text" placeholder="SKU" class="manual-sku font-mono" style="flex:2;" required>
+            <input type="number" placeholder="Cantidad" class="manual-qty" style="flex:1;" min="0.01" step="0.01" required>
+            <input type="text" placeholder="Lote" class="manual-lot lot-input" style="flex:1; display:none;">
+            <button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button>
+        </div>`;
+}
+
+async function saveManualOrder(e) {
+    e.preventDefault();
+    const docNum = document.getElementById('manual-doc-num').value;
+    const taxId = document.getElementById('manual-cust-taxid').value;
+    const custName = document.getElementById('manual-cust-name').value;
+    const addrLabel = document.getElementById('manual-addr-label').value;
+
+    const rows = document.querySelectorAll('#manual-order-lines .dynamic-row');
+    const lines = [];
+    rows.forEach(r => {
+        const sku = r.querySelector('.manual-sku').value;
+        const qty = parseFloat(r.querySelector('.manual-qty').value);
+        if (sku && qty > 0) {
+            lines.push({ sku: sku.toUpperCase(), quantity: qty, serial_numbers: [] });
+        }
+    });
+
+    if (lines.length === 0) return showToast("Añade al menos un artículo", "error");
+
+    const payload = { document_number: docNum, customer_tax_id: taxId, customer_name: custName, address_label: addrLabel, lines: lines };
+
+    const btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true; btn.textContent = 'Guardando...';
+
+    try {
+        const r = await fetchAPI('/api/admin/sales-orders', { method: 'POST', body: JSON.stringify(payload) });
+        showToast(r.message, "success");
+        closeModal('modal-manual-order');
+        loadOrders();
+    } catch(err) {
+        showToast(err.message, "error");
+    } finally {
+        btn.disabled = false; btn.textContent = 'Registrar Pedido';
+    }
+}
+
+async function reprintOrderLabel(docNum) {
+    try {
+        const r = await fetchAPI(`/api/admin/sales-orders/${encodeURIComponent(docNum)}/print-label`, { method: 'POST' });
+        showToast(r.message, "success");
+    } catch(err) {
+        showToast(err.message, "error");
+    }
+}
+
+// === FASE 4: ESTACIÓN DE EMPAQUE (PACKING STATION) ===
+
+async function openPackingStation(documentNumber, clientName) {
+    packingCurrentOrder = documentNumber;
+    packingExpectedItems = {};
+    packingScannedItems = {};
+    packingBoxes = [];
+    currentBoxIndex = 1;
+
+    document.getElementById('pack-order-label').textContent = documentNumber;
+    document.getElementById('pack-customer-label').textContent = clientName || 'Consumidor Final';
+    document.getElementById('pack-current-box-label').textContent = `Caja ${currentBoxIndex}`;
+    document.getElementById('pack-scan-sku').value = '';
+    document.getElementById('pack-current-box-items').innerHTML = '<p style="color:var(--text-muted); font-style:italic;">Caja vacía. Escanee artículos.</p>';
+    document.getElementById('btn-dispatch-packing').disabled = true;
+    document.getElementById('btn-dispatch-packing').style.background = 'var(--text-muted)';
+    document.getElementById('btn-dispatch-packing').textContent = 'Verificación Incompleta...';
+
+    const tbody = document.getElementById('table-packing-lines');
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Cargando lista de picking...</td></tr>';
+    openModal('modal-packing-station');
+
+    try {
+        const res = await fetchAPI(`/api/packing/orders/${encodeURIComponent(documentNumber)}`);
+        if (!res || !res.lines || res.lines.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--danger);">Error: No hay líneas pickeadas.</td></tr>';
+            return;
+        }
+
+        res.lines.forEach(l => {
+            const sku = l.sku.toUpperCase();
+            packingExpectedItems[sku] = {
+                desc: l.description,
+                expected: l.quantity,
+                scanned: 0
+            };
+        });
+
+        renderPackingVerificationTable();
+        
+        setTimeout(() => {
+            const inp = document.getElementById('pack-scan-sku');
+            if (inp) { inp.focus(); inp.select(); }
+        }, 500);
+
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--danger);">Error: ${escapeHTML(e.message)}</td></tr>`;
+    }
+}
+
+function processPackingScan(e) {
+    e.preventDefault();
+    const input = document.getElementById('pack-scan-sku');
+    let sku = input.value.trim().toUpperCase();
+    if (!sku) return;
+
+    // Si el usuario usa pistola con sufijo de cantidad ej. "MOUSE-01*2"
+    let qty = 1;
+    if (sku.includes('*')) {
+        const parts = sku.split('*');
+        sku = parts[0];
+        qty = parseFloat(parts[1]) || 1;
+    }
+
+    input.value = '';
+
+    if (!packingExpectedItems[sku]) {
+        if (typeof playErrorTone === 'function') playErrorTone();
+        showToast(`CUIDADO: El SKU ${sku} no pertenece a este pedido.`, 'error');
+        return;
+    }
+
+    const item = packingExpectedItems[sku];
+    if (item.scanned + qty > item.expected) {
+        if (typeof playErrorTone === 'function') playErrorTone();
+        showToast(`ALERTA: Intenta empacar ${item.scanned + qty} de ${item.expected} permitidos para ${sku}.`, 'error');
+        return;
+    }
+
+    // Registro global
+    item.scanned += qty;
+
+    // Registro por caja actual
+    const currentBoxKey = `box_${currentBoxIndex}`;
+    if (!packingScannedItems[currentBoxKey]) packingScannedItems[currentBoxKey] = {};
+    if (!packingScannedItems[currentBoxKey][sku]) packingScannedItems[currentBoxKey][sku] = 0;
+    packingScannedItems[currentBoxKey][sku] += qty;
+
+    if (typeof playSuccessChime === 'function') playSuccessChime();
+    renderPackingVerificationTable();
+    renderCurrentBoxItems();
+    checkPackingCompletion();
+}
+
+function renderPackingVerificationTable() {
+    const tbody = document.getElementById('table-packing-lines');
+    let html = '';
+    
+    for (const [sku, data] of Object.entries(packingExpectedItems)) {
+        const isComplete = data.scanned === data.expected;
+        const colorClass = isComplete ? 'color:var(--success);' : (data.scanned > 0 ? 'color:var(--warning);' : 'color:var(--text-primary);');
+        const bgClass = isComplete ? 'background:rgba(0, 200, 83, 0.05);' : '';
+        const badge = isComplete ? '<span class="badge badge-success">OK</span>' : '<span class="badge badge-neutral">Falta</span>';
+
+        html += `
+            <tr style="${bgClass}">
+                <td style="font-family:monospace; font-weight:bold; ${colorClass}">${escapeHTML(sku)}</td>
+                <td style="font-size:0.85rem;">${escapeHTML(data.desc)}</td>
+                <td style="text-align:center; font-weight:bold;">${data.expected}</td>
+                <td style="text-align:center; font-weight:bold; ${colorClass}">${data.scanned}</td>
+                <td style="text-align:right;">${badge}</td>
+            </tr>
+        `;
+    }
+    tbody.innerHTML = html;
+}
+
+function renderCurrentBoxItems() {
+    const container = document.getElementById('pack-current-box-items');
+    const currentBoxKey = `box_${currentBoxIndex}`;
+    const items = packingScannedItems[currentBoxKey];
+
+    if (!items || Object.keys(items).length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted); font-style:italic;">Caja vacía. Escanee artículos.</p>';
+        return;
+    }
+
+    let html = '<ul style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:6px;">';
+    for (const [sku, qty] of Object.entries(items)) {
+        html += `
+            <li style="display:flex; justify-content:space-between; border-bottom:1px solid var(--border); padding-bottom:4px;">
+                <span class="font-mono" style="color:var(--accent); font-weight:bold;">${escapeHTML(sku)}</span>
+                <span style="font-weight:bold;">x${qty}</span>
+            </li>
+        `;
+    }
+    html += '</ul>';
+    container.innerHTML = html;
+}
+
+function closeCurrentBox() {
+    const currentBoxKey = `box_${currentBoxIndex}`;
+    const items = packingScannedItems[currentBoxKey];
+
+    if (!items || Object.keys(items).length === 0) {
+        showToast("No puede sellar una caja vacía.", "warning");
+        return;
+    }
+
+    packingBoxes.push({
+        box_number: currentBoxIndex,
+        items: { ...items }
+    });
+
+    currentBoxIndex++;
+    document.getElementById('pack-current-box-label').textContent = `Caja ${currentBoxIndex}`;
+    document.getElementById('pack-current-box-items').innerHTML = '<p style="color:var(--text-muted); font-style:italic;">Caja vacía. Escanee artículos.</p>';
+    showToast(`Caja ${currentBoxIndex - 1} sellada.`, "info");
+    
+    document.getElementById('pack-scan-sku').focus();
+}
+
+function checkPackingCompletion() {
+    let allComplete = true;
+    for (const data of Object.values(packingExpectedItems)) {
+        if (data.scanned < data.expected) {
+            allComplete = false;
+            break;
+        }
+    }
+
+    const btn = document.getElementById('btn-dispatch-packing');
+    if (allComplete) {
+        btn.disabled = false;
+        btn.style.background = 'var(--success)';
+        btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Despachar e Imprimir Etiquetas';
+        showToast("Verificación 100% completada. Listo para despachar.", "success");
+    } else {
+        btn.disabled = true;
+        btn.style.background = 'var(--text-muted)';
+        btn.textContent = 'Verificación Incompleta...';
+    }
+}
+
+async function submitPackingStation() {
+    // Si hay items en la caja actual que no se selló, la cerramos automáticamente.
+    const currentBoxKey = `box_${currentBoxIndex}`;
+    if (packingScannedItems[currentBoxKey] && Object.keys(packingScannedItems[currentBoxKey]).length > 0) {
+        closeCurrentBox();
+    }
+
+    const payload = {
+        boxes: packingBoxes.length,
+        packed_items: []
+    };
+
+    packingBoxes.forEach(box => {
+        for (const [sku, qty] of Object.entries(box.items)) {
+            payload.packed_items.push({
+                sku: sku,
+                quantity: qty,
+                box_number: box.box_number
+            });
+        }
+    });
+
+    const btn = document.getElementById('btn-dispatch-packing');
+    btn.disabled = true;
+    btn.textContent = 'Procesando Despacho...';
+
+    try {
+        const res = await fetchAPI(`/api/packing/orders/${encodeURIComponent(packingCurrentOrder)}/pack`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+        
+        showToast(res.message, "success");
+        closeModal('modal-packing-station');
+        loadOrders();
+    } catch (e) {
+        showToast(e.message, "error");
+        btn.disabled = false;
+        btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg> Reintentar Despacho';
+    }
+}
+
+// === PUTAWAY Y REPLENISHMENT FASE 2 ===
 async function fetchPutawaySuggestion(sku, inputElement) {
     if (!sku || !inputElement) return;
     try {
@@ -36,7 +407,6 @@ async function fetchPutawaySuggestion(sku, inputElement) {
     } catch (e) { console.error("Error cargando sugerencia Putaway", e); }
 }
 
-// === REPLENISHMENT (REABASTECIMIENTO) FASE 2 ===
 async function loadReplenishmentSuggestions() {
     const tbody = document.getElementById('table-replenishment-body');
     if (!tbody) return;
@@ -77,7 +447,6 @@ async function createReplenishmentTransfer(sku, origLoc, destLoc, availableQty) 
     document.getElementById('form-transfer').reset();
     await loadNextTransferNumber();
     
-    // Forzamos carga de selectores de traspaso
     await loadTransferSelectors();
     
     document.getElementById('tr-lines').innerHTML = '';
@@ -95,7 +464,7 @@ async function createReplenishmentTransfer(sku, origLoc, destLoc, availableQty) 
     }, 300);
 }
 
-// === INVENTARIO FÍSICO / CONTEOS CIEGOS ===
+// === INVENTARIO FÍSICO ===
 function openSpotCheckModal() {
     document.getElementById('form-spot-check').reset();
     document.getElementById('spot-check-result').style.display = 'none';
@@ -189,7 +558,6 @@ async function openCreateInventoryModal() {
     openModal('modal-create-inventory');
 
     try {
-        // Petición in situ e independiente a la API
         const [branches, sectors, users] = await Promise.all([
             fetchAPI('/api/admin/branches'),
             fetchAPI('/api/admin/sectors'),
@@ -463,7 +831,7 @@ async function saveTransfer(event) {
 
     try {
         const headers = {'Content-Type': 'application/json'};
-        if (AppConfig.enable_api_idempotency === 'true') {
+        if (typeof AppConfig !== 'undefined' && AppConfig.enable_api_idempotency === 'true') {
             headers['X-Idempotency-Key'] = `TR-${num}-${Date.now()}`;
         }
         
@@ -568,6 +936,12 @@ window.addDynamicLinePO = addDynamicLinePO;
 window.addDynamicLineRemito = addDynamicLineRemito;
 window.addDynamicLineInvoice = addDynamicLineInvoice;
 window.addDynamicLineTransfer = addDynamicLineTransfer;
+window.loadOrders = loadOrders;
+window.filterOrders = filterOrders;
+window.openManualOrderModal = openManualOrderModal;
+window.addDynamicLineManualOrder = addDynamicLineManualOrder;
+window.saveManualOrder = saveManualOrder;
+window.reprintOrderLabel = reprintOrderLabel;
 
 // === VINCULACIÓN DEL MÓDULO DE INVENTARIO FÍSICO ===
 window.openSpotCheckModal = openSpotCheckModal;
@@ -581,3 +955,7 @@ window.scanInventoryCount = scanInventoryCount;
 window.finishInventorySession = finishInventorySession;
 window.openReviewInventoryModal = openReviewInventoryModal;
 window.applyInventoryAdjustments = applyInventoryAdjustments;
+window.openPackingStation = openPackingStation;
+window.processPackingScan = processPackingScan;
+window.closeCurrentBox = closeCurrentBox;
+window.submitPackingStation = submitPackingStation;
