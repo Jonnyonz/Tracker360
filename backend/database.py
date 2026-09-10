@@ -405,19 +405,9 @@ async def init_db_schema():
                     try: await conn.execute(stmt)
                     except Exception: pass
 
-                user_count = await conn.fetchval("SELECT COUNT(*) FROM users")
-                if user_count == 0:
-                    init_pass = os.getenv("INITIAL_ADMIN_PASSWORD")
-                    if not init_pass:
-                        init_pass = secrets.token_urlsafe(12)
-                        print(f"[Tracker360] INITIAL_ADMIN_PASSWORD no estaba configurada: se generó una clave aleatoria "
-                              f"para el usuario 'admin': {init_pass}")
-                        print("[Tracker360] Guardala ahora (no se vuelve a mostrar) y cambiala después del primer login.")
-                    hashed_pass = get_password_hash(init_pass)
-                    await conn.execute(
-                        "INSERT INTO users (username, full_name, password_hash, role) VALUES ($1, $2, $3, 'ADMIN')",
-                        "admin", "Administrador Inicial", hashed_pass
-                    )
+                # El primer usuario administrador ya no se auto-crea acá: si la tabla users está vacía,
+                # el frontend muestra la pantalla de configuración inicial (POST /api/auth/setup/admin),
+                # que exige el SETUP_TOKEN generado por install.sh.
 
                 sys_key = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'tracker360_api_key'")
                 if not sys_key:

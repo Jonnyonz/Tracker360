@@ -233,7 +233,40 @@
         <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
     </button>
 
-    <div class="login-container">
+    <div class="login-container" id="setupContainer" style="display:none;">
+        <div class="brand-header">
+            <h2 style="font-size:1.3rem; font-weight:700; margin-top: 0.5rem;">Configuración Inicial</h2>
+            <p style="font-size:0.85rem; color:var(--text-secondary); text-align:center; margin-top:0.4rem;">Es la primera vez que se usa el sistema. Creá el usuario administrador.</p>
+        </div>
+
+        <div id="setupErrorBox" class="error-box"></div>
+
+        <form id="setupForm">
+            <div class="form-group">
+                <label for="su-token">Token de instalación</label>
+                <input type="text" id="su-token" class="font-mono" required autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label for="su-username">Usuario</label>
+                <input type="text" id="su-username" class="font-mono" required autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label for="su-fullname">Nombre completo</label>
+                <input type="text" id="su-fullname" required autocomplete="name">
+            </div>
+            <div class="form-group">
+                <label for="su-password">Contraseña</label>
+                <input type="password" id="su-password" required autocomplete="new-password" minlength="8">
+            </div>
+            <div class="form-group">
+                <label for="su-password2">Confirmar contraseña</label>
+                <input type="password" id="su-password2" required autocomplete="new-password" minlength="8">
+            </div>
+            <button type="submit" class="btn-submit" id="btnSetupSubmit">Crear Administrador</button>
+        </form>
+    </div>
+
+    <div class="login-container" id="loginContainer">
         <div class="brand-header">
             <!-- VERSIÓN GRANDE: TRACKER360 (4 Meridianos + Trópicos Cortados) -->
             <svg class="brand-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
@@ -347,6 +380,67 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const savedTheme = localStorage.getItem('jztech-theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
+
+            const loginContainer = document.getElementById('loginContainer');
+            const setupContainer = document.getElementById('setupContainer');
+
+            try {
+                const statusResp = await fetch('/api/auth/setup/status');
+                if (statusResp.ok) {
+                    const statusData = await statusResp.json();
+                    if (statusData.needs_setup) {
+                        loginContainer.style.display = 'none';
+                        setupContainer.style.display = 'block';
+
+                        const setupForm = document.getElementById('setupForm');
+                        const btnSetupSubmit = document.getElementById('btnSetupSubmit');
+                        const setupErrorBox = document.getElementById('setupErrorBox');
+
+                        setupForm.addEventListener('submit', async (e) => {
+                            e.preventDefault();
+                            setupErrorBox.style.display = 'none';
+
+                            const password = document.getElementById('su-password').value;
+                            const password2 = document.getElementById('su-password2').value;
+                            if (password !== password2) {
+                                setupErrorBox.textContent = 'Las contraseñas no coinciden.';
+                                setupErrorBox.style.display = 'block';
+                                return;
+                            }
+
+                            btnSetupSubmit.disabled = true;
+                            btnSetupSubmit.textContent = 'Creando...';
+
+                            try {
+                                const resp = await fetch('/api/auth/setup/admin', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        token: document.getElementById('su-token').value.trim(),
+                                        username: document.getElementById('su-username').value.trim(),
+                                        full_name: document.getElementById('su-fullname').value.trim(),
+                                        password: password
+                                    })
+                                });
+                                const data = await resp.json();
+                                if (!resp.ok) {
+                                    const msg = typeof data.detail === 'string' ? data.detail : 'No se pudo crear el administrador.';
+                                    throw new Error(msg);
+                                }
+                                window.location.href = '/admin.html';
+                            } catch (err) {
+                                setupErrorBox.textContent = err.message;
+                                setupErrorBox.style.display = 'block';
+                                btnSetupSubmit.disabled = false;
+                                btnSetupSubmit.textContent = 'Crear Administrador';
+                            }
+                        });
+                        return;
+                    }
+                }
+            } catch (err) {
+                console.warn('No se pudo verificar el estado de configuración inicial:', err);
+            }
 
             const loginForm = document.getElementById('loginForm');
             const btnSubmit = document.getElementById('btnSubmit');

@@ -16,12 +16,55 @@ except ImportError:
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
+SETUP_TOKEN = os.getenv("SETUP_TOKEN", "")
+
 class LoginRequest(BaseModel):
     username: str
     password: str
 
 class GoogleVerifyRequest(BaseModel):
     id_token: str
+
+class SetupAdminRequest(BaseModel):
+    token: str
+    username: str
+    full_name: str
+    password: str
+
+@router.get("/setup/status")
+async def setup_status(conn: asyncpg.Connection = Depends(get_db_connection)):
+    count = await conn.fetchval("SELECT COUNT(*) FROM users")
+    return {"needs_setup": (count or 0) == 0}
+
+@router.post("/setup/admin")
+async def setup_admin(data: SetupAdminRequest, request: Request, response: Response, conn: asyncpg.Connection = Depends(get_db_connection)):
+    client_ip = request.client.host if request.client else "127.0.0.1"
+
+    if not SETUP_TOKEN or not secrets.compare_digest(data.token.strip(), SETUP_TOKEN):
+        raise HTTPException(status_code=403, detail="Token de instalación inválido.")
+
+    count = await conn.fetchval("SELECT COUNT(*) FROM users")
+    if (count or 0) > 0:
+        raise HTTPException(status_code=403, detail="La configuración inicial ya fue completada.")
+
+    username = data.username.strip().lower()
+    full_name = data.full_name.strip()
+    password = data.password
+    if not username or not full_name:
+        raise HTTPException(status_code=400, detail="Complete todos los campos.")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 8 caracteres.")
+
+    hashed_pass = get_password_hash(password)
+    user = await conn.fetchrow(
+        "INSERT INTO users (username, full_name, password_hash, role, is_active) VALUES ($1, $2, $3, 'ADMIN', TRUE) RETURNING id, username, role",
+        username, full_name, hashed_pass
+    )
+    await log_action(conn, username, "SETUP_ADMIN_CREATED", "Usuario administrador inicial creado desde la pantalla de configuración", client_ip)
+
+    token = create_access_token({"sub": user["username"], "role": user["role"], "id": str(user["id"])})
+    response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="strict", max_age=14400)
+    return {"message": "Exito", "role": user["role"]}
 
 @router.get("/google/config")
 async def get_google_config(conn: asyncpg.Connection = Depends(get_db_connection)):
