@@ -43,6 +43,13 @@ SETUP_TOKEN=${SETUP_TOKEN}
 # ALLOWED_ORIGINS=https://tudominio.com
 EOF
     echo "Archivo .env generado con contrasenas seguras."
+
+    # Postgres solo aplica POSTGRES_PASSWORD la primera vez que inicializa su volumen de datos.
+    # Si quedo un volumen de una instalacion anterior con otra contrasena, la app nunca podria
+    # autenticarse. Como aca se acaba de generar un .env nuevo (instalacion desde cero), nos
+    # aseguramos de que no sobreviva un volumen viejo con credenciales que ya no coinciden.
+    echo "Verificando que no quede un volumen de base de datos de una instalacion anterior..."
+    docker compose down -v > /dev/null 2>&1 || true
 else
     echo "Se detecto un archivo .env existente. Manteniendo configuracion."
 fi
