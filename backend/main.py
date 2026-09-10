@@ -43,13 +43,28 @@ async def security_middleware(request: Request, call_next):
     return response
 
 # === MIDDLEWARE CORS HARDENED ===
-app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex=r"https?://.*",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Si se define ALLOWED_ORIGINS (lista separada por comas) en el .env, se restringe el CORS
+# a esos orígenes exactos. Si no se define, se mantiene el comportamiento histórico (cualquier
+# origen HTTPS/HTTP) para no romper despliegues existentes que todavía no la configuraron.
+_allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
+if _allowed_origins_env:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[o.strip() for o in _allowed_origins_env.split(",") if o.strip()],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    print("[Tracker360] ALLOWED_ORIGINS no está configurada: CORS acepta cualquier origen. "
+          "Definila en el .env (ej. ALLOWED_ORIGINS=https://tudominio.com) para restringirlo en producción.")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"https?://.*",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 # === REGISTRO DE ROUTERS MODULARES ENTERPRISE ===
 app.include_router(auth.router)

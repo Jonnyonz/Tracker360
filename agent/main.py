@@ -19,8 +19,8 @@ logging.basicConfig(
 
 def get_windows_printers():
     try:
-        cmd = 'powershell -Command "Get-Printer | Select-Object -ExpandProperty Name"'
-        result = subprocess.run(cmd, capture_output=True, text=True, shell=True)
+        cmd = ["powershell", "-Command", "Get-Printer | Select-Object -ExpandProperty Name"]
+        result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0:
             printers = [line.strip() for line in result.stdout.split('\n') if line.strip()]
             return printers

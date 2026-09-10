@@ -30,14 +30,21 @@ if [ ! -f .env ]; then
     echo "Configurando variables de entorno y claves de seguridad (.env)..."
     DB_PASS=$(openssl rand -hex 16 2>/dev/null || tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 24)
     SECRET_KEY=$(openssl rand -hex 32 2>/dev/null || tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 48)
+    ADMIN_PASS=$(openssl rand -hex 8 2>/dev/null || tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 16)
 
     cat <<EOF > .env
 POSTGRES_USER=tracker_admin
 POSTGRES_PASSWORD=${DB_PASS}
 POSTGRES_DB=tracker360_db
 SECRET_KEY=${SECRET_KEY}
+INITIAL_ADMIN_PASSWORD=${ADMIN_PASS}
+# Opcional: restringir CORS a tu(s) dominio(s) de frontend (separados por coma).
+# Si se deja sin definir, se acepta cualquier origen (comportamiento por defecto).
+# ALLOWED_ORIGINS=https://tudominio.com
 EOF
     echo "Archivo .env generado con contrasenas seguras."
+    echo "Usuario admin inicial -> usuario: admin / clave: ${ADMIN_PASS}"
+    echo "Guarda esta clave ahora: se necesita para el primer login y no se vuelve a mostrar."
 else
     echo "Se detecto un archivo .env existente. Manteniendo configuracion."
 fi

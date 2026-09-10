@@ -251,7 +251,7 @@ async def init_db_schema():
         try:
             DB.pool = await asyncpg.create_pool(
                 user=os.getenv("POSTGRES_USER", "tracker_admin"),
-                password=os.getenv("POSTGRES_PASSWORD", "tracker_secure_pass_2026"),
+                password=os.getenv("POSTGRES_PASSWORD", secrets.token_hex(24)),
                 database=os.getenv("POSTGRES_DB", "tracker360_db"),
                 host="db", port=5432, min_size=1, max_size=20
             )
@@ -407,7 +407,12 @@ async def init_db_schema():
 
                 user_count = await conn.fetchval("SELECT COUNT(*) FROM users")
                 if user_count == 0:
-                    init_pass = os.getenv("INITIAL_ADMIN_PASSWORD", "admin360")
+                    init_pass = os.getenv("INITIAL_ADMIN_PASSWORD")
+                    if not init_pass:
+                        init_pass = secrets.token_urlsafe(12)
+                        print(f"[Tracker360] INITIAL_ADMIN_PASSWORD no estaba configurada: se generó una clave aleatoria "
+                              f"para el usuario 'admin': {init_pass}")
+                        print("[Tracker360] Guardala ahora (no se vuelve a mostrar) y cambiala después del primer login.")
                     hashed_pass = get_password_hash(init_pass)
                     await conn.execute(
                         "INSERT INTO users (username, full_name, password_hash, role) VALUES ($1, $2, $3, 'ADMIN')",
