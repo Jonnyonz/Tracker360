@@ -11,6 +11,7 @@ services:
       - tracker360_pgdata:/var/lib/postgresql/data
     ports:
       - "127.0.0.1:${DB_PORT:-5433}:5432"
+    mem_limit: ${DB_MEM_LIMIT:-512m}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -19,7 +20,11 @@ services:
       start_period: 20s
 
   api:
-    build: ./backend
+    # Imagen autocontenida: el codigo va dentro de la imagen (sin montar la carpeta del repo).
+    # Para actualizar: git pull && docker compose up -d --build
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: tracker360_api
     restart: always
     env_file:
@@ -31,9 +36,12 @@ services:
         condition: service_healthy
     ports:
       - "${API_BIND:-0.0.0.0}:${API_PORT:-8001}:8000"
-    volumes:
-      - .:/app
-    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+    mem_limit: ${API_MEM_LIMIT:-384m}
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   tracker360_pgdata:
