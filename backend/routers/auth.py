@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from pydantic import BaseModel
-import asyncpg, json, urllib.request, asyncio, secrets, os
+import asyncpg, json, urllib.request, urllib.parse, asyncio, secrets, os
 from datetime import datetime, timezone
+from typing import Optional
 
 try:
     from backend.database import (
@@ -74,16 +75,35 @@ async def get_google_config(conn: asyncpg.Connection = Depends(get_db_connection
     client_id = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'google_client_id'") or ""
     return {"enabled": enabled.lower() == "true", "client_id": client_id}
 
+GOOGLE_ISSUERS = {"accounts.google.com", "https://accounts.google.com"}
+
 def verify_google_token_sync(id_token: str) -> dict:
-    url = f"https://oauth2.googleapis.com/tokeninfo?id_token={id_token}"
+    url = "https://oauth2.googleapis.com/tokeninfo?" + urllib.parse.urlencode({"id_token": id_token})
     req = urllib.request.Request(url, headers={'User-Agent': 'Tracker360'})
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             if resp.status == 200:
                 return json.loads(resp.read().decode('utf-8'))
     except Exception as e:
-        print(f"Error verificando token de Google: {e}")
+        print(f"Error verificando token de Google: {e!r}")
     return {}
+
+def validate_google_claims(data: dict, client_id: str) -> Optional[str]:
+    """Devuelve el motivo del rechazo, o None si el token es valido para esta instalacion."""
+    if not data or "email" not in data:
+        return "token invalido"
+    if not client_id or not secrets.compare_digest(str(data.get("aud", "")), client_id):
+        return "aud no coincide con google_client_id"
+    if data.get("iss") not in GOOGLE_ISSUERS:
+        return "emisor no es Google"
+    try:
+        if int(data.get("exp", 0)) <= int(datetime.now(timezone.utc).timestamp()):
+            return "token expirado"
+    except (TypeError, ValueError):
+        return "exp invalido"
+    if str(data.get("email_verified", "")).lower() != "true":
+        return "email no verificado"
+    return None
 
 @router.post("/login")
 async def login(request: Request, response: Response, credentials: LoginRequest, conn: asyncpg.Connection = Depends(get_db_connection)):
@@ -122,8 +142,11 @@ async def verify_google_login(request: Request, response: Response, body: Google
     if enabled.lower() != "true":
         raise HTTPException(status_code=400, detail="El inicio de sesion con Google no esta habilitado.")
 
+    client_id = (await conn.fetchval("SELECT value FROM system_settings WHERE key = 'google_client_id'") or "").strip()
     google_data = await asyncio.to_thread(verify_google_token_sync, body.id_token)
-    if not google_data or "email" not in google_data:
+    reject_reason = validate_google_claims(google_data, client_id)
+    if reject_reason:
+        await log_action(conn, str(google_data.get("email", "UNKNOWN"))[:50], "GOOGLE_LOGIN_REJECTED", f"Token de Google rechazado: {reject_reason}", client_ip)
         raise HTTPException(status_code=401, detail="Token de Google invalido o expirado.")
 
     email = google_data.get("email", "").strip().lower()
