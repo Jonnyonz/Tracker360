@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autorizar Agente - Tracker360</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <style>
+        :root {
+            --bg-page: #f4f6f9;
+            --bg-surface: #ffffff;
+            --accent: #2962ff;
+            --accent-hover: #1f4fd1;
+            --danger: #d50000;
+            --success: #00a152;
+            --text-primary: #212529;
+            --text-secondary: #666666;
+            --text-muted: #999999;
+            --border: #e0e0e0;
+            --shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        [data-theme="dark"] {
+            --bg-page: #121212;
+            --bg-surface: #1e1e1e;
+            --accent: #3d70ff;
+            --accent-hover: #5a85ff;
+            --danger: #ff5252;
+            --success: #4caf50;
+            --text-primary: #e0e0e0;
+            --text-secondary: #aaaaaa;
+            --text-muted: #777777;
+            --border: #333333;
+            --shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg-page);
+            color: var(--text-primary);
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            min-height: 100vh;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            background: var(--bg-surface);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            width: 90%;
+            max-width: 420px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+        .icon { width: 56px; height: 56px; color: var(--accent); margin-bottom: 1rem; }
+        h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 0.6rem; }
+        p { font-size: 0.9rem; color: var(--text-secondary); line-height: 1.5; }
+        .agent-name {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            background: var(--bg-page);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.6rem;
+            margin: 1.2rem 0;
+            font-size: 0.9rem;
+            word-break: break-all;
+        }
+        .btn {
+            width: 100%;
+            border: none;
+            padding: 0.85rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 0.8rem;
+        }
+        .btn-primary { background-color: var(--accent); color: #ffffff; }
+        .btn-primary:hover { background-color: var(--accent-hover); }
+        .btn-secondary { background: none; color: var(--text-secondary); border: 1px solid var(--border); }
+        .btn:disabled { opacity: 0.7; cursor: not-allowed; }
+        .error-box {
+            background-color: rgba(213, 0, 0, 0.08);
+            color: var(--danger);
+            padding: 0.8rem;
+            border-radius: 8px;
+            border: 1px solid rgba(213, 0, 0, 0.2);
+            margin-top: 1.2rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: none;
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9V3h12v6"/><rect x="3" y="9" width="18" height="8" rx="2"/><path d="M6 14h12v7H6z"/>
+        </svg>
+
+        <div id="viewLoading"><p>Verificando sesion...</p></div>
+
+        <div id="viewConsent" class="hidden">
+            <h2>Autorizar agente de impresion</h2>
+            <p>Un agente de impresion solicita acceso a las colas de etiquetas de Tracker360 con tu autorizacion.</p>
+            <div class="agent-name" id="agentName"></div>
+            <p>Sesion iniciada como <strong id="currentUser"></strong>.</p>
+            <button type="button" class="btn btn-primary" id="btnAuthorize">Autorizar</button>
+            <button type="button" class="btn btn-secondary" id="btnCancel">Cancelar</button>
+        </div>
+
+        <div id="viewDone" class="hidden">
+            <h2>Agente autorizado</h2>
+            <p>Volviendo a la aplicacion del agente. Ya podes cerrar esta ventana.</p>
+        </div>
+
+        <div id="errorBox" class="error-box"></div>
+    </div>
+
+    <script>
+        (function () {
+            try {
+                const savedTheme = localStorage.getItem('jztech-theme') || 'light';
+                document.documentElement.setAttribute('data-theme', savedTheme);
+            } catch (e) { /* almacenamiento no disponible: se usa el tema claro */ }
+
+            const params = new URLSearchParams(window.location.search);
+            const port = parseInt(params.get('port') || '', 10);
+            const state = params.get('state') || '';
+            const challenge = params.get('challenge') || '';
+            const agentName = (params.get('name') || 'Agente de impresion').slice(0, 100);
+
+            const show = (id) => {
+                ['viewLoading', 'viewConsent', 'viewDone'].forEach(v => document.getElementById(v).classList.add('hidden'));
+                document.getElementById(id).classList.remove('hidden');
+            };
+            const showError = (msg) => {
+                const box = document.getElementById('errorBox');
+                box.textContent = msg;
+                box.style.display = 'block';
+            };
+
+            const validPort = Number.isInteger(port) && port >= 1024 && port <= 65535;
+            const validState = /^[A-Za-z0-9_-]{16,128}$/.test(state);
+            const validChallenge = /^[A-Za-z0-9_-]{43,128}$/.test(challenge);
+            if (!validPort || !validState || !validChallenge) {
+                document.getElementById('viewLoading').classList.add('hidden');
+                showError('Solicitud de autorizacion invalida. Vuelva a iniciar el agente de impresion.');
+                return;
+            }
+
+            // El agente escucha solo en la maquina local.
+            const callback = (query) => {
+                window.location.href = 'http://127.0.0.1:' + port + '/callback?' + query.toString();
+            };
+
+            document.getElementById('agentName').textContent = agentName;
+
+            document.getElementById('btnCancel').addEventListener('click', () => {
+                callback(new URLSearchParams({ error: 'access_denied', state: state }));
+            });
+
+            document.getElementById('btnAuthorize').addEventListener('click', async () => {
+                const btn = document.getElementById('btnAuthorize');
+                btn.disabled = true;
+                btn.textContent = 'Autorizando...';
+                try {
+                    const resp = await fetch('/api/print-agent/authorize', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ challenge: challenge, agent_name: agentName })
+                    });
+                    const data = await resp.json().catch(() => ({}));
+                    if (!resp.ok || !data.code) {
+                        throw new Error(typeof data.detail === 'string' ? data.detail : 'No se pudo autorizar el agente.');
+                    }
+                    show('viewDone');
+                    callback(new URLSearchParams({ code: data.code, state: state }));
+                } catch (err) {
+                    showError(err.message);
+                    btn.disabled = false;
+                    btn.textContent = 'Autorizar';
+                }
+            });
+
+            fetch('/api/auth/me', { credentials: 'include' }).then(async (resp) => {
+                if (resp.status === 401) {
+                    const next = window.location.pathname + window.location.search;
+                    window.location.href = '/index.html?next=' + encodeURIComponent(next);
+                    return;
+                }
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok) throw new Error('No se pudo verificar la sesion.');
+                document.getElementById('currentUser').textContent = data.username || '';
+                show('viewConsent');
+            }).catch((err) => {
+                document.getElementById('viewLoading').classList.add('hidden');
+                showError(err.message || 'Falla de conexion con el servidor.');
+            });
+        })();
+    </script>
+</body>
+</html>

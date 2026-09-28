@@ -377,6 +377,23 @@
             localStorage.setItem('jztech-theme', newTheme);
         }
 
+        // Retorno tras el login: solo se permite volver a la pantalla de autorizacion del agente.
+        function getSafeNext() {
+            const next = new URLSearchParams(window.location.search).get('next') || '';
+            return /^\/agent-auth\.html\?[A-Za-z0-9_\-=&%.+]*$/.test(next) ? next : null;
+        }
+
+        function redirectAfterLogin(role) {
+            const next = getSafeNext();
+            if (next) { window.location.href = next; return; }
+            const userRole = (role || '').toUpperCase();
+            if (userRole === 'PREPARADOR') {
+                window.location.href = '/preparador.html';
+            } else {
+                window.location.href = '/admin.html';
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             const savedTheme = localStorage.getItem('jztech-theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
@@ -484,14 +501,7 @@
                                     throw new Error(msg);
                                 }
                                 
-                                const userRole = (data.role || '').toUpperCase();
-                                if (userRole === 'ADMIN') {
-                                    window.location.href = '/admin.html';
-                                } else if (userRole === 'PREPARADOR') {
-                                    window.location.href = '/preparador.html';
-                                } else {
-                                    window.location.href = '/admin.html';
-                                }
+                                redirectAfterLogin(data.role);
                             } catch (err) {
                                 showError(err.message);
                                 btnSubmit.disabled = false;
@@ -554,15 +564,7 @@
                     }
 
                     const data = await response.json();
-                    const userRole = (data.role || '').toUpperCase();
-
-                    if (userRole === 'ADMIN') {
-                        window.location.href = '/admin.html';
-                    } else if (userRole === 'PREPARADOR') {
-                        window.location.href = '/preparador.html';
-                    } else {
-                        window.location.href = '/admin.html';
-                    }
+                    redirectAfterLogin(data.role);
 
                 } catch (error) {
                     showError(error.message);

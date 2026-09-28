@@ -6,12 +6,14 @@ from datetime import datetime, timezone
 try:
     from backend.database import (
         get_db_connection, check_rate_limit, record_failed_login,
-        reset_failed_login, verify_password, get_password_hash, create_access_token, log_action
+        reset_failed_login, verify_password, get_password_hash, create_access_token, log_action,
+        get_current_user
     )
 except ImportError:
     from database import (
         get_db_connection, check_rate_limit, record_failed_login,
-        reset_failed_login, verify_password, get_password_hash, create_access_token, log_action
+        reset_failed_login, verify_password, get_password_hash, create_access_token, log_action,
+        get_current_user
     )
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
@@ -166,6 +168,10 @@ async def verify_google_login(request: Request, response: Response, body: Google
 
     await log_action(conn, user["username"], "GOOGLE_LOGIN_SUCCESS", "Inicio de sesion via Google SSO", client_ip)
     return {"message": "Exito", "role": user["role"]}
+
+@router.get("/me")
+async def me(user: dict = Depends(get_current_user)):
+    return {"username": user["username"], "role": user["role"]}
 
 @router.post("/logout")
 async def logout(response: Response):
