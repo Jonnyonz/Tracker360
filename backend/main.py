@@ -8,10 +8,10 @@ from fastapi.responses import FileResponse, RedirectResponse
 import jwt
 
 try:
-    from backend.database import init_db_schema, DB, SECRET_KEY, ALGORITHM
+    from backend.database import init_db_schema, DB, SECRET_KEY, ALGORITHM, get_client_ip, get_request_scheme, is_private_ip
     from backend.routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater
 except ImportError:
-    from database import init_db_schema, DB, SECRET_KEY, ALGORITHM
+    from database import init_db_schema, DB, SECRET_KEY, ALGORITHM, get_client_ip, get_request_scheme, is_private_ip
     from routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater
 
 @asynccontextmanager
@@ -23,14 +23,32 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Tracker360 API", version="3.0 Enterprise", lifespan=lifespan)
 
+# CSP: solo el propio sitio y el boton de Google Sign-In. 'unsafe-inline' sigue siendo necesario
+# mientras el frontend use handlers onclick en linea.
+CONTENT_SECURITY_POLICY = "; ".join([
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client",
+    "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style",
+    "frame-src https://accounts.google.com/gsi/",
+    "connect-src 'self' https://accounts.google.com/gsi/",
+    "img-src 'self' data: blob:",
+    "media-src 'self' blob:",
+    "font-src 'self' data:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+])
+DOCS_PATHS = {"/docs", "/docs/oauth2-redirect", "/redoc"}
+
 # === MIDDLEWARE SEGURIDAD BANCARIA (HTTPS & HEADERS) ===
 @app.middleware("http")
 async def security_middleware(request: Request, call_next):
-    client_ip = request.client.host if request.client else ""
-    forwarded_proto = request.headers.get("x-forwarded-proto", request.url.scheme)
-    
-    is_local = client_ip.startswith(("127.", "192.168.", "10.", "172.16.")) or client_ip == "::1"
-    if not is_local and forwarded_proto != "https":
+    # IP y protocolo reales: X-Forwarded-* solo se aceptan desde TRUSTED_PROXIES.
+    client_ip = get_client_ip(request)
+    scheme = get_request_scheme(request)
+
+    if not is_private_ip(client_ip) and scheme != "https":
         return Response(content="Acceso denegado. Se requiere conexión HTTPS segura.", status_code=403)
 
     response = await call_next(request)
@@ -39,32 +57,28 @@ async def security_middleware(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    
+    # /docs y /redoc cargan Swagger/ReDoc desde un CDN: se excluyen de la CSP.
+    if request.url.path not in DOCS_PATHS:
+        response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
+
     return response
 
 # === MIDDLEWARE CORS HARDENED ===
-# Si se define ALLOWED_ORIGINS (lista separada por comas) en el .env, se restringe el CORS
-# a esos orígenes exactos. Si no se define, se mantiene el comportamiento histórico (cualquier
-# origen HTTPS/HTTP) para no romper despliegues existentes que todavía no la configuraron.
-_allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
-if _allowed_origins_env:
+# Solo los origenes de ALLOWED_ORIGINS (lista separada por comas en el .env) pueden llamar a la API
+# desde otro dominio. Sin la variable no se habilita CORS: el frontend propio (mismo origen) sigue
+# funcionando y ningun sitio externo puede usar la sesion del usuario.
+_allowed_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+if _allowed_origins:
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[o.strip() for o in _allowed_origins_env.split(",") if o.strip()],
+        allow_origins=_allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 else:
-    print("[Tracker360] ALLOWED_ORIGINS no está configurada: CORS acepta cualquier origen. "
-          "Definila en el .env (ej. ALLOWED_ORIGINS=https://tudominio.com) para restringirlo en producción.")
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origin_regex=r"https?://.*",
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    print("[Tracker360] ALLOWED_ORIGINS no esta configurada: CORS deshabilitado (solo mismo origen). "
+          "Definila en el .env si otro dominio necesita llamar a la API.")
 
 # === REGISTRO DE ROUTERS MODULARES ENTERPRISE ===
 app.include_router(auth.router)

@@ -1,4 +1,4 @@
-import os, asyncio, uuid, secrets, json, urllib.request, urllib.error
+import os, asyncio, uuid, secrets, json, urllib.request, urllib.error, ipaddress
 from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 import jwt, asyncpg
@@ -32,6 +32,54 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
+# === IP REAL DEL CLIENTE (DETRAS DE PROXY INVERSO) ===
+# Solo se confia en X-Forwarded-For / X-Forwarded-Proto si la conexion viene de un proxy listado.
+# Por defecto: loopback y redes internas de Docker (proxy en el mismo host).
+def _parse_networks(raw: str):
+    nets = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part: continue
+        try: nets.append(ipaddress.ip_network(part, strict=False))
+        except ValueError: print(f"[Tracker360] TRUSTED_PROXIES: valor invalido ignorado: {part}")
+    return nets
+
+TRUSTED_PROXIES = _parse_networks(os.getenv("TRUSTED_PROXIES", "127.0.0.1/32,::1/128,172.16.0.0/12"))
+
+def _is_trusted_proxy(ip: str) -> bool:
+    try: addr = ipaddress.ip_address(ip)
+    except ValueError: return False
+    return any(addr in net for net in TRUSTED_PROXIES)
+
+def _from_trusted_proxy(request: Request) -> bool:
+    peer = request.client.host if request.client is not None else ""
+    return _is_trusted_proxy(peer)
+
+def get_client_ip(request: Request) -> str:
+    peer = request.client.host if request.client is not None else "Unknown"
+    if not _is_trusted_proxy(peer):
+        return peer
+    # Se recorre X-Forwarded-For de derecha a izquierda salteando proxies de confianza.
+    forwarded = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+    for hop in reversed(forwarded):
+        if not _is_trusted_proxy(hop):
+            return hop
+    return forwarded[0] if forwarded else peer
+
+def get_request_scheme(request: Request) -> str:
+    if _from_trusted_proxy(request):
+        proto = request.headers.get("x-forwarded-proto", "").split(",")[0].strip().lower()
+        if proto in ("http", "https"):
+            return proto
+    return request.url.scheme
+
+def is_private_ip(ip: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return addr.is_private or addr.is_loopback
+
 class DB:
     pool: Optional[asyncpg.Pool] = None
 
@@ -41,7 +89,7 @@ async def get_db_connection():
 
 async def log_action(conn: asyncpg.Connection, username: str, action: str, details: str, ip_address: str = "127.0.0.1"):
     try: await conn.execute("INSERT INTO audit_logs (username, action, details) VALUES ($1, $2, $3)", username, action, f"[{ip_address}] {details}")
-    except Exception: pass
+    except Exception as e: print(f"[AUDIT LOG ERROR] {action} ({username}): {e!r}")
 
 # === PROTECCIÓN ANTI-FUERZA BRUTA DINÁMICA ===
 async def check_rate_limit(ip: str, conn: asyncpg.Connection):
@@ -104,8 +152,8 @@ async def save_idempotency(conn: asyncpg.Connection, idempotency_key: Optional[s
             "INSERT INTO api_idempotency_keys (idempotency_key, endpoint, response_body, status_code) VALUES ($1, $2, $3::jsonb, $4) ON CONFLICT (idempotency_key) DO NOTHING",
             idempotency_key.strip(), endpoint, json.dumps(response_data), status_code
         )
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[IDEMPOTENCY SAVE ERROR] {endpoint}: {e!r}")
 
 # === AUXILIARES DE NEGOCIO ===
 def build_full_address(street: Optional[str], number: Optional[str], zip_code: Optional[str], city_neighborhood: Optional[str], fallback: Optional[str] = "") -> str:
@@ -142,7 +190,7 @@ async def execute_and_log_webhook(channel_id: Optional[uuid.UUID], channel_name:
                 INSERT INTO webhook_logs (channel_id, channel_name, event_type, target_url, payload, response_status, response_body, error_message, status)
                 VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
             """, channel_id, channel_name, event_type, target_url, json.dumps(payload), status, body, err, log_status)
-    except Exception: pass
+    except Exception as e: print(f"[WEBHOOK LOG ERROR] {channel_name} {event_type}: {e!r}")
 
 async def dispatch_event_to_channels(conn: asyncpg.Connection, event_type: str, payload: dict):
     channels = await conn.fetch("SELECT id, name, target_url, api_key FROM integration_channels WHERE channel_type = $1 AND is_active = TRUE", event_type)
@@ -207,7 +255,7 @@ async def queue_zpl_print_job(conn: asyncpg.Connection, queue_code: str, zpl_con
 # === AUTENTICACIÓN BLINDADA ===
 async def get_current_user(request: Request, conn: asyncpg.Connection = Depends(get_db_connection)):
     token = request.cookies.get("access_token")
-    client_ip = request.client.host if request.client else "Unknown"
+    client_ip = get_client_ip(request)
     
     if not token or not token.startswith("Bearer "): 
         raise HTTPException(status_code=401, detail="Sesión expirada.")
@@ -225,13 +273,13 @@ async def get_current_user(request: Request, conn: asyncpg.Connection = Depends(
 
 async def require_admin(request: Request, current_user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     if current_user.get("role") != "ADMIN": 
-        client_ip = request.client.host if request.client else "Unknown"
+        client_ip = get_client_ip(request)
         await log_action(conn, current_user.get("username", "Unknown"), "UNAUTHORIZED_ACCESS", f"Intento de escalar privilegios a ruta de Administrador", client_ip)
         raise HTTPException(status_code=403, detail="Permisos insuficientes.")
     return current_user
 
 async def verify_system_api_key(request: Request, x_api_key: Optional[str] = Header(None), conn: asyncpg.Connection = Depends(get_db_connection)):
-    client_ip = request.client.host if request.client else "Unknown"
+    client_ip = get_client_ip(request)
     
     if not x_api_key: 
         await log_action(conn, "SYSTEM", "API_INTRUSION", f"Acceso a API denegado (Falta Cabecera)", client_ip)
@@ -261,7 +309,12 @@ async def init_db_schema():
                 min_size=1, max_size=int(os.getenv("DB_POOL_MAX", "20"))
             )
             if DB.pool is not None: break
-        except Exception: await asyncio.sleep(1.0)
+        except Exception as e:
+            print(f"[DB] Intento {attempt + 1}/10 de conexion a PostgreSQL fallido: {e!r}")
+            await asyncio.sleep(1.0)
+
+    if DB.pool is None:
+        print("[DB] No se pudo conectar a PostgreSQL: la API respondera 503 hasta reiniciar el servicio.")
 
     if DB.pool is not None:
         try:
@@ -289,15 +342,16 @@ async def init_db_schema():
                     "CREATE TABLE IF NOT EXISTS rfid_tags (epc VARCHAR(100) PRIMARY KEY, sku VARCHAR(100) NOT NULL REFERENCES items(sku) ON DELETE CASCADE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, created_by VARCHAR(50));",
                     "CREATE INDEX IF NOT EXISTS idx_rfid_tags_sku ON rfid_tags (sku);",
 
-                    "CREATE TABLE IF NOT EXISTS item_serials (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), sku VARCHAR(100) NOT NULL REFERENCES items(sku) ON DELETE CASCADE, serial_number VARCHAR(100) UNIQUE NOT NULL, status VARCHAR(50) DEFAULT 'IN_STOCK', branch_id UUID REFERENCES branches(id) ON DELETE SET NULL, sector_id UUID REFERENCES sectors(id) ON DELETE SET NULL, location_id UUID REFERENCES locations(id) ON DELETE SET NULL, lot_number VARCHAR(100) DEFAULT '', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
-                    "CREATE INDEX IF NOT EXISTS idx_item_serials_sku_sn ON item_serials (sku, serial_number);",
-
                     # TABLA DDL IDEMPOTENCIA API
                     "CREATE TABLE IF NOT EXISTS api_idempotency_keys (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), idempotency_key VARCHAR(255) UNIQUE NOT NULL, endpoint VARCHAR(255) NOT NULL, response_body JSONB NOT NULL, status_code INT NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
 
                     "CREATE TABLE IF NOT EXISTS sectors (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), branch_id UUID REFERENCES branches(id) ON DELETE CASCADE, name VARCHAR(100) UNIQUE NOT NULL, print_queue_code VARCHAR(50) UNIQUE NOT NULL, uses_locations BOOLEAN DEFAULT FALSE, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "CREATE TABLE IF NOT EXISTS locations (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), sector_id UUID REFERENCES sectors(id) ON DELETE CASCADE, location_code VARCHAR(100) NOT NULL, description VARCHAR(255), is_active BOOLEAN DEFAULT TRUE);",
                     "CREATE TABLE IF NOT EXISTS item_locations (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), item_sku VARCHAR(100) NOT NULL, location_id UUID REFERENCES locations(id) ON DELETE CASCADE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, UNIQUE(item_sku, location_id));",
+
+                    # item_serials referencia branches, sectors y locations: va despues de crearlas.
+                    "CREATE TABLE IF NOT EXISTS item_serials (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), sku VARCHAR(100) NOT NULL REFERENCES items(sku) ON DELETE CASCADE, serial_number VARCHAR(100) UNIQUE NOT NULL, status VARCHAR(50) DEFAULT 'IN_STOCK', branch_id UUID REFERENCES branches(id) ON DELETE SET NULL, sector_id UUID REFERENCES sectors(id) ON DELETE SET NULL, location_id UUID REFERENCES locations(id) ON DELETE SET NULL, lot_number VARCHAR(100) DEFAULT '', created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
+                    "CREATE INDEX IF NOT EXISTS idx_item_serials_sku_sn ON item_serials (sku, serial_number);",
                     "CREATE TABLE IF NOT EXISTS documents (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), document_number VARCHAR(50) UNIQUE NOT NULL, document_type VARCHAR(20) DEFAULT 'PICKING', channel_origin VARCHAR(50) DEFAULT 'INTERNAL', status VARCHAR(20) DEFAULT 'PENDING', label_printed BOOLEAN DEFAULT FALSE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "ALTER TABLE documents ADD COLUMN IF NOT EXISTS channel_origin VARCHAR(50) DEFAULT 'INTERNAL';",
                     "ALTER TABLE documents ADD COLUMN IF NOT EXISTS customer_id UUID;",
@@ -410,9 +464,14 @@ async def init_db_schema():
                     "INSERT INTO system_settings (key, value) VALUES ('zpl_location_template', '^XA^FO30,25^A0N,28,28^FDUBICACION: {{LOCATION_CODE}}^FS^FO30,65^A0N,20,18^FD{{BRANCH}} - {{SECTOR}}^FS^FO30,105^BY3,2.0,60^BCN,70,Y,N,N^FD{{LOCATION_CODE}}^FS^XZ') ON CONFLICT (key) DO NOTHING;"
                 ]
 
+                ddl_errors = 0
                 for stmt in ddl_statements:
                     try: await conn.execute(stmt)
-                    except Exception: pass
+                    except Exception as e:
+                        ddl_errors += 1
+                        print(f"[DB DDL ERROR] {e!r} en: {stmt[:160]}")
+                if ddl_errors:
+                    print(f"[DB] Esquema inicializado con {ddl_errors} error(es) de DDL. Revisar los mensajes anteriores.")
 
                 # El primer usuario administrador ya no se auto-crea acá: si la tabla users está vacía,
                 # el frontend muestra la pantalla de configuración inicial (POST /api/auth/setup/admin),
@@ -427,4 +486,5 @@ async def init_db_schema():
                 if branch_count == 0:
                     default_branch_id = await conn.fetchval("INSERT INTO branches (code, name) VALUES ('SUC-01', 'Sucursal Central') RETURNING id")
                     await conn.execute("UPDATE sectors SET branch_id = $1 WHERE branch_id IS NULL", default_branch_id)
-        except Exception: pass
+        except Exception as e:
+            print(f"[DB] Error inicializando el esquema: {e!r}")

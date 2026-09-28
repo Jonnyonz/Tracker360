@@ -8,13 +8,13 @@ try:
     from backend.database import (
         get_db_connection, check_rate_limit, record_failed_login,
         reset_failed_login, verify_password, get_password_hash, create_access_token, log_action,
-        get_current_user
+        get_current_user, get_client_ip
     )
 except ImportError:
     from database import (
         get_db_connection, check_rate_limit, record_failed_login,
         reset_failed_login, verify_password, get_password_hash, create_access_token, log_action,
-        get_current_user
+        get_current_user, get_client_ip
     )
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
@@ -41,7 +41,7 @@ async def setup_status(conn: asyncpg.Connection = Depends(get_db_connection)):
 
 @router.post("/setup/admin")
 async def setup_admin(data: SetupAdminRequest, request: Request, response: Response, conn: asyncpg.Connection = Depends(get_db_connection)):
-    client_ip = request.client.host if request.client else "127.0.0.1"
+    client_ip = get_client_ip(request)
 
     if not SETUP_TOKEN or not secrets.compare_digest(data.token.strip(), SETUP_TOKEN):
         raise HTTPException(status_code=403, detail="Token de instalación inválido.")
@@ -107,7 +107,7 @@ def validate_google_claims(data: dict, client_id: str) -> Optional[str]:
 
 @router.post("/login")
 async def login(request: Request, response: Response, credentials: LoginRequest, conn: asyncpg.Connection = Depends(get_db_connection)):
-    client_ip = request.client.host if request.client else "127.0.0.1"
+    client_ip = get_client_ip(request)
     
     await check_rate_limit(client_ip, conn)
     
@@ -136,7 +136,7 @@ async def login(request: Request, response: Response, credentials: LoginRequest,
 
 @router.post("/google/verify")
 async def verify_google_login(request: Request, response: Response, body: GoogleVerifyRequest, conn: asyncpg.Connection = Depends(get_db_connection)):
-    client_ip = request.client.host if request.client else "127.0.0.1"
+    client_ip = get_client_ip(request)
     
     enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_google_sso'") or "false"
     if enabled.lower() != "true":

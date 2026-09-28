@@ -16,6 +16,12 @@ function escapeHTML(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// Argumento de texto para handlers inline: onclick="fn(${jsArg(valor)})".
+// escapeHTML solo no alcanza ahi (el navegador decodifica &#39; antes de ejecutar el JS).
+function jsArg(value) {
+    return escapeHTML(JSON.stringify(value === null || value === undefined ? '' : String(value)));
+}
+
 function showToast(msg, type = 'success') {
     const container = document.getElementById('toast-container');
     if(!container) return;

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
-from backend.database import get_db_connection, get_current_user, require_admin, verify_system_api_key, log_action
+from backend.database import get_db_connection, get_current_user, require_admin, verify_system_api_key, log_action, get_client_ip
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timedelta, timezone
@@ -48,7 +48,7 @@ async def verify_print_agent(request: Request, authorization: Optional[str] = He
         if row:
             await conn.execute("UPDATE print_agent_tokens SET last_used_at = NOW() WHERE id = $1", row["id"])
             return row["agent_name"]
-        client_ip = request.client.host if request.client else "Unknown"
+        client_ip = get_client_ip(request)
         await log_action(conn, "SYSTEM", "API_INTRUSION", "Agente de impresion con token invalido o revocado", client_ip)
         raise HTTPException(status_code=401, detail="Token de agente invalido o revocado.")
     # Agentes existentes configurados con la clave API del sistema.
@@ -57,7 +57,7 @@ async def verify_print_agent(request: Request, authorization: Optional[str] = He
 # === LOGIN DEL AGENTE POR NAVEGADOR ===
 @router.post("/api/print-agent/authorize")
 async def authorize_agent(req: AgentAuthorizeRequest, request: Request, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
-    client_ip = request.client.host if request.client else "Unknown"
+    client_ip = get_client_ip(request)
     if user.get("role") not in AGENT_AUTH_ROLES:
         await log_action(conn, user.get("username", "Unknown"), "UNAUTHORIZED_ACCESS", "Intento de autorizar agente de impresion sin permisos", client_ip)
         raise HTTPException(status_code=403, detail="Solo un administrador o supervisor puede autorizar agentes de impresion.")
@@ -74,7 +74,7 @@ async def authorize_agent(req: AgentAuthorizeRequest, request: Request, user: di
 
 @router.post("/api/print-agent/token")
 async def exchange_agent_token(req: AgentTokenRequest, request: Request, conn: asyncpg.Connection = Depends(get_db_connection)):
-    client_ip = request.client.host if request.client else "Unknown"
+    client_ip = get_client_ip(request)
     if not PKCE_RE.match(req.code_verifier):
         raise HTTPException(status_code=400, detail="Codigo de autorizacion invalido o expirado.")
     # El codigo se consume en el primer intento, sea valido o no el verificador.
@@ -107,7 +107,7 @@ async def revoke_print_agent(agent_id: str, request: Request, admin: dict = Depe
     row = await conn.fetchrow("UPDATE print_agent_tokens SET is_active = FALSE WHERE id = $1 RETURNING agent_name", agent_uuid)
     if not row:
         raise HTTPException(status_code=404, detail="Agente no encontrado.")
-    client_ip = request.client.host if request.client else "Unknown"
+    client_ip = get_client_ip(request)
     await log_action(conn, admin["username"], "PRINT_AGENT_REVOKED", f"Agente de impresion revocado: {row['agent_name']}", client_ip)
     return {"status": "ok"}
 

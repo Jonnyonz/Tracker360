@@ -1,4 +1,4 @@
-# 📦 Tracker360 WMS — Sistema de Gestión de Depósitos Multicanal
+# Tracker360 WMS — Sistema de Gestión de Depósitos Multicanal
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python](https://img.shields.io/badge/Backend-FastAPI%20%7C%20Python-009688.svg)](https://fastapi.tiangolo.com/)
@@ -11,9 +11,22 @@ Está construido bajo una **arquitectura desacoplada Máquina a Máquina (Servic
 
 ---
 
-## ⚡ Instalación Rápida en 1 Comando
+## Instalación Rápida en 1 Comando
 
 Para desplegar Tracker360 en cualquier servidor Linux con Docker en menos de 1 minuto, ejecuta el siguiente comando en tu terminal:
 
 ```bash
-curl -fsSL [https://raw.githubusercontent.com/Jonnyonz/Tracker360/main/install.sh](https://raw.githubusercontent.com/Jonnyonz/Tracker360/main/install.sh) | bash
+curl -fsSL https://raw.githubusercontent.com/Jonnyonz/Tracker360/main/install.sh | bash
+```
+
+El instalador genera el `.env` con claves aleatorias y pregunta el dominio del servidor. Todas las variables (dominio, puertos, proxies de confianza, límites de memoria) están explicadas en `.env.example`.
+
+Para actualizar un servidor ya instalado:
+
+```bash
+git pull && docker compose up -d --build
+```
+
+## Licencia
+
+GNU General Public License v3.0. Ver el archivo `LICENSE`.

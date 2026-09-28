@@ -1,0 +1,11 @@
+.git
+.env
+*.env
+.env.example
+agent/
+backups/
+postgres_data/
+**/__pycache__
+**/*.pyc
+*.log
+tracker360-agent.zip
