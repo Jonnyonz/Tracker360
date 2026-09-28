@@ -253,63 +253,35 @@ async function retryWebhook(logId) {
     }
 }
 
-// === ACTUALIZADOR IN-APP (GITHUB RELEASES) ===
+// === AVISO DE ACTUALIZACIONES (GITHUB RELEASES) ===
+// Solo informa. La actualizacion se hace en el servidor: git pull + docker compose up -d --build.
 
 async function checkSystemUpdates() {
     const badge = document.getElementById('updater-status-badge');
     const infoText = document.getElementById('updater-info-text');
-    const btnApply = document.getElementById('btn-apply-update');
+    if (!badge && !infoText) return;
 
     if (badge) { badge.textContent = 'BUSCANDO...'; badge.className = 'badge badge-warning'; }
 
-    try {
-        const res = await fetchAPI('/api/admin/updater/check');
-        if (!res) return;
-
-        if (res.update_available) {
-            if (badge) { badge.textContent = `NUEVA VERSIÓN: v${res.latest_version}`; badge.className = 'badge badge-info'; }
-            if (infoText) {
-                infoText.innerHTML = `Versión actual: <strong>v${res.current_version}</strong>. Disponible: <strong>v${res.latest_version}</strong><br><small style="color:var(--text-muted);">${escapeHTML(res.release_notes)}</small>`;
-            }
-            if (btnApply) {
-                btnApply.style.display = 'inline-block';
-                btnApply.textContent = `Actualizar a v${res.latest_version}`;
-            }
-        } else {
-            if (badge) { badge.textContent = `SISTEMA AL DÍA (v${res.current_version})`; badge.className = 'badge badge-success'; }
-            if (infoText) infoText.innerHTML = `Su sistema se encuentra en la versión más reciente (<strong>v${res.current_version}</strong>).`;
-            if (btnApply) btnApply.style.display = 'none';
-        }
-    } catch (e) {
-        if (badge) { badge.textContent = 'ERROR DE CONEXIÓN'; badge.className = 'badge badge-neutral'; }
-        if (infoText) infoText.textContent = 'No se pudo comprobar el estado de actualizaciones con GitHub.';
-    }
-}
-
-async function applySystemUpdate() {
-    const btnApply = document.getElementById('btn-apply-update');
-    if (!confirm("ATENCIÓN: Se creará una copia de respaldo automática y se actualizarán los archivos del servidor a la última versión publicada en GitHub. ¿Desea proceder?")) {
+    const res = await fetchAPI('/api/admin/updater/check');
+    if (!res || res.error) {
+        if (badge) { badge.textContent = 'SIN CONEXIÓN'; badge.className = 'badge badge-neutral'; }
+        if (infoText) infoText.textContent = 'No se pudo comprobar si hay versiones nuevas publicadas.';
         return;
     }
 
-    if (btnApply) {
-        btnApply.disabled = true;
-        btnApply.textContent = 'Descargando y aplicando actualización... No cierre esta ventana.';
-    }
-
-    try {
-        const res = await fetchAPI('/api/admin/updater/apply', { method: 'POST' });
-        if (typeof showToast === 'function') showToast(res.message || "Sistema actualizado con éxito.", "success");
-        alert(res.message || "Actualización completada. Se recargará la página.");
-        setTimeout(() => {
-            window.location.reload();
-        }, 2000);
-    } catch (e) {
-        alert("Error durante la actualización: " + (e.message || "Fallo en el servidor"));
-        if (btnApply) {
-            btnApply.disabled = false;
-            btnApply.textContent = 'Reintentar Actualización';
+    const current = escapeHTML(res.current_version);
+    if (res.update_available) {
+        const latest = escapeHTML(res.latest_version);
+        if (badge) { badge.textContent = `NUEVA VERSIÓN: v${res.latest_version}`; badge.className = 'badge badge-info'; }
+        if (infoText) {
+            infoText.innerHTML = `Versión actual: <strong>v${current}</strong>. Disponible: <strong>v${latest}</strong>.<br>` +
+                `Para actualizar, en el servidor ejecute: <code>git pull</code> y luego <code>docker compose up -d --build</code>` +
+                `<br><small>${escapeHTML(res.release_notes)}</small>`;
         }
+    } else {
+        if (badge) { badge.textContent = `AL DÍA (v${res.current_version})`; badge.className = 'badge badge-success'; }
+        if (infoText) infoText.innerHTML = `Versión instalada: <strong>v${current}</strong>, la más reciente publicada.`;
     }
 }
 
@@ -375,7 +347,6 @@ window.saveSettings = saveSettings;
 window.loadWebhookLogs = loadWebhookLogs;
 window.retryWebhook = retryWebhook;
 window.checkSystemUpdates = checkSystemUpdates;
-window.applySystemUpdate = applySystemUpdate;
 window.editGoogleSSO = editGoogleSSO;
 window.saveGoogleSSOModal = saveGoogleSSOModal;
 window.toggleGoogleFields = toggleGoogleFields;
