@@ -1,4 +1,4 @@
-import os, asyncio, uuid, secrets, json, urllib.request, urllib.error
+import os, asyncio, uuid, secrets, json, urllib.request, urllib.error, ipaddress
 from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 import jwt, asyncpg
@@ -31,6 +31,54 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+# === IP REAL DEL CLIENTE (DETRAS DE PROXY INVERSO) ===
+# Solo se confia en X-Forwarded-For / X-Forwarded-Proto si la conexion viene de un proxy listado.
+# Por defecto: loopback y redes internas de Docker (proxy en el mismo host).
+def _parse_networks(raw: str):
+    nets = []
+    for part in raw.split(","):
+        part = part.strip()
+        if not part: continue
+        try: nets.append(ipaddress.ip_network(part, strict=False))
+        except ValueError: print(f"[Tracker360] TRUSTED_PROXIES: valor invalido ignorado: {part}")
+    return nets
+
+TRUSTED_PROXIES = _parse_networks(os.getenv("TRUSTED_PROXIES", "127.0.0.1/32,::1/128,172.16.0.0/12"))
+
+def _is_trusted_proxy(ip: str) -> bool:
+    try: addr = ipaddress.ip_address(ip)
+    except ValueError: return False
+    return any(addr in net for net in TRUSTED_PROXIES)
+
+def _from_trusted_proxy(request: Request) -> bool:
+    peer = request.client.host if request.client is not None else ""
+    return _is_trusted_proxy(peer)
+
+def get_client_ip(request: Request) -> str:
+    peer = request.client.host if request.client is not None else "Unknown"
+    if not _is_trusted_proxy(peer):
+        return peer
+    # Se recorre X-Forwarded-For de derecha a izquierda salteando proxies de confianza.
+    forwarded = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
+    for hop in reversed(forwarded):
+        if not _is_trusted_proxy(hop):
+            return hop
+    return forwarded[0] if forwarded else peer
+
+def get_request_scheme(request: Request) -> str:
+    if _from_trusted_proxy(request):
+        proto = request.headers.get("x-forwarded-proto", "").split(",")[0].strip().lower()
+        if proto in ("http", "https"):
+            return proto
+    return request.url.scheme
+
+def is_private_ip(ip: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return addr.is_private or addr.is_loopback
 
 class DB:
     pool: Optional[asyncpg.Pool] = None
@@ -207,7 +255,7 @@ async def queue_zpl_print_job(conn: asyncpg.Connection, queue_code: str, zpl_con
 # === AUTENTICACIÓN BLINDADA ===
 async def get_current_user(request: Request, conn: asyncpg.Connection = Depends(get_db_connection)):
     token = request.cookies.get("access_token")
-    client_ip = request.client.host if request.client else "Unknown"
+    client_ip = get_client_ip(request)
     
     if not token or not token.startswith("Bearer "): 
         raise HTTPException(status_code=401, detail="Sesión expirada.")
@@ -225,13 +273,13 @@ async def get_current_user(request: Request, conn: asyncpg.Connection = Depends(
 
 async def require_admin(request: Request, current_user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     if current_user.get("role") != "ADMIN": 
-        client_ip = request.client.host if request.client else "Unknown"
+        client_ip = get_client_ip(request)
         await log_action(conn, current_user.get("username", "Unknown"), "UNAUTHORIZED_ACCESS", f"Intento de escalar privilegios a ruta de Administrador", client_ip)
         raise HTTPException(status_code=403, detail="Permisos insuficientes.")
     return current_user
 
 async def verify_system_api_key(request: Request, x_api_key: Optional[str] = Header(None), conn: asyncpg.Connection = Depends(get_db_connection)):
-    client_ip = request.client.host if request.client else "Unknown"
+    client_ip = get_client_ip(request)
     
     if not x_api_key: 
         await log_action(conn, "SYSTEM", "API_INTRUSION", f"Acceso a API denegado (Falta Cabecera)", client_ip)

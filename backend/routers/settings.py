@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from backend.database import get_db_connection, send_webhook_sync, get_current_user, require_admin, log_action
+from backend.database import get_db_connection, send_webhook_sync, get_current_user, require_admin, log_action, get_client_ip
 import asyncpg, secrets, json, uuid, asyncio, re
 
 router = APIRouter()
@@ -111,7 +111,7 @@ async def _gen_key_db(conn: asyncpg.Connection):
 @router.post("/api/admin/settings/generate-key")
 @router.post("/api/settings/generate-key")
 async def generate_key_exact_endpoint(request: Request, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    client_ip = request.client.host if request.client else "Unknown"
+    client_ip = get_client_ip(request)
     await log_action(conn, admin["username"], "API_KEY_ROTATED", "Clave API maestra regenerada", client_ip)
     return await _gen_key_db(conn)
 
@@ -208,7 +208,7 @@ async def save_bulk_settings(request: Request, admin: dict = Depends(require_adm
                             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
                         """, val_str)
 
-        client_ip = request.client.host if request.client else "Unknown"
+        client_ip = get_client_ip(request)
         await log_action(conn, admin["username"], "SETTINGS_UPDATED", f"Configuracion modificada: {', '.join(sorted(str(k) for k in data.keys()))}", client_ip)
         return {"status": "ok", "message": "Configuración guardada exitosamente"}
     except Exception as exc:
@@ -231,7 +231,7 @@ async def get_setting_by_key(key: str, user: dict = Depends(get_current_user), c
 @router.put("/api/settings/{key}")
 @router.put("/api/admin/settings/{key}")
 async def update_setting_by_key(key: str, request: Request, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    client_ip = request.client.host if request.client else "Unknown"
+    client_ip = get_client_ip(request)
     if key.strip().lower() in GENERATE_KEY_ALIASES:
         await log_action(conn, admin["username"], "API_KEY_ROTATED", "Clave API maestra regenerada", client_ip)
         return await _gen_key_db(conn)
