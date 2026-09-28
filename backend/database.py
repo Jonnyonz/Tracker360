@@ -7,7 +7,10 @@ from typing import Optional, Dict, List
 from passlib.context import CryptContext
 
 # === SEGURIDAD Y CONFIGURACIÓN ===
-SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_hex(32))
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+if not SECRET_KEY:
+    print("[Tracker360] SECRET_KEY no esta configurada en el .env: se usa una clave temporal y las sesiones se cierran en cada reinicio.")
+    SECRET_KEY = secrets.token_hex(32)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 240  # Fallback en caso de no leer la DB
 
@@ -253,7 +256,9 @@ async def init_db_schema():
                 user=os.getenv("POSTGRES_USER", "tracker_admin"),
                 password=os.getenv("POSTGRES_PASSWORD", secrets.token_hex(24)),
                 database=os.getenv("POSTGRES_DB", "tracker360_db"),
-                host="db", port=5432, min_size=1, max_size=20
+                host=os.getenv("POSTGRES_HOST", "db"),
+                port=int(os.getenv("POSTGRES_PORT", "5432")),
+                min_size=1, max_size=int(os.getenv("DB_POOL_MAX", "20"))
             )
             if DB.pool is not None: break
         except Exception: await asyncio.sleep(1.0)

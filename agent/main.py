@@ -164,9 +164,15 @@ def load_or_create_config():
     print("   ASISTENTE DE CONFIGURACION DE IMPRESION")
     print("===================================================")
 
-    server_url = input("1. URL del Servidor [https://tracker360.mywire.org]: ").strip()
-    if not server_url:
-        server_url = "https://tracker360.mywire.org"
+    # URL sugerida por cliente: variable de entorno TRACKER360_SERVER_URL (opcional).
+    default_url = os.getenv("TRACKER360_SERVER_URL", "").strip()
+    prompt = f"1. URL del Servidor [{default_url}]: " if default_url else "1. URL del Servidor (Ej: https://wms.suempresa.com): "
+    server_url = ""
+    while not server_url:
+        server_url = input(prompt).strip() or default_url
+        if server_url and not server_url.startswith(("https://", "http://")):
+            print("   La URL debe empezar con https://")
+            server_url = ""
 
     queue_code = input("2. Codigo de Sector / Cola (Ej: RECEPCION): ").strip().upper()
 

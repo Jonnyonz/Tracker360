@@ -18,10 +18,12 @@ if ! command -v git &> /dev/null; then
     exit 1
 fi
 
-# 2. Si no existen los archivos del proyecto, clonar el repositorio publico
+# 2. Si no existen los archivos del proyecto, clonar el repositorio
+#    (se puede apuntar a un fork propio con TRACKER360_REPO_URL=...)
+REPO_URL="${TRACKER360_REPO_URL:-https://github.com/Jonnyonz/Tracker360.git}"
 if [ ! -f "docker-compose.yml" ]; then
-    echo "Descargando codigo fuente desde GitHub..."
-    git clone https://github.com/Jonnyonz/Tracker360.git tracker360
+    echo "Descargando codigo fuente desde ${REPO_URL}..."
+    git clone "${REPO_URL}" tracker360
     cd tracker360
 fi
 
@@ -32,15 +34,26 @@ if [ ! -f .env ]; then
     SECRET_KEY=$(openssl rand -hex 32 2>/dev/null || tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 48)
     SETUP_TOKEN=$(openssl rand -hex 12 2>/dev/null || tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 24)
 
+    # Dominio publico del cliente: se puede pasar como TRACKER360_DOMAIN=... o se pregunta.
+    DOMAIN="${TRACKER360_DOMAIN:-}"
+    if [ -z "$DOMAIN" ] && [ -r /dev/tty ]; then
+        read -r -p "Dominio publico de este servidor (ej. wms.suempresa.com, Enter para omitir): " DOMAIN < /dev/tty || DOMAIN=""
+    fi
+    if [ -n "$DOMAIN" ]; then
+        ORIGINS_LINE="ALLOWED_ORIGINS=https://${DOMAIN}"
+    else
+        ORIGINS_LINE="# ALLOWED_ORIGINS=https://wms.suempresa.com"
+    fi
+
     cat <<EOF > .env
+# Ver .env.example para la descripcion de cada variable.
 POSTGRES_USER=tracker_admin
 POSTGRES_PASSWORD=${DB_PASS}
 POSTGRES_DB=tracker360_db
 SECRET_KEY=${SECRET_KEY}
 SETUP_TOKEN=${SETUP_TOKEN}
-# Opcional: restringir CORS a tu(s) dominio(s) de frontend (separados por coma).
-# Si se deja sin definir, se acepta cualquier origen (comportamiento por defecto).
-# ALLOWED_ORIGINS=https://tudominio.com
+# Dominio(s) del frontend permitidos por CORS (separados por coma).
+${ORIGINS_LINE}
 EOF
     echo "Archivo .env generado con contrasenas seguras."
 
@@ -63,7 +76,12 @@ echo "=================================================="
 echo "Tracker360 se instalo e inicio correctamente"
 echo "=================================================="
 echo "Puedes acceder desde tu navegador en:"
-echo "http://localhost o http://$(hostname -I | awk '{print $1}')"
+if [ -n "${DOMAIN:-}" ]; then
+    echo "https://${DOMAIN}"
+else
+    API_PORT_SHOWN=$(grep -E '^API_PORT=' .env 2>/dev/null | cut -d= -f2)
+    echo "http://localhost:${API_PORT_SHOWN:-8001} o http://$(hostname -I | awk '{print $1}'):${API_PORT_SHOWN:-8001}"
+fi
 if [ -n "$SETUP_TOKEN" ]; then
     echo ""
     echo "Token de configuracion inicial: $SETUP_TOKEN"

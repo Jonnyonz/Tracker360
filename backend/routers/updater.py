@@ -11,7 +11,7 @@ except ImportError:
 router = APIRouter(prefix="/api/admin/updater", tags=["System Updater"])
 
 CURRENT_VERSION = "2.0.0"
-GITHUB_REPO = "Jonnyonz/Tracker360"
+GITHUB_REPO = os.getenv("UPDATER_GITHUB_REPO", "Jonnyonz/Tracker360")
 
 def parse_version(v_str: str):
     clean = v_str.lower().lstrip("v").strip()
