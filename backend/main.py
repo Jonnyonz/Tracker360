@@ -23,6 +23,24 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Tracker360 API", version="3.0 Enterprise", lifespan=lifespan)
 
+# CSP: solo el propio sitio y el boton de Google Sign-In. 'unsafe-inline' sigue siendo necesario
+# mientras el frontend use handlers onclick en linea.
+CONTENT_SECURITY_POLICY = "; ".join([
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client",
+    "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style",
+    "frame-src https://accounts.google.com/gsi/",
+    "connect-src 'self' https://accounts.google.com/gsi/",
+    "img-src 'self' data: blob:",
+    "media-src 'self' blob:",
+    "font-src 'self' data:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+])
+DOCS_PATHS = {"/docs", "/docs/oauth2-redirect", "/redoc"}
+
 # === MIDDLEWARE SEGURIDAD BANCARIA (HTTPS & HEADERS) ===
 @app.middleware("http")
 async def security_middleware(request: Request, call_next):
@@ -39,7 +57,10 @@ async def security_middleware(request: Request, call_next):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    
+    # /docs y /redoc cargan Swagger/ReDoc desde un CDN: se excluyen de la CSP.
+    if request.url.path not in DOCS_PATHS:
+        response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
+
     return response
 
 # === MIDDLEWARE CORS HARDENED ===
