@@ -7,7 +7,10 @@ from typing import Optional, Dict, List
 from passlib.context import CryptContext
 
 # === SEGURIDAD Y CONFIGURACIÓN ===
-SECRET_KEY = os.getenv("SECRET_KEY", secrets.token_hex(32))
+SECRET_KEY = os.getenv("SECRET_KEY", "")
+if not SECRET_KEY:
+    print("[Tracker360] SECRET_KEY no esta configurada en el .env: se usa una clave temporal y las sesiones se cierran en cada reinicio.")
+    SECRET_KEY = secrets.token_hex(32)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 240  # Fallback en caso de no leer la DB
 
@@ -253,7 +256,9 @@ async def init_db_schema():
                 user=os.getenv("POSTGRES_USER", "tracker_admin"),
                 password=os.getenv("POSTGRES_PASSWORD", secrets.token_hex(24)),
                 database=os.getenv("POSTGRES_DB", "tracker360_db"),
-                host="db", port=5432, min_size=1, max_size=20
+                host=os.getenv("POSTGRES_HOST", "db"),
+                port=int(os.getenv("POSTGRES_PORT", "5432")),
+                min_size=1, max_size=int(os.getenv("DB_POOL_MAX", "20"))
             )
             if DB.pool is not None: break
         except Exception: await asyncio.sleep(1.0)
@@ -358,6 +363,10 @@ async def init_db_schema():
 
                     "CREATE TABLE IF NOT EXISTS auth_rate_limits (ip_address VARCHAR(50) PRIMARY KEY, attempts INT DEFAULT 0, blocked_until TIMESTAMP WITH TIME ZONE);",
                     "CREATE TABLE IF NOT EXISTS inbound_api_keys (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name VARCHAR(100) NOT NULL, api_key TEXT UNIQUE NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
+
+                    # LOGIN DEL AGENTE DE IMPRESION POR NAVEGADOR (codigo de un solo uso + PKCE, tokens guardados como hash)
+                    "CREATE TABLE IF NOT EXISTS print_agent_auth_codes (code_hash VARCHAR(64) PRIMARY KEY, challenge VARCHAR(64) NOT NULL, agent_name VARCHAR(100) NOT NULL, username VARCHAR(50) NOT NULL, expires_at TIMESTAMP WITH TIME ZONE NOT NULL, used BOOLEAN DEFAULT FALSE);",
+                    "CREATE TABLE IF NOT EXISTS print_agent_tokens (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), token_hash VARCHAR(64) UNIQUE NOT NULL, agent_name VARCHAR(100) NOT NULL, created_by VARCHAR(50) NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, last_used_at TIMESTAMP WITH TIME ZONE);",
 
                     # INSERTS DE CONFIGURACIONES INICIALES ENTERPRISE
                     "INSERT INTO system_settings (key, value) VALUES ('allow_multiproduct_locations', 'false') ON CONFLICT (key) DO NOTHING;",

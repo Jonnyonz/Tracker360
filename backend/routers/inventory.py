@@ -30,7 +30,7 @@ class SpotCheckInput(BaseModel):
     lot_number: str = ""
 
 @router.get("/api/admin/putaway/{sku}")
-async def get_putaway_suggestion(sku: str, conn: asyncpg.Connection = Depends(get_db_connection)):
+async def get_putaway_suggestion(sku: str, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_putaway_suggestions'")
     if enabled != "true":
         return {"suggested_location": "", "type": "DISABLED"}
@@ -154,7 +154,7 @@ async def list_admin_stock_kardex(
         raise HTTPException(status_code=400, detail="Error al procesar la consulta.")
 
 @router.get("/api/inventory/sessions")
-async def list_inventory_sessions(conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_inventory_sessions(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
         SELECT s.id::text, b.name as branch_name, sec.name as sector_name, 
                s.count_type, s.status, s.created_at, s.created_by, s.assigned_operator 

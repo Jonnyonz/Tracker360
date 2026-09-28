@@ -1,8 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from backend.database import get_db_connection, send_webhook_sync
-import asyncpg, secrets, json, uuid, asyncio
+from backend.database import get_db_connection, send_webhook_sync, get_current_user, require_admin, log_action
+import asyncpg, secrets, json, uuid, asyncio, re
 
 router = APIRouter()
+
+# Claves cuyo valor nunca se devuelve en claro por GET.
+SECRET_KEYS = {"tracker360_api_key", "api_key", "google_client_secret"}
+SECRET_MASK = "********"
+VALID_KEY_RE = re.compile(r"^[a-z0-9_]{1,64}$")
+GENERATE_KEY_ALIASES = {"generate-key", "generate-api-key", "api-key"}
+
+def _mask(key: str, value):
+    if key in SECRET_KEYS and value is not None and str(value) != "":
+        return SECRET_MASK
+    return value
+
+def _validate_key(key: str) -> str:
+    k = str(key).strip()
+    if not VALID_KEY_RE.match(k):
+        raise HTTPException(status_code=400, detail="Clave de configuracion invalida.")
+    return k
 
 DEFAULT_ITEM_ZPL = """^XA
 ^PW304
@@ -93,14 +110,14 @@ async def _gen_key_db(conn: asyncpg.Connection):
 
 @router.post("/api/admin/settings/generate-key")
 @router.post("/api/settings/generate-key")
-@router.get("/api/admin/settings/generate-key")
-@router.get("/api/settings/generate-key")
-async def generate_key_exact_endpoint(conn: asyncpg.Connection = Depends(get_db_connection)):
+async def generate_key_exact_endpoint(request: Request, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    client_ip = request.client.host if request.client else "Unknown"
+    await log_action(conn, admin["username"], "API_KEY_ROTATED", "Clave API maestra regenerada", client_ip)
     return await _gen_key_db(conn)
 
 @router.get("/api/settings")
 @router.get("/api/admin/settings")
-async def get_all_settings(conn: asyncpg.Connection = Depends(get_db_connection)):
+async def get_all_settings(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("SELECT key, value FROM system_settings")
     db_res = {r["key"]: r["value"] for r in rows}
     
@@ -130,20 +147,35 @@ async def get_all_settings(conn: asyncpg.Connection = Depends(get_db_connection)
     res["zpl_template"] = str(item_tpl)
     res["zpl_order_template"] = str(order_tpl)
     res["zpl_location_template"] = str(loc_tpl)
+    for k in SECRET_KEYS:
+        if k in res:
+            res[k] = _mask(k, res[k])
     return res
 
 @router.post("/api/settings")
 @router.put("/api/settings")
 @router.post("/api/admin/settings")
 @router.put("/api/admin/settings")
-async def save_bulk_settings(request: Request, conn: asyncpg.Connection = Depends(get_db_connection)):
+async def save_bulk_settings(request: Request, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     try:
         data = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Cuerpo JSON invalido.")
+    if not isinstance(data, dict):
+        raise HTTPException(status_code=400, detail="Se esperaba un objeto JSON.")
+    for k in data.keys():
+        if k is not None:
+            _validate_key(k)
+    try:
         if isinstance(data, dict):
             for k, v in data.items():
                 if k is not None:
+                    k = str(k).strip()
                     val_str = str(v) if v is not None else ""
-                    
+                    # El formulario reenvia el secreto enmascarado: no pisar el valor real.
+                    if k in SECRET_KEYS and val_str == SECRET_MASK:
+                        continue
+
                     if k in ["zpl_item_template", "zpl_template"] and not val_str.strip():
                         val_str = DEFAULT_ITEM_ZPL
                     elif k == "zpl_order_template" and not val_str.strip():
@@ -167,8 +199,8 @@ async def save_bulk_settings(request: Request, conn: asyncpg.Connection = Depend
                         INSERT INTO system_settings (key, value)
                         VALUES ($1, $2)
                         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-                    """, str(k).strip(), val_str)
-                    
+                    """, k, val_str)
+
                     if k == "zpl_item_template":
                         await conn.execute("""
                             INSERT INTO system_settings (key, value)
@@ -176,46 +208,59 @@ async def save_bulk_settings(request: Request, conn: asyncpg.Connection = Depend
                             ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
                         """, val_str)
 
+        client_ip = request.client.host if request.client else "Unknown"
+        await log_action(conn, admin["username"], "SETTINGS_UPDATED", f"Configuracion modificada: {', '.join(sorted(str(k) for k in data.keys()))}", client_ip)
         return {"status": "ok", "message": "Configuración guardada exitosamente"}
     except Exception as exc:
-        print(f"[SAVE BULK SETTINGS ERROR]: {exc}")
-        raise HTTPException(status_code=500, detail=f"Error guardando configuración: {str(exc)}")
+        print(f"[SAVE BULK SETTINGS ERROR]: {exc!r}")
+        raise HTTPException(status_code=500, detail="Error guardando configuración.")
 
 @router.get("/api/settings/{key}")
 @router.get("/api/admin/settings/{key}")
-async def get_setting_by_key(key: str, conn: asyncpg.Connection = Depends(get_db_connection)):
-    if key.strip().lower() in ["generate-key", "generate-api-key", "api-key"]:
-        return await _gen_key_db(conn)
-    row = await conn.fetchrow("SELECT value FROM system_settings WHERE key = $1", key.strip())
-    val = row["value"] if row else DEFAULT_SETTINGS.get(key.strip(), "")
-    return {"key": key, "value": val}
+async def get_setting_by_key(key: str, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    # Generar clave tiene efecto: solo por POST, nunca por GET.
+    if key.strip().lower() in GENERATE_KEY_ALIASES:
+        raise HTTPException(status_code=405, detail="Use POST para generar la clave.")
+    k = _validate_key(key)
+    row = await conn.fetchrow("SELECT value FROM system_settings WHERE key = $1", k)
+    val = row["value"] if row else DEFAULT_SETTINGS.get(k, "")
+    return {"key": key, "value": _mask(k, val)}
 
 @router.post("/api/settings/{key}")
 @router.post("/api/admin/settings/{key}")
 @router.put("/api/settings/{key}")
 @router.put("/api/admin/settings/{key}")
-async def update_setting_by_key(key: str, request: Request, conn: asyncpg.Connection = Depends(get_db_connection)):
-    if key.strip().lower() in ["generate-key", "generate-api-key", "api-key"]:
+async def update_setting_by_key(key: str, request: Request, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    client_ip = request.client.host if request.client else "Unknown"
+    if key.strip().lower() in GENERATE_KEY_ALIASES:
+        await log_action(conn, admin["username"], "API_KEY_ROTATED", "Clave API maestra regenerada", client_ip)
         return await _gen_key_db(conn)
+    k = _validate_key(key)
     body_val = ""
-    try:
-        data = await request.json()
+    raw = await request.body()
+    if raw.strip():
+        try:
+            data = json.loads(raw)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Cuerpo JSON invalido.")
         if isinstance(data, dict):
             body_val = str(data.get("value", data.get("val", "")))
         elif isinstance(data, str):
             body_val = data
-    except Exception:
-        pass
+    if k in SECRET_KEYS and body_val == SECRET_MASK:
+        return {"status": "ok", "key": key, "value": SECRET_MASK}
     await conn.execute("""
         INSERT INTO system_settings (key, value)
         VALUES ($1, $2)
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-    """, key.strip(), body_val)
-    return {"status": "ok", "key": key, "value": body_val}
+    """, k, body_val)
+    await log_action(conn, admin["username"], "SETTINGS_UPDATED", f"Configuracion modificada: {k}", client_ip)
+    return {"status": "ok", "key": key, "value": _mask(k, body_val)}
 
 # === AUDITORÍA Y RE-INTENTOS DE WEBHOOKS ===
 @router.get("/api/admin/webhooks/logs")
-async def get_webhook_logs(limit: int = 50, conn: asyncpg.Connection = Depends(get_db_connection)):
+async def get_webhook_logs(limit: int = 50, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    limit = max(1, min(limit, 500))
     rows = await conn.fetch("""
         SELECT id, channel_id, channel_name, event_type, target_url, payload::text, response_status, response_body, error_message, status, created_at
         FROM webhook_logs ORDER BY created_at DESC LIMIT $1
@@ -223,7 +268,7 @@ async def get_webhook_logs(limit: int = 50, conn: asyncpg.Connection = Depends(g
     return [dict(r) for r in rows]
 
 @router.post("/api/admin/webhooks/retry/{log_id}")
-async def retry_webhook_log(log_id: str, conn: asyncpg.Connection = Depends(get_db_connection)):
+async def retry_webhook_log(log_id: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     try:
         log_uuid = uuid.UUID(log_id)
     except ValueError:
