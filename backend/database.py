@@ -32,6 +32,10 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
+async def invalidate_user_sessions(conn: asyncpg.Connection, user_id) -> None:
+    """Incrementa token_version: invalida todas las sesiones activas del usuario."""
+    await conn.execute("UPDATE users SET token_version = token_version + 1 WHERE id = $1", user_id)
+
 # === IP REAL DEL CLIENTE (DETRAS DE PROXY INVERSO) ===
 # Solo se confia en X-Forwarded-For / X-Forwarded-Proto si la conexion viene de un proxy listado.
 # Por defecto: loopback y redes internas de Docker (proxy en el mismo host).
@@ -317,13 +321,17 @@ async def get_current_user(request: Request, conn: asyncpg.Connection = Depends(
         raise HTTPException(status_code=401, detail="Sesión expirada.")
     try:
         payload = jwt.decode(token.split(" ")[1], SECRET_KEY, algorithms=[ALGORITHM])
-        user = await conn.fetchrow("SELECT id, username, role, branch_id, sector_id, is_active FROM users WHERE username = $1", payload.get("sub"))
-        
-        if not user or not user["is_active"]: 
+        user = await conn.fetchrow("SELECT id, username, role, branch_id, sector_id, is_active, token_version FROM users WHERE username = $1", payload.get("sub"))
+
+        if not user or not user["is_active"]:
             await log_action(conn, payload.get("sub", "Unknown"), "SECURITY_ALERT", f"Usuario desactivado o eliminado intentó operar desde {client_ip}", client_ip)
             raise HTTPException(status_code=401, detail="Usuario desactivado.")
+        # token_version (epoch de sesion): al cerrar sesion, cambiar la clave o desactivar
+        # al usuario se incrementa, invalidando todos los tokens emitidos antes.
+        if payload.get("tv", 0) != user["token_version"]:
+            raise HTTPException(status_code=401, detail="Sesión expirada.")
         return dict(user)
-    except jwt.PyJWTError: 
+    except jwt.PyJWTError:
         await log_action(conn, "SYSTEM", "SECURITY_ALERT", f"Firma JWT inválida o manipulada interceptada", client_ip)
         raise HTTPException(status_code=401, detail="Sesión inválida.")
 
@@ -379,6 +387,7 @@ async def init_db_schema():
                     "CREATE TABLE IF NOT EXISTS system_settings (key VARCHAR(100) PRIMARY KEY, value TEXT);",
                     "CREATE TABLE IF NOT EXISTS users (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), username VARCHAR(50) UNIQUE NOT NULL, full_name VARCHAR(100) NOT NULL, password_hash TEXT NOT NULL, role VARCHAR(20) NOT NULL DEFAULT 'PREPARADOR', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(150);",
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;",
                     "ALTER TABLE users ADD COLUMN IF NOT EXISTS branch_id VARCHAR(100);",
                     "ALTER TABLE users ADD COLUMN IF NOT EXISTS sector_id VARCHAR(100);",
                     "CREATE TABLE IF NOT EXISTS branches (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), code VARCHAR(50) UNIQUE NOT NULL, name VARCHAR(150) NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
