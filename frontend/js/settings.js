@@ -229,7 +229,7 @@ async function loadWebhookLogs() {
                 <td class="font-mono" style="font-size:0.8rem;" title="${escapeHTML(l.target_url)}">${escapeHTML(l.target_url.length > 35 ? l.target_url.substring(0, 35) + '...' : l.target_url)}</td>
                 <td>${statusBadge}</td>
                 <td style="text-align:right;">
-                    <button type="button" class="btn-secondary" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="retryWebhook('${l.id}')">Reintentar</button>
+                    <button type="button" class="btn-secondary" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="retryWebhook(${jsArg(l.id)})">Reintentar</button>
                 </td>
             </tr>`;
         }).join('');

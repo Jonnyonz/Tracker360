@@ -33,7 +33,7 @@ async function loadUsers() {
                     <td><small>${escapeHTML(u.sector_name || 'Todos')}</small></td>
                     <td><span class="badge badge-success">ACTIVO</span></td>
                     <td>
-                        <button class="btn-secondary" style="padding:3px 8px; font-size:0.75rem;" onclick="openEditUserModal('${u.id}')">Editar</button>
+                        <button class="btn-secondary" style="padding:3px 8px; font-size:0.75rem;" onclick="openEditUserModal(${jsArg(u.id)})">Editar</button>
                     </td>
                 </tr>
             `).join('');
@@ -51,8 +51,8 @@ async function loadUsers() {
                         <td><span class="badge badge-warning">PENDIENTE</span></td>
                         <td>
                             <div style="display:flex; gap:6px;">
-                                <button class="btn-submit" style="padding:4px 10px; font-size:0.75rem; background:var(--success);" onclick="openApproveUserModal('${u.id}')">Aprobar</button>
-                                <button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; color:var(--danger); border-color:var(--danger);" onclick="rejectUser('${u.id}')">Rechazar</button>
+                                <button class="btn-submit" style="padding:4px 10px; font-size:0.75rem; background:var(--success);" onclick="openApproveUserModal(${jsArg(u.id)})">Aprobar</button>
+                                <button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; color:var(--danger); border-color:var(--danger);" onclick="rejectUser(${jsArg(u.id)})">Rechazar</button>
                             </div>
                         </td>
                     </tr>

@@ -32,7 +32,7 @@ async function loadEntities() {
             <td>${roleBadge}</td>
             <td>${addrSummary}</td>
             <td><span class="badge ${e.is_active!==false?'badge-success':'badge-neutral'}">${e.is_active!==false?'ACTIVO':'INACTIVO'}</span></td>
-            <td><button onclick="openEditEntityModal('${e.id}', '${escapeHTML(e.tax_id)}', '${escapeHTML(e.company_name)}', ${e.is_customer}, ${e.is_supplier}, ${e.is_active!==false})" class="btn-secondary" style="padding:4px 8px; font-size:0.8rem;">Editar / Direcciones</button></td>
+            <td><button onclick="openEditEntityModal(${jsArg(e.id)}, ${jsArg(e.tax_id)}, ${jsArg(e.company_name)}, ${e.is_customer === true}, ${e.is_supplier === true}, ${e.is_active!==false})" class="btn-secondary" style="padding:4px 8px; font-size:0.8rem;">Editar / Direcciones</button></td>
         </tr>`;
     });
 }
@@ -127,8 +127,8 @@ async function loadEntityAddresses(entId) {
                 <strong style="color:var(--accent);">${escapeHTML(a.address_label || a.label)}:</strong> ${escapeHTML(a.full_address || a.address)} ${defaultBadge}
             </div>
             <div style="display:flex; gap:6px;">
-                <button type="button" onclick="editEntityAddress('${a.id}')" class="btn-secondary" style="padding:2px 6px; font-size:0.75rem;">Editar</button>
-                <button type="button" onclick="deleteEntityAddress('${a.id}', '${entId}')" class="btn-danger" style="padding:2px 6px; font-size:0.75rem;">Eliminar</button>
+                <button type="button" onclick="editEntityAddress(${jsArg(a.id)})" class="btn-secondary" style="padding:2px 6px; font-size:0.75rem;">Editar</button>
+                <button type="button" onclick="deleteEntityAddress(${jsArg(a.id)}, ${jsArg(entId)})" class="btn-danger" style="padding:2px 6px; font-size:0.75rem;">Eliminar</button>
             </div>
         </li>`; 
     });

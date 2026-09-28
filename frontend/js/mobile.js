@@ -28,6 +28,12 @@ function escapeHTML(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// Argumento de texto para handlers inline: onclick="fn(${jsArg(valor)})".
+// escapeHTML solo no alcanza ahi (el navegador decodifica &#39; antes de ejecutar el JS).
+function jsArg(value) {
+    return escapeHTML(JSON.stringify(value === null || value === undefined ? '' : String(value)));
+}
+
 function handleScannerEnter(event, nextFieldId, formId) {
     if (event.key === 'Enter') {
         event.preventDefault();
@@ -359,7 +365,7 @@ async function loadPicking() {
             return;
         }
         container.innerHTML = orders.map(o => `
-            <div class="list-item" onclick="startOrderPicking('${escapeHTML(o.document_number)}')">
+            <div class="list-item" onclick="startOrderPicking(${jsArg(o.document_number)})">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <strong>${escapeHTML(o.document_number)}</strong>
                     <span class="badge ${o.status === 'PENDING' ? 'badge-warning' : 'badge-info'}">${o.status}</span>
@@ -543,7 +549,7 @@ async function loadReceptions() {
             return;
         }
         container.innerHTML = remitos.map(r => `
-            <div class="list-item" onclick="startReceptionScan('${escapeHTML(r.remito_number)}')">
+            <div class="list-item" onclick="startReceptionScan(${jsArg(r.remito_number)})">
                 <strong>${escapeHTML(r.remito_number)}</strong>
                 <p>Proveedor: ${escapeHTML(r.supplier_name)}</p>
                 <span class="badge ${r.status === 'PENDING' ? 'badge-warning' : 'badge-info'}">${r.status}</span>
@@ -633,7 +639,7 @@ async function loadTransfers() {
             return;
         }
         container.innerHTML = transfers.map(t => `
-            <div class="list-item" onclick="startTransferScan('${escapeHTML(t.transfer_number)}')">
+            <div class="list-item" onclick="startTransferScan(${jsArg(t.transfer_number)})">
                 <strong>${escapeHTML(t.transfer_number)}</strong>
                 <p>Origen: ${escapeHTML(t.origin_branch)} > Destino: ${escapeHTML(t.destination_branch)}</p>
                 <span class="badge badge-warning">${t.status}</span>
@@ -724,7 +730,7 @@ async function loadInventory() {
             return;
         }
         container.innerHTML = openSessions.map(s => `
-            <div class="list-item" onclick="startInventoryScan('${s.id}')">
+            <div class="list-item" onclick="startInventoryScan(${jsArg(s.id)})">
                 <strong>Sector: ${escapeHTML(s.sector_name)}</strong>
                 <p>Sucursal: ${escapeHTML(s.branch_name)}</p>
                 <span class="badge badge-info">${s.count_type}</span>

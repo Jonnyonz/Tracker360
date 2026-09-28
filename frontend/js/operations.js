@@ -73,11 +73,11 @@ function filterOrders() {
         
         let actionBtn = `<span style="color:var(--text-muted); font-size:0.8rem;">Sin Acción</span>`;
         if (o.status === 'COMPLETED') {
-            actionBtn = `<button class="btn-submit" style="padding:4px 10px; font-size:0.75rem; background:var(--accent);" onclick="openPackingStation('${escapeHTML(o.document_number)}', '${escapeHTML(o.company_name)}')">Empacar (Verificar)</button>`;
+            actionBtn = `<button class="btn-submit" style="padding:4px 10px; font-size:0.75rem; background:var(--accent);" onclick="openPackingStation(${jsArg(o.document_number)}, ${jsArg(o.company_name)})">Empacar (Verificar)</button>`;
         } else if (o.status === 'PENDING' || o.status === 'IN_PROGRESS') {
             actionBtn = `<span style="color:var(--text-secondary); font-size:0.8rem;">En Picking</span>`;
         } else if (o.status === 'DISPATCHED') {
-            actionBtn = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="reprintOrderLabel('${escapeHTML(o.document_number)}')">Re-imprimir</button>`;
+            actionBtn = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="reprintOrderLabel(${jsArg(o.document_number)})">Re-imprimir</button>`;
         }
 
         return `<tr>
@@ -432,7 +432,7 @@ async function loadReplenishmentSuggestions() {
                 <td><code class="font-mono">${escapeHTML(s.origin_location || 'N/A')}</code></td>
                 <td><code class="font-mono">${escapeHTML(s.destination_location)}</code></td>
                 <td style="text-align:right;">
-                    <button class="btn-submit" style="padding:4px 8px; font-size:0.75rem;" onclick="createReplenishmentTransfer('${escapeHTML(s.sku)}', '${escapeHTML(s.origin_location || '')}', '${escapeHTML(s.destination_location)}', ${s.stock_pulmon})">Crear ODT</button>
+                    <button class="btn-submit" style="padding:4px 8px; font-size:0.75rem;" onclick="createReplenishmentTransfer(${jsArg(s.sku)}, ${jsArg(s.origin_location || '')}, ${jsArg(s.destination_location)}, ${Number(s.stock_pulmon) || 0})">Crear ODT</button>
                 </td>
             </tr>
         `).join('');
@@ -521,10 +521,10 @@ async function loadInventorySessions() {
             
             if(s.status === 'OPEN') {
                 badge = '<span class="badge badge-warning">ABIERTO (ESCANEO)</span>';
-                btn = `<button class="btn-secondary" onclick="openScanInventoryModal('${s.id}')" style="padding:4px 8px; font-size:0.75rem;">Escanear Físico</button>`;
+                btn = `<button class="btn-secondary" onclick="openScanInventoryModal(${jsArg(s.id)})" style="padding:4px 8px; font-size:0.75rem;">Escanear Físico</button>`;
             } else if (s.status === 'REVIEW') {
                 badge = '<span class="badge badge-info">EN REVISIÓN (DELTAS)</span>';
-                btn = `<button class="btn-submit" onclick="openReviewInventoryModal('${s.id}')" style="padding:4px 8px; font-size:0.75rem;">Auditar Deltas</button>`;
+                btn = `<button class="btn-submit" onclick="openReviewInventoryModal(${jsArg(s.id)})" style="padding:4px 8px; font-size:0.75rem;">Auditar Deltas</button>`;
             } else {
                 badge = '<span class="badge badge-success">CERRADO</span>';
                 btn = `<span style="color:var(--text-muted); font-size:0.8rem; padding-right:8px;">Finalizado</span>`;
