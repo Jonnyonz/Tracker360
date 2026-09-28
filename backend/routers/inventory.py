@@ -187,12 +187,23 @@ async def create_inventory_session(data: InventorySessionCreate, admin: dict = D
         await log_action(conn, admin["username"], "INVENTORY_STARTED", f"Conteo asignado a {data.assigned_operator} en sector {data.sector_id}.")
         return {"status": "success", "session_id": str(session_id)}
 
+# Solo el operario asignado a la sesion (o un ADMIN/SUPERVISOR) puede contar o cerrarla.
+def _can_operate_session(user: dict, sess) -> bool:
+    return user.get("role") in ("ADMIN", "SUPERVISOR") or user.get("username") == sess["assigned_operator"]
+
 @router.post("/api/inventory/sessions/{session_id}/scan")
 async def scan_inventory_count(session_id: str, data: InventoryCountScan, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
-    sess = await conn.fetchrow("SELECT id, status, sector_id FROM inventory_sessions WHERE id = $1", uuid.UUID(session_id))
+    try:
+        sess_uuid = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(400, "Sesión de conteo inválida.")
+    sess = await conn.fetchrow("SELECT id, status, sector_id, assigned_operator FROM inventory_sessions WHERE id = $1", sess_uuid)
     if not sess or sess["status"] != "OPEN":
         raise HTTPException(400, "La sesión de conteo no existe o no está abierta.")
-    
+    if not _can_operate_session(user, sess):
+        await log_action(conn, user["username"], "UNAUTHORIZED_ACCESS", f"Intento de contar en sesion ajena {session_id}")
+        raise HTTPException(403, "Este conteo está asignado a otro operario.")
+
     sku_clean = data.sku.strip().upper()
     loc_id = None
     
@@ -211,9 +222,17 @@ async def scan_inventory_count(session_id: str, data: InventoryCountScan, user: 
 
 @router.post("/api/inventory/sessions/{session_id}/finish")
 async def finish_inventory_count(session_id: str, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
-    res = await conn.execute("UPDATE inventory_sessions SET status = 'REVIEW' WHERE id = $1 AND status = 'OPEN'", uuid.UUID(session_id))
-    if res == "UPDATE 0":
+    try:
+        sess_uuid = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(400, "Sesión de conteo inválida.")
+    sess = await conn.fetchrow("SELECT status, assigned_operator FROM inventory_sessions WHERE id = $1", sess_uuid)
+    if not sess or sess["status"] != "OPEN":
         raise HTTPException(400, "No se pudo finalizar. Sesión inválida o ya cerrada.")
+    if not _can_operate_session(user, sess):
+        await log_action(conn, user["username"], "UNAUTHORIZED_ACCESS", f"Intento de finalizar sesion ajena {session_id}")
+        raise HTTPException(403, "Este conteo está asignado a otro operario.")
+    await conn.execute("UPDATE inventory_sessions SET status = 'REVIEW' WHERE id = $1 AND status = 'OPEN'", sess_uuid)
     return {"status": "success", "message": "Conteo enviado a revisión."}
 
 @router.get("/api/inventory/sessions/{session_id}/review")
