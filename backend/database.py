@@ -1,4 +1,4 @@
-import os, asyncio, uuid, secrets, json, urllib.request, urllib.error, ipaddress
+import os, asyncio, uuid, secrets, json, urllib.request, urllib.error, urllib.parse, ipaddress, socket
 from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 import jwt, asyncpg
@@ -165,13 +165,69 @@ def build_full_address(street: Optional[str], number: Optional[str], zip_code: O
     composed = ", ".join(parts)
     return composed if composed else (fallback or "Dirección no especificada")
 
+# === PROTECCION ANTI-SSRF PARA WEBHOOKS ===
+# Los webhooks salen a una URL guardada en integration_channels. Sin control, un destino
+# apuntado a la red interna (169.254.169.254 metadata del cloud, la propia DB, el panel)
+# convierte el envio en un Server-Side Request Forgery. Por defecto se bloquean destinos
+# no publicos; en instalaciones on-premise que necesiten postear a un servicio interno se
+# puede permitir con WEBHOOK_ALLOW_PRIVATE=true.
+WEBHOOK_ALLOW_PRIVATE = os.getenv("WEBHOOK_ALLOW_PRIVATE", "false").strip().lower() == "true"
+WEBHOOK_MAX_REDIRECTS = 3
+
+def _ip_is_blocked(ip_str: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return True
+    if getattr(addr, "ipv4_mapped", None) is not None:
+        return _ip_is_blocked(str(addr.ipv4_mapped))
+    return (addr.is_private or addr.is_loopback or addr.is_link_local or
+            addr.is_reserved or addr.is_multicast or addr.is_unspecified)
+
+def assert_safe_webhook_url(url: str) -> None:
+    """Lanza ValueError si la URL no es un destino publico http/https valido."""
+    if WEBHOOK_ALLOW_PRIVATE:
+        return
+    try:
+        parsed = urllib.parse.urlparse(url)
+    except Exception:
+        raise ValueError("URL de webhook invalida.")
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError("El webhook solo admite http o https.")
+    host = parsed.hostname
+    if not host:
+        raise ValueError("URL de webhook sin host.")
+    try:
+        infos = socket.getaddrinfo(host, parsed.port or (443 if parsed.scheme == "https" else 80), proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        raise ValueError("No se pudo resolver el host del webhook.")
+    resolved = {info[4][0] for info in infos}
+    if not resolved:
+        raise ValueError("El host del webhook no resolvio a ninguna IP.")
+    for ip in resolved:
+        if _ip_is_blocked(ip):
+            raise ValueError("El webhook apunta a una direccion interna no permitida.")
+
+class _NoUnsafeRedirect(urllib.request.HTTPRedirectHandler):
+    # Un 3xx puede redirigir de un host publico a uno interno: se revalida cada salto.
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        assert_safe_webhook_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+_webhook_opener = urllib.request.build_opener(_NoUnsafeRedirect())
+
 def send_webhook_sync(url: str, payload: dict, api_key: str = ""):
+    try:
+        assert_safe_webhook_url(url)
+    except ValueError as e:
+        print(f"[WEBHOOK BLOQUEADO] {url!r}: {e}")
+        return None, "", "Destino de webhook no permitido."
     headers = {'Content-Type': 'application/json'}
     if api_key and api_key.strip():
         headers['Authorization'] = f"Bearer {api_key.strip()}"
     req = urllib.request.Request(url, data=json.dumps(payload).encode('utf-8'), headers=headers, method='POST')
     try:
-        with urllib.request.urlopen(req, timeout=5) as response:
+        with _webhook_opener.open(req, timeout=5) as response:
             body = response.read().decode('utf-8', errors='ignore')
             return response.status, body, None
     except urllib.error.HTTPError as e:
