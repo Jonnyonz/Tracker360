@@ -109,7 +109,7 @@ async def scan_reception_item(remito_number: str, data: MobileRemitoScanInput, u
         return {"status": "success", "message": f"Ingresado {data.quantity} un de {sku_clean}", "remito_completed": pending == 0}
 
 @router.get("/api/admin/returns/next-number")
-async def get_next_return_number(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def get_next_return_number(user: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     prefix = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'return_number_prefix'") or "DEV-"
     val = await conn.fetchval("SELECT return_number FROM customer_returns ORDER BY created_at DESC LIMIT 1")
     if val:
@@ -123,7 +123,7 @@ async def get_next_return_number(user: dict = Depends(get_current_user), conn: a
     return {"next_number": next_num}
 
 @router.get("/api/admin/returns/customers")
-async def get_return_customers(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def get_return_customers(user: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
         SELECT DISTINCT e.id::text, e.tax_id, e.company_name
         FROM entities e
@@ -134,7 +134,7 @@ async def get_return_customers(user: dict = Depends(get_current_user), conn: asy
     return [dict(r) for r in rows]
 
 @router.get("/api/admin/returns/orders-by-customer/{customer_id}")
-async def get_return_orders_by_customer(customer_id: str, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def get_return_orders_by_customer(customer_id: str, user: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
         SELECT d.id::text, d.document_number, d.created_at, d.status
         FROM documents d
@@ -144,7 +144,7 @@ async def get_return_orders_by_customer(customer_id: str, user: dict = Depends(g
     return [dict(r) for r in rows]
 
 @router.get("/api/admin/returns/order-details/{document_id}")
-async def get_return_order_details(document_id: str, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def get_return_order_details(document_id: str, user: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     doc = await conn.fetchrow("SELECT id, document_number, customer_id FROM documents WHERE id = $1", uuid.UUID(document_id))
     if not doc: raise HTTPException(404, "Pedido no encontrado")
     
@@ -162,7 +162,7 @@ async def get_return_order_details(document_id: str, user: dict = Depends(get_cu
 async def create_customer_return(
     data: CustomerReturnCreateInput, 
     x_idempotency_key: Optional[str] = Header(None),
-    user: dict = Depends(get_current_user), 
+    user: dict = Depends(require_admin), 
     conn: asyncpg.Connection = Depends(get_db_connection)
 ):
     cached_resp = await check_idempotency(conn, x_idempotency_key, "/api/admin/returns")
@@ -239,7 +239,7 @@ async def create_customer_return(
         return res_data
 
 @router.get("/api/admin/returns")
-async def list_customer_returns(search: str = "", limit: int = 50, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_customer_returns(search: str = "", limit: int = 50, user: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
         SELECT cr.id::text as id, cr.return_number, cr.created_at, cr.created_by,
                COALESCE(e.company_name, 'Cliente') as customer_name,
