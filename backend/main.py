@@ -163,7 +163,7 @@ async def serve_mobile(request: Request):
     return FileResponse("frontend/preparador.html")
 
 # === ARCHIVOS ESTÁTICOS AL FINAL ABSOLUTO ===
-os.makedirs("downloads", exist_ok=True)
+# (La carpeta downloads/ ya no existe: el agente se descarga de GitHub Releases, ver la
+# redireccion de /downloads/tracker360-agent.zip mas arriba.)
 os.makedirs("frontend", exist_ok=True)
-app.mount("/downloads", StaticFiles(directory="downloads"), name="downloads")
 app.mount("/", StaticFiles(directory="frontend", html=False), name="frontend")

@@ -10,7 +10,6 @@ RUN pip install --no-cache-dir -r backend/requirements.txt
 
 COPY backend/ backend/
 COPY frontend/ frontend/
-COPY downloads/ downloads/
 
 RUN useradd --system --uid 10001 --no-create-home tracker
 USER tracker
