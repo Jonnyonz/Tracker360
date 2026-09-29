@@ -8,7 +8,7 @@ let AppConfig = {};
 let cachedOrdersList = [];
 
 // Rol del usuario, consultado una sola vez. Quien autoriza es el backend; esto solo adapta la
-// interfaz (el SUPERVISOR ve solo el control de pedidos y no dispara cargas que darian 403).
+// interfaz: el SUPERVISOR consulta todo menos usuarios, configuracion y logs, y no modifica nada.
 window.ROL_ACTUAL = null;
 const rolUsuarioPromise = fetch('/api/auth/me', { credentials: 'include' })
     .then(r => r.ok ? r.json() : null)
@@ -17,17 +17,13 @@ const rolUsuarioPromise = fetch('/api/auth/me', { credentials: 'include' })
 async function esSupervisor() { return (await rolUsuarioPromise) === 'SUPERVISOR'; }
 
 function aplicarModoSupervisor() {
-    const siempre = ['btn-toggle-help', 'btnLogout'];
+    const soloAdmin = ['section-users', 'section-settings', 'section-logs'];
     document.querySelectorAll('.nav-rail .rail-btn, .nav-rail .rail-sub-btn').forEach(b => {
         const oc = b.getAttribute('onclick') || '';
-        const visible = oc.includes('section-orders') || oc.includes('toggleTheme') || siempre.includes(b.id);
-        if (!visible) b.style.display = 'none';
+        if (soloAdmin.some(s => oc.includes(s))) b.style.display = 'none';
     });
-    const acc = document.getElementById('acc-reports');
-    if (acc) acc.style.display = 'none';
-    const crear = document.querySelector('#section-orders [onclick="openManualOrderModal()"]');
-    if (crear) crear.style.display = 'none';
-    switchView('section-orders');
+    // Botones de alta de cada seccion (crear pedido, articulo, etc.): el supervisor solo consulta.
+    document.querySelectorAll('.view-section .content-header .btn-submit').forEach(b => { b.style.display = 'none'; });
 }
 let cachedLogsList = [];
 
@@ -280,11 +276,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.onload = async () => {
-    if (await esSupervisor()) { aplicarModoSupervisor(); return; }
     if (typeof loadSettings === 'function') {
         try { await loadSettings(); } catch (err) { console.error("Error en loadSettings:", err); }
     }
     try { await loadDashboard(); } catch (err) { console.error("Error en loadDashboard:", err); }
+    if (await esSupervisor()) aplicarModoSupervisor();
 };
 
 window.escapeHTML = escapeHTML;

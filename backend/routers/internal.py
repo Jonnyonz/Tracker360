@@ -4,9 +4,9 @@ from typing import Optional, List
 import asyncpg, uuid, json
 
 try:
-    from backend.database import get_db_connection, get_current_user, require_admin, record_stock_movement, log_action, check_idempotency, save_idempotency
+    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency
 except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, record_stock_movement, log_action, check_idempotency, save_idempotency
+    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency
 
 router = APIRouter(tags=["Internal Movements"])
 
@@ -34,7 +34,7 @@ class TransferOrderCreateInput(BaseModel):
     lines: List[TransferLineInput]
 
 @router.get("/api/admin/replenishment-suggestions")
-async def get_replenishment_suggestions(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def get_replenishment_suggestions(admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_replenishment'")
     if enabled != "true":
         return {"status": "disabled", "suggestions": []}
@@ -69,7 +69,7 @@ async def get_next_transfer_number(admin: dict = Depends(require_admin), conn: a
     return {"next_number": next_num}
 
 @router.get("/api/admin/transfer-orders")
-async def list_admin_transfer_orders(search: str = "", limit: int = 50, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_admin_transfer_orders(search: str = "", limit: int = 50, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("SELECT t.id::text as id, t.transfer_number, t.status, t.created_at, COALESCE(ob.name, 'N/A') as origin_branch, COALESCE(db.name, 'N/A') as destination_branch, COALESCE(os.name, 'N/A') as origin_sector, COALESCE(ds.name, 'N/A') as destination_sector FROM transfer_orders t LEFT JOIN branches ob ON t.origin_branch_id = ob.id LEFT JOIN branches db ON t.destination_branch_id = db.id LEFT JOIN sectors os ON t.origin_sector_id = os.id LEFT JOIN sectors ds ON t.destination_sector_id = ds.id WHERE t.transfer_number ILIKE $1 ORDER BY t.created_at DESC LIMIT $2", f"%{search}%", limit)
     return [dict(r) for r in rows]
 

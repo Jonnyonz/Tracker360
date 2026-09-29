@@ -39,10 +39,10 @@ async function loadDashboardSummary() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // El supervisor solo usa el control de pedidos (ver aplicarModoSupervisor en admin-core.js).
-    if (await esSupervisor()) return;
+    // Usuarios, configuracion e integraciones son solo del admin (ver aplicarModoSupervisor).
+    const supervisor = await esSupervisor();
     loadDashboardSummary();
-    if (typeof loadUsers === 'function') loadUsers();
+    if (!supervisor && typeof loadUsers === 'function') loadUsers();
     if (typeof loadEntities === 'function') loadEntities();
     if (typeof loadItems === 'function') loadItems(1);
     if (typeof loadBranches === 'function') loadBranches();
@@ -50,6 +50,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof loadLocations === 'function') loadLocations();
     if (typeof loadAdminStock === 'function') loadAdminStock();
     if (typeof loadAdminKardex === 'function') loadAdminKardex();
-    if (typeof loadSettings === 'function') loadSettings();
-    if (typeof loadIntegrations === 'function') loadIntegrations();
+    if (!supervisor && typeof loadSettings === 'function') loadSettings();
+    if (!supervisor && typeof loadIntegrations === 'function') loadIntegrations();
 });

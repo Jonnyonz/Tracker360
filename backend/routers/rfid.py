@@ -4,9 +4,9 @@ from typing import Optional, List
 import asyncpg
 
 try:
-    from backend.database import get_db_connection, get_current_user, require_admin, log_action
+    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action
 except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, log_action
+    from database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action
 
 router = APIRouter(prefix="/api/rfid", tags=["RFID Operations"])
 
@@ -24,7 +24,7 @@ class RFIDBulkScanInput(BaseModel):
 # === MAESTRO Y VINCULACIÓN DE ETIQUETAS RFID ===
 
 @router.get("/tags")
-async def list_rfid_tags(sku: str = "", page: int = 1, limit: int = 50, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_rfid_tags(sku: str = "", page: int = 1, limit: int = 50, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     offset = (page - 1) * limit
     total_count = await conn.fetchval("SELECT COUNT(*) FROM rfid_tags WHERE sku ILIKE $1", f"%{sku}%")
     

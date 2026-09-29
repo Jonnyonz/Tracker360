@@ -123,12 +123,13 @@ async function loadSettings() {
 
         if (typeof toggleGoogleFields === 'function') toggleGoogleFields();
 
-        if (typeof loadIntegrations === 'function') {
-            loadIntegrations();
+        // Integraciones, logs de webhooks y actualizaciones son solo del admin (el supervisor
+        // consulta, pero esas rutas le responden 403).
+        if (!(await esSupervisor())) {
+            if (typeof loadIntegrations === 'function') loadIntegrations();
+            await loadWebhookLogs();
+            checkSystemUpdates();
         }
-
-        await loadWebhookLogs();
-        checkSystemUpdates();
 
     } catch (err) {
         console.error("[SETTINGS ERROR]:", err);

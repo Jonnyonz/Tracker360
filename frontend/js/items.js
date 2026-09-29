@@ -529,8 +529,7 @@ async function sendBatchPrintJobs() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(async () => {
-        if (await esSupervisor()) return;
+    setTimeout(() => {
         handleSearchItems(1);
     }, 150);
 });

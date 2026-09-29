@@ -4,9 +4,9 @@ from typing import Optional, List
 import asyncpg, uuid
 
 try:
-    from backend.database import get_db_connection, require_admin, build_full_address
+    from backend.database import get_db_connection, require_admin, require_supervisor, build_full_address
 except ImportError:
-    from database import get_db_connection, require_admin, build_full_address
+    from database import get_db_connection, require_admin, require_supervisor, build_full_address
 
 router = APIRouter(tags=["Entities"])
 
@@ -44,7 +44,7 @@ class EntityAddressInput(BaseModel):
     is_default: Optional[bool] = False
 
 @router.get("/api/admin/entities")
-async def list_entities(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_entities(admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
         SELECT e.id, e.tax_id, e.company_name, e.is_customer, e.is_supplier, e.is_active,
                COALESCE(json_agg(json_build_object(
@@ -96,7 +96,7 @@ async def update_entity(entity_id: str, data: EntityUpdate, admin: dict = Depend
     return {"status": "success"}
 
 @router.get("/api/admin/entities/{entity_id}/addresses")
-async def get_entity_addresses(entity_id: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def get_entity_addresses(entity_id: str, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("SELECT id, address_label, full_address, street, number, zip_code, city_neighborhood, is_default FROM entity_addresses WHERE entity_id = $1 ORDER BY is_default DESC, created_at ASC", uuid.UUID(entity_id))
     return [dict(r) for r in rows]
 
@@ -131,7 +131,7 @@ async def delete_address(address_id: str, admin: dict = Depends(require_admin), 
     return {"status": "success"}
 
 @router.get("/api/admin/suppliers/{supplier_id}/remitos")
-async def get_supplier_remitos(supplier_id: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def get_supplier_remitos(supplier_id: str, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
         SELECT pr.id, pr.remito_number, pr.status, b.name as branch_name, sec.name as sector_name 
         FROM purchase_remitos pr

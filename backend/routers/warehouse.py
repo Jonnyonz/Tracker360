@@ -5,9 +5,9 @@ import asyncpg, uuid, csv
 from io import StringIO
 
 try:
-    from backend.database import get_db_connection, require_admin
+    from backend.database import get_db_connection, require_admin, require_supervisor
 except ImportError:
-    from database import get_db_connection, require_admin
+    from database import get_db_connection, require_admin, require_supervisor
 
 router = APIRouter(tags=["Warehouse"])
 
@@ -27,7 +27,7 @@ class LocationCreate(BaseModel):
     description: Optional[str] = None
 
 @router.get("/api/admin/branches")
-async def list_branches(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_branches(admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     return [dict(r) for r in await conn.fetch("SELECT id, code, name, is_active FROM branches ORDER BY name ASC")]
 
 @router.post("/api/admin/branches")
@@ -36,7 +36,7 @@ async def create_branch(data: BranchCreate, admin: dict = Depends(require_admin)
     return {"status": "success"}
 
 @router.get("/api/admin/sectors")
-async def list_sectors(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_sectors(admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     return [dict(r) for r in await conn.fetch("SELECT s.id, s.name, s.print_queue_code, s.uses_locations, s.branch_id, b.name as branch_name FROM sectors s LEFT JOIN branches b ON s.branch_id = b.id ORDER BY s.name ASC")]
 
 @router.post("/api/admin/sectors")
@@ -45,7 +45,7 @@ async def create_sector(data: SectorCreate, admin: dict = Depends(require_admin)
     return {"status": "success"}
 
 @router.get("/api/admin/locations")
-async def list_all_locations(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_all_locations(admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     return [dict(l) for l in await conn.fetch("SELECT l.id, l.location_code, l.description, s.name as sector_name, b.name as branch_name FROM locations l JOIN sectors s ON l.sector_id = s.id LEFT JOIN branches b ON s.branch_id = b.id ORDER BY l.location_code ASC")]
 
 @router.post("/api/admin/locations")

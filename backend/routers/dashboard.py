@@ -2,14 +2,14 @@ from fastapi import APIRouter, Depends
 import asyncpg
 
 try:
-    from backend.database import get_db_connection, require_admin
+    from backend.database import get_db_connection, require_admin, require_supervisor
 except ImportError:
-    from database import get_db_connection, require_admin
+    from database import get_db_connection, require_admin, require_supervisor
 
 router = APIRouter(tags=["Dashboard & Logs"])
 
 @router.get("/api/admin/dashboard")
-async def get_admin_dashboard_op(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def get_admin_dashboard_op(admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     # 1. Bloque Core del Dashboard (A prueba de fallos)
     pending_orders = await conn.fetch("""
         SELECT d.document_number, COALESCE(e.company_name, 'Consumidor Final') as company_name, d.status 

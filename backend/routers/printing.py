@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
-from backend.database import get_db_connection, get_current_user, require_admin, verify_system_api_key, log_action, get_client_ip
+from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, verify_system_api_key, log_action, get_client_ip
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timedelta, timezone
@@ -94,7 +94,7 @@ async def exchange_agent_token(req: AgentTokenRequest, request: Request, conn: a
     return {"token": token, "agent_name": row["agent_name"], "authorized_by": row["username"]}
 
 @router.get("/api/admin/print-agents")
-async def list_print_agents(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_print_agents(admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("SELECT id, agent_name, created_by, is_active, created_at, last_used_at FROM print_agent_tokens ORDER BY created_at DESC")
     return [dict(r) for r in rows]
 

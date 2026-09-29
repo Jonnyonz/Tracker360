@@ -5,9 +5,9 @@ from datetime import datetime
 import asyncpg, uuid
 
 try:
-    from backend.database import get_db_connection, get_current_user, require_admin, log_action, record_stock_movement
+    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action, record_stock_movement
 except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, log_action, record_stock_movement
+    from database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action, record_stock_movement
 
 router = APIRouter(tags=["Inventory Control"])
 
@@ -60,7 +60,7 @@ async def get_putaway_suggestion(sku: str, user: dict = Depends(get_current_user
     return {"suggested_location": "", "type": "NONE"}
 
 @router.get("/api/admin/stock")
-async def list_admin_stock(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_admin_stock(admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
         SELECT si.sku, i.description, b.name as branch_name, sec.name as sector_name, 
                COALESCE(l.location_code, 'Sin ubicación') as location_code, 
@@ -79,7 +79,7 @@ async def list_admin_stock_kardex(
     sku: Optional[str] = None, branch_id: Optional[str] = None, sector_id: Optional[str] = None,
     location_code: Optional[str] = None, date_from: Optional[str] = None, time_from: Optional[str] = None,
     date_to: Optional[str] = None, time_to: Optional[str] = None, movement_type: Optional[str] = None,
-    admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)
+    admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)
 ):
     query = """
         SELECT sm.id::text as id, sm.sku, COALESCE(i.description, 'Sin descripción') as description,
@@ -236,7 +236,7 @@ async def finish_inventory_count(session_id: str, user: dict = Depends(get_curre
     return {"status": "success", "message": "Conteo enviado a revisión."}
 
 @router.get("/api/inventory/sessions/{session_id}/review")
-async def review_inventory_deltas(session_id: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def review_inventory_deltas(session_id: str, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
         WITH snapshot_agg AS (
             SELECT sku, location_id, lot_number, SUM(expected_quantity) as expected

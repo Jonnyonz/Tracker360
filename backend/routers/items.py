@@ -6,9 +6,9 @@ import asyncpg, csv
 from io import StringIO
 
 try:
-    from backend.database import get_db_connection, require_admin, queue_zpl_print_job
+    from backend.database import get_db_connection, require_admin, require_supervisor, queue_zpl_print_job
 except ImportError:
-    from database import get_db_connection, require_admin, queue_zpl_print_job
+    from database import get_db_connection, require_admin, require_supervisor, queue_zpl_print_job
 
 router = APIRouter(tags=["Items"])
 
@@ -40,7 +40,7 @@ class ItemLocationInput(BaseModel):
     location_code: str
 
 @router.get("/api/admin/items")
-async def list_items(sku: str = "", description: str = "", page: int = 1, limit: int = 50, sort_by: str = "sku", sort_order: str = "ASC", admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_items(sku: str = "", description: str = "", page: int = 1, limit: int = 50, sort_by: str = "sku", sort_order: str = "ASC", admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     offset = (page - 1) * limit
     allowed_cols = {"sku": "i.sku", "description": "i.description", "category": "i.category", "total_stock": "total_stock"}
     col = allowed_cols.get(sort_by, "i.sku")
@@ -68,7 +68,7 @@ async def list_items(sku: str = "", description: str = "", page: int = 1, limit:
     }
 
 @router.get("/api/admin/items/{sku}/combo")
-async def get_item_combo_components(sku: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def get_item_combo_components(sku: str, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     clean_sku = sku.strip().upper()
     item = await conn.fetchrow("SELECT sku, description, COALESCE(is_combo, FALSE) as is_combo FROM items WHERE UPPER(sku) = $1", clean_sku)
     if not item:
@@ -90,7 +90,7 @@ async def get_item_combo_components(sku: str, admin: dict = Depends(require_admi
     }
 
 @router.get("/api/admin/items/{sku}/stock-breakdown")
-async def get_item_stock_breakdown(sku: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def get_item_stock_breakdown(sku: str, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
         SELECT b.name as branch_name, sec.name as sector_name, 
                COALESCE(l.location_code, 'Ubicación General') as location_code, 
@@ -144,7 +144,7 @@ async def update_item(sku: str, data: ItemUpdate, admin: dict = Depends(require_
     return {"status": "success", "message": "Ficha de artículo y configuración de combo actualizados."}
 
 @router.get("/api/admin/items/{sku}/locations")
-async def get_item_locations(sku: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def get_item_locations(sku: str, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
         SELECT il.id as assignment_id, l.location_code, s.name as sector_name, b.name as branch_name
         FROM item_locations il

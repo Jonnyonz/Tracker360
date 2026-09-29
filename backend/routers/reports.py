@@ -4,9 +4,9 @@ from datetime import datetime
 import asyncpg, uuid
 
 try:
-    from backend.database import get_db_connection, require_admin
+    from backend.database import get_db_connection, require_admin, require_supervisor
 except ImportError:
-    from database import get_db_connection, require_admin
+    from database import get_db_connection, require_admin, require_supervisor
 
 router = APIRouter(tags=["Reports"])
 
@@ -18,7 +18,7 @@ async def report_stock(
     sector_id: Optional[str] = None,
     include_zero: str = "false",
     include_negative: str = "false",
-    admin: dict = Depends(require_admin), 
+    admin: dict = Depends(require_supervisor), 
     conn: asyncpg.Connection = Depends(get_db_connection)
 ):
     query = """
@@ -91,7 +91,7 @@ async def report_orders(
     date_to: Optional[str] = None,
     status: Optional[str] = None,
     related_only: str = "false",
-    admin: dict = Depends(require_admin), 
+    admin: dict = Depends(require_supervisor), 
     conn: asyncpg.Connection = Depends(get_db_connection)
 ):
     query = """
@@ -168,7 +168,7 @@ async def report_remitos(
     date_to: Optional[str] = None,
     status: Optional[str] = None,
     branch_id: Optional[str] = None,
-    admin: dict = Depends(require_admin), 
+    admin: dict = Depends(require_supervisor), 
     conn: asyncpg.Connection = Depends(get_db_connection)
 ):
     query = """
@@ -256,7 +256,7 @@ async def report_invoices(
     invoice_type: Optional[str] = None,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    admin: dict = Depends(require_admin), 
+    admin: dict = Depends(require_supervisor), 
     conn: asyncpg.Connection = Depends(get_db_connection)
 ):
     query = """
@@ -325,7 +325,7 @@ async def report_purchase_orders(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
     status: Optional[str] = None,
-    admin: dict = Depends(require_admin), 
+    admin: dict = Depends(require_supervisor), 
     conn: asyncpg.Connection = Depends(get_db_connection)
 ):
     query = """

@@ -4,9 +4,9 @@ from typing import Optional, List
 import asyncpg, uuid, re, json
 
 try:
-    from backend.database import get_db_connection, get_current_user, require_admin, record_stock_movement, log_action, check_idempotency, save_idempotency
+    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency
 except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, record_stock_movement, log_action, check_idempotency, save_idempotency
+    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency
 
 router = APIRouter(tags=["Inbound & Receptions"])
 
@@ -33,17 +33,17 @@ class CustomerReturnCreateInput(BaseModel):
     lines: List[CustomerReturnLineInput]
 
 @router.get("/api/admin/purchase-orders")
-async def list_admin_purchase_orders(search: str = "", limit: int = 50, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_admin_purchase_orders(search: str = "", limit: int = 50, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("SELECT po.id::text as id, po.order_number, po.status, po.created_at, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name FROM purchase_orders po LEFT JOIN entities e ON po.supplier_id = e.id WHERE po.order_number ILIKE $1 ORDER BY po.created_at DESC LIMIT $2", f"%{search}%", limit)
     return [dict(r) for r in rows]
 
 @router.get("/api/admin/purchase-remitos")
-async def list_admin_purchase_remitos(search: str = "", limit: int = 50, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_admin_purchase_remitos(search: str = "", limit: int = 50, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("SELECT pr.id::text as id, pr.remito_number, pr.status, pr.created_at, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name, b.name as branch_name, sec.name as sector_name FROM purchase_remitos pr LEFT JOIN entities e ON pr.supplier_id = e.id LEFT JOIN branches b ON pr.branch_id = b.id LEFT JOIN sectors sec ON pr.sector_id = sec.id WHERE pr.remito_number ILIKE $1 ORDER BY pr.created_at DESC LIMIT $2", f"%{search}%", limit)
     return [dict(r) for r in rows]
 
 @router.get("/api/admin/purchase-invoices")
-async def list_admin_purchase_invoices(search: str = "", limit: int = 50, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_admin_purchase_invoices(search: str = "", limit: int = 50, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("SELECT pi.id::text as id, pi.invoice_number, pi.invoice_type, pi.created_at, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name FROM purchase_invoices pi LEFT JOIN entities e ON pi.supplier_id = e.id WHERE pi.invoice_number ILIKE $1 ORDER BY pi.created_at DESC LIMIT $2", f"%{search}%", limit)
     return [dict(r) for r in rows]
 
@@ -239,7 +239,7 @@ async def create_customer_return(
         return res_data
 
 @router.get("/api/admin/returns")
-async def list_customer_returns(search: str = "", limit: int = 50, user: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_customer_returns(search: str = "", limit: int = 50, user: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
         SELECT cr.id::text as id, cr.return_number, cr.created_at, cr.created_by,
                COALESCE(e.company_name, 'Cliente') as customer_name,
