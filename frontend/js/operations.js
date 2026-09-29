@@ -27,6 +27,34 @@ function switchPurchaseTab(tabId, btn) {
 
 // === GESTIÓN DE PEDIDOS Y FILTROS ===
 
+async function verParticipantes(documentNumber) {
+    const body = document.getElementById('part-body');
+    const label = document.getElementById('part-order-label');
+    if (!body || !label) return;
+    label.textContent = documentNumber;
+    body.innerHTML = '<p style="color:var(--text-muted);">Cargando...</p>';
+    openModal('modal-participants');
+    try {
+        const d = await fetchAPI(`/api/admin/documents/${encodeURIComponent(documentNumber)}/participants`);
+        const fecha = v => v ? new Date(v).toLocaleString() : '-';
+        const picking = d.picking.length
+            ? d.picking.map(p => `<tr><td>${escapeHTML(p.username)}</td><td style="text-align:right;">${escapeHTML(String(p.unidades))}</td><td style="text-align:right;">${escapeHTML(String(p.lecturas))}</td><td>${escapeHTML(fecha(p.desde))} a ${escapeHTML(fecha(p.hasta))}</td></tr>`).join('')
+            : '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin picking registrado para este pedido.</td></tr>';
+        const eventos = d.eventos.length
+            ? d.eventos.map(e => `<tr><td>${escapeHTML(fecha(e.created_at))}</td><td>${escapeHTML(e.username)}</td><td>${escapeHTML(e.action)}</td><td>${escapeHTML(e.details)}</td></tr>`).join('')
+            : '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin eventos.</td></tr>';
+        body.innerHTML = `
+            <p>Estado: <span class="badge badge-neutral">${escapeHTML(d.status)}</span> &nbsp; Creado: ${escapeHTML(fecha(d.created_at))}</p>
+            <h3 style="font-size:1rem; margin-top:1rem;">Picking</h3>
+            <table><thead><tr><th>Usuario</th><th style="text-align:right;">Unidades</th><th style="text-align:right;">Lecturas</th><th>Periodo</th></tr></thead><tbody>${picking}</tbody></table>
+            <h3 style="font-size:1rem; margin-top:1rem;">Eventos</h3>
+            <table><thead><tr><th>Fecha</th><th>Usuario</th><th>Accion</th><th>Detalle</th></tr></thead><tbody>${eventos}</tbody></table>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:1rem;">${escapeHTML(d.nota)}</p>`;
+    } catch (e) {
+        body.innerHTML = `<p style="color:var(--danger);">Error: ${escapeHTML(e.message)}</p>`;
+    }
+}
+
 async function loadOrders() {
     const tbody = document.getElementById('table-orders-body');
     if(!tbody) return;
@@ -79,6 +107,9 @@ function filterOrders() {
         } else if (o.status === 'DISPATCHED') {
             actionBtn = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="reprintOrderLabel(${jsArg(o.document_number)})">Re-imprimir</button>`;
         }
+        // El supervisor solo consulta: estado (columna) y participantes. Empacar y re-imprimir son del admin.
+        const btnPart = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; margin-left:6px;" onclick="verParticipantes(${jsArg(o.document_number)})">Participantes</button>`;
+        actionBtn = (window.ROL_ACTUAL === 'SUPERVISOR') ? btnPart : actionBtn + btnPart;
 
         return `<tr>
             <td style="font-weight:bold; color:var(--accent); font-family:monospace;">${escapeHTML(o.document_number)}</td>
@@ -938,6 +969,7 @@ window.addDynamicLineInvoice = addDynamicLineInvoice;
 window.addDynamicLineTransfer = addDynamicLineTransfer;
 window.loadOrders = loadOrders;
 window.filterOrders = filterOrders;
+window.verParticipantes = verParticipantes;
 window.openManualOrderModal = openManualOrderModal;
 window.addDynamicLineManualOrder = addDynamicLineManualOrder;
 window.saveManualOrder = saveManualOrder;

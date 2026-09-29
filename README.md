@@ -27,7 +27,7 @@ común.
 |---|---|---|
 | `ADMIN` | `/admin` (panel) | Todo: usuarios, sucursales/sectores/ubicaciones, artículos (combos, ubicaciones fijas, importación CSV), stock y kardex, pedidos de venta, traspasos, conteos, reportes, configuración, agentes de impresión, logs de webhooks. |
 | `PREPARADOR` | `/mobile` (colectora o celular) | Recepción de remitos, picking y packing de pedidos, traspasos, conteos asignados. Lectura de códigos con la cámara (QR, Code 128, EAN-13, Code 39, DataMatrix). |
-| `SUPERVISOR` | `/admin` | Puede operar conteos y autorizar agentes de impresión. Ver [limitaciones](#estado-y-limitaciones-conocidas). |
+| `SUPERVISOR` | `/admin` (solo Pedidos) | Control de pedidos: ve cada pedido con su estado y avance, y quiénes participaron (quién lo pickeó y cuántas unidades, quién lo creó y lo despachó). No crea pedidos ni administra nada más. También puede operar conteos y autorizar agentes de impresión. |
 
 Flujos principales:
 
@@ -332,8 +332,8 @@ Para no prometer lo que no está:
 - Algunos formularios del panel (órdenes de compra, remitos, facturas de compra, devoluciones
   de cliente, alta de canales) todavía no tienen su acción implementada. Hoy la recepción
   trabaja sobre remitos ya cargados en la base.
-- El rol `SUPERVISOR` entra al panel, pero la mayoría de las acciones de administración exigen
-  `ADMIN`.
+- El picking por olas registra sus movimientos sin el número de pedido, así que no aparece en
+  los participantes de cada pedido.
 - Hay opciones de configuración que se guardan pero todavía no cambian el comportamiento
   (por ejemplo, el tiempo de sesión: hoy es fijo en 4 horas).
 - No hay token CSRF: la protección es `SameSite=Strict` en la cookie de sesión.

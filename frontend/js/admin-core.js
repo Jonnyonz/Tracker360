@@ -6,6 +6,29 @@ let currentItemPage = 1, totalItemPages = 1, currentItemLimit = 50, currentItemS
 let AppConfig = {};
 
 let cachedOrdersList = [];
+
+// Rol del usuario, consultado una sola vez. Quien autoriza es el backend; esto solo adapta la
+// interfaz (el SUPERVISOR ve solo el control de pedidos y no dispara cargas que darian 403).
+window.ROL_ACTUAL = null;
+const rolUsuarioPromise = fetch('/api/auth/me', { credentials: 'include' })
+    .then(r => r.ok ? r.json() : null)
+    .then(u => { window.ROL_ACTUAL = u ? u.role : null; return window.ROL_ACTUAL; })
+    .catch(() => null);
+async function esSupervisor() { return (await rolUsuarioPromise) === 'SUPERVISOR'; }
+
+function aplicarModoSupervisor() {
+    const siempre = ['btn-toggle-help', 'btnLogout'];
+    document.querySelectorAll('.nav-rail .rail-btn, .nav-rail .rail-sub-btn').forEach(b => {
+        const oc = b.getAttribute('onclick') || '';
+        const visible = oc.includes('section-orders') || oc.includes('toggleTheme') || siempre.includes(b.id);
+        if (!visible) b.style.display = 'none';
+    });
+    const acc = document.getElementById('acc-reports');
+    if (acc) acc.style.display = 'none';
+    const crear = document.querySelector('#section-orders [onclick="openManualOrderModal()"]');
+    if (crear) crear.style.display = 'none';
+    switchView('section-orders');
+}
 let cachedLogsList = [];
 
 // ESTADO GLOBAL DEL MODO AYUDA CONTEXTUAL (VANILLA JS SOBERANO)
@@ -257,6 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.onload = async () => {
+    if (await esSupervisor()) { aplicarModoSupervisor(); return; }
     if (typeof loadSettings === 'function') {
         try { await loadSettings(); } catch (err) { console.error("Error en loadSettings:", err); }
     }

@@ -361,6 +361,14 @@ async def require_admin(request: Request, current_user: dict = Depends(get_curre
         raise HTTPException(status_code=403, detail="Permisos insuficientes.")
     return current_user
 
+async def require_supervisor(request: Request, current_user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    # ADMIN o SUPERVISOR. El supervisor solo controla pedidos: su estado y quienes participaron.
+    if current_user.get("role") not in ("ADMIN", "SUPERVISOR"):
+        client_ip = get_client_ip(request)
+        await log_action(conn, current_user.get("username", "Unknown"), "UNAUTHORIZED_ACCESS", f"Intento de acceder a control de pedidos: {request.url.path}", client_ip)
+        raise HTTPException(status_code=403, detail="Permisos insuficientes.")
+    return current_user
+
 async def verify_system_api_key(request: Request, x_api_key: Optional[str] = Header(None), conn: asyncpg.Connection = Depends(get_db_connection)):
     client_ip = get_client_ip(request)
     

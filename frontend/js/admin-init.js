@@ -38,7 +38,9 @@ async function loadDashboardSummary() {
     } catch (e) { console.error("Error cargando dashboard:", e); }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // El supervisor solo usa el control de pedidos (ver aplicarModoSupervisor en admin-core.js).
+    if (await esSupervisor()) return;
     loadDashboardSummary();
     if (typeof loadUsers === 'function') loadUsers();
     if (typeof loadEntities === 'function') loadEntities();

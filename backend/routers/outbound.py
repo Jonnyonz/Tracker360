@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 import asyncpg, uuid, json
 
 try:
-    from backend.database import get_db_connection, get_current_user, require_admin, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency
+    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency
 except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency
+    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency
 
 router = APIRouter(tags=["Outbound & Dispatch"])
 
@@ -46,7 +46,7 @@ class ManualOrderInput(BaseModel):
     lines: List[ManualOrderLine]
 
 @router.get("/api/admin/documents")
-async def list_admin_documents(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_admin_documents(admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
         SELECT d.document_number, COALESCE(e.company_name, 'Consumidor Final') as company_name, 
                d.status, 
@@ -57,6 +57,31 @@ async def list_admin_documents(admin: dict = Depends(require_admin), conn: async
         ORDER BY d.created_at DESC LIMIT 100
     """)
     return [dict(r) for r in rows]
+
+@router.get("/api/admin/documents/{document_number}/participants")
+async def get_document_participants(document_number: str, user: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+    # Quienes intervinieron en un pedido: pickeo por pedido (kardex) y eventos de auditoria
+    # (alta, despacho). Para supervisores y admins.
+    num = document_number.strip().upper()
+    doc = await conn.fetchrow("SELECT document_number, status, created_at FROM documents WHERE document_number = $1", num)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Pedido no encontrado.")
+    picking = await conn.fetch("""
+        SELECT username, COUNT(*) AS lecturas, SUM(-quantity) AS unidades, MIN(created_at) AS desde, MAX(created_at) AS hasta
+        FROM stock_movements WHERE reference_document = $1 AND movement_type = 'OUT_PICKING'
+        GROUP BY username ORDER BY MIN(created_at)
+    """, num)
+    eventos = await conn.fetch("""
+        SELECT username, action, regexp_replace(details, '^[[][^]]*[]] ', '') AS details, created_at
+        FROM audit_logs WHERE position($1 in details) > 0 AND action <> 'UNAUTHORIZED_ACCESS' ORDER BY created_at
+    """, num)
+    return {
+        "document_number": doc["document_number"], "status": doc["status"], "created_at": doc["created_at"],
+        "picking": [dict(r) for r in picking],
+        "eventos": [dict(r) for r in eventos],
+        # El picking por olas registra sus movimientos como WAVE-PICK, sin el numero de pedido.
+        "nota": "El picking por olas no queda asociado a un pedido puntual y no aparece aca.",
+    }
 
 @router.get("/api/admin/sales-orders/next-number")
 async def get_next_order_number(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
