@@ -204,7 +204,7 @@ async def import_item_locations_csv(file: UploadFile = File(...), admin: dict = 
     return {"status": "success", "message": f"Se asignaron {count} ubicaciones."}
 
 @router.post("/api/admin/items/batch-print-labels")
-async def batch_print_items_labels(req: dict, conn: asyncpg.Connection = Depends(get_db_connection)):
+async def batch_print_items_labels(req: dict, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     try:
         raw_queue = str(req.get("queue_code") or req.get("sector") or "RECEPCION").strip().upper()
         queue_code = "RECEPCION"
@@ -269,5 +269,6 @@ async def batch_print_items_labels(req: dict, conn: asyncpg.Connection = Depends
     except HTTPException as he:
         raise he
     except Exception as e:
-        print(f"[BATCH PRINT ERROR]: {e}")
-        raise HTTPException(status_code=500, detail=f"Error en backend: {str(e)}")
+        # El detalle queda en el log del servidor; al cliente solo un mensaje generico.
+        print(f"[BATCH PRINT ERROR]: {e!r}")
+        raise HTTPException(status_code=500, detail="No se pudieron generar las etiquetas.")
