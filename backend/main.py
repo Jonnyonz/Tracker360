@@ -106,15 +106,17 @@ async def get_favicon():
         return FileResponse(path=favicon_path, media_type="image/png")
     raise HTTPException(status_code=404, detail="Favicon no encontrado")
 
-# === ENDPOINT DIRECTO PARA AGENTE DE IMPRESIÓN ===
+# === DESCARGA DEL AGENTE DE IMPRESIÓN (GitHub Releases) ===
+# El agente se publica compilado en GitHub Releases, no dentro del repo. Se redirige a la
+# ultima version. La URL es configurable por cliente (AGENT_DOWNLOAD_URL) o se deriva del
+# repositorio (UPDATER_GITHUB_REPO), sin quedar fija en el codigo.
+_AGENT_REPO = os.getenv("UPDATER_GITHUB_REPO", "Jonnyonz/Tracker360")
+AGENT_DOWNLOAD_URL = os.getenv("AGENT_DOWNLOAD_URL", f"https://github.com/{_AGENT_REPO}/releases/latest/download/Tracker360_Agente.exe")
+
 @app.get("/downloads/tracker360-agent.zip")
 @app.get("/api/download-agent")
 async def download_agent_file():
-    paths = ["downloads/tracker360-agent.zip", "frontend/downloads/tracker360-agent.zip"]
-    for p in paths:
-        if os.path.exists(p):
-            return FileResponse(path=p, filename="tracker360-agent.zip", media_type="application/zip")
-    raise HTTPException(status_code=404, detail="Archivo agente no encontrado")
+    return RedirectResponse(url=AGENT_DOWNLOAD_URL, status_code=307)
 
 # === RUTAS INTELIGENTES DE ENRUTAMIENTO (SWITCH DE VISTAS) ===
 def get_user_role_from_cookie(request: Request) -> str:
