@@ -161,21 +161,26 @@ async def verify_google_login(request: Request, response: Response, body: Google
 
     user = await conn.fetchrow("SELECT id, username, email, role, is_active, token_version FROM users WHERE LOWER(email) = $1 OR LOWER(username) = $1", email)
 
+    # Mismo mensaje para cuenta nueva y cuenta ya pendiente: no revela si el email ya existe
+    # (evita enumeracion de cuentas por parte de alguien del dominio permitido).
+    PENDING_MSG = "Tu solicitud de acceso quedó registrada. Un administrador debe aprobarla antes de que puedas ingresar."
+
     if not user:
         random_pass = secrets.token_urlsafe(24)
         hashed_pass = get_password_hash(random_pass)
-        
+
         await conn.execute("""
             INSERT INTO users (username, email, full_name, password_hash, role, is_active)
             VALUES ($1, $2, $3, $4, 'PREPARADOR', FALSE)
+            ON CONFLICT (username) DO NOTHING
         """, email, email, full_name, hashed_pass)
 
         await log_action(conn, email, "USER_REGISTERED_GOOGLE_PENDING", f"Solicitud de acceso registrada via Google para {full_name}", client_ip)
-        raise HTTPException(status_code=403, detail="Tu solicitud de acceso ha sido registrada. Un administrador debe aprobar tu cuenta antes de ingresar.")
+        raise HTTPException(status_code=403, detail=PENDING_MSG)
 
     if not user["is_active"]:
         await log_action(conn, user["username"], "GOOGLE_LOGIN_PENDING", "Intento de ingreso con cuenta pendiente de aprobacion", client_ip)
-        raise HTTPException(status_code=403, detail="Tu cuenta esta registrada pero se encuentra pendiente de aprobacion por un administrador.")
+        raise HTTPException(status_code=403, detail=PENDING_MSG)
 
     await reset_failed_login(client_ip, conn)
     token = create_access_token({"sub": user["username"], "role": user["role"], "id": str(user["id"]), "tv": user["token_version"]})

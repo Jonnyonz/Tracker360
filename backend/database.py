@@ -1,4 +1,4 @@
-import os, asyncio, uuid, secrets, json, urllib.request, urllib.error, urllib.parse, ipaddress, socket
+import os, asyncio, uuid, secrets, json, urllib.request, urllib.error, urllib.parse, ipaddress, socket, hashlib
 from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 import jwt, asyncpg
@@ -31,6 +31,22 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+# === CLAVE API DEL SISTEMA: HASH EN REPOSO ===
+# La clave del sistema se guarda hasheada (nunca en claro): un backup o una lectura de la DB
+# ya no expone la clave real. El valor en claro solo se muestra una vez, al generarla.
+SYSTEM_KEY_PREFIX = "sha256:"
+
+def hash_system_api_key(raw: str) -> str:
+    return SYSTEM_KEY_PREFIX + hashlib.sha256(raw.strip().encode("utf-8")).hexdigest()
+
+def verify_system_key_value(raw: str, stored: str) -> bool:
+    if not raw or not stored:
+        return False
+    if stored.startswith(SYSTEM_KEY_PREFIX):
+        return secrets.compare_digest(hash_system_api_key(raw), stored)
+    # Valor heredado en claro (antes de la migracion): comparacion directa.
+    return secrets.compare_digest(raw.strip(), stored.strip())
 
 async def invalidate_user_sessions(conn: asyncpg.Connection, user_id) -> None:
     """Incrementa token_version: invalida todas las sesiones activas del usuario."""
@@ -350,10 +366,14 @@ async def verify_system_api_key(request: Request, x_api_key: Optional[str] = Hea
         raise HTTPException(status_code=401, detail="Cabecera X-API-Key requerida.")
     
     valid_key = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'tracker360_api_key'")
-    if valid_key and secrets.compare_digest(x_api_key.strip(), valid_key.strip()): 
+    if valid_key and verify_system_key_value(x_api_key, valid_key):
         return True
         
-    valid_channel = await conn.fetchval("SELECT name FROM inbound_api_keys WHERE api_key = $1 AND is_active = TRUE", x_api_key.strip())
+    # Las claves por-canal tambien se guardan hasheadas; se aceptan tanto el hash (ya migradas)
+    # como el valor en claro (recien insertadas por SQL, aun sin migrar).
+    valid_channel = await conn.fetchval(
+        "SELECT name FROM inbound_api_keys WHERE api_key = ANY($1::text[]) AND is_active = TRUE",
+        [hash_system_api_key(x_api_key), x_api_key.strip()])
     if valid_channel:
         return valid_channel
         
@@ -544,8 +564,24 @@ async def init_db_schema():
 
                 sys_key = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'tracker360_api_key'")
                 if not sys_key:
+                    # Clave inicial: se guarda hasheada. Es un marcador; el admin genera una real
+                    # (que se muestra una sola vez) desde el panel para poder usarla.
                     new_key = f"trk_live_{secrets.token_hex(24)}"
-                    await conn.execute("INSERT INTO system_settings (key, value) VALUES ('tracker360_api_key', $1) ON CONFLICT (key) DO NOTHING", new_key)
+                    hashed = hash_system_api_key(new_key)
+                    await conn.execute("INSERT INTO system_settings (key, value) VALUES ('tracker360_api_key', $1) ON CONFLICT (key) DO NOTHING", hashed)
+                    await conn.execute("INSERT INTO system_settings (key, value) VALUES ('api_key', $1) ON CONFLICT (key) DO NOTHING", hashed)
+                elif not sys_key.startswith(SYSTEM_KEY_PREFIX):
+                    # Migracion: instalacion previa con la clave en claro -> se reemplaza por su hash.
+                    hashed = hash_system_api_key(sys_key)
+                    await conn.execute("UPDATE system_settings SET value = $1 WHERE key IN ('tracker360_api_key', 'api_key')", hashed)
+                    print("[DB] Clave API del sistema migrada a hash en reposo.")
+
+                # Migracion de las claves por-canal en claro a hash.
+                legacy_inbound = await conn.fetch("SELECT id, api_key FROM inbound_api_keys WHERE api_key NOT LIKE $1", SYSTEM_KEY_PREFIX + "%")
+                for row in legacy_inbound:
+                    await conn.execute("UPDATE inbound_api_keys SET api_key = $1 WHERE id = $2", hash_system_api_key(row["api_key"]), row["id"])
+                if legacy_inbound:
+                    print(f"[DB] {len(legacy_inbound)} clave(s) de canal migrada(s) a hash en reposo.")
 
                 branch_count = await conn.fetchval("SELECT COUNT(*) FROM branches")
                 if branch_count == 0:
