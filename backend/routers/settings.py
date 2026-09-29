@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from backend.database import get_db_connection, send_webhook_sync, get_current_user, require_admin, log_action, get_client_ip
+from backend.database import get_db_connection, send_webhook_sync, get_current_user, require_admin, log_action, get_client_ip, hash_system_api_key
 import asyncpg, secrets, json, uuid, asyncio, re
 
 router = APIRouter()
@@ -95,17 +95,19 @@ DEFAULT_SETTINGS = {
 }
 
 async def _gen_key_db(conn: asyncpg.Connection):
+    # Se genera la clave en claro, se muestra una sola vez y en la DB se guarda solo su hash.
     new_key = secrets.token_hex(24)
+    hashed = hash_system_api_key(new_key)
     await conn.execute("""
         INSERT INTO system_settings (key, value)
         VALUES ('tracker360_api_key', $1)
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-    """, new_key)
+    """, hashed)
     await conn.execute("""
         INSERT INTO system_settings (key, value)
         VALUES ('api_key', $1)
         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-    """, new_key)
+    """, hashed)
     return {"status": "ok", "new_key": new_key, "api_key": new_key, "value": new_key}
 
 @router.post("/api/admin/settings/generate-key")
