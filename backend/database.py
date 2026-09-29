@@ -276,6 +276,9 @@ async def dispatch_event_to_channels(conn: asyncpg.Connection, event_type: str, 
 
 async def record_stock_movement(conn: asyncpg.Connection, sku: str, branch_id: uuid.UUID, sector_id: uuid.UUID, location_id: Optional[uuid.UUID], quantity: float, movement_type: str, ref_doc: str, username: str, lot_number: str = "", expiration_date = None, condition: str = "OPERATIVO", serial_numbers: Optional[List[str]] = None):
     cond_clean = condition.strip().upper() if condition else "OPERATIVO"
+    # NULL nunca coincide en un indice unico (dos NULL son distintos): sin esto, cada movimiento
+    # sin lote crearia una fila de stock nueva en vez de sumar a la existente.
+    lot_number = lot_number or ""
     serials_json = json.dumps(serial_numbers) if serial_numbers else "[]"
     
     await conn.execute("""
@@ -287,7 +290,7 @@ async def record_stock_movement(conn: asyncpg.Connection, sku: str, branch_id: u
         await conn.execute("""
             INSERT INTO stock_inventory (branch_id, sector_id, location_id, sku, lot_number, expiration_date, quantity, condition) 
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
-            ON CONFLICT (branch_id, sector_id, location_id, sku, lot_number, condition) 
+            ON CONFLICT (branch_id, sector_id, location_id, sku, lot_number, condition) WHERE location_id IS NOT NULL
             DO UPDATE SET quantity = stock_inventory.quantity + EXCLUDED.quantity, updated_at = CURRENT_TIMESTAMP
         """, branch_id, sector_id, location_id, sku.upper(), lot_number, expiration_date, quantity, cond_clean)
     else:
