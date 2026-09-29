@@ -27,6 +27,54 @@ function switchPurchaseTab(tabId, btn) {
 
 // === GESTIÓN DE PEDIDOS Y FILTROS ===
 
+let cancelacionActual = null;
+
+async function abrirCancelacion(documentNumber) {
+    const body = document.getElementById('cancel-body');
+    document.getElementById('cancel-order-label').textContent = documentNumber;
+    body.innerHTML = '<p style="color:var(--text-muted);">Cargando...</p>';
+    openModal('modal-cancel-order');
+    try {
+        const d = await fetchAPI(`/api/picking/orders/${encodeURIComponent(documentNumber)}`);
+        cancelacionActual = { numero: documentNumber, lineas: d.lines };
+        const filas = d.lines.map((l, i) => `<tr>
+            <td class="font-mono">${escapeHTML(l.sku)}</td>
+            <td>${escapeHTML(l.description || '')}</td>
+            <td style="text-align:right;">${escapeHTML(String(l.quantity_requested))}</td>
+            <td style="text-align:right;">${escapeHTML(String(l.quantity_picked))}</td>
+            <td style="text-align:right;"><input type="number" min="0" max="${Number(l.quantity_requested)}" step="1" value="0" id="cancel-qty-${i}" style="width:90px;"></td>
+        </tr>`).join('');
+        body.innerHTML = `
+            <p style="font-size:0.9rem;">Lo ya pickeado de la cantidad cancelada vuelve al stock en las mismas ubicaciones de las que salio (movimiento "Retroceso de PDV" en la traza).</p>
+            <table><thead><tr><th>SKU</th><th>Descripcion</th><th style="text-align:right;">Pedido</th><th style="text-align:right;">Pickeado</th><th style="text-align:right;">Cancelar</th></tr></thead><tbody>${filas}</tbody></table>
+            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:1rem;">
+                <button class="btn-secondary" onclick="confirmarCancelacion(false)">Cancelar cantidades indicadas</button>
+                <button class="btn-submit" style="background:var(--danger);" onclick="confirmarCancelacion(true)">Cancelar pedido completo</button>
+            </div>`;
+    } catch (e) {
+        body.innerHTML = `<p style="color:var(--danger);">Error: ${escapeHTML(e.message)}</p>`;
+    }
+}
+
+async function confirmarCancelacion(total) {
+    if (!cancelacionActual) return;
+    const { numero, lineas } = cancelacionActual;
+    let payload = {};
+    if (!total) {
+        const lines = lineas.map((l, i) => ({ sku: l.sku, quantity: Number(document.getElementById(`cancel-qty-${i}`).value || 0) })).filter(x => x.quantity > 0);
+        if (!lines.length) { showToast('Indicar al menos una cantidad a cancelar.', 'danger'); return; }
+        payload = { lines };
+    }
+    if (!confirm(total ? `Cancelar el pedido ${numero} completo?` : `Cancelar las cantidades indicadas del pedido ${numero}?`)) return;
+    try {
+        const r = await fetchAPI(`/api/admin/sales-orders/${encodeURIComponent(numero)}/cancel`, { method: 'POST', body: payload });
+        const devuelto = (r.devuelto || []).reduce((s, d) => s + d.cantidad, 0);
+        showToast(`Pedido ${numero}: ${r.status}. Stock devuelto: ${devuelto} un.`, 'success');
+        closeModal('modal-cancel-order');
+        loadOrders();
+    } catch (e) { /* fetchAPI ya mostro el error */ }
+}
+
 async function verParticipantes(documentNumber) {
     const body = document.getElementById('part-body');
     const label = document.getElementById('part-order-label');
@@ -98,6 +146,7 @@ function filterOrders() {
         if (o.status === 'PENDING') badgeClass = 'badge-warning';
         if (o.status === 'IN_PROGRESS') badgeClass = 'badge-info';
         if (o.status === 'COMPLETED') badgeClass = 'badge-success';
+        if (o.status === 'CANCELLED') badgeClass = 'badge-danger';
         
         let actionBtn = `<span style="color:var(--text-muted); font-size:0.8rem;">Sin Acción</span>`;
         if (o.status === 'COMPLETED') {
@@ -109,7 +158,11 @@ function filterOrders() {
         }
         // El supervisor solo consulta: estado (columna) y participantes. Empacar y re-imprimir son del admin.
         const btnPart = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; margin-left:6px;" onclick="verParticipantes(${jsArg(o.document_number)})">Participantes</button>`;
-        actionBtn = (window.ROL_ACTUAL === 'SUPERVISOR') ? btnPart : actionBtn + btnPart;
+        // Cancelar (total o parcial) es solo del admin; no aplica a despachados ni cancelados.
+        const btnCancel = (o.status !== 'DISPATCHED' && o.status !== 'CANCELLED')
+            ? `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; margin-left:6px; color:var(--danger);" onclick="abrirCancelacion(${jsArg(o.document_number)})">Cancelar</button>`
+            : '';
+        actionBtn = (window.ROL_ACTUAL === 'SUPERVISOR') ? btnPart : actionBtn + btnPart + btnCancel;
 
         return `<tr>
             <td style="font-weight:bold; color:var(--accent); font-family:monospace;">${escapeHTML(o.document_number)}</td>
@@ -970,6 +1023,8 @@ window.addDynamicLineTransfer = addDynamicLineTransfer;
 window.loadOrders = loadOrders;
 window.filterOrders = filterOrders;
 window.verParticipantes = verParticipantes;
+window.abrirCancelacion = abrirCancelacion;
+window.confirmarCancelacion = confirmarCancelacion;
 window.openManualOrderModal = openManualOrderModal;
 window.addDynamicLineManualOrder = addDynamicLineManualOrder;
 window.saveManualOrder = saveManualOrder;

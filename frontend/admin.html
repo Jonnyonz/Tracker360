@@ -677,6 +677,7 @@
                     <option value="IN_PROGRESS">EN PROGRESO</option>
                     <option value="COMPLETED">COMPLETADOS (Listos p/ Empaque)</option>
                     <option value="DISPATCHED">DESPACHADOS</option>
+                    <option value="CANCELLED">CANCELADOS</option>
                 </select>
                 <button class="btn-secondary" onclick="loadOrders()">Actualizar</button>
             </div>
@@ -1435,6 +1436,14 @@
     </div>
 
     <!-- MODAL ESTACIÓN DE EMPAQUE (PACKING STATION) -->
+    <div id="modal-cancel-order" class="modal">
+        <div class="modal-content" style="max-width:760px;">
+            <span class="close-modal" onclick="closeModal('modal-cancel-order')">&times;</span>
+            <h2 style="color:var(--text-primary); margin:0 0 1rem; font-size:1.3rem;">Cancelar pedido <span id="cancel-order-label" class="font-mono" style="color:var(--accent);"></span></h2>
+            <div id="cancel-body"></div>
+        </div>
+    </div>
+
     <div id="modal-participants" class="modal">
         <div class="modal-content" style="max-width:720px;">
             <span class="close-modal" onclick="closeModal('modal-participants')">&times;</span>
@@ -2080,16 +2089,16 @@
     </div>
 
     <!-- SCRIPTS DEL SISTEMA -->
-    <script src="js/admin-core.js?v=20260929_2"></script>
+    <script src="js/admin-core.js?v=20260929_3"></script>
     <script src="js/api.js?v=20260929_1"></script>
     <script src="js/users.js?v=20260928_1"></script>
     <script src="js/entities.js?v=20260928_1"></script>
-    <script src="js/items.js?v=20260929_2"></script>
+    <script src="js/items.js?v=20260929_3"></script>
     <script src="js/warehouse.js?v=20260928_1"></script>
-    <script src="js/operations.js?v=20260929_2"></script>
+    <script src="js/operations.js?v=20260929_3"></script>
     <script src="js/reports.js?v=20260928_1"></script>
-    <script src="js/settings.js?v=20260928_1"></script>
-    <script src="js/admin-init.js?v=20260929_2"></script>
+    <script src="js/settings.js?v=20260929_3"></script>
+    <script src="js/admin-init.js?v=20260929_3"></script>
     
     <script>
         function toggleSidebar() {

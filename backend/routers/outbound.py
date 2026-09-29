@@ -1,13 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone
 import asyncpg, uuid, json
 
 try:
-    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency
+    from backend.database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency
 except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency
+    from database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency
 
 router = APIRouter(tags=["Outbound & Dispatch"])
 
@@ -79,8 +79,8 @@ async def get_document_participants(document_number: str, user: dict = Depends(r
         "document_number": doc["document_number"], "status": doc["status"], "created_at": doc["created_at"],
         "picking": [dict(r) for r in picking],
         "eventos": [dict(r) for r in eventos],
-        # El picking por olas registra sus movimientos como WAVE-PICK, sin el numero de pedido.
-        "nota": "El picking por olas no queda asociado a un pedido puntual y no aparece aca.",
+        # Pickeos por ola anteriores a que se registraran por pedido quedaron como WAVE-PICK.
+        "nota": "Los pickeos por ola hechos antes de esta version quedaron sin numero de pedido y no aparecen aca.",
     }
 
 @router.get("/api/admin/sales-orders/next-number")
@@ -120,6 +120,95 @@ async def create_manual_sales_order(
         
         await save_idempotency(conn, x_idempotency_key, "/api/admin/sales-orders", res_data)
         return res_data
+
+class CancelLine(BaseModel):
+    sku: str
+    quantity: float
+
+class CancelOrderInput(BaseModel):
+    # Sin lineas: cancelacion total. Con lineas: se cancela esa cantidad de cada SKU.
+    lines: Optional[List[CancelLine]] = None
+
+def _tipo_retroceso(num: str) -> str:
+    return f"Retroceso de PDV ID:{num}"
+
+@router.post("/api/admin/sales-orders/{document_number}/cancel")
+async def cancel_sales_order(document_number: str, data: CancelOrderInput, request: Request, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Cancelacion total o parcial (solo ADMIN). Lo ya pickeado de la parte cancelada vuelve al
+    stock tal como estaba antes de prepararlo: misma sucursal, sector, ubicacion, lote, condicion
+    y numeros de serie, con el movimiento "Retroceso de PDV ID:<pedido>" en la traza."""
+    num = document_number.strip().upper()
+    tipo = _tipo_retroceso(num)
+    async with conn.transaction():
+        doc = await conn.fetchrow("SELECT id, status FROM documents WHERE UPPER(document_number) = $1 FOR UPDATE", num)
+        if not doc: raise HTTPException(404, "Pedido no encontrado.")
+        if doc["status"] == "DISPATCHED": raise HTTPException(400, "El pedido ya fue despachado: no se puede cancelar.")
+        if doc["status"] == "CANCELLED": raise HTTPException(400, "El pedido ya esta cancelado.")
+
+        lineas = await conn.fetch("SELECT id, UPPER(sku) AS sku, quantity_requested::float AS pedido, quantity_picked::float AS pickeado FROM document_lines WHERE document_id = $1 FOR UPDATE", doc["id"])
+        por_sku = {l["sku"]: l for l in lineas}
+        if not data.lines:
+            objetivo = {l["sku"]: l["pedido"] for l in lineas if l["pedido"] > 0}
+        else:
+            objetivo = {}
+            for cl in data.lines:
+                sku = cl.sku.strip().upper()
+                if sku not in por_sku: raise HTTPException(400, f"El SKU '{sku}' no pertenece a este pedido.")
+                if cl.quantity <= 0: raise HTTPException(400, "La cantidad a cancelar debe ser mayor a cero.")
+                objetivo[sku] = objetivo.get(sku, 0) + cl.quantity
+            for sku, cant in objetivo.items():
+                if cant > por_sku[sku]["pedido"] + 1e-9:
+                    raise HTTPException(400, f"No se pueden cancelar {cant:g} de '{sku}': el pedido tiene {por_sku[sku]['pedido']:g}.")
+
+        devuelto = []
+        for sku, cancelar in objetivo.items():
+            linea = por_sku[sku]
+            nuevo_pedido = linea["pedido"] - cancelar
+            a_devolver = max(0.0, linea["pickeado"] - nuevo_pedido)
+            if a_devolver > 0:
+                # Stock que salio para este pedido, por ubicacion/lote/condicion, neto de retrocesos previos.
+                movs = await conn.fetch("""
+                    SELECT movement_type, branch_id, sector_id, location_id, COALESCE(lot_number, '') AS lote,
+                           COALESCE(condition, 'OPERATIVO') AS cond, expiration_date, quantity::float AS q,
+                           COALESCE(serial_numbers, '[]'::jsonb)::text AS sn, created_at
+                    FROM stock_movements
+                    WHERE reference_document = $1 AND UPPER(sku) = $2 AND movement_type IN ('OUT_PICKING', $3)
+                    ORDER BY created_at, id
+                """, num, sku, tipo)
+                origenes = {}
+                for m in movs:
+                    clave = (m["branch_id"], m["sector_id"], m["location_id"], m["lote"], m["cond"])
+                    o = origenes.setdefault(clave, {"neto": 0.0, "seriales": [], "vence": m["expiration_date"], "ultimo": None})
+                    seriales = json.loads(m["sn"]) or []
+                    if m["movement_type"] == "OUT_PICKING":
+                        o["neto"] += -m["q"]; o["seriales"].extend(seriales); o["ultimo"] = m["created_at"]
+                    else:
+                        o["neto"] -= m["q"]; o["seriales"] = [s for s in o["seriales"] if s not in seriales]
+                atribuible = sum(o["neto"] for o in origenes.values())
+                if atribuible + 1e-9 < a_devolver:
+                    raise HTTPException(409, f"{a_devolver - atribuible:g} unidades de '{sku}' se pickearon sin registrar el pedido (picking por ola de una version anterior): no se sabe de que ubicacion salieron. Cancelar menos unidades o devolverlas con un ajuste de stock.")
+                restante = a_devolver
+                # Primero lo pickeado mas recientemente.
+                for clave, o in sorted(origenes.items(), key=lambda kv: (kv[1]["ultimo"] is not None, kv[1]["ultimo"] or 0), reverse=True):
+                    if restante <= 1e-9: break
+                    cant = min(o["neto"], restante)
+                    if cant <= 1e-9: continue
+                    seriales = o["seriales"][-int(cant):] if o["seriales"] and cant >= 1 else []
+                    await record_stock_movement(conn, sku, clave[0], clave[1], clave[2], cant, tipo, num, admin.get("username"), lot_number=clave[3], expiration_date=o["vence"], condition=clave[4], serial_numbers=seriales)
+                    devuelto.append({"sku": sku, "cantidad": cant, "location_id": str(clave[2]) if clave[2] else None})
+                    restante -= cant
+            await conn.execute("UPDATE document_lines SET quantity_requested = $1, quantity_picked = $2 WHERE id = $3", nuevo_pedido, linea["pickeado"] - a_devolver, linea["id"])
+
+        tot = await conn.fetchrow("SELECT COALESCE(SUM(quantity_requested), 0)::float AS pedido, COALESCE(SUM(quantity_picked), 0)::float AS pickeado, COUNT(*) FILTER (WHERE quantity_picked < quantity_requested) AS pendientes FROM document_lines WHERE document_id = $1", doc["id"])
+        if tot["pedido"] <= 1e-9: estado = "CANCELLED"
+        elif tot["pendientes"] == 0: estado = "COMPLETED"
+        elif tot["pickeado"] > 0: estado = "IN_PROGRESS"
+        else: estado = "PENDING"
+        await conn.execute("UPDATE documents SET status = $1 WHERE id = $2", estado, doc["id"])
+        detalle = ", ".join(f"{sku} x{cant:g}" for sku, cant in objetivo.items())
+        await log_action(conn, admin.get("username"), "ORDER_CANCELLED" if estado == "CANCELLED" else "ORDER_PARTIAL_CANCEL",
+                         f"Pedido {num}: cancelado {detalle}. Stock devuelto: {sum(d['cantidad'] for d in devuelto):g} un.", get_client_ip(request))
+    return {"status": estado, "devuelto": devuelto}
 
 @router.post("/api/admin/sales-orders/{document_number}/print-label")
 async def reprint_order_label(document_number: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
@@ -205,6 +294,7 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
         doc = await conn.fetchrow("SELECT id, status FROM documents WHERE UPPER(document_number) = $1 FOR UPDATE", document_number.strip().upper())
         if not doc: raise HTTPException(404, "Pedido no encontrado.")
         if doc["status"] == "COMPLETED": raise HTTPException(400, "El pedido ya se encuentra completado.")
+        if doc["status"] in ("CANCELLED", "DISPATCHED"): raise HTTPException(400, "El pedido esta cancelado o ya fue despachado.")
         
         sku_clean = data.sku.strip().upper()
         line = await conn.fetchrow("SELECT id, quantity_requested::float, quantity_picked::float FROM document_lines WHERE document_id = $1 AND UPPER(sku) = $2", doc["id"], sku_clean)
@@ -336,6 +426,9 @@ async def scan_wave_picking_item(data: WavePickScanInput, user: dict = Depends(g
             
         serial_idx = 0
         serials_list = data.serial_numbers or []
+        # Reparto por pedido: cada pedido de la ola recibe su propio movimiento de stock (con su
+        # numero como referencia), para poder saber quien pickeo que y revertirlo al cancelar.
+        asignaciones = []
         
         for lu in lines_to_update:
             if qty_to_distribute <= 0: break
@@ -351,6 +444,7 @@ async def scan_wave_picking_item(data: WavePickScanInput, user: dict = Depends(g
             """, apply_qty, json.dumps(apply_serials), lu["line_id"])
             
             qty_to_distribute -= apply_qty
+            asignaciones.append((lu["doc_number"], apply_qty, apply_serials))
             await conn.execute("UPDATE documents SET status = 'IN_PROGRESS' WHERE id = $1 AND status = 'PENDING'", lu["doc_id"])
         
         loc_id = None
@@ -382,7 +476,8 @@ async def scan_wave_picking_item(data: WavePickScanInput, user: dict = Depends(g
             if float(avail or 0) < data.quantity: raise HTTPException(400, f"Stock insuficiente en la ubicación (Disponible: {avail}).")
 
         if branch_id and sector_id:
-            await record_stock_movement(conn, sku_clean, branch_id, sector_id, loc_id, -data.quantity, 'OUT_PICKING', "WAVE-PICK", user.get("username"), serial_numbers=data.serial_numbers)
+            for doc_number, cantidad, seriales in asignaciones:
+                await record_stock_movement(conn, sku_clean, branch_id, sector_id, loc_id, -cantidad, 'OUT_PICKING', doc_number.strip().upper(), user.get("username"), serial_numbers=seriales)
 
         auto_complete = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'auto_complete_picking'") or "true"
         wave_completed = True

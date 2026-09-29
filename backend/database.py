@@ -477,6 +477,8 @@ async def init_db_schema():
                     
                     "CREATE TABLE IF NOT EXISTS stock_movements (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), sku VARCHAR(100) NOT NULL, branch_id UUID REFERENCES branches(id), sector_id UUID REFERENCES sectors(id), location_id UUID REFERENCES locations(id), quantity NUMERIC NOT NULL, movement_type VARCHAR(50) NOT NULL, reference_document VARCHAR(100), username VARCHAR(50) NOT NULL, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS lot_number VARCHAR(100) DEFAULT '';",
+                    # "Retroceso de PDV ID:<pedido>" (cancelaciones) no entra en 50 con numeros largos.
+                    "ALTER TABLE stock_movements ALTER COLUMN movement_type TYPE VARCHAR(100);",
                     "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS expiration_date DATE;",
                     "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS condition VARCHAR(50) DEFAULT 'OPERATIVO';",
                     "ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS serial_numbers JSONB DEFAULT '[]'::jsonb;",

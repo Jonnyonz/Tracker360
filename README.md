@@ -27,7 +27,7 @@ común.
 |---|---|---|
 | `ADMIN` | `/admin` (panel) | Todo: usuarios, sucursales/sectores/ubicaciones, artículos (combos, ubicaciones fijas, importación CSV), stock y kardex, pedidos de venta, traspasos, conteos, reportes, configuración, agentes de impresión, logs de webhooks. |
 | `PREPARADOR` | `/mobile` (colectora o celular) | Recepción de remitos, picking y packing de pedidos, traspasos, conteos asignados. Lectura de códigos con la cámara (QR, Code 128, EAN-13, Code 39, DataMatrix). |
-| `SUPERVISOR` | `/admin` (solo Pedidos) | Control de pedidos: ve cada pedido con su estado y avance, y quiénes participaron (quién lo pickeó y cuántas unidades, quién lo creó y lo despachó). No crea pedidos ni administra nada más. También puede operar conteos y autorizar agentes de impresión. |
+| `SUPERVISOR` | `/admin` (consulta) | Consulta todo lo operativo sin modificarlo: dashboard, artículos, stock y traza, reportes, depósitos, clientes y proveedores, compras, traspasos. Controla los pedidos: estado, avance y quiénes participaron (quién pickeó y cuántas unidades, quién lo creó y lo despachó). También opera conteos y autoriza agentes de impresión. No ve usuarios, configuración ni logs, y no crea, edita ni cancela nada. |
 
 Flujos principales:
 
@@ -35,6 +35,9 @@ Flujos principales:
   ubicación sugerida (putaway).
 - **Salida:** pedido de venta → picking (por pedido u olas) → packing → despacho. Al despachar
   se imprime la etiqueta y se avisa por webhook.
+- **Cancelación (solo admin):** total o parcial, antes del despacho. Lo ya pickeado de la parte
+  cancelada vuelve al stock exactamente como estaba antes de prepararlo (misma ubicación, lote,
+  condición y números de serie), con el movimiento `Retroceso de PDV ID:<pedido>` en la traza.
 - **Interno:** traspasos entre sectores (ODT) con sugerencias de reposición; conteos cíclicos
   por sector con revisión y ajuste; control puntual de stock.
 - **Integración:** webhooks salientes de stock y despacho (`OUTBOUND_STOCK`,
@@ -332,8 +335,9 @@ Para no prometer lo que no está:
 - Algunos formularios del panel (órdenes de compra, remitos, facturas de compra, devoluciones
   de cliente, alta de canales) todavía no tienen su acción implementada. Hoy la recepción
   trabaja sobre remitos ya cargados en la base.
-- El picking por olas registra sus movimientos sin el número de pedido, así que no aparece en
-  los participantes de cada pedido.
+- Los pickeos por ola hechos antes de esta versión quedaron sin número de pedido: no aparecen
+  en los participantes y no se pueden revertir automáticamente al cancelar (la cancelación lo
+  avisa y hay que devolverlos con un ajuste de stock).
 - Hay opciones de configuración que se guardan pero todavía no cambian el comportamiento
   (por ejemplo, el tiempo de sesión: hoy es fijo en 4 horas).
 - No hay token CSRF: la protección es `SameSite=Strict` en la cookie de sesión.
