@@ -5,7 +5,9 @@ try:
 except ImportError:
     from main import app
 
-client = TestClient(app)
+# https: el middleware de main.py rechaza (403) lo que no sea https salvo IPs privadas, y el
+# host del cliente de pruebas ("testclient") no es una IP. Es lo que ve la app detras del proxy.
+client = TestClient(app, base_url="https://testserver")
 
 def test_modular_architecture_compiles():
     # 1. Al solicitar el esquema OpenAPI, FastAPI compila internamente todos los routers.
