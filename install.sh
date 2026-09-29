@@ -29,6 +29,27 @@ fi
 
 # 3. Generar archivo .env si no existe
 if [ ! -f .env ]; then
+    # Postgres solo aplica POSTGRES_PASSWORD la primera vez que inicializa su volumen de datos:
+    # un .env nuevo no sirve contra un volumen de una instalacion anterior. Antes se borraba ese
+    # volumen sin preguntar, y quien habia movido o perdido el .env perdia toda la base. Ahora,
+    # si el volumen existe, no se toca nada salvo que se pida explicitamente.
+    # Nombre del proyecto como lo calcula docker compose (no se puede usar "docker compose config":
+    # falla justamente porque falta el .env que pide el env_file del compose).
+    PROJECT="${COMPOSE_PROJECT_NAME:-$(basename "$PWD" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_-')}"
+    VOLUME="${PROJECT}_tracker360_pgdata"
+    if [ -n "$PROJECT" ] && docker volume inspect "$VOLUME" > /dev/null 2>&1; then
+        if [ "${TRACKER360_RESET_DB:-}" = "1" ]; then
+            echo "TRACKER360_RESET_DB=1: se BORRA la base de datos de la instalacion anterior (volumen $VOLUME)."
+            docker compose down -v > /dev/null 2>&1 || true
+        else
+            echo "ERROR: hay una base de datos de una instalacion anterior (volumen $VOLUME) pero no hay .env."
+            echo "No se borro nada. Opciones:"
+            echo "  - Restaurar el .env de esa instalacion en esta carpeta y volver a correr ./install.sh"
+            echo "  - Empezar de cero BORRANDO esos datos: TRACKER360_RESET_DB=1 ./install.sh"
+            exit 1
+        fi
+    fi
+
     echo "Configurando variables de entorno y claves de seguridad (.env)..."
     DB_PASS=$(openssl rand -hex 16 2>/dev/null || tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 24)
     SECRET_KEY=$(openssl rand -hex 32 2>/dev/null || tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 48)
@@ -56,13 +77,6 @@ SETUP_TOKEN=${SETUP_TOKEN}
 ${ORIGINS_LINE}
 EOF
     echo "Archivo .env generado con contrasenas seguras."
-
-    # Postgres solo aplica POSTGRES_PASSWORD la primera vez que inicializa su volumen de datos.
-    # Si quedo un volumen de una instalacion anterior con otra contrasena, la app nunca podria
-    # autenticarse. Como aca se acaba de generar un .env nuevo (instalacion desde cero), nos
-    # aseguramos de que no sobreviva un volumen viejo con credenciales que ya no coinciden.
-    echo "Verificando que no quede un volumen de base de datos de una instalacion anterior..."
-    docker compose down -v > /dev/null 2>&1 || true
 else
     echo "Se detecto un archivo .env existente. Manteniendo configuracion."
 fi

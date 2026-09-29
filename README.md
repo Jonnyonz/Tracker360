@@ -141,9 +141,10 @@ El instalador genera el `.env` con clave de base, `SECRET_KEY` y `SETUP_TOKEN` a
 pregunta el dominio (para `ALLOWED_ORIGINS`), levanta los contenedores y muestra la URL y el
 `SETUP_TOKEN`.
 
-> **Cuidado:** si `install.sh` no encuentra un `.env`, asume una instalación desde cero y
-> **borra el volumen de la base** (`docker compose down -v`). No lo ejecutes en un servidor con
-> datos si moviste o borraste el `.env`: restaurá el `.env` primero.
+Se puede volver a correr para actualizar: si ya hay un `.env`, lo respeta. Si no hay `.env`
+pero sí quedó la base de una instalación anterior, **se detiene sin borrar nada** y explica las
+opciones: restaurar el `.env` anterior, o empezar de cero borrando esos datos con
+`TRACKER360_RESET_DB=1 ./install.sh`.
 
 ### Opción B: a mano
 
