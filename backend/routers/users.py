@@ -46,14 +46,15 @@ async def create_or_update_user(data: UserCreate, admin: dict = Depends(require_
     await conn.execute("""
         INSERT INTO users (username, full_name, password_hash, role, email, branch_id, sector_id, is_active) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE) 
-        ON CONFLICT (username) DO UPDATE SET 
-            full_name = EXCLUDED.full_name, 
-            password_hash = EXCLUDED.password_hash, 
-            role = EXCLUDED.role, 
-            email = EXCLUDED.email, 
-            branch_id = EXCLUDED.branch_id, 
-            sector_id = EXCLUDED.sector_id, 
-            is_active = TRUE
+        ON CONFLICT (username) DO UPDATE SET
+            full_name = EXCLUDED.full_name,
+            password_hash = EXCLUDED.password_hash,
+            role = EXCLUDED.role,
+            email = EXCLUDED.email,
+            branch_id = EXCLUDED.branch_id,
+            sector_id = EXCLUDED.sector_id,
+            is_active = TRUE,
+            token_version = users.token_version + 1
     """, clean_username, data.full_name.strip(), get_password_hash(data.password), data.role, data.email.strip() if data.email else None, data.branch_id, data.sector_id)
     
     await log_action(conn, admin.get("username", "admin"), "USER_CREATED", f"Creó o actualizó usuario nativo {clean_username}")
@@ -104,6 +105,10 @@ async def update_user(identifier: str, data: UserUpdate, admin: dict = Depends(r
         updates.append(f"password_hash = ${idx}")
         params.append(get_password_hash(data.password.strip()))
         idx += 1
+
+    # Cambiar la clave o desactivar al usuario invalida todas sus sesiones activas.
+    if (data.password and data.password.strip()) or data.is_active is False:
+        updates.append("token_version = token_version + 1")
 
     if updates:
         query = f"UPDATE users SET {', '.join(updates)} WHERE id = ${idx}"

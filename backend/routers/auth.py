@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from pydantic import BaseModel
-import asyncpg, json, urllib.request, urllib.parse, asyncio, secrets, os
+import asyncpg, json, urllib.request, urllib.parse, asyncio, secrets, os, jwt, uuid
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -8,13 +8,13 @@ try:
     from backend.database import (
         get_db_connection, check_rate_limit, record_failed_login,
         reset_failed_login, verify_password, get_password_hash, create_access_token, log_action,
-        get_current_user, get_client_ip
+        get_current_user, get_client_ip, invalidate_user_sessions, SECRET_KEY, ALGORITHM
     )
 except ImportError:
     from database import (
         get_db_connection, check_rate_limit, record_failed_login,
         reset_failed_login, verify_password, get_password_hash, create_access_token, log_action,
-        get_current_user, get_client_ip
+        get_current_user, get_client_ip, invalidate_user_sessions, SECRET_KEY, ALGORITHM
     )
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
@@ -60,12 +60,12 @@ async def setup_admin(data: SetupAdminRequest, request: Request, response: Respo
 
     hashed_pass = get_password_hash(password)
     user = await conn.fetchrow(
-        "INSERT INTO users (username, full_name, password_hash, role, is_active) VALUES ($1, $2, $3, 'ADMIN', TRUE) RETURNING id, username, role",
+        "INSERT INTO users (username, full_name, password_hash, role, is_active) VALUES ($1, $2, $3, 'ADMIN', TRUE) RETURNING id, username, role, token_version",
         username, full_name, hashed_pass
     )
     await log_action(conn, username, "SETUP_ADMIN_CREATED", "Usuario administrador inicial creado desde la pantalla de configuración", client_ip)
 
-    token = create_access_token({"sub": user["username"], "role": user["role"], "id": str(user["id"])})
+    token = create_access_token({"sub": user["username"], "role": user["role"], "id": str(user["id"]), "tv": user["token_version"]})
     response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="strict", max_age=14400)
     return {"message": "Exito", "role": user["role"]}
 
@@ -111,16 +111,16 @@ async def login(request: Request, response: Response, credentials: LoginRequest,
     
     await check_rate_limit(client_ip, conn)
     
-    user = await conn.fetchrow("SELECT id, username, password_hash, role, is_active FROM users WHERE LOWER(username) = $1 OR LOWER(email) = $1", credentials.username.strip().lower())
-    
+    user = await conn.fetchrow("SELECT id, username, password_hash, role, is_active, token_version FROM users WHERE LOWER(username) = $1 OR LOWER(email) = $1", credentials.username.strip().lower())
+
     if not user or not user["is_active"] or not verify_password(credentials.password, user["password_hash"]):
         await record_failed_login(client_ip, conn)
         username_attempt = credentials.username.strip().lower() if credentials.username else "UNKNOWN"
         await log_action(conn, username_attempt, "LOGIN_FAILED", "Intento de acceso fallido", client_ip)
         raise HTTPException(status_code=401, detail="Credenciales incorrectas o cuenta no aprobada.")
-    
+
     await reset_failed_login(client_ip, conn)
-    token = create_access_token({"sub": user["username"], "role": user["role"], "id": str(user["id"])})
+    token = create_access_token({"sub": user["username"], "role": user["role"], "id": str(user["id"]), "tv": user["token_version"]})
     
     response.set_cookie(
         key="access_token", 
@@ -159,7 +159,7 @@ async def verify_google_login(request: Request, response: Response, body: Google
             await log_action(conn, email, "GOOGLE_LOGIN_BLOCKED", f"Dominio no autorizado: {email}", client_ip)
             raise HTTPException(status_code=403, detail=f"Solo se permiten correos del dominio @{req_domain}.")
 
-    user = await conn.fetchrow("SELECT id, username, email, role, is_active FROM users WHERE LOWER(email) = $1 OR LOWER(username) = $1", email)
+    user = await conn.fetchrow("SELECT id, username, email, role, is_active, token_version FROM users WHERE LOWER(email) = $1 OR LOWER(username) = $1", email)
 
     if not user:
         random_pass = secrets.token_urlsafe(24)
@@ -178,7 +178,7 @@ async def verify_google_login(request: Request, response: Response, body: Google
         raise HTTPException(status_code=403, detail="Tu cuenta esta registrada pero se encuentra pendiente de aprobacion por un administrador.")
 
     await reset_failed_login(client_ip, conn)
-    token = create_access_token({"sub": user["username"], "role": user["role"], "id": str(user["id"])})
+    token = create_access_token({"sub": user["username"], "role": user["role"], "id": str(user["id"]), "tv": user["token_version"]})
 
     response.set_cookie(
         key="access_token", 
@@ -197,6 +197,16 @@ async def me(user: dict = Depends(get_current_user)):
     return {"username": user["username"], "role": user["role"]}
 
 @router.post("/logout")
-async def logout(response: Response):
+async def logout(request: Request, response: Response, conn: asyncpg.Connection = Depends(get_db_connection)):
+    # Ademas de borrar la cookie, invalida el token del lado servidor (por si fue copiado).
+    token = request.cookies.get("access_token")
+    if token and token.startswith("Bearer "):
+        try:
+            payload = jwt.decode(token.split(" ")[1], SECRET_KEY, algorithms=[ALGORITHM])
+            user_id = payload.get("id")
+            if user_id:
+                await invalidate_user_sessions(conn, uuid.UUID(user_id))
+        except (jwt.PyJWTError, ValueError):
+            pass
     response.delete_cookie("access_token", secure=True, httponly=True, samesite="strict")
     return {"message": "Exito"}
