@@ -369,7 +369,11 @@ async def verify_system_api_key(request: Request, x_api_key: Optional[str] = Hea
     if valid_key and verify_system_key_value(x_api_key, valid_key):
         return True
         
-    valid_channel = await conn.fetchval("SELECT name FROM inbound_api_keys WHERE api_key = $1 AND is_active = TRUE", x_api_key.strip())
+    # Las claves por-canal tambien se guardan hasheadas; se aceptan tanto el hash (ya migradas)
+    # como el valor en claro (recien insertadas por SQL, aun sin migrar).
+    valid_channel = await conn.fetchval(
+        "SELECT name FROM inbound_api_keys WHERE api_key = ANY($1::text[]) AND is_active = TRUE",
+        [hash_system_api_key(x_api_key), x_api_key.strip()])
     if valid_channel:
         return valid_channel
         
@@ -571,6 +575,13 @@ async def init_db_schema():
                     hashed = hash_system_api_key(sys_key)
                     await conn.execute("UPDATE system_settings SET value = $1 WHERE key IN ('tracker360_api_key', 'api_key')", hashed)
                     print("[DB] Clave API del sistema migrada a hash en reposo.")
+
+                # Migracion de las claves por-canal en claro a hash.
+                legacy_inbound = await conn.fetch("SELECT id, api_key FROM inbound_api_keys WHERE api_key NOT LIKE $1", SYSTEM_KEY_PREFIX + "%")
+                for row in legacy_inbound:
+                    await conn.execute("UPDATE inbound_api_keys SET api_key = $1 WHERE id = $2", hash_system_api_key(row["api_key"]), row["id"])
+                if legacy_inbound:
+                    print(f"[DB] {len(legacy_inbound)} clave(s) de canal migrada(s) a hash en reposo.")
 
                 branch_count = await conn.fetchval("SELECT COUNT(*) FROM branches")
                 if branch_count == 0:
