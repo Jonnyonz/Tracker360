@@ -46,12 +46,19 @@ function showToast(message, type = "info") {
     const bgClass = type === 'danger' ? 'bg-danger' : type === 'success' ? 'bg-success' : 'bg-dark';
     toastEl.className = `toast align-items-center text-white ${bgClass} border-0 show mb-2`;
     toastEl.role = 'alert';
-    toastEl.innerHTML = `
-        <div class="d-flex">
-            <div class="toast-body fw-bold">${message}</div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" onclick="this.parentElement.parentElement.remove()"></button>
-        </div>
-    `;
+    // El mensaje puede venir del servidor y repetir lo que escribio el usuario: se inserta
+    // siempre como texto (textContent), nunca como HTML, para que no pueda inyectar codigo.
+    const fila = document.createElement('div');
+    fila.className = 'd-flex';
+    const cuerpo = document.createElement('div');
+    cuerpo.className = 'toast-body fw-bold';
+    cuerpo.textContent = String(message);
+    const cerrar = document.createElement('button');
+    cerrar.type = 'button';
+    cerrar.className = 'btn-close btn-close-white me-2 m-auto';
+    cerrar.addEventListener('click', () => toastEl.remove());
+    fila.append(cuerpo, cerrar);
+    toastEl.appendChild(fila);
     container.appendChild(toastEl);
     setTimeout(() => { if (toastEl) toastEl.remove(); }, 4000);
 }
