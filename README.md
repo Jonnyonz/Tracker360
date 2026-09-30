@@ -27,7 +27,7 @@ común.
 |---|---|---|
 | `ADMIN` | `/admin` (panel) | Todo: usuarios, sucursales/sectores/ubicaciones, artículos (combos, ubicaciones fijas, importación CSV), stock y kardex, pedidos de venta, traspasos, conteos, reportes, configuración, agentes de impresión, logs de webhooks. |
 | `PREPARADOR` | `/mobile` (colectora o celular) | Recepción de remitos, picking y packing de pedidos, traspasos, conteos asignados. Lectura de códigos con la cámara (QR, Code 128, EAN-13, Code 39, DataMatrix). |
-| `SUPERVISOR` | `/admin` (consulta) | Consulta todo lo operativo sin modificarlo: dashboard, artículos, stock y traza, reportes, depósitos, clientes y proveedores, compras, traspasos. Controla los pedidos: estado, avance y quiénes participaron (quién pickeó y cuántas unidades, quién lo creó y lo despachó). También opera conteos y autoriza agentes de impresión. No ve usuarios, configuración ni logs, y no crea, edita ni cancela nada. |
+| `SUPERVISOR` | `/admin` (consulta) | Consulta todo lo operativo sin modificarlo: dashboard, artículos, stock y traza, reportes, depósitos, clientes y proveedores, compras, traspasos. Controla los pedidos: estado, avance y quiénes participaron (quién pickeó y cuántas unidades, quién lo creó y lo despachó). También opera conteos y autoriza agentes de impresión. No ve usuarios, configuración ni logs, y no crea, edita ni cancela nada (sí puede agregar observaciones a los documentos). |
 
 Flujos principales:
 
@@ -40,6 +40,9 @@ Flujos principales:
   condición y números de serie), con el movimiento `Retroceso de PDV ID:<pedido>` en la traza.
 - **Interno:** traspasos entre sectores (ODT) con sugerencias de reposición; conteos cíclicos
   por sector con revisión y ajuste; control puntual de stock.
+- **Observaciones:** cada pedido, traspaso, remito, orden de compra y devolución lleva sus
+  observaciones, visibles dentro del documento. Las escribe quien puede ver el documento o el
+  propio sistema (marcadas como "Sistema"); no se editan ni se borran.
 - **Integración:** webhooks salientes de stock y despacho (`OUTBOUND_STOCK`,
   `OUTBOUND_DESPACHO`), con historial y reintento. Operaciones con clave de idempotencia
   (`X-Idempotency-Key`) donde importa no duplicar.
@@ -70,7 +73,7 @@ Tracker360/
 │   ├── database.py          # Seguridad, pool, esquema, movimientos de stock, webhooks
 │   ├── routers/             # auth, users, entities, items, warehouse, settings, printing,
 │   │                        # inbound, outbound, internal, inventory, dashboard, reports,
-│   │                        # rfid, updater
+│   │                        # rfid, updater, notes
 │   ├── test_architecture.py
 │   ├── requirements.txt
 │   └── Dockerfile           # se construye desde la raíz del repo
@@ -99,6 +102,7 @@ inicial. Grupos de tablas:
 | Interno | `transfer_orders`, `transfer_order_lines`, `inventory_sessions`, `inventory_snapshots`, `inventory_counts` |
 | Devoluciones | `customer_returns`, `customer_return_lines` |
 | Integración e impresión | `system_settings`, `integration_channels`, `webhook_logs`, `print_jobs`, `print_agent_auth_codes`, `print_agent_tokens` |
+| Observaciones | `document_notes` (tipo y id del documento; solo se agregan) |
 | Otros | `entities`, `entity_addresses` (clientes y proveedores) |
 
 ### Seguridad
