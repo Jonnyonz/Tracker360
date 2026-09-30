@@ -4,9 +4,9 @@ from typing import Optional, List
 import asyncpg, uuid, re, json
 
 try:
-    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity
+    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, build_full_address
 except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity
+    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, build_full_address
 
 router = APIRouter(tags=["Inbound & Receptions"])
 
@@ -16,6 +16,16 @@ class MobileRemitoScanInput(BaseModel):
     quantity: float
     location_code: Optional[str] = None
     serial_numbers: Optional[List[str]] = []
+
+class PurchaseOrderLineInput(BaseModel):
+    sku: str
+    quantity: float
+
+class PurchaseOrderCreateInput(BaseModel):
+    order_number: str
+    supplier_id: str
+    branch_id: str
+    lines: List[PurchaseOrderLineInput]
 
 class CustomerReturnLineInput(BaseModel):
     sku: str
@@ -36,6 +46,100 @@ class CustomerReturnCreateInput(BaseModel):
 async def list_admin_purchase_orders(search: str = "", limit: int = 50, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("SELECT po.id::text as id, po.order_number, po.status, po.created_at, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name FROM purchase_orders po LEFT JOIN entities e ON po.supplier_id = e.id WHERE po.order_number ILIKE $1 ORDER BY po.created_at DESC LIMIT $2", f"%{search}%", limit)
     return [dict(r) for r in rows]
+
+def _parse_uuid(value: str, message: str) -> uuid.UUID:
+    try:
+        return uuid.UUID(str(value))
+    except ValueError:
+        raise HTTPException(400, message)
+
+@router.get("/api/admin/purchase-orders/next-number")
+async def get_next_purchase_order_number(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    val = await conn.fetchval("SELECT order_number FROM purchase_orders ORDER BY created_at DESC LIMIT 1")
+    digits = re.findall(r'\d+', val or "")
+    return {"next_number": f"OC-{(int(digits[-1]) + 1) if digits else 1:06d}"}
+
+@router.post("/api/admin/purchase-orders")
+async def create_purchase_order(data: PurchaseOrderCreateInput, x_idempotency_key: Optional[str] = Header(None), admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    cached_resp = await check_idempotency(conn, x_idempotency_key, "/api/admin/purchase-orders")
+    if cached_resp:
+        return cached_resp[0]
+
+    number = data.order_number.strip().upper()
+    if not number: raise HTTPException(400, "El número de orden es obligatorio.")
+    supplier_id = _parse_uuid(data.supplier_id, "Proveedor inválido.")
+    branch_id = _parse_uuid(data.branch_id, "Sucursal inválida.")
+    if not data.lines: raise HTTPException(400, "La orden debe tener al menos un artículo.")
+
+    async with conn.transaction():
+        if await conn.fetchval("SELECT 1 FROM purchase_orders WHERE UPPER(order_number) = $1", number):
+            raise HTTPException(400, "El número de orden ya existe.")
+        if not await conn.fetchval("SELECT 1 FROM entities WHERE id = $1 AND is_supplier = TRUE", supplier_id):
+            raise HTTPException(400, "El proveedor no existe o no está marcado como proveedor.")
+        if not await conn.fetchval("SELECT 1 FROM branches WHERE id = $1", branch_id):
+            raise HTTPException(400, "La sucursal de recepción no existe.")
+
+        vistos = set()
+        for line in data.lines:
+            sku = line.sku.strip().upper()
+            require_valid_quantity(line.quantity)
+            if sku in vistos: raise HTTPException(400, f"El SKU '{sku}' está repetido en la orden.")
+            vistos.add(sku)
+            if not await conn.fetchval("SELECT 1 FROM items WHERE UPPER(sku) = $1", sku):
+                raise HTTPException(400, f"El SKU '{sku}' no existe en el maestro de artículos.")
+
+        po_id = await conn.fetchval(
+            "INSERT INTO purchase_orders (order_number, supplier_id, branch_id, status, created_by) VALUES ($1, $2, $3, 'PENDING', $4) RETURNING id",
+            number, supplier_id, branch_id, admin["username"])
+        for line in data.lines:
+            await conn.execute("INSERT INTO purchase_order_lines (purchase_order_id, sku, quantity_ordered, quantity_received) VALUES ($1, $2, $3, 0)",
+                               po_id, line.sku.strip().upper(), line.quantity)
+
+        await log_action(conn, admin["username"], "PURCHASE_ORDER_CREATED", f"Orden de compra {number} creada.")
+        res_data = {"status": "success", "message": "Orden de compra registrada correctamente.", "order_number": number}
+        await save_idempotency(conn, x_idempotency_key, "/api/admin/purchase-orders", res_data)
+        return res_data
+
+# OC con algo pendiente de un proveedor: la seccion "Ordenes de compra" del remito.
+@router.get("/api/admin/purchase-orders/pending")
+async def list_pending_purchase_orders(supplier_id: str, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+    sup = _parse_uuid(supplier_id, "Proveedor inválido.")
+    rows = await conn.fetch("""
+        SELECT po.order_number, po.created_at, po.status, pol.id::text AS line_id, pol.sku, COALESCE(i.description, pol.sku) AS description,
+               pol.quantity_ordered::float AS ordered, pol.quantity_received::float AS received,
+               (pol.quantity_ordered - pol.quantity_received)::float AS pending
+        FROM purchase_orders po
+        JOIN purchase_order_lines pol ON pol.purchase_order_id = po.id
+        LEFT JOIN items i ON UPPER(i.sku) = UPPER(pol.sku)
+        WHERE po.supplier_id = $1 AND po.status IN ('PENDING', 'IN_PROGRESS') AND pol.quantity_received < pol.quantity_ordered
+        ORDER BY po.created_at ASC, pol.sku ASC
+    """, sup)
+    orders = {}
+    for r in rows:
+        o = orders.setdefault(r["order_number"], {"order_number": r["order_number"], "created_at": r["created_at"], "status": r["status"], "lines": []})
+        o["lines"].append({k: r[k] for k in ("line_id", "sku", "description", "ordered", "received", "pending")})
+    return list(orders.values())
+
+@router.get("/api/admin/purchase-orders/{order_number}")
+async def get_purchase_order(order_number: str, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+    po = await conn.fetchrow("""
+        SELECT po.id, po.order_number, po.status, po.created_at, po.created_by,
+               COALESCE(e.company_name, 'Sin Proveedor') AS supplier_name, COALESCE(e.tax_id, '') AS supplier_tax_id,
+               b.code AS branch_code, b.name AS branch_name, b.street, b.number, b.zip_code, b.city
+        FROM purchase_orders po LEFT JOIN entities e ON po.supplier_id = e.id LEFT JOIN branches b ON po.branch_id = b.id
+        WHERE UPPER(po.order_number) = $1
+    """, order_number.strip().upper())
+    if not po: raise HTTPException(404, "Orden de compra no encontrada.")
+    lines = await conn.fetch("""
+        SELECT pol.sku, COALESCE(i.description, pol.sku) AS description, pol.quantity_ordered::float AS ordered,
+               pol.quantity_received::float AS received, GREATEST(pol.quantity_ordered - pol.quantity_received, 0)::float AS pending
+        FROM purchase_order_lines pol LEFT JOIN items i ON UPPER(i.sku) = UPPER(pol.sku)
+        WHERE pol.purchase_order_id = $1 ORDER BY pol.sku ASC
+    """, po["id"])
+    campos = (po["street"], po["number"], po["zip_code"], po["city"])
+    header = {k: po[k] for k in ("order_number", "status", "created_at", "created_by", "supplier_name", "supplier_tax_id", "branch_code", "branch_name")}
+    header["delivery_address"] = build_full_address(*campos) if any(c and c.strip() for c in campos) else ""
+    return {"order": header, "lines": [dict(l) for l in lines]}
 
 @router.get("/api/admin/purchase-remitos")
 async def list_admin_purchase_remitos(search: str = "", limit: int = 50, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):

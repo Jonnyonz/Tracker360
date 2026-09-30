@@ -526,6 +526,10 @@ async def init_db_schema():
                     "CREATE TABLE IF NOT EXISTS print_agent_auth_codes (code_hash VARCHAR(64) PRIMARY KEY, challenge VARCHAR(64) NOT NULL, agent_name VARCHAR(100) NOT NULL, username VARCHAR(50) NOT NULL, expires_at TIMESTAMP WITH TIME ZONE NOT NULL, used BOOLEAN DEFAULT FALSE);",
                     "CREATE TABLE IF NOT EXISTS print_agent_tokens (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), token_hash VARCHAR(64) UNIQUE NOT NULL, agent_name VARCHAR(100) NOT NULL, created_by VARCHAR(50) NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, last_used_at TIMESTAMP WITH TIME ZONE);",
 
+                    # ORDENES DE COMPRA: sucursal de recepcion (su direccion es la de entrega) y quien la emitio
+                    "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES branches(id);",
+                    "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS created_by VARCHAR(50);",
+
                     # DIRECCION DE CADA SUCURSAL (la usan las ordenes de compra como direccion de recepcion)
                     "ALTER TABLE branches ADD COLUMN IF NOT EXISTS street VARCHAR(150) DEFAULT '';",
                     "ALTER TABLE branches ADD COLUMN IF NOT EXISTS number VARCHAR(20) DEFAULT '';",
