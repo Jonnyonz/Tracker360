@@ -344,6 +344,12 @@ Para no prometer lo que no está:
 
 ---
 
+## Cambios
+
+Lo que cambia en cada actualización está en `CHANGELOG.md`.
+
+---
+
 ## Contribuir y licencia
 
 Las contribuciones son bienvenidas: ver `CONTRIBUTING.md`. Cada commit tiene que llevar `Signed-off-by`
