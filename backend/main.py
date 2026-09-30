@@ -1,5 +1,6 @@
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
 from fastapi import Depends
+from jztech_core.security_headers import SecurityHeadersMiddleware
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, Response
@@ -54,16 +55,20 @@ async def security_middleware(request: Request, call_next):
         return Response(content="Acceso denegado. Se requiere conexión HTTPS segura.", status_code=403)
 
     response = await call_next(request)
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
+    # X-Frame-Options, X-Content-Type-Options, Referrer-Policy y Permissions-Policy los pone
+    # jztech_core (SecurityHeadersMiddleware, abajo). HSTS y CSP quedan aca: HSTS se manda siempre
+    # (detras de Caddy la peticion llega por http) y la CSP excluye /docs y /redoc.
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     # /docs y /redoc cargan Swagger/ReDoc desde un CDN: se excluyen de la CSP.
     if request.url.path not in DOCS_PATHS:
         response.headers["Content-Security-Policy"] = CONTENT_SECURITY_POLICY
 
     return response
+
+# Cabeceras comunes de JZTech. La camara queda permitida para el propio sitio (el celular escanea con
+# ella); geolocalizacion y microfono no se usan.
+app.add_middleware(SecurityHeadersMiddleware, csp=None, hsts=False,
+                   permissions_policy="geolocation=(), microphone=(), camera=(self)")
 
 # === MIDDLEWARE CORS HARDENED ===
 # Solo los origenes de ALLOWED_ORIGINS (lista separada por comas en el .env) pueden llamar a la API
