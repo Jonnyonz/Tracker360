@@ -248,6 +248,63 @@ async def report_remitos(
         print(f"Error procesando Reporte de Remitos: {e}")
         raise HTTPException(status_code=400, detail="Error al generar el reporte de remitos.")
 
+# === DIFERENCIAS DE RECEPCION (control fisico de remitos) ===
+# Faltantes y sobrantes por remito y articulo (solo articulos que figuraban en el remito, asi un no
+# esperado aprobado no se cuenta dos veces) y los no esperados de la cuarentena con su estado.
+@router.get("/api/admin/reports/reception-differences")
+async def report_reception_differences(
+    supplier_id: Optional[str] = None,
+    branch_id: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    kind: Optional[str] = None,
+    admin: dict = Depends(require_supervisor),
+    conn: asyncpg.Connection = Depends(get_db_connection)
+):
+    filtros, params = [], []
+    def uid(v, msg):
+        try: return uuid.UUID(v)
+        except ValueError: raise HTTPException(400, msg)
+    def fecha(v, hora):
+        try: return datetime.strptime(f"{v.strip()} {hora}", "%Y-%m-%d %H:%M:%S")
+        except ValueError: raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
+    if supplier_id: params.append(uid(supplier_id, "Proveedor inválido.")); filtros.append(f"pr.supplier_id = ${len(params)}")
+    if branch_id: params.append(uid(branch_id, "Sucursal inválida.")); filtros.append(f"pr.branch_id = ${len(params)}")
+    if date_from: params.append(fecha(date_from, "00:00:00")); filtros.append(f"pr.created_at >= ${len(params)}")
+    if date_to: params.append(fecha(date_to, "23:59:59")); filtros.append(f"pr.created_at <= ${len(params)}")
+    kind = (kind or "").strip().upper()
+    if kind and kind not in ("FALTANTE", "SOBRANTE", "NO_ESPERADO"): raise HTTPException(400, "Tipo inválido.")
+    where = (" AND " + " AND ".join(filtros)) if filtros else ""
+
+    rows = await conn.fetch(f"""
+        WITH por_sku AS (
+            SELECT prl.purchase_remito_id AS remito_id, UPPER(prl.sku) AS sku,
+                   SUM(prl.quantity_sent) FILTER (WHERE NOT prl.added_in_control)::float AS sent,
+                   SUM(prl.quantity_received)::float AS received
+            FROM purchase_remito_lines prl GROUP BY prl.purchase_remito_id, UPPER(prl.sku)
+            HAVING COUNT(*) FILTER (WHERE NOT prl.added_in_control) > 0
+        ), dif AS (
+            SELECT CASE WHEN ps.received < ps.sent THEN 'FALTANTE' ELSE 'SOBRANTE' END AS kind, pr.id AS remito_id,
+                   ps.sku, ps.sent, ps.received, (ps.received - ps.sent) AS difference, NULL::text AS exception_status
+            FROM por_sku ps JOIN purchase_remitos pr ON pr.id = ps.remito_id
+            WHERE pr.status IN ('COMPLETED', 'COMPLETED_DIFF') AND ps.received <> ps.sent{where}
+            UNION ALL
+            SELECT 'NO_ESPERADO', pr.id, UPPER(x.sku), 0, x.quantity::float, x.quantity::float, x.status
+            FROM reception_exceptions x JOIN purchase_remitos pr ON pr.id = x.remito_id
+            WHERE TRUE{where}
+        )
+        SELECT d.kind, d.remito_id::text AS remito_id, pr.remito_number, pr.created_at, pr.status AS remito_status,
+               COALESCE(e.company_name, 'Sin Proveedor') AS supplier_name, COALESCE(e.tax_id, '') AS supplier_tax_id,
+               COALESCE(b.name, '') AS branch_name, d.sku, COALESCE(i.description, d.sku) AS description,
+               d.sent, d.received, d.difference, d.exception_status
+        FROM dif d JOIN purchase_remitos pr ON pr.id = d.remito_id
+        LEFT JOIN entities e ON pr.supplier_id = e.id LEFT JOIN branches b ON pr.branch_id = b.id
+        LEFT JOIN items i ON UPPER(i.sku) = d.sku
+        {"WHERE d.kind = '" + kind + "'" if kind else ""}
+        ORDER BY pr.created_at DESC, pr.remito_number, d.sku
+    """, *params)
+    return [dict(r) for r in rows]
+
 # === 4. REPORTE DE FACTURAS DE COMPRA ===
 @router.get("/api/admin/reports/invoices")
 async def report_invoices(
