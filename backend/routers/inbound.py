@@ -4,9 +4,9 @@ from typing import Optional, List
 import asyncpg, uuid, re, json
 
 try:
-    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency
+    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity
 except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency
+    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity
 
 router = APIRouter(tags=["Inbound & Receptions"])
 
@@ -84,6 +84,7 @@ async def scan_reception_item(remito_number: str, data: MobileRemitoScanInput, u
         rem = await conn.fetchrow("SELECT id, status, branch_id, sector_id FROM purchase_remitos WHERE UPPER(remito_number) = $1 FOR UPDATE", remito_number.strip().upper())
         if not rem: raise HTTPException(404, "Remito no encontrado")
         if rem["status"] == "COMPLETED": raise HTTPException(400, "Remito ya controlado completamente.")
+        require_valid_quantity(data.quantity)
         sku_clean = data.sku.strip().upper()
         line = await conn.fetchrow("SELECT id, quantity_sent, quantity_received FROM purchase_remito_lines WHERE purchase_remito_id = $1 AND UPPER(sku) = $2", rem["id"], sku_clean)
         if not line: raise HTTPException(400, "SKU no pertenece al remito.")
@@ -208,6 +209,8 @@ async def create_customer_return(
 
         items_processed = 0
         for line in data.lines:
+            # Una linea en 0 se sigue salteando (articulo no devuelto), como antes.
+            require_valid_quantity(line.quantity, allow_zero=True)
             if line.quantity > 0:
                 sku_clean = line.sku.strip().upper()
                 cond_clean = line.condition.strip().upper() if line.condition else "OPERATIVO"

@@ -1,4 +1,4 @@
-import os, asyncio, uuid, secrets, json, urllib.request, urllib.error, urllib.parse, ipaddress, socket, hashlib
+import os, asyncio, uuid, secrets, json, urllib.request, urllib.error, urllib.parse, ipaddress, socket, hashlib, math
 from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 import jwt, asyncpg
@@ -273,6 +273,12 @@ async def dispatch_event_to_channels(conn: asyncpg.Connection, event_type: str, 
     for ch in channels:
         if ch["target_url"] and ch["target_url"].startswith("http"):
             asyncio.create_task(execute_and_log_webhook(ch["id"], ch["name"], event_type, ch["target_url"], payload, ch["api_key"] or ""))
+
+def require_valid_quantity(quantity: float, allow_zero: bool = False) -> None:
+    # Una cantidad negativa invierte el movimiento (una recepcion resta stock, un traspaso lo
+    # devuelve al origen) y NaN/infinito llegan a la base (NUMERIC acepta 'Infinity').
+    if not math.isfinite(quantity) or quantity < 0 or (quantity == 0 and not allow_zero):
+        raise HTTPException(400, "La cantidad no puede ser negativa." if allow_zero else "La cantidad debe ser mayor a cero.")
 
 async def record_stock_movement(conn: asyncpg.Connection, sku: str, branch_id: uuid.UUID, sector_id: uuid.UUID, location_id: Optional[uuid.UUID], quantity: float, movement_type: str, ref_doc: str, username: str, lot_number: str = "", expiration_date = None, condition: str = "OPERATIVO", serial_numbers: Optional[List[str]] = None):
     cond_clean = condition.strip().upper() if condition else "OPERATIVO"

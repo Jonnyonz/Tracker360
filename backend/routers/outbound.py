@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 import asyncpg, uuid, json, math
 
 try:
-    from backend.database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency
+    from backend.database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency, require_valid_quantity
 except ImportError:
-    from database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency
+    from database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency, require_valid_quantity
 
 router = APIRouter(tags=["Outbound & Dispatch"])
 
@@ -110,6 +110,7 @@ async def create_manual_sales_order(
         )
         
         for line in data.lines:
+            require_valid_quantity(line.quantity)
             await conn.execute(
                 "INSERT INTO document_lines (document_id, sku, quantity_requested, quantity_picked, serial_numbers) VALUES ($1, $2, $3, 0, $4::jsonb)",
                 doc_id, line.sku.strip().upper(), line.quantity, json.dumps(line.serial_numbers or [])

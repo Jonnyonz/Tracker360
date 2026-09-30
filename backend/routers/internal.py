@@ -4,9 +4,9 @@ from typing import Optional, List
 import asyncpg, uuid, json
 
 try:
-    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency
+    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity
 except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency
+    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity
 
 router = APIRouter(tags=["Internal Movements"])
 
@@ -96,6 +96,7 @@ async def create_transfer_order(
         """, data.transfer_number.strip().upper(), uuid.UUID(data.origin_branch_id), uuid.UUID(data.origin_sector_id), uuid.UUID(data.destination_branch_id), uuid.UUID(data.destination_sector_id), admin["username"])
 
         for line in data.lines:
+            require_valid_quantity(line.quantity)
             orig_loc_id = None
             if line.origin_location_code and line.origin_location_code.strip():
                 loc = await conn.fetchrow("SELECT id FROM locations WHERE sector_id = $1 AND UPPER(location_code) = $2", uuid.UUID(data.origin_sector_id), line.origin_location_code.strip().upper())
@@ -159,6 +160,7 @@ async def scan_transfer_item(transfer_number: str, data: MobileTransferScanInput
         tr = await conn.fetchrow("SELECT id, status, origin_branch_id, origin_sector_id, destination_branch_id, destination_sector_id FROM transfer_orders WHERE UPPER(transfer_number) = $1 FOR UPDATE", transfer_number.strip().upper())
         if not tr: raise HTTPException(404, "Traspaso no encontrado")
         if tr["status"] == "COMPLETED": raise HTTPException(400, "Traspaso ya completado.")
+        require_valid_quantity(data.quantity)
         sku_clean = data.sku.strip().upper()
         line = await conn.fetchrow("SELECT id, quantity_sent, quantity_received, origin_location_id FROM transfer_order_lines WHERE transfer_order_id = $1 AND UPPER(sku) = $2", tr["id"], sku_clean)
         if not line: raise HTTPException(400, "SKU no pertenece al traspaso.")

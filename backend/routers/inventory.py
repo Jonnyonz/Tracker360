@@ -5,9 +5,9 @@ from datetime import datetime
 import asyncpg, uuid
 
 try:
-    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action, record_stock_movement
+    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action, record_stock_movement, require_valid_quantity
 except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action, record_stock_movement
+    from database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action, record_stock_movement, require_valid_quantity
 
 router = APIRouter(tags=["Inventory Control"])
 
@@ -204,6 +204,7 @@ async def scan_inventory_count(session_id: str, data: InventoryCountScan, user: 
         await log_action(conn, user["username"], "UNAUTHORIZED_ACCESS", f"Intento de contar en sesion ajena {session_id}")
         raise HTTPException(403, "Este conteo está asignado a otro operario.")
 
+    require_valid_quantity(data.quantity, allow_zero=True)  # contar 0 es un conteo valido
     sku_clean = data.sku.strip().upper()
     loc_id = None
     
@@ -299,6 +300,7 @@ async def apply_inventory_adjustments(session_id: str, admin: dict = Depends(req
 
 @router.post("/api/inventory/spot-check")
 async def spot_check_inventory(data: SpotCheckInput, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    require_valid_quantity(data.quantity, allow_zero=True)
     sku_clean = data.sku.strip().upper()
     loc_id = None
 
