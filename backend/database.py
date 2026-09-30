@@ -462,10 +462,10 @@ async def init_db_schema():
                     "ALTER TABLE documents ADD COLUMN IF NOT EXISTS channel_origin VARCHAR(50) DEFAULT 'INTERNAL';",
                     "ALTER TABLE documents ADD COLUMN IF NOT EXISTS customer_id UUID;",
                     "ALTER TABLE documents ADD COLUMN IF NOT EXISTS customer_address_id UUID;",
-                    "ALTER TABLE documents DROP CONSTRAINT IF EXISTS documents_customer_id_fkey;",
-                    "ALTER TABLE documents ADD CONSTRAINT documents_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES entities(id) ON DELETE SET NULL;",
-                    "ALTER TABLE documents DROP CONSTRAINT IF EXISTS documents_customer_address_id_fkey;",
-                    "ALTER TABLE documents ADD CONSTRAINT documents_customer_address_id_fkey FOREIGN KEY (customer_address_id) REFERENCES entity_addresses(id) ON DELETE SET NULL;",
+                    # Las FK se crean solo si faltan: borrarlas y recrearlas en cada arranque bloqueaba la
+                    # tabla y, si fallaba el ADD (filas huerfanas), la FK quedaba borrada.
+                    "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'documents_customer_id_fkey') THEN ALTER TABLE documents ADD CONSTRAINT documents_customer_id_fkey FOREIGN KEY (customer_id) REFERENCES entities(id) ON DELETE SET NULL; END IF; END $$;",
+                    "DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'documents_customer_address_id_fkey') THEN ALTER TABLE documents ADD CONSTRAINT documents_customer_address_id_fkey FOREIGN KEY (customer_address_id) REFERENCES entity_addresses(id) ON DELETE SET NULL; END IF; END $$;",
                     
                     "CREATE TABLE IF NOT EXISTS document_lines (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), document_id UUID REFERENCES documents(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, quantity_requested NUMERIC NOT NULL, quantity_picked NUMERIC DEFAULT 0);",
                     "ALTER TABLE document_lines ADD COLUMN IF NOT EXISTS serial_numbers JSONB DEFAULT '[]'::jsonb;",
