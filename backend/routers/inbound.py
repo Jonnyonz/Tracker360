@@ -188,7 +188,8 @@ async def _sector_location(conn: asyncpg.Connection, sector_id: uuid.UUID, code:
     return loc
 
 # Registrar el remito lo cierra: lo tomado de cada OC se suma a lo recibido de la OC en ese momento.
-# El stock no se mueve aca: entra con el control del deposito (escaneo de recepcion).
+# Stock: con "segundo control de stock en remitos" (require_mobile_reception) entra con el control del
+# deposito (escaneo de recepcion); sin el, entra aca mismo. El modo se fija al registrar cada remito.
 @router.post("/api/admin/purchase-remitos")
 async def create_purchase_remito(data: PurchaseRemitoCreateInput, x_idempotency_key: Optional[str] = Header(None), admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     cached_resp = await check_idempotency(conn, x_idempotency_key, "/api/admin/purchase-remitos")
@@ -240,20 +241,23 @@ async def create_purchase_remito(data: PurchaseRemitoCreateInput, x_idempotency_
             ordenes.add(pol["po_id"])
             filas.append((pol["sku"], ol.quantity, await _sector_location(conn, sector_id, ol.location_code), ol.lot_number.strip(), line_id))
 
+        segundo_control = (await conn.fetchval("SELECT value FROM system_settings WHERE key = 'require_mobile_reception'")) == "true"
         remito_id = await conn.fetchval(
-            "INSERT INTO purchase_remitos (remito_number, supplier_id, branch_id, sector_id, status, created_by) VALUES ($1, $2, $3, $4, 'PENDING_CONTROL', $5) RETURNING id",
-            number, supplier_id, branch_id, sector_id, admin["username"])
+            "INSERT INTO purchase_remitos (remito_number, supplier_id, branch_id, sector_id, status, created_by) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+            number, supplier_id, branch_id, sector_id, "PENDING_CONTROL" if segundo_control else "COMPLETED", admin["username"])
         for sku, qty, loc_id, lot, line_id in filas:
-            await conn.execute("INSERT INTO purchase_remito_lines (purchase_remito_id, sku, quantity_sent, quantity_received, location_id, lot_number, purchase_order_line_id) VALUES ($1, $2, $3, 0, $4, $5, $6)",
-                               remito_id, sku, qty, loc_id, lot, line_id)
+            await conn.execute("INSERT INTO purchase_remito_lines (purchase_remito_id, sku, quantity_sent, quantity_received, location_id, lot_number, purchase_order_line_id) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                               remito_id, sku, qty, 0 if segundo_control else qty, loc_id, lot, line_id)
+            if not segundo_control:
+                await record_stock_movement(conn, sku, branch_id, sector_id, loc_id, qty, 'IN_RECEPTION', number, admin["username"], lot_number=lot)
             if line_id:
                 await conn.execute("UPDATE purchase_order_lines SET quantity_received = quantity_received + $1 WHERE id = $2", qty, line_id)
         for po_id in ordenes:
             abiertas = await conn.fetchval("SELECT COUNT(*) FROM purchase_order_lines WHERE purchase_order_id = $1 AND quantity_received < quantity_ordered", po_id)
             await conn.execute("UPDATE purchase_orders SET status = $1 WHERE id = $2", "COMPLETED" if abiertas == 0 else "IN_PROGRESS", po_id)
 
-        await log_action(conn, admin["username"], "PURCHASE_REMITO_CREATED", f"Remito de compra {number} registrado ({len(filas)} líneas, {len(ordenes)} OC).")
-        res_data = {"status": "success", "message": "Remito registrado.", "remito_number": number, "id": str(remito_id)}
+        await log_action(conn, admin["username"], "PURCHASE_REMITO_CREATED", f"Remito de compra {number} registrado ({len(filas)} líneas, {len(ordenes)} OC, {'pendiente de control' if segundo_control else 'stock ingresado'}).")
+        res_data = {"status": "success", "message": "Remito registrado.", "remito_number": number, "id": str(remito_id), "stock_ingresado": not segundo_control}
         await save_idempotency(conn, x_idempotency_key, "/api/admin/purchase-remitos", res_data)
         return res_data
 

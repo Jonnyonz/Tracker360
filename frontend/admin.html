@@ -484,6 +484,7 @@
                                 <div class="form-group"><label>Sucursal de Ingreso</label><select id="rem-branch" onchange="onRemBranchChange()" required></select></div>
                                 <div class="form-group"><label>Sector de Ingreso</label><select id="rem-sector" required></select></div>
                             </div>
+                            <p id="rem-mode-hint" style="font-size:0.85rem; color:var(--text-muted); margin:0 0 0.5rem;"></p>
                             <h4 style="margin:1rem 0 0.5rem;">Artículos</h4>
                             <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 0.5rem;">Sueltos, sin orden de compra (también lo que llegó de más sobre una orden).</p>
                             <div class="dynamic-list" id="rem-lines">
@@ -1224,6 +1225,10 @@
                         <div class="settings-row">
                             <label for="cfg-allow-negative-stock">Permitir Stock Negativo (Quiebres)</label>
                             <div class="control-wrap"><select id="cfg-allow-negative-stock"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-require-mobile-reception">Trabaja con segundo control de stock en remitos</label>
+                            <div class="control-wrap"><select id="cfg-require-mobile-reception"><option value="false">NO: el remito suma al stock al registrarse</option><option value="true">SÍ: el stock entra con el control del depósito</option></select></div>
                         </div>
                         <div class="settings-row">
                             <label for="cfg-enable-lots-expiration">Trabaja con lotes y vencimientos (FEFO)</label>

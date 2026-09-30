@@ -196,12 +196,16 @@ async function verOC(orderNumber) {
 }
 
 // === REMITOS DE COMPRA ===
-const REM_STATUS_LABEL = { PENDING: 'Pendiente de control', PENDING_CONTROL: 'Pendiente de control', IN_PROGRESS: 'En control', COMPLETED: 'Controlado' };
+const REM_STATUS_LABEL = { PENDING: 'Pendiente de control', PENDING_CONTROL: 'Pendiente de control', IN_PROGRESS: 'En control', COMPLETED: 'Ingresado' };
 let remSectorsCache = [];
 let remPendingLines = {};
 
 async function loadRemitoSelectors(proveedores, branches) {
-    remSectorsCache = (await fetchAPI('/api/admin/sectors')) || [];
+    const [sectores, cfg] = await Promise.all([fetchAPI('/api/admin/sectors'), fetchAPI('/api/settings')]);
+    remSectorsCache = sectores || [];
+    document.getElementById('rem-mode-hint').textContent = (cfg && cfg.require_mobile_reception === 'true')
+        ? 'Segundo control activo: al registrar, el remito queda pendiente de control y el stock entra cuando el depósito lo escanea.'
+        : 'Sin segundo control: al registrar, la mercadería suma al stock en la sucursal, sector y ubicaciones cargadas.';
     document.getElementById('rem-supplier').innerHTML = '<option value="">-- Seleccionar Proveedor --</option>' +
         proveedores.map(e => `<option value="${escapeHTML(e.id)}">${escapeHTML(e.company_name)} (${escapeHTML(e.tax_id)})</option>`).join('');
     document.getElementById('rem-branch').innerHTML = '<option value="">-- Seleccionar Sucursal --</option>' +
@@ -286,7 +290,7 @@ async function saveRemito(event) {
     btn.disabled = true;
     try {
         const r = await fetchAPI('/api/admin/purchase-remitos', { method: 'POST', body: payload });
-        showToast(`Remito ${r.remito_number} registrado.`, 'success');
+        showToast(r.stock_ingresado ? `Remito ${r.remito_number} registrado: la mercadería ya está en el stock.` : `Remito ${r.remito_number} registrado: queda pendiente del control del depósito.`, 'success');
         document.getElementById('rem-num').value = '';
         document.getElementById('rem-lines').innerHTML = '';
         addDynamicLineRemito();
