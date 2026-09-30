@@ -56,6 +56,11 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   con su avance, sus participantes y sus observaciones. (`f5d1fe9`)
 
 ### Corregido
+- **Pantallas del panel alineadas en computadora.** Las tarjetas se veían descuadradas: en
+  Depósitos y en Compras quedaban todas en la columna izquierda con la derecha vacía, y en Inicio
+  y Configuración las columnas terminaban a alturas distintas. Ahora se ordenan en filas
+  alineadas que ocupan todo el ancho (probado a 1366 y 1920 px), y una tabla ancha se desplaza
+  dentro de su tarjeta en vez de salirse. (`138139d`)
 - **Seguridad: las exportaciones a CSV ya no pueden ejecutar fórmulas en Excel.** Un nombre de
   proveedor o artículo que empezara con "=", "+", "-" o "@" (por ejemplo, un enlace malicioso) se
   ejecutaba al abrir el archivo; ahora se exporta como texto. Vale para todos los reportes. De
