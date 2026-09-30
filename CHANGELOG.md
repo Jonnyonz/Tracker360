@@ -56,6 +56,8 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 - Las contraseñas se guardan con el esquema común de `jztech-core` (Argon2id con los parámetros
   recomendados). Las actuales siguen funcionando y se actualizan solas en el próximo ingreso;
   nadie tiene que cambiar su clave. (`95da518`)
+- Los errores inesperados del servidor quedan registrados con todo su detalle y la pantalla muestra
+  un aviso claro ("Error interno del servidor") en vez de fallar sin mensaje. (`6d9c8ab`)
 - Las cabeceras de seguridad comunes también salen de `jztech-core`; el navegador ahora solo
   permite usar la cámara (para escanear) y bloquea ubicación y micrófono, que no se usan. (`3ac3c46`)
 - Los tests automáticos ya no forman parte del repositorio: se mantienen aparte, fuera del
