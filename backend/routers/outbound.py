@@ -211,13 +211,26 @@ async def cancel_sales_order(document_number: str, data: CancelOrderInput, reque
                          f"Pedido {num}: cancelado {detalle}. Stock devuelto: {sum(d['cantidad'] for d in devuelto):g} un.", get_client_ip(request))
     return {"status": estado, "devuelto": devuelto}
 
+# Etiqueta de pedido: la plantilla por defecto (y la del editor) usa {{ORDER_NUM}} y {{DESTINATION}};
+# el codigo solo reemplazaba {order_number}/{client_name}/{delivery_address} y la etiqueta salia con el
+# marcador literal. Se aceptan los dos formatos. A los datos se les quitan ^ y ~ (comandos ZPL): un
+# nombre de cliente con "^XZ" cortaba la etiqueta o agregaba campos.
+def _zpl_pedido(template: str, doc) -> str:
+    limpio = lambda v: str(v or "").replace("^", "").replace("~", "")
+    numero, cliente, direccion = limpio(doc["document_number"]), limpio(doc["client_name"]), limpio(doc["delivery_address"])
+    valores = {"{{ORDER_NUM}}": numero, "{{DESTINATION}}": f"{cliente} - {direccion}", "{{CLIENT}}": cliente, "{{ADDRESS}}": direccion,
+               "{order_number}": numero, "{client_name}": cliente, "{delivery_address}": direccion}
+    for marcador, valor in valores.items():
+        template = template.replace(marcador, valor)
+    return template
+
 @router.post("/api/admin/sales-orders/{document_number}/print-label")
 async def reprint_order_label(document_number: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     doc = await conn.fetchrow("SELECT d.document_number, COALESCE(c.company_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, 'A coordinar') as delivery_address FROM documents d LEFT JOIN entities c ON d.customer_id = c.id LEFT JOIN entity_addresses a ON d.customer_address_id = a.id WHERE d.document_number = $1", document_number.strip().upper())
     if not doc: raise HTTPException(404, "Pedido no encontrado.")
     template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_order_template'")
     if template:
-        zpl = template.replace("{order_number}", doc["document_number"]).replace("{client_name}", doc["client_name"]).replace("{delivery_address}", doc["delivery_address"])
+        zpl = _zpl_pedido(template, doc)
         default_queue = await conn.fetchval("SELECT print_queue_code FROM sectors WHERE uses_locations = FALSE LIMIT 1") or "PRINT-SEC-01"
         await queue_zpl_print_job(conn, default_queue, zpl)
         return {"status": "success", "message": "Etiqueta re-enviada a impresión."}
@@ -542,7 +555,7 @@ async def pack_order_and_dispatch(document_number: str, data: PackOrderInput, us
 
         template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_order_template'")
         if template:
-            zpl = template.replace("{order_number}", doc["document_number"]).replace("{client_name}", doc["client_name"]).replace("{delivery_address}", doc["delivery_address"])
+            zpl = _zpl_pedido(template, doc)
             default_queue = await conn.fetchval("SELECT print_queue_code FROM sectors WHERE uses_locations = FALSE LIMIT 1") or "PRINT-SEC-01"
             await queue_zpl_print_job(conn, default_queue, zpl)
 
