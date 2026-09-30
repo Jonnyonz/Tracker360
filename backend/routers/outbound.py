@@ -271,7 +271,7 @@ async def get_picking_order_details(document_number: str, user: dict = Depends(g
             SELECT l.location_code, si.quantity::float 
             FROM stock_inventory si 
             JOIN locations l ON si.location_id = l.id 
-            WHERE UPPER(si.sku) = $1 AND si.quantity > 0
+            WHERE UPPER(si.sku) = $1 AND si.quantity > 0 AND COALESCE(si.condition, 'OPERATIVO') = 'OPERATIVO'
         """, l["sku"].strip().upper())
         
         if locs:
@@ -323,7 +323,7 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
                 branch_id = loc["branch_id"]
 
         if not loc_id:
-            stock_entry = await conn.fetchrow("SELECT branch_id, sector_id, location_id FROM stock_inventory WHERE UPPER(sku) = $1 AND quantity > 0 LIMIT 1", sku_clean)
+            stock_entry = await conn.fetchrow("SELECT branch_id, sector_id, location_id FROM stock_inventory WHERE UPPER(sku) = $1 AND quantity > 0 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO' LIMIT 1", sku_clean)
             if stock_entry:
                 branch_id = stock_entry["branch_id"]
                 sector_id = stock_entry["sector_id"]
@@ -336,7 +336,7 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
 
         allow_neg = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'allow_negative_stock'")
         if allow_neg != "true" and loc_id:
-            avail = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE branch_id = $1 AND sector_id = $2 AND UPPER(sku) = $3 AND location_id = $4", branch_id, sector_id, sku_clean, loc_id)
+            avail = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE branch_id = $1 AND sector_id = $2 AND UPPER(sku) = $3 AND location_id = $4 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO'", branch_id, sector_id, sku_clean, loc_id)
             if float(avail or 0) < data.quantity: raise HTTPException(400, f"Stock insuficiente en la ubicación (Disponible: {avail}).")
 
         await conn.execute("""
@@ -386,7 +386,7 @@ async def get_wave_picking_pending(limit: int = 5, user: dict = Depends(get_curr
     result_lines = []
     for l in lines:
         ldict = dict(l)
-        locs = await conn.fetch("SELECT l.location_code, si.quantity::float FROM stock_inventory si JOIN locations l ON si.location_id = l.id WHERE UPPER(si.sku) = $1 AND si.quantity > 0", l["sku"].strip().upper())
+        locs = await conn.fetch("SELECT l.location_code, si.quantity::float FROM stock_inventory si JOIN locations l ON si.location_id = l.id WHERE UPPER(si.sku) = $1 AND si.quantity > 0 AND COALESCE(si.condition, 'OPERATIVO') = 'OPERATIVO'", l["sku"].strip().upper())
         
         if locs:
             ldict["suggested_locations"] = " | ".join([f"{loc['location_code']} ({loc['quantity']})" for loc in locs])
@@ -463,7 +463,7 @@ async def scan_wave_picking_item(data: WavePickScanInput, user: dict = Depends(g
                 branch_id = loc["branch_id"]
 
         if not loc_id:
-            stock_entry = await conn.fetchrow("SELECT branch_id, sector_id, location_id FROM stock_inventory WHERE UPPER(sku) = $1 AND quantity > 0 LIMIT 1", sku_clean)
+            stock_entry = await conn.fetchrow("SELECT branch_id, sector_id, location_id FROM stock_inventory WHERE UPPER(sku) = $1 AND quantity > 0 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO' LIMIT 1", sku_clean)
             if stock_entry:
                 branch_id = stock_entry["branch_id"]
                 sector_id = stock_entry["sector_id"]
@@ -476,7 +476,7 @@ async def scan_wave_picking_item(data: WavePickScanInput, user: dict = Depends(g
 
         allow_neg = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'allow_negative_stock'")
         if allow_neg != "true" and loc_id:
-            avail = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE branch_id = $1 AND sector_id = $2 AND UPPER(sku) = $3 AND location_id = $4", branch_id, sector_id, sku_clean, loc_id)
+            avail = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE branch_id = $1 AND sector_id = $2 AND UPPER(sku) = $3 AND location_id = $4 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO'", branch_id, sector_id, sku_clean, loc_id)
             if float(avail or 0) < data.quantity: raise HTTPException(400, f"Stock insuficiente en la ubicación (Disponible: {avail}).")
 
         if branch_id and sector_id:

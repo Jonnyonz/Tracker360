@@ -42,9 +42,9 @@ async def get_replenishment_suggestions(admin: dict = Depends(require_supervisor
     query = """
         SELECT il.item_sku as sku, i.description, 
                l.location_code as destination_location,
-               COALESCE((SELECT SUM(quantity) FROM stock_inventory WHERE sku = il.item_sku AND location_id = il.location_id), 0) as stock_picking,
-               COALESCE((SELECT SUM(quantity) FROM stock_inventory WHERE sku = il.item_sku AND location_id != il.location_id), 0) as stock_pulmon,
-               (SELECT l2.location_code FROM stock_inventory si2 JOIN locations l2 ON si2.location_id = l2.id WHERE si2.sku = il.item_sku AND si2.location_id != il.location_id AND si2.quantity > 0 LIMIT 1) as origin_location
+               COALESCE((SELECT SUM(quantity) FROM stock_inventory WHERE sku = il.item_sku AND location_id = il.location_id AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO'), 0) as stock_picking,
+               COALESCE((SELECT SUM(quantity) FROM stock_inventory WHERE sku = il.item_sku AND location_id != il.location_id AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO'), 0) as stock_pulmon,
+               (SELECT l2.location_code FROM stock_inventory si2 JOIN locations l2 ON si2.location_id = l2.id WHERE si2.sku = il.item_sku AND si2.location_id != il.location_id AND si2.quantity > 0 AND COALESCE(si2.condition, 'OPERATIVO') = 'OPERATIVO' LIMIT 1) as origin_location
         FROM item_locations il
         JOIN locations l ON il.location_id = l.id
         JOIN items i ON il.item_sku = i.sku
@@ -170,7 +170,7 @@ async def scan_transfer_item(transfer_number: str, data: MobileTransferScanInput
 
         allow_neg = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'allow_negative_stock'")
         if allow_neg != "true":
-            avail = float(await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE branch_id = $1 AND sector_id = $2 AND UPPER(sku) = $3 AND location_id IS NOT DISTINCT FROM $4", tr["origin_branch_id"], tr["origin_sector_id"], sku_clean, line["origin_location_id"]) or 0)
+            avail = float(await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE branch_id = $1 AND sector_id = $2 AND UPPER(sku) = $3 AND location_id IS NOT DISTINCT FROM $4 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO'", tr["origin_branch_id"], tr["origin_sector_id"], sku_clean, line["origin_location_id"]) or 0)
             if avail < data.quantity: raise HTTPException(400, f"Stock insuficiente en el origen (Disponible: {avail:g}).")
 
         dest_loc_id = None
