@@ -603,7 +603,7 @@
                             <button class="btn-secondary" onclick="loadTransferData('', 50)">Ver Todos</button>
                         </div>
                         <table>
-                            <thead><tr><th>Nº Traspaso</th><th>Origen</th><th>Destino</th><th>Estado</th></tr></thead>
+                            <thead><tr><th>Nº Traspaso</th><th>Origen</th><th>Destino</th><th>Estado</th><th>Acciones</th></tr></thead>
                             <tbody id="table-transfers-body"></tbody>
                         </table>
                     </div>
@@ -1447,8 +1447,16 @@
     <div id="modal-participants" class="modal">
         <div class="modal-content" style="max-width:720px;">
             <span class="close-modal" onclick="closeModal('modal-participants')">&times;</span>
-            <h2 style="color:var(--text-primary); margin:0 0 1rem; font-size:1.3rem;">Participantes del pedido <span id="part-order-label" class="font-mono" style="color:var(--accent);"></span></h2>
+            <h2 style="color:var(--text-primary); margin:0 0 1rem; font-size:1.3rem;">Pedido <span id="part-order-label" class="font-mono" style="color:var(--accent);"></span></h2>
             <div id="part-body"></div>
+        </div>
+    </div>
+
+    <div id="modal-transfer-detail" class="modal">
+        <div class="modal-content" style="max-width:760px;">
+            <span class="close-modal" onclick="closeModal('modal-transfer-detail')">&times;</span>
+            <h2 style="color:var(--text-primary); margin:0 0 1rem; font-size:1.3rem;">Traspaso <span id="transfer-detail-label" class="font-mono" style="color:var(--accent);"></span></h2>
+            <div id="transfer-detail-body"></div>
         </div>
     </div>
 

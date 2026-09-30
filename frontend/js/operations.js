@@ -25,6 +25,54 @@ function switchPurchaseTab(tabId, btn) {
     }
 }
 
+// === OBSERVACIONES DE DOCUMENTOS ===
+// Bloque reutilizable dentro de la vista de cada documento (tipo: PEDIDO, TRASPASO, REMITO, OC,
+// DEVOLUCION). Las observaciones se agregan pero no se editan ni se borran.
+
+async function renderObservaciones(container, tipo, numero) {
+    if (!container) return;
+    container.innerHTML = `
+        <h3 style="font-size:1rem; margin-top:1.5rem;">Observaciones</h3>
+        <div class="obs-list"><p style="color:var(--text-muted);">Cargando...</p></div>
+        <div style="display:flex; gap:8px; margin-top:0.75rem; align-items:flex-start;">
+            <textarea class="obs-text" rows="2" maxlength="2000" placeholder="Agregar una observación..." style="flex:1;"></textarea>
+            <button type="button" class="btn-secondary obs-add">Agregar</button>
+        </div>`;
+    container.querySelector('.obs-add').addEventListener('click', () => agregarObservacion(container, tipo, numero));
+    await cargarObservaciones(container, tipo, numero);
+}
+
+async function cargarObservaciones(container, tipo, numero) {
+    const list = container.querySelector('.obs-list');
+    try {
+        const notas = await fetchAPI(`/api/documents/${encodeURIComponent(tipo)}/${encodeURIComponent(numero)}/notes`);
+        if (!notas.length) { list.innerHTML = '<p style="color:var(--text-muted); font-size:0.9rem;">Sin observaciones.</p>'; return; }
+        list.innerHTML = notas.map(n => {
+            const sistema = n.source === 'SISTEMA';
+            return `<div style="border-left:3px solid ${sistema ? 'var(--warning)' : 'var(--accent)'}; background:var(--bg-page); padding:0.5rem 0.75rem; margin-bottom:0.5rem; border-radius:4px;">
+                <div style="font-size:0.8rem; color:var(--text-muted);">${escapeHTML(new Date(n.created_at).toLocaleString())} &middot; ${escapeHTML(n.username || '')}${sistema ? ' <span class="badge badge-warning">Sistema</span>' : ''}</div>
+                <div style="white-space:pre-wrap; word-break:break-word;">${escapeHTML(n.body)}</div>
+            </div>`;
+        }).join('');
+    } catch (e) {
+        list.innerHTML = '<p style="color:var(--danger);">No se pudieron cargar las observaciones.</p>';
+    }
+}
+
+async function agregarObservacion(container, tipo, numero) {
+    const input = container.querySelector('.obs-text');
+    const btn = container.querySelector('.obs-add');
+    const text = input.value.trim();
+    if (!text) { showToast('Escribir la observación antes de agregarla.', 'danger'); return; }
+    btn.disabled = true;
+    try {
+        await fetchAPI(`/api/documents/${encodeURIComponent(tipo)}/${encodeURIComponent(numero)}/notes`, { method: 'POST', body: { text } });
+        input.value = '';
+        await cargarObservaciones(container, tipo, numero);
+    } catch (e) { /* fetchAPI ya mostro el error */ }
+    finally { btn.disabled = false; }
+}
+
 // === GESTIÓN DE PEDIDOS Y FILTROS ===
 
 let cancelacionActual = null;
@@ -97,7 +145,9 @@ async function verParticipantes(documentNumber) {
             <table><thead><tr><th>Usuario</th><th style="text-align:right;">Unidades</th><th style="text-align:right;">Lecturas</th><th>Periodo</th></tr></thead><tbody>${picking}</tbody></table>
             <h3 style="font-size:1rem; margin-top:1rem;">Eventos</h3>
             <table><thead><tr><th>Fecha</th><th>Usuario</th><th>Accion</th><th>Detalle</th></tr></thead><tbody>${eventos}</tbody></table>
-            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:1rem;">${escapeHTML(d.nota)}</p>`;
+            <p style="font-size:0.8rem; color:var(--text-muted); margin-top:1rem;">${escapeHTML(d.nota)}</p>
+            <div id="part-notes"></div>`;
+        renderObservaciones(document.getElementById('part-notes'), 'PEDIDO', documentNumber);
     } catch (e) {
         body.innerHTML = `<p style="color:var(--danger);">Error: ${escapeHTML(e.message)}</p>`;
     }
@@ -157,7 +207,7 @@ function filterOrders() {
             actionBtn = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="reprintOrderLabel(${jsArg(o.document_number)})">Re-imprimir</button>`;
         }
         // El supervisor solo consulta: estado (columna) y participantes. Empacar y re-imprimir son del admin.
-        const btnPart = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; margin-left:6px;" onclick="verParticipantes(${jsArg(o.document_number)})">Participantes</button>`;
+        const btnPart = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; margin-left:6px;" onclick="verParticipantes(${jsArg(o.document_number)})">Detalle</button>`;
         // Cancelar (total o parcial) es solo del admin; no aplica a despachados ni cancelados.
         const btnCancel = (o.status !== 'DISPATCHED' && o.status !== 'CANCELLED')
             ? `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; margin-left:6px; color:var(--danger);" onclick="abrirCancelacion(${jsArg(o.document_number)})">Cancelar</button>`
@@ -939,7 +989,7 @@ async function loadTransferData(search = "", limit = 50) {
     try {
         const rows = await fetchAPI(`/api/admin/transfer-orders?search=${encodeURIComponent(search)}&limit=${limit}`);
         if (!rows || rows.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:1rem;">Sin traspasos registrados.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:1rem;">Sin traspasos registrados.</td></tr>';
             return;
         }
 
@@ -949,10 +999,36 @@ async function loadTransferData(search = "", limit = 50) {
                 <td><small>${escapeHTML(r.origin_branch)} (${escapeHTML(r.origin_sector)})</small></td>
                 <td><small>${escapeHTML(r.destination_branch)} (${escapeHTML(r.destination_sector)})</small></td>
                 <td><span class="badge badge-warning">${escapeHTML(r.status)}</span></td>
+                <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="verTraspaso(${jsArg(r.transfer_number)})">Detalle</button></td>
             </tr>
         `).join('');
     } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--danger);">Error al cargar historial.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--danger);">Error al cargar historial.</td></tr>';
+    }
+}
+
+async function verTraspaso(transferNumber) {
+    const body = document.getElementById('transfer-detail-body');
+    document.getElementById('transfer-detail-label').textContent = transferNumber;
+    body.innerHTML = '<p style="color:var(--text-muted);">Cargando...</p>';
+    openModal('modal-transfer-detail');
+    try {
+        const d = await fetchAPI(`/api/transfers/orders/${encodeURIComponent(transferNumber)}`);
+        const t = d.transfer;
+        const filas = d.lines.map(l => `<tr>
+            <td class="font-mono">${escapeHTML(l.sku)}</td>
+            <td>${escapeHTML(l.origin_location || '-')}</td>
+            <td>${escapeHTML(l.destination_location || '-')}</td>
+            <td style="text-align:right;">${escapeHTML(String(l.quantity_sent))}</td>
+            <td style="text-align:right;">${escapeHTML(String(l.quantity_received))}</td>
+        </tr>`).join('');
+        body.innerHTML = `
+            <p>Estado: <span class="badge badge-neutral">${escapeHTML(t.status)}</span> &nbsp; ${escapeHTML(t.origin_branch)} &rarr; ${escapeHTML(t.destination_branch)}</p>
+            <table><thead><tr><th>SKU</th><th>Origen</th><th>Destino</th><th style="text-align:right;">Enviado</th><th style="text-align:right;">Recibido</th></tr></thead><tbody>${filas}</tbody></table>
+            <div id="transfer-notes"></div>`;
+        renderObservaciones(document.getElementById('transfer-notes'), 'TRASPASO', transferNumber);
+    } catch (e) {
+        body.innerHTML = `<p style="color:var(--danger);">Error: ${escapeHTML(e.message)}</p>`;
     }
 }
 
@@ -1023,6 +1099,8 @@ window.addDynamicLineTransfer = addDynamicLineTransfer;
 window.loadOrders = loadOrders;
 window.filterOrders = filterOrders;
 window.verParticipantes = verParticipantes;
+window.verTraspaso = verTraspaso;
+window.renderObservaciones = renderObservaciones;
 window.abrirCancelacion = abrirCancelacion;
 window.confirmarCancelacion = confirmarCancelacion;
 window.openManualOrderModal = openManualOrderModal;
