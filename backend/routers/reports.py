@@ -61,7 +61,7 @@ async def report_stock(
             params.append(b_uuid)
             param_idx += 1
         except ValueError:
-            pass
+            raise HTTPException(400, "Filtro inválido: identificador mal formado.")
             
     if sector_id:
         try:
@@ -70,7 +70,7 @@ async def report_stock(
             params.append(s_uuid)
             param_idx += 1
         except ValueError:
-            pass
+            raise HTTPException(400, "Filtro inválido: identificador mal formado.")
 
     query += " ORDER BY b.name ASC, sec.name ASC, si.sku ASC"
     
@@ -138,7 +138,7 @@ async def report_orders(
             params.append(dt_from)
             param_idx += 1
         except ValueError:
-            pass
+            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
 
     if date_to:
         try:
@@ -147,7 +147,7 @@ async def report_orders(
             params.append(dt_to)
             param_idx += 1
         except ValueError:
-            pass
+            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
 
     query += " ORDER BY d.created_at DESC"
     
@@ -200,7 +200,7 @@ async def report_remitos(
             params.append(sup_uuid)
             param_idx += 1
         except ValueError:
-            pass
+            raise HTTPException(400, "Filtro inválido: identificador mal formado.")
 
     if status:
         query += f" AND pr.status = ${param_idx}"
@@ -214,7 +214,7 @@ async def report_remitos(
             params.append(b_uuid)
             param_idx += 1
         except ValueError:
-            pass
+            raise HTTPException(400, "Filtro inválido: identificador mal formado.")
 
     if sku:
         query += f" AND EXISTS (SELECT 1 FROM purchase_remito_lines prl WHERE prl.purchase_remito_id = pr.id AND prl.sku ILIKE ${param_idx})"
@@ -228,7 +228,7 @@ async def report_remitos(
             params.append(dt_from)
             param_idx += 1
         except ValueError:
-            pass
+            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
 
     if date_to:
         try:
@@ -237,7 +237,7 @@ async def report_remitos(
             params.append(dt_to)
             param_idx += 1
         except ValueError:
-            pass
+            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
 
     query += " ORDER BY pr.created_at DESC"
     
@@ -339,7 +339,7 @@ async def report_invoices(
             params.append(sup_uuid)
             param_idx += 1
         except ValueError:
-            pass
+            raise HTTPException(400, "Filtro inválido: identificador mal formado.")
 
     if invoice_type:
         query += f" AND pi.invoice_type = ${param_idx}"
@@ -353,7 +353,7 @@ async def report_invoices(
             params.append(dt_from)
             param_idx += 1
         except ValueError:
-            pass
+            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
 
     if date_to:
         try:
@@ -362,7 +362,7 @@ async def report_invoices(
             params.append(dt_to)
             param_idx += 1
         except ValueError:
-            pass
+            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
 
     query += " ORDER BY pi.created_at DESC"
     
@@ -410,7 +410,7 @@ async def report_purchase_orders(
             params.append(sup_uuid)
             param_idx += 1
         except ValueError:
-            pass
+            raise HTTPException(400, "Filtro inválido: identificador mal formado.")
 
     if status:
         query += f" AND po.status = ${param_idx}"
@@ -429,7 +429,7 @@ async def report_purchase_orders(
             params.append(dt_from)
             param_idx += 1
         except ValueError:
-            pass
+            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
 
     if date_to:
         try:
@@ -438,7 +438,7 @@ async def report_purchase_orders(
             params.append(dt_to)
             param_idx += 1
         except ValueError:
-            pass
+            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
 
     query += " ORDER BY po.created_at DESC"
     

@@ -106,14 +106,14 @@ async def list_admin_stock_kardex(
             params.append(uuid.UUID(branch_id))
             query += f" AND sm.branch_id = ${param_idx}"
             param_idx += 1
-        except ValueError: pass
+        except ValueError: raise HTTPException(400, "Filtro inválido: identificador mal formado.")
             
     if sector_id:
         try:
             params.append(uuid.UUID(sector_id))
             query += f" AND sm.sector_id = ${param_idx}"
             param_idx += 1
-        except ValueError: pass
+        except ValueError: raise HTTPException(400, "Filtro inválido: identificador mal formado.")
             
     if location_code:
         query += f" AND l.location_code ILIKE ${param_idx}"
@@ -133,7 +133,7 @@ async def list_admin_stock_kardex(
             query += f" AND sm.created_at >= ${param_idx}"
             params.append(dt_obj)
             param_idx += 1
-        except ValueError: pass
+        except ValueError: raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
 
     if date_to:
         t_to = time_to.strip() if time_to else "23:59"
@@ -143,7 +143,7 @@ async def list_admin_stock_kardex(
             query += f" AND sm.created_at <= ${param_idx}"
             params.append(dt_obj)
             param_idx += 1
-        except ValueError: pass
+        except ValueError: raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
 
     query += " ORDER BY sm.created_at DESC LIMIT 500"
     
