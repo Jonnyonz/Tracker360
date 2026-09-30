@@ -164,6 +164,9 @@ async def scan_transfer_item(transfer_number: str, data: MobileTransferScanInput
         sku_clean = data.sku.strip().upper()
         line = await conn.fetchrow("SELECT id, quantity_sent, quantity_received, origin_location_id FROM transfer_order_lines WHERE transfer_order_id = $1 AND UPPER(sku) = $2", tr["id"], sku_clean)
         if not line: raise HTTPException(400, "SKU no pertenece al traspaso.")
+        needed = float(line["quantity_sent"]) - float(line["quantity_received"])
+        if needed <= 0: raise HTTPException(400, f"El SKU '{sku_clean}' ya fue transferido totalmente.")
+        if data.quantity > needed: raise HTTPException(400, f"La cantidad supera lo pendiente del SKU '{sku_clean}'. Solo faltan {needed:g}.")
 
         dest_loc_id = None
         if data.destination_location_code and data.destination_location_code.strip():
