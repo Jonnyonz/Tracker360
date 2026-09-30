@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone
-import asyncpg, uuid, json
+import asyncpg, uuid, json, math
 
 try:
     from backend.database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency
@@ -302,6 +302,8 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
         
         needed = line["quantity_requested"] - line["quantity_picked"]
         if needed <= 0: raise HTTPException(400, f"El SKU '{sku_clean}' ya fue recolectado totalmente.")
+        if not math.isfinite(data.quantity) or data.quantity <= 0: raise HTTPException(400, "La cantidad debe ser mayor a cero.")
+        if data.quantity > needed: raise HTTPException(400, f"La cantidad supera lo pendiente del SKU '{sku_clean}'. Solo faltan {needed:g}.")
 
         snt_enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_serial_tracking'")
         if snt_enabled == "true" and data.serial_numbers and len(data.serial_numbers) > 0:
@@ -403,6 +405,7 @@ async def scan_wave_picking_item(data: WavePickScanInput, user: dict = Depends(g
     async with conn.transaction():
         sku_clean = data.sku.strip().upper()
         qty_to_distribute = float(data.quantity)
+        if not math.isfinite(qty_to_distribute) or qty_to_distribute <= 0: raise HTTPException(400, "La cantidad debe ser mayor a cero.")
         
         snt_enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_serial_tracking'")
         if snt_enabled == "true" and data.serial_numbers and len(data.serial_numbers) > 0:
