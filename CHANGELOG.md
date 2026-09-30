@@ -28,7 +28,13 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   controla el remito con el celular. El historial tiene "Detalle" con el origen de cada artículo y
   las observaciones. (`5b11cd3`, `f9a1840`)
 
+- **Trabaja con lotes (Sí/No).** El ajuste de Configuración (ahora "Trabaja con lotes y
+  vencimientos") existía pero no hacía nada. Ahora, si está en "No", ningún formulario pide lote;
+  si está en "Sí", todos lo piden, en el panel y en el celular. (`72fecdb`)
+
 ### Cambiado
+- **El número de remito es único por proveedor.** Dos proveedores pueden usar el mismo número
+  sin chocar; un mismo proveedor no puede repetirlo. (`1187f4b`)
 - En la lista de pedidos, el botón "Participantes" ahora se llama "Detalle" y abre el pedido
   con su avance, sus participantes y sus observaciones. (`f5d1fe9`)
 
