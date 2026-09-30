@@ -56,6 +56,10 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   con su avance, sus participantes y sus observaciones. (`f5d1fe9`)
 
 ### Corregido
+- **Seguridad: las exportaciones a CSV ya no pueden ejecutar fórmulas en Excel.** Un nombre de
+  proveedor o artículo que empezara con "=", "+", "-" o "@" (por ejemplo, un enlace malicioso) se
+  ejecutaba al abrir el archivo; ahora se exporta como texto. Vale para todos los reportes. De
+  paso, las cantidades en 0 ya no salen vacías. (`5558a30`)
 - **El stock en cuarentena ya no se puede preparar ni transferir**, ni aparece como ubicación
   sugerida en el picking o la reposición. (`a8bc359`)
 - **Acentos rotos en el celular y en partes del panel** (por ejemplo "Permiso de c?mara"): algunos
