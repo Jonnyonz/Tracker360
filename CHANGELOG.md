@@ -58,6 +58,12 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   con su avance, sus participantes y sus observaciones. (`f5d1fe9`)
 
 ### Corregido
+- **Conteo "en caliente": ya no descuenta dos veces lo que se vendió mientras se contaba.** La
+  diferencia ahora tiene en cuenta los movimientos del local abierto entre la foto y el momento en
+  que se contó cada artículo, y la pantalla de revisión muestra exactamente lo que se va a
+  aplicar. El conteo "en frío" sigue ajustando el stock a lo contado, y lo que no se contó queda
+  como está. (`a2866c1`)
+- **Conteos: la mercadería en cuarentena ya no altera el ajuste** del stock disponible. (`f625858`)
 - **Picking: el stock se descuenta de donde realmente está.** Una ubicación mal escaneada ya no
   descuenta de otra sucursal (se rechaza), no se puede pickear un artículo sin stock salvo que la
   empresa permita stock negativo, y cada pickeo queda registrado en el stock. Con lotes, sale del
