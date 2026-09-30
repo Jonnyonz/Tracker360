@@ -4,9 +4,9 @@ from typing import Optional, List
 import asyncpg, uuid, re, json
 
 try:
-    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, build_full_address, add_system_note
+    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, build_full_address, add_system_note, parse_uuid
 except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, build_full_address, add_system_note
+    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, build_full_address, add_system_note, parse_uuid
 
 router = APIRouter(tags=["Inbound & Receptions"])
 
@@ -517,12 +517,12 @@ async def get_return_orders_by_customer(customer_id: str, user: dict = Depends(r
         FROM documents d
         WHERE d.customer_id = $1 AND d.status IN ('COMPLETED', 'DISPATCHED')
         ORDER BY d.created_at DESC
-    """, uuid.UUID(customer_id))
+    """, parse_uuid(customer_id))
     return [dict(r) for r in rows]
 
 @router.get("/api/admin/returns/order-details/{document_id}")
 async def get_return_order_details(document_id: str, user: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    doc = await conn.fetchrow("SELECT id, document_number, customer_id FROM documents WHERE id = $1", uuid.UUID(document_id))
+    doc = await conn.fetchrow("SELECT id, document_number, customer_id FROM documents WHERE id = $1", parse_uuid(document_id))
     if not doc: raise HTTPException(404, "Pedido no encontrado")
     
     lines = await conn.fetch("""
@@ -580,7 +580,7 @@ async def create_customer_return(
             INSERT INTO customer_returns (return_number, customer_id, document_id, branch_id, sector_id, created_by)
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id
-        """, ret_num, uuid.UUID(data.customer_id), uuid.UUID(data.document_id), target_branch_id, target_sector_id, user["username"])
+        """, ret_num, parse_uuid(data.customer_id), parse_uuid(data.document_id), target_branch_id, target_sector_id, user["username"])
 
         items_processed = 0
         for line in data.lines:

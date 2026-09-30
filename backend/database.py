@@ -277,6 +277,13 @@ async def dispatch_event_to_channels(conn: asyncpg.Connection, event_type: str, 
         if ch["target_url"] and ch["target_url"].startswith("http"):
             asyncio.create_task(execute_and_log_webhook(ch["id"], ch["name"], event_type, ch["target_url"], payload, ch["api_key"] or ""))
 
+def parse_uuid(value, mensaje: str = "Identificador inválido.") -> uuid.UUID:
+    # Identificadores que vienen del usuario: un valor mal formado (o faltante) es un 400, no un 500.
+    try:
+        return uuid.UUID(str(value)) if value is not None else uuid.UUID("")
+    except ValueError:
+        raise HTTPException(400, mensaje)
+
 def require_valid_quantity(quantity: float, allow_zero: bool = False) -> None:
     # Una cantidad negativa invierte el movimiento (una recepcion resta stock, un traspaso lo
     # devuelve al origen) y NaN/infinito llegan a la base (NUMERIC acepta 'Infinity').

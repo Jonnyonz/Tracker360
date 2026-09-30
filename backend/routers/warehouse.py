@@ -5,9 +5,9 @@ import asyncpg, uuid, csv
 from io import StringIO
 
 try:
-    from backend.database import get_db_connection, require_admin, require_supervisor, build_full_address
+    from backend.database import get_db_connection, require_admin, require_supervisor, build_full_address, parse_uuid
 except ImportError:
-    from database import get_db_connection, require_admin, require_supervisor, build_full_address
+    from database import get_db_connection, require_admin, require_supervisor, build_full_address, parse_uuid
 
 router = APIRouter(tags=["Warehouse"])
 
@@ -73,7 +73,7 @@ async def list_sectors(admin: dict = Depends(require_supervisor), conn: asyncpg.
 
 @router.post("/api/admin/sectors")
 async def create_sector(data: SectorCreate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    await conn.execute("INSERT INTO sectors (name, print_queue_code, uses_locations, branch_id) VALUES ($1, $2, $3, $4)", data.name.strip(), data.print_queue_code.strip().upper(), data.uses_locations, uuid.UUID(data.branch_id))
+    await conn.execute("INSERT INTO sectors (name, print_queue_code, uses_locations, branch_id) VALUES ($1, $2, $3, $4)", data.name.strip(), data.print_queue_code.strip().upper(), data.uses_locations, parse_uuid(data.branch_id))
     return {"status": "success"}
 
 @router.get("/api/admin/locations")
@@ -82,7 +82,7 @@ async def list_all_locations(admin: dict = Depends(require_supervisor), conn: as
 
 @router.post("/api/admin/locations")
 async def create_location_direct(data: LocationCreate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    await conn.execute("INSERT INTO locations (sector_id, location_code, description) VALUES ($1, $2, $3)", uuid.UUID(data.sector_id), data.location_code.strip().upper(), data.description.strip())
+    await conn.execute("INSERT INTO locations (sector_id, location_code, description) VALUES ($1, $2, $3)", parse_uuid(data.sector_id), data.location_code.strip().upper(), data.description.strip())
     return {"status": "success"}
 
 @router.post("/api/admin/sectors/{sector_id}/locations/import")
@@ -96,6 +96,6 @@ async def import_locations_csv(sector_id: str, file: UploadFile = File(...), adm
             code = row.get("ubicacion") or row.get("location_code") or row.get("codigo")
             desc = row.get("descripcion") or row.get("description") or ""
             if code and code.strip():
-                await conn.execute("INSERT INTO locations (sector_id, location_code, description) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", uuid.UUID(sector_id), code.strip().upper(), desc.strip())
+                await conn.execute("INSERT INTO locations (sector_id, location_code, description) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", parse_uuid(sector_id), code.strip().upper(), desc.strip())
                 count += 1
     return {"status": "success", "message": f"Se importaron {count} ubicaciones al sector."}

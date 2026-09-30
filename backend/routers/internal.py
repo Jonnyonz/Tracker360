@@ -4,9 +4,9 @@ from typing import Optional, List
 import asyncpg, uuid, json
 
 try:
-    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity
+    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, parse_uuid
 except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity
+    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, parse_uuid
 
 router = APIRouter(tags=["Internal Movements"])
 
@@ -93,19 +93,19 @@ async def create_transfer_order(
             INSERT INTO transfer_orders (transfer_number, origin_branch_id, origin_sector_id, destination_branch_id, destination_sector_id, status, created_by)
             VALUES ($1, $2, $3, $4, $5, 'PENDING', $6)
             RETURNING id
-        """, data.transfer_number.strip().upper(), uuid.UUID(data.origin_branch_id), uuid.UUID(data.origin_sector_id), uuid.UUID(data.destination_branch_id), uuid.UUID(data.destination_sector_id), admin["username"])
+        """, data.transfer_number.strip().upper(), parse_uuid(data.origin_branch_id), parse_uuid(data.origin_sector_id), parse_uuid(data.destination_branch_id), parse_uuid(data.destination_sector_id), admin["username"])
 
         for line in data.lines:
             require_valid_quantity(line.quantity)
             orig_loc_id = None
             if line.origin_location_code and line.origin_location_code.strip():
-                loc = await conn.fetchrow("SELECT id FROM locations WHERE sector_id = $1 AND UPPER(location_code) = $2", uuid.UUID(data.origin_sector_id), line.origin_location_code.strip().upper())
+                loc = await conn.fetchrow("SELECT id FROM locations WHERE sector_id = $1 AND UPPER(location_code) = $2", parse_uuid(data.origin_sector_id), line.origin_location_code.strip().upper())
                 if loc: orig_loc_id = loc["id"]
                 else: raise HTTPException(400, f"Ubicación Origen '{line.origin_location_code}' no existe en el sector.")
 
             dest_loc_id = None
             if line.destination_location_code and line.destination_location_code.strip():
-                loc = await conn.fetchrow("SELECT id FROM locations WHERE sector_id = $1 AND UPPER(location_code) = $2", uuid.UUID(data.destination_sector_id), line.destination_location_code.strip().upper())
+                loc = await conn.fetchrow("SELECT id FROM locations WHERE sector_id = $1 AND UPPER(location_code) = $2", parse_uuid(data.destination_sector_id), line.destination_location_code.strip().upper())
                 if loc: dest_loc_id = loc["id"]
                 else: raise HTTPException(400, f"Ubicación Destino '{line.destination_location_code}' no existe en el sector.")
 

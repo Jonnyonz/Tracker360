@@ -6,9 +6,9 @@ import asyncpg, csv
 from io import StringIO
 
 try:
-    from backend.database import get_db_connection, require_admin, require_supervisor, queue_zpl_print_job
+    from backend.database import get_db_connection, require_admin, require_supervisor, queue_zpl_print_job, parse_uuid
 except ImportError:
-    from database import get_db_connection, require_admin, require_supervisor, queue_zpl_print_job
+    from database import get_db_connection, require_admin, require_supervisor, queue_zpl_print_job, parse_uuid
 
 router = APIRouter(tags=["Items"])
 
@@ -168,7 +168,7 @@ async def add_item_location(data: ItemLocationInput, admin: dict = Depends(requi
 
 @router.delete("/api/admin/item-locations/{assignment_id}")
 async def delete_item_location(assignment_id: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    await conn.execute("DELETE FROM item_locations WHERE id = $1", uuid.UUID(assignment_id))
+    await conn.execute("DELETE FROM item_locations WHERE id = $1", parse_uuid(assignment_id))
     return {"status": "success"}
 
 @router.post("/api/admin/import/items")

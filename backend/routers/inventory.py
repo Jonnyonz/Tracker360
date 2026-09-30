@@ -5,9 +5,9 @@ from datetime import datetime
 import asyncpg, uuid
 
 try:
-    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action, record_stock_movement, require_valid_quantity
+    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action, record_stock_movement, require_valid_quantity, parse_uuid
 except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action, record_stock_movement, require_valid_quantity
+    from database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action, record_stock_movement, require_valid_quantity, parse_uuid
 
 router = APIRouter(tags=["Inventory Control"])
 
@@ -168,7 +168,7 @@ async def list_inventory_sessions(user: dict = Depends(get_current_user), conn: 
 @router.post("/api/inventory/sessions")
 async def create_inventory_session(data: InventorySessionCreate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     async with conn.transaction():
-        active = await conn.fetchval("SELECT id FROM inventory_sessions WHERE sector_id = $1 AND status IN ('OPEN', 'REVIEW')", uuid.UUID(data.sector_id))
+        active = await conn.fetchval("SELECT id FROM inventory_sessions WHERE sector_id = $1 AND status IN ('OPEN', 'REVIEW')", parse_uuid(data.sector_id))
         if active:
             raise HTTPException(400, "Ya existe un conteo activo para este sector. Ciérrelo antes de abrir uno nuevo.")
 
@@ -182,7 +182,7 @@ async def create_inventory_session(data: InventorySessionCreate, admin: dict = D
             SELECT $1, sku, location_id, lot_number, quantity
             FROM stock_inventory
             WHERE sector_id = $2 AND quantity > 0 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO'
-        """, session_id, uuid.UUID(data.sector_id))
+        """, session_id, parse_uuid(data.sector_id))
 
         await log_action(conn, admin["username"], "INVENTORY_STARTED", f"Conteo asignado a {data.assigned_operator} en sector {data.sector_id}.")
         return {"status": "success", "session_id": str(session_id)}
@@ -290,7 +290,7 @@ async def review_inventory_deltas(session_id: str, admin: dict = Depends(require
 @router.post("/api/inventory/sessions/{session_id}/apply")
 async def apply_inventory_adjustments(session_id: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     async with conn.transaction():
-        sess = await conn.fetchrow("SELECT id, status, branch_id, sector_id, count_type, created_at FROM inventory_sessions WHERE id = $1 FOR UPDATE", uuid.UUID(session_id))
+        sess = await conn.fetchrow("SELECT id, status, branch_id, sector_id, count_type, created_at FROM inventory_sessions WHERE id = $1 FOR UPDATE", parse_uuid(session_id))
         if not sess or sess["status"] != "REVIEW":
             raise HTTPException(400, "La sesión no está en estado de revisión.")
 
