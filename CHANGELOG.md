@@ -50,6 +50,8 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   si está en "Sí", todos lo piden, en el panel y en el celular. (`72fecdb`)
 
 ### Cambiado
+- Los tests automáticos ya no forman parte del repositorio: se mantienen aparte, fuera del
+  código del sistema. No cambia nada del funcionamiento.
 - **El número de remito es único por proveedor.** Dos proveedores pueden usar el mismo número
   sin chocar; un mismo proveedor no puede repetirlo. (`1187f4b`)
 - En la lista de pedidos, el botón "Participantes" ahora se llama "Detalle" y abre el pedido

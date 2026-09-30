@@ -15,7 +15,6 @@ común.
 - [Configuración](#configuración)
 - [Agente de impresión](#agente-de-impresión)
 - [Operación](#operación)
-- [Tests](#tests)
 - [Estado y limitaciones conocidas](#estado-y-limitaciones-conocidas)
 - [Contribuir y licencia](#contribuir-y-licencia)
 
@@ -91,7 +90,6 @@ Tracker360/
 │   ├── routers/             # auth, users, entities, items, warehouse, settings, printing,
 │   │                        # inbound, outbound, internal, inventory, dashboard, reports,
 │   │                        # rfid, updater, notes
-│   ├── test_architecture.py
 │   ├── requirements.txt
 │   └── Dockerfile           # se construye desde la raíz del repo
 ├── frontend/                # index.html (login/setup), admin.html, preparador.html,
@@ -332,19 +330,6 @@ actualización se hace a mano en el servidor.
 
 ---
 
-## Tests
-
-```bash
-python -m venv .venv && . .venv/bin/activate
-pip install -r backend/requirements.txt
-pip install pytest "httpx==0.27.2"     # httpx 0.28 no es compatible con esta versión de Starlette
-python -m pytest backend/test_architecture.py
-```
-
-Verifican que todos los routers queden registrados y que el frontend se sirva. No necesitan
-base de datos.
-
----
 
 ## Estado y limitaciones conocidas
 
@@ -374,7 +359,7 @@ Lo que cambia en cada actualización está en `CHANGELOG.md`.
 ## Contribuir y licencia
 
 Las contribuciones son bienvenidas: ver `CONTRIBUTING.md`. Cada commit tiene que llevar `Signed-off-by`
-(`git commit -s`, Developer Certificate of Origin), ser un único cambio probado y pasar los
-tests. Sin emojis en la interfaz: íconos solo en SVG.
+(`git commit -s`, Developer Certificate of Origin), ser un único cambio y estar
+probado. Sin emojis en la interfaz: íconos solo en SVG.
 
 Licencia: **AGPLv3** (GNU Affero General Public License v3). Ver `LICENSE`. Si ofrecés una versión modificada como servicio en red, tenés que publicar su código fuente.
