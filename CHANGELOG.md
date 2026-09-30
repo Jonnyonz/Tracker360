@@ -4,6 +4,17 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 
 ## 2026-09-30
 
+### Agregado
+- **Observaciones en los documentos.** Pedidos y traspasos muestran sus observaciones dentro del
+  propio documento (botón "Detalle"), con fecha y autor. Cualquiera que pueda ver el documento
+  puede agregar una, incluido el supervisor. Las observaciones no se editan ni se borran, para
+  que queden como registro. Las que genere el sistema aparecen marcadas como "Sistema". Remitos
+  y órdenes de compra las van a tener cuando se habilite su pantalla. (`d769b71`, `f5d1fe9`)
+
+### Cambiado
+- En la lista de pedidos, el botón "Participantes" ahora se llama "Detalle" y abre el pedido
+  con su avance, sus participantes y sus observaciones. (`f5d1fe9`)
+
 ### Corregido
 - **Traspasos: ya no se puede transferir más de lo que dice la orden.** El escaneo se rechaza con
   el aviso "Solo faltan N", igual que en el picking. (`c2807e2`)
