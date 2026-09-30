@@ -10,6 +10,13 @@ except ImportError:
 
 router = APIRouter(prefix="/api/admin/users", tags=["Users"])
 
+ROLES_VALIDOS = ("ADMIN", "SUPERVISOR", "PREPARADOR")
+
+def _validar_rol(role: str) -> str:
+    rol = (role or "").strip().upper()
+    if rol not in ROLES_VALIDOS: raise HTTPException(400, f"Rol inválido. Opciones: {', '.join(ROLES_VALIDOS)}.")
+    return rol
+
 class UserCreate(BaseModel):
     username: str
     full_name: str
@@ -42,22 +49,17 @@ async def list_users(admin: dict = Depends(require_admin), conn: asyncpg.Connect
 
 @router.post("")
 async def create_or_update_user(data: UserCreate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    # Solo crea: un alta con un usuario existente lo pisaba (clave y rol incluidos). Editar va por PUT.
     clean_username = data.username.strip().lower()
-    await conn.execute("""
-        INSERT INTO users (username, full_name, password_hash, role, email, branch_id, sector_id, is_active) 
-        VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE) 
-        ON CONFLICT (username) DO UPDATE SET
-            full_name = EXCLUDED.full_name,
-            password_hash = EXCLUDED.password_hash,
-            role = EXCLUDED.role,
-            email = EXCLUDED.email,
-            branch_id = EXCLUDED.branch_id,
-            sector_id = EXCLUDED.sector_id,
-            is_active = TRUE,
-            token_version = users.token_version + 1
-    """, clean_username, data.full_name.strip(), get_password_hash(data.password), data.role, data.email.strip() if data.email else None, data.branch_id, data.sector_id)
-    
-    await log_action(conn, admin.get("username", "admin"), "USER_CREATED", f"Creó o actualizó usuario nativo {clean_username}")
+    rol = _validar_rol(data.role)
+    creado = await conn.fetchval("""
+        INSERT INTO users (username, full_name, password_hash, role, email, branch_id, sector_id, is_active)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
+        ON CONFLICT (username) DO NOTHING RETURNING id
+    """, clean_username, data.full_name.strip(), get_password_hash(data.password), rol, data.email.strip() if data.email else None, data.branch_id, data.sector_id)
+    if not creado: raise HTTPException(409, "Ya existe un usuario con ese nombre. Para modificarlo, editalo.")
+
+    await log_action(conn, admin.get("username", "admin"), "USER_CREATED", f"Creó el usuario nativo {clean_username}")
     return {"status": "success", "message": "Usuario nativo creado correctamente."}
 
 @router.put("/{identifier}")
@@ -83,7 +85,7 @@ async def update_user(identifier: str, data: UserUpdate, admin: dict = Depends(r
         idx += 1
     if data.role is not None:
         updates.append(f"role = ${idx}")
-        params.append(data.role)
+        params.append(_validar_rol(data.role))
         idx += 1
     if data.email is not None:
         updates.append(f"email = ${idx}")
