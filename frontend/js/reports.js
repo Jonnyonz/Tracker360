@@ -1,5 +1,14 @@
 // === MÓDULO DE REPORTES Y EXPORTACIÓN (TRACKER360) ===
 
+// Celda de CSV: escapa comillas y neutraliza el texto que empieza con = + - @ (Excel/LibreOffice lo
+// ejecutarian como formula: un nombre de proveedor '=HYPERLINK(...)' seria un link malicioso). Los
+// numeros (p. ej. -2) se dejan como numero. Va entre comillas en la plantilla: "${csvSafe(x)}".
+function csvSafe(value) {
+    let s = String(value === null || value === undefined ? '' : value);
+    if (/^[=+\-@\t\r]/.test(s) && isNaN(Number(s))) s = "'" + s;
+    return s.replace(/"/g, '""');
+}
+
 let lastStockReportData = [];
 let lastStockReportFilters = {};
 
@@ -177,13 +186,13 @@ window.exportStockReportCSV = function() {
     let csvContent = "\uFEFF"; 
     csvContent += "=== REPORTE DE STOCK INVENTARIO ===\r\n";
     for (const [key, value] of Object.entries(lastStockReportFilters)) {
-        csvContent += `"${key}";"${value}"\r\n`;
+        csvContent += `"${csvSafe(key)}";"${csvSafe(value)}"\r\n`;
     }
     csvContent += "\r\n";
     csvContent += '"Sucursal";"Sector";"Ubicacion";"SKU";"Descripcion";"Cantidad";"Peso_Total_Kg";"Volumen_Total_m3"\r\n';
 
     lastStockReportData.forEach(r => {
-        const escapeCSV = (str) => String(str || '').replace(/"/g, '""');
+        const escapeCSV = csvSafe;
         csvContent += `"${escapeCSV(r.branch_name)}";"${escapeCSV(r.sector_name)}";"${escapeCSV(r.location_code)}";"${escapeCSV(r.sku)}";"${escapeCSV(r.description)}";"${r.quantity}";"${r.total_weight_kg}";"${r.total_volume_m3}"\r\n`;
     });
 
@@ -325,14 +334,14 @@ window.exportKardexReportCSV = function() {
     let csvContent = "\uFEFF"; 
     csvContent += "=== REPORTE DE TRAZA DE ARTICULOS (KARDEX) ===\r\n";
     for (const [key, value] of Object.entries(lastKardexReportFilters)) {
-        csvContent += `"${key}";"${value}"\r\n`;
+        csvContent += `"${csvSafe(key)}";"${csvSafe(value)}"\r\n`;
     }
     csvContent += "\r\n";
 
     csvContent += '"Fecha_Hora";"SKU";"Descripcion";"Operacion";"Sucursal";"Sector";"Ubicacion";"Ingreso";"Salida";"Usuario"\r\n';
 
     lastKardexReportData.forEach(r => {
-        const escapeCSV = (str) => String(str || '').replace(/"/g, '""');
+        const escapeCSV = csvSafe;
         const fecha = new Date(r.created_at).toLocaleString();
         const ingreso = r.quantity > 0 ? r.quantity : '';
         const salida = r.quantity < 0 ? r.quantity : '';
@@ -427,13 +436,13 @@ window.exportOrdersReportCSV = function() {
     let csvContent = "\uFEFF"; 
     csvContent += "=== REPORTE DE PEDIDOS DE VENTA ===\r\n";
     for (const [key, value] of Object.entries(lastOrdersReportFilters)) {
-        csvContent += `"${key}";"${value}"\r\n`;
+        csvContent += `"${csvSafe(key)}";"${csvSafe(value)}"\r\n`;
     }
     csvContent += "\r\n";
     csvContent += '"N_Pedido";"Fecha_Creacion";"Cliente";"CUIT";"Estado";"Progreso_Pct";"Vinculado_A"\r\n';
 
     lastOrdersReportData.forEach(r => {
-        const escapeCSV = (str) => String(str || '').replace(/"/g, '""');
+        const escapeCSV = csvSafe;
         const fecha = new Date(r.created_at).toLocaleString();
         
         csvContent += `"${escapeCSV(r.document_number)}";"${escapeCSV(fecha)}";"${escapeCSV(r.customer_name)}";"${escapeCSV(r.customer_tax_id)}";"${escapeCSV(r.status)}";"${r.progress_pct}%";"${escapeCSV(r.related_document)}"\r\n`;
@@ -550,13 +559,13 @@ window.exportRemitosReportCSV = function() {
     let csvContent = "\uFEFF"; 
     csvContent += "=== REPORTE DE REMITOS DE COMPRA ===\r\n";
     for (const [key, value] of Object.entries(lastRemitosReportFilters)) {
-        csvContent += `"${key}";"${value}"\r\n`;
+        csvContent += `"${csvSafe(key)}";"${csvSafe(value)}"\r\n`;
     }
     csvContent += "\r\n";
     csvContent += '"N_Remito";"Fecha_Ingreso";"Proveedor";"CUIT_Proveedor";"Sucursal";"Sector";"Estado";"Progreso_Pct"\r\n';
 
     lastRemitosReportData.forEach(r => {
-        const escapeCSV = (str) => String(str || '').replace(/"/g, '""');
+        const escapeCSV = csvSafe;
         const fecha = new Date(r.created_at).toLocaleString();
         
         csvContent += `"${escapeCSV(r.remito_number)}";"${escapeCSV(fecha)}";"${escapeCSV(r.supplier_name)}";"${escapeCSV(r.supplier_tax_id)}";"${escapeCSV(r.branch_name)}";"${escapeCSV(r.sector_name)}";"${escapeCSV(r.status)}";"${r.progress_pct}%"\r\n`;
@@ -663,9 +672,7 @@ window.generateDiffsReport = async function(e) {
 
 window.exportDiffsReportCSV = function() {
     if (!lastDiffsReportData.length) { showToast("No hay datos generados para exportar. Presione 'Generar Reporte' primero.", "error"); return; }
-    // Comillas escapadas y texto que empieza con = + - @ neutralizado (Excel lo tomaria como formula);
-    // los numeros (p. ej. una diferencia de -2) se dejan como numero.
-    const c = v => { let s = String(v === null || v === undefined ? '' : v); if (/^[=+\-@\t\r]/.test(s) && isNaN(Number(s))) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
+    const c = v => '"' + csvSafe(v) + '"';
     let csv = "﻿=== REPORTE DE DIFERENCIAS DE RECEPCION ===\r\n";
     for (const [k, v] of Object.entries(lastDiffsReportFilters)) csv += `${c(k)};${c(v)}\r\n`;
     csv += "\r\n" + ["Fecha", "Remito", "Proveedor", "CUIT_Proveedor", "Sucursal", "SKU", "Descripcion", "Tipo", "Estado_No_Esperado", "Remitido", "Controlado", "Diferencia"].map(c).join(';') + "\r\n";
@@ -767,13 +774,13 @@ window.exportInvoicesReportCSV = function() {
     let csvContent = "\uFEFF"; 
     csvContent += "=== REPORTE DE FACTURAS DE COMPRA ===\r\n";
     for (const [key, value] of Object.entries(lastInvoicesReportFilters)) {
-        csvContent += `"${key}";"${value}"\r\n`;
+        csvContent += `"${csvSafe(key)}";"${csvSafe(value)}"\r\n`;
     }
     csvContent += "\r\n";
     csvContent += '"N_Factura";"Fecha_Emision";"Proveedor";"CUIT_Proveedor";"Tipo_Comprobante"\r\n';
 
     lastInvoicesReportData.forEach(r => {
-        const escapeCSV = (str) => String(str || '').replace(/"/g, '""');
+        const escapeCSV = csvSafe;
         const fecha = new Date(r.created_at).toLocaleString();
         
         csvContent += `"${escapeCSV(r.invoice_number)}";"${escapeCSV(fecha)}";"${escapeCSV(r.supplier_name)}";"${escapeCSV(r.supplier_tax_id)}";"${escapeCSV(r.invoice_type)}"\r\n`;
@@ -876,13 +883,13 @@ window.exportPOReportCSV = function() {
     let csvContent = "\uFEFF"; 
     csvContent += "=== REPORTE DE ORDENES DE COMPRA ===\r\n";
     for (const [key, value] of Object.entries(lastPOReportFilters)) {
-        csvContent += `"${key}";"${value}"\r\n`;
+        csvContent += `"${csvSafe(key)}";"${csvSafe(value)}"\r\n`;
     }
     csvContent += "\r\n";
     csvContent += '"N_Orden";"Fecha_Emision";"Proveedor";"CUIT_Proveedor";"Estado";"Total_SKUs";"Total_Unidades"\r\n';
 
     lastPOReportData.forEach(r => {
-        const escapeCSV = (str) => String(str || '').replace(/"/g, '""');
+        const escapeCSV = csvSafe;
         const fecha = new Date(r.created_at).toLocaleString();
         
         csvContent += `"${escapeCSV(r.order_number)}";"${escapeCSV(fecha)}";"${escapeCSV(r.supplier_name)}";"${escapeCSV(r.supplier_tax_id)}";"${escapeCSV(r.status)}";"${r.total_skus}";"${r.total_units}"\r\n`;
