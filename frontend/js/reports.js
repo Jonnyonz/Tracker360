@@ -572,6 +572,117 @@ window.exportRemitosReportCSV = function() {
     document.body.removeChild(link);
 };
 
+// === REPORTE DE DIFERENCIAS DE RECEPCION ===
+let lastDiffsReportData = [];
+let lastDiffsReportFilters = {};
+const DIFF_KIND_LABEL = { FALTANTE: 'Faltante', SOBRANTE: 'Sobrante', NO_ESPERADO: 'No esperado' };
+const DIFF_EXC_LABEL = { PENDING: 'en cuarentena', APPROVED: 'aprobado', REJECTED: 'rechazado' };
+
+window.loadReportDiffsSelectors = async function() {
+    const [ents, branches] = await Promise.all([fetchAPI('/api/admin/entities'), fetchAPI('/api/admin/branches')]);
+    const proveedores = (ents || []).filter(e => e.is_supplier);
+    document.getElementById('rep-diff-supplier').innerHTML = '<option value="">-- Todos los Proveedores --</option>' +
+        proveedores.map(s => `<option value="${escapeHTML(s.id)}">${escapeHTML(s.company_name)}</option>`).join('');
+    document.getElementById('rep-diff-branch').innerHTML = '<option value="">-- Todas las Sucursales --</option>' +
+        (branches || []).map(b => `<option value="${escapeHTML(b.id)}">${escapeHTML(b.name)}</option>`).join('');
+};
+
+function renderDiffsSummary(rows) {
+    const cont = document.getElementById('rep-diff-summary');
+    if (!rows.length) { cont.innerHTML = ''; return; }
+    const porProv = {};
+    rows.forEach(r => {
+        const p = porProv[r.supplier_name] || (porProv[r.supplier_name] = { remitos: new Set(), faltan: 0, sobran: 0, noEsp: 0, pendientes: 0 });
+        p.remitos.add(r.remito_id);
+        if (r.kind === 'FALTANTE') p.faltan += -r.difference;
+        if (r.kind === 'SOBRANTE') p.sobran += r.difference;
+        if (r.kind === 'NO_ESPERADO') { p.noEsp += r.difference; if (r.exception_status === 'PENDING') p.pendientes += 1; }
+    });
+    const filas = Object.entries(porProv).map(([nombre, p]) => `<tr>
+        <td>${escapeHTML(nombre)}</td>
+        <td style="text-align:right;">${p.remitos.size}</td>
+        <td style="text-align:right; color:var(--danger); font-weight:bold;">${escapeHTML(String(p.faltan))}</td>
+        <td style="text-align:right;">${escapeHTML(String(p.sobran))}</td>
+        <td style="text-align:right;">${escapeHTML(String(p.noEsp))}</td>
+        <td style="text-align:right;">${p.pendientes ? `<span class="badge badge-warning">${p.pendientes}</span>` : '0'}</td>
+    </tr>`).join('');
+    cont.innerHTML = `<div class="card grid-full-width" style="margin-bottom:1.5rem;">
+        <h4 style="margin-bottom:0.75rem;">Resumen por proveedor</h4>
+        <table><thead><tr><th>Proveedor</th><th style="text-align:right;">Remitos</th><th style="text-align:right;">Unid. faltantes</th><th style="text-align:right;">Unid. sobrantes</th><th style="text-align:right;">Unid. no esperadas</th><th style="text-align:right;">Sin resolver</th></tr></thead><tbody>${filas}</tbody></table>
+    </div>`;
+}
+
+window.generateDiffsReport = async function(e) {
+    if (e) e.preventDefault();
+    const tbody = document.getElementById('table-rep-diffs-body');
+    const btn = document.querySelector('#form-rep-diffs button[type="submit"]');
+    const sel = id => document.getElementById(id);
+    const texto = id => sel(id).value ? sel(id).options[sel(id).selectedIndex].text : null;
+    const params = new URLSearchParams();
+    [['supplier_id', 'rep-diff-supplier'], ['branch_id', 'rep-diff-branch'], ['date_from', 'rep-diff-date-from'], ['date_to', 'rep-diff-date-to'], ['kind', 'rep-diff-kind']]
+        .forEach(([k, id]) => { if (sel(id).value) params.append(k, sel(id).value); });
+    lastDiffsReportFilters = {
+        "Proveedor": texto('rep-diff-supplier') || "Todos",
+        "Sucursal": texto('rep-diff-branch') || "Todas",
+        "Fecha Desde": sel('rep-diff-date-from').value || "Sin limite",
+        "Fecha Hasta": sel('rep-diff-date-to').value || "Sin limite",
+        "Tipo": texto('rep-diff-kind') || "Todas",
+        "Fecha de Emision": new Date().toLocaleString()
+    };
+    if (btn) { btn.disabled = true; btn.textContent = "Generando..."; }
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--text-muted);">Generando...</td></tr>';
+    try {
+        const rows = await fetchAPI(`/api/admin/reports/reception-differences?${params.toString()}`);
+        lastDiffsReportData = rows || [];
+        renderDiffsSummary(lastDiffsReportData);
+        if (!lastDiffsReportData.length) {
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--text-muted);">No hay diferencias para estos filtros.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = lastDiffsReportData.map(r => {
+            const badge = r.kind === 'FALTANTE' ? 'badge-danger' : (r.kind === 'SOBRANTE' ? 'badge-warning' : 'badge-neutral');
+            const estado = r.kind === 'NO_ESPERADO' ? ` <small>(${escapeHTML(DIFF_EXC_LABEL[r.exception_status] || r.exception_status)})</small>` : '';
+            return `<tr>
+                <td><small>${escapeHTML(new Date(r.created_at).toLocaleDateString())}</small></td>
+                <td class="font-mono">${escapeHTML(r.remito_number)}</td>
+                <td>${escapeHTML(r.supplier_name)}</td>
+                <td><span class="font-mono">${escapeHTML(r.sku)}</span><div style="font-size:0.8rem; color:var(--text-muted);">${escapeHTML(r.description)}</div></td>
+                <td><span class="badge ${badge}">${escapeHTML(DIFF_KIND_LABEL[r.kind] || r.kind)}</span>${estado}</td>
+                <td style="text-align:right;">${escapeHTML(String(r.sent))}</td>
+                <td style="text-align:right;">${escapeHTML(String(r.received))}</td>
+                <td style="text-align:right; font-weight:bold;">${r.difference > 0 ? '+' : ''}${escapeHTML(String(r.difference))}</td>
+                <td><button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="verRemito(${jsArg(r.remito_id)}, ${jsArg(r.remito_number)})">Ver remito</button></td>
+            </tr>`;
+        }).join('');
+    } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:2rem; color:var(--danger);">Error al generar el reporte.</td></tr>';
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = "Generar Reporte"; }
+    }
+};
+
+window.exportDiffsReportCSV = function() {
+    if (!lastDiffsReportData.length) { showToast("No hay datos generados para exportar. Presione 'Generar Reporte' primero.", "error"); return; }
+    // Comillas escapadas y texto que empieza con = + - @ neutralizado (Excel lo tomaria como formula);
+    // los numeros (p. ej. una diferencia de -2) se dejan como numero.
+    const c = v => { let s = String(v === null || v === undefined ? '' : v); if (/^[=+\-@\t\r]/.test(s) && isNaN(Number(s))) s = "'" + s; return '"' + s.replace(/"/g, '""') + '"'; };
+    let csv = "﻿=== REPORTE DE DIFERENCIAS DE RECEPCION ===\r\n";
+    for (const [k, v] of Object.entries(lastDiffsReportFilters)) csv += `${c(k)};${c(v)}\r\n`;
+    csv += "\r\n" + ["Fecha", "Remito", "Proveedor", "CUIT_Proveedor", "Sucursal", "SKU", "Descripcion", "Tipo", "Estado_No_Esperado", "Remitido", "Controlado", "Diferencia"].map(c).join(';') + "\r\n";
+    lastDiffsReportData.forEach(r => {
+        csv += [new Date(r.created_at).toLocaleString(), r.remito_number, r.supplier_name, r.supplier_tax_id, r.branch_name, r.sku, r.description,
+                DIFF_KIND_LABEL[r.kind] || r.kind, r.exception_status ? (DIFF_EXC_LABEL[r.exception_status] || r.exception_status) : '',
+                r.sent, r.received, r.difference].map(c).join(';') + "\r\n";
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.setAttribute("href", URL.createObjectURL(blob));
+    link.setAttribute("download", `Tracker360_DiferenciasRecepcion_${generateTimestampString()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
 // === 5. REPORTE DE FACTURAS DE COMPRA ===
 
 window.loadReportInvoicesSelectors = async function() {

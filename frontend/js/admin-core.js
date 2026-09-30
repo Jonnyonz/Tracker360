@@ -177,6 +177,7 @@ function switchView(secId, btnElement = null) {
     if(secId === 'section-kardex' && typeof window.loadKardexSelectors === 'function') window.loadKardexSelectors();
     if(secId === 'section-rep-stock' && typeof window.loadReportStockSelectors === 'function') window.loadReportStockSelectors();
     if(secId === 'section-rep-remitos' && typeof window.loadReportRemitosSelectors === 'function') window.loadReportRemitosSelectors();
+    if(secId === 'section-rep-diffs' && typeof window.loadReportDiffsSelectors === 'function') window.loadReportDiffsSelectors();
     if(secId === 'section-rep-invoices' && typeof window.loadReportInvoicesSelectors === 'function') window.loadReportInvoicesSelectors();
     if(secId === 'section-rep-po' && typeof window.loadReportPOSelectors === 'function') window.loadReportPOSelectors();
 }

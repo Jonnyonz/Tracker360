@@ -139,6 +139,7 @@
                 <button class="rail-sub-btn" onclick="switchView('section-kardex', this)">Traza de Artículos</button>
                 <button class="rail-sub-btn" onclick="switchView('section-rep-orders', this)">Reporte de Pedidos</button>
                 <button class="rail-sub-btn" onclick="switchView('section-rep-remitos', this)">Remitos de Compra</button>
+                <button class="rail-sub-btn" onclick="switchView('section-rep-diffs', this)">Diferencias de Recepción</button>
                 <button class="rail-sub-btn" onclick="switchView('section-rep-invoices', this)">Facturas de Compra</button>
                 <button class="rail-sub-btn" onclick="switchView('section-rep-po', this)">Órdenes de Compra</button>
             </div>
@@ -963,6 +964,7 @@
                                     <option value="PENDING_CONTROL">Pendiente de Control</option>
                                     <option value="IN_PROGRESS">En Progreso</option>
                                     <option value="COMPLETED">Completado</option>
+                                    <option value="COMPLETED_DIFF">Controlado con diferencias</option>
                                 </select>
                             </div>
                             <div class="form-group">
@@ -990,6 +992,67 @@
                     </thead>
                     <tbody id="table-rep-remitos-body">
                         <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:2rem;">Seleccione los filtros y presione 'Generar Reporte'</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="section-rep-diffs" class="view-section">
+            <div class="content-header">
+                <h2>Diferencias de Recepción</h2>
+                <button type="button" class="btn-submit" style="background-color: var(--success);" onclick="exportDiffsReportCSV()">Exportar CSV</button>
+            </div>
+            <p style="font-size:0.9rem; color:var(--text-muted); margin:-0.5rem 0 1rem;">Faltantes y sobrantes de los remitos ya controlados, y artículos no esperados que llegaron sin figurar en el remito. Sirve para los reclamos a cada proveedor.</p>
+
+            <div class="card grid-full-width" style="margin-bottom:1.5rem; background:var(--bg-page);">
+                <h4 style="color:var(--text-primary); margin-bottom:1rem; border-bottom:1px solid var(--border); padding-bottom:0.5rem;">Filtros del Reporte</h4>
+                <form id="form-rep-diffs" onsubmit="generateDiffsReport(event)">
+                    <div class="grid-layout" style="margin-bottom:0;">
+                        <div>
+                            <div class="form-group"><label>Proveedor</label><select id="rep-diff-supplier"><option value="">-- Todos los Proveedores --</option></select></div>
+                            <div class="form-group"><label>Sucursal</label><select id="rep-diff-branch"><option value="">-- Todas las Sucursales --</option></select></div>
+                        </div>
+                        <div>
+                            <div class="form-row">
+                                <div class="form-group" style="flex:1;"><label>Fecha Desde</label><input type="date" id="rep-diff-date-from"></div>
+                                <div class="form-group" style="flex:1;"><label>Fecha Hasta</label><input type="date" id="rep-diff-date-to"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>Tipo de Diferencia</label>
+                                <select id="rep-diff-kind">
+                                    <option value="">-- Todas --</option>
+                                    <option value="FALTANTE">Faltantes</option>
+                                    <option value="SOBRANTE">Sobrantes</option>
+                                    <option value="NO_ESPERADO">No esperados</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; border-top:1px solid var(--border); padding-top:1rem; margin-top:0.5rem;">
+                        <button type="submit" class="btn-submit">Generar Reporte</button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="rep-diff-summary"></div>
+
+            <div class="card grid-full-width">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Remito</th>
+                            <th>Proveedor</th>
+                            <th>SKU</th>
+                            <th>Tipo</th>
+                            <th style="text-align:right;">Remitido</th>
+                            <th style="text-align:right;">Controlado</th>
+                            <th style="text-align:right;">Diferencia</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-rep-diffs-body">
+                        <tr><td colspan="9" style="text-align:center; color:var(--text-muted); padding:2rem;">Seleccione los filtros y presione 'Generar Reporte'</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -2130,14 +2193,14 @@
     </div>
 
     <!-- SCRIPTS DEL SISTEMA -->
-    <script src="js/admin-core.js?v=20260930_1"></script>
+    <script src="js/admin-core.js?v=20260930_2"></script>
     <script src="js/api.js?v=20260929_1"></script>
     <script src="js/users.js?v=20260928_1"></script>
     <script src="js/entities.js?v=20260928_1"></script>
     <script src="js/items.js?v=20260929_3"></script>
     <script src="js/warehouse.js?v=20260930_1"></script>
     <script src="js/operations.js?v=20260930_1"></script>
-    <script src="js/reports.js?v=20260930_1"></script>
+    <script src="js/reports.js?v=20260930_2"></script>
     <script src="js/settings.js?v=20260930_1"></script>
     <script src="js/admin-init.js?v=20260930_1"></script>
     
