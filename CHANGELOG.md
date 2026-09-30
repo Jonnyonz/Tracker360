@@ -11,3 +11,9 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   toca ni el pedido ni el stock. Vale para el picking por pedido y por olas. (`2385e63`)
 - **Picking: se rechazan las cantidades en cero, negativas o inválidas.** Una cantidad negativa
   restaba de lo recolectado y sumaba stock que no existía. (`2385e63`)
+- **Recepción, traspasos, pedidos, conteos y devoluciones: se rechazan las cantidades negativas o
+  inválidas.** Antes se aceptaban y desordenaban el stock: un traspaso con una cantidad inválida
+  podía dejar el stock de un artículo ilegible y el traspaso como terminado; uno con cantidad
+  negativa devolvía mercadería al origen; un conteo podía guardar -1 y el ajuste lo aplicaba al
+  stock; se podían crear pedidos con cantidades negativas. En conteos contar 0 sigue siendo
+  válido, y en devoluciones un artículo en 0 se sigue tomando como "no devuelto". (`9399036`)
