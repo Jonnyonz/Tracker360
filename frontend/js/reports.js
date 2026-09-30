@@ -904,16 +904,3 @@ window.exportPOReportCSV = function() {
     link.click();
     document.body.removeChild(link);
 };
-
-// Inicializador modificado para inyectar selectores correctamente en todos los reportes
-const originalSwitchView = window.switchView;
-window.switchView = function(secId, btnElement = null) {
-    if (typeof originalSwitchView === 'function') {
-        originalSwitchView(secId, btnElement);
-    }
-    if(secId === 'section-rep-stock') { window.loadReportStockSelectors(); }
-    if(secId === 'section-kardex') { window.loadKardexSelectors(); }
-    if(secId === 'section-rep-remitos') { window.loadReportRemitosSelectors(); }
-    if(secId === 'section-rep-invoices') { window.loadReportInvoicesSelectors(); }
-    if(secId === 'section-rep-po') { window.loadReportPOSelectors(); }
-};
