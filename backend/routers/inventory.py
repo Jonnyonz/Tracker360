@@ -179,9 +179,9 @@ async def create_inventory_session(data: InventorySessionCreate, admin: dict = D
 
         await conn.execute("""
             INSERT INTO inventory_snapshots (session_id, sku, location_id, lot_number, expected_quantity)
-            SELECT $1, sku, location_id, lot_number, quantity 
-            FROM stock_inventory 
-            WHERE sector_id = $2 AND quantity > 0
+            SELECT $1, sku, location_id, lot_number, quantity
+            FROM stock_inventory
+            WHERE sector_id = $2 AND quantity > 0 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO'
         """, session_id, uuid.UUID(data.sector_id))
 
         await log_action(conn, admin["username"], "INVENTORY_STARTED", f"Conteo asignado a {data.assigned_operator} en sector {data.sector_id}.")
