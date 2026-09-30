@@ -250,11 +250,14 @@ def send_webhook_sync(url: str, payload: dict, api_key: str = ""):
         with _webhook_opener.open(req, timeout=5) as response:
             body = response.read().decode('utf-8', errors='ignore')
             return response.status, body, None
+    # El error se guarda en webhook_logs y se le muestra al admin: nunca el texto de la excepcion
+    # (puede traer hosts, IPs o puertos internos); el detalle queda en el log del servidor.
     except urllib.error.HTTPError as e:
         body = e.read().decode('utf-8', errors='ignore') if e.fp else ""
-        return e.code, body, str(e)
+        return e.code, body, f"El destino respondió HTTP {e.code}."
     except Exception as e:
-        return None, "", str(e)
+        print(f"[WEBHOOK ERROR] {url!r}: {e!r}")
+        return None, "", "No se pudo conectar con el destino del webhook."
 
 async def execute_and_log_webhook(channel_id: Optional[uuid.UUID], channel_name: str, event_type: str, target_url: str, payload: dict, api_key: str = ""):
     if DB.pool is None: return
