@@ -309,19 +309,22 @@ input[id*="sku"], input[id*="-num"], input[id*="-code"], input[id*="taxid"],
 /* Grillas y Mampostería */
 .grid-layout { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; margin-bottom: 1.5rem; }
 
+/* Grilla de tarjetas. Antes eran columnas de CSS (column-count): con pocas tarjetas el navegador las
+   apilaba todas en la primera columna y dejaba la otra vacia, y las columnas terminaban a alturas
+   distintas. Con grid cada fila queda alineada arriba y el ancho se reparte: 2 columnas a 1366 px,
+   3 a 1920 px, 1 en pantallas chicas. */
 .masonry-grid {
-    column-count: 1;
-    column-gap: 1.5rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(520px, 100%), 1fr));
+    gap: 1.5rem;
+    align-items: start;
     margin-bottom: 1.5rem;
 }
-@media (min-width: 1000px) { .masonry-grid { column-count: 2; } }
-@media (min-width: 1500px) { .masonry-grid { column-count: 3; } }
 
 .masonry-grid > .card {
-    break-inside: avoid;
-    margin-bottom: 1.5rem;
-    display: inline-block;
+    min-width: 0;
     width: 100%;
+    overflow-x: auto;  /* una tabla ancha se desplaza dentro de su tarjeta en vez de salirse */
 }
 
 .grid-full-width {
@@ -598,7 +601,7 @@ tbody tr:hover { background-color: rgba(0,0,0,0.015); }
         height: calc(100vh - 54px);
     }
     .grid-layout { grid-template-columns: 1fr; gap: 1rem; }
-    .masonry-grid { column-count: 1; }
+    .masonry-grid { grid-template-columns: 1fr; }
     .form-row { flex-direction: column; gap: 0.8rem; }
     .form-row .form-group { width: 100%; max-width: 100% !important; }
 }
