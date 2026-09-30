@@ -63,7 +63,8 @@ Flujos principales:
   `OUTBOUND_DESPACHO`), con historial y reintento. Operaciones con clave de idempotencia
   (`X-Idempotency-Key`) donde importa no duplicar.
 
-La documentación interactiva de la API queda en `/docs` (Swagger) y `/redoc`.
+La documentación interactiva de la API queda en `/docs` (Swagger) y `/redoc`, con sesión de
+administrador.
 
 ---
 

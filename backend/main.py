@@ -1,4 +1,5 @@
-from fastapi.openapi.docs import get_redoc_html
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi import Depends
 import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, Response
@@ -8,10 +9,10 @@ from fastapi.responses import FileResponse, RedirectResponse
 import jwt
 
 try:
-    from backend.database import init_db_schema, DB, SECRET_KEY, ALGORITHM, get_client_ip, get_request_scheme, is_private_ip
+    from backend.database import init_db_schema, DB, SECRET_KEY, ALGORITHM, get_client_ip, get_request_scheme, is_private_ip, require_admin
     from backend.routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater, notes
 except ImportError:
-    from database import init_db_schema, DB, SECRET_KEY, ALGORITHM, get_client_ip, get_request_scheme, is_private_ip
+    from database import init_db_schema, DB, SECRET_KEY, ALGORITHM, get_client_ip, get_request_scheme, is_private_ip, require_admin
     from routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater, notes
 
 @asynccontextmanager
@@ -21,7 +22,8 @@ async def lifespan(app: FastAPI):
     if DB.pool is not None:
         await DB.pool.close()
 
-app = FastAPI(title="Tracker360 API", version="3.0 Enterprise", lifespan=lifespan)
+# La documentacion interactiva expone el mapa completo de la API: solo con sesion de ADMIN (abajo).
+app = FastAPI(title="Tracker360 API", version="3.0 Enterprise", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
 # CSP: solo el propio sitio y el boton de Google Sign-In. 'unsafe-inline' sigue siendo necesario
 # mientras el frontend use handlers onclick en linea.
@@ -81,6 +83,18 @@ else:
           "Definila en el .env si otro dominio necesita llamar a la API.")
 
 # === REGISTRO DE ROUTERS MODULARES ENTERPRISE ===
+@app.get("/openapi.json", include_in_schema=False)
+async def openapi_schema(admin: dict = Depends(require_admin)):
+    return app.openapi()
+
+@app.get("/docs", include_in_schema=False)
+async def swagger_docs(admin: dict = Depends(require_admin)):
+    return get_swagger_ui_html(openapi_url="/openapi.json", title="Tracker360 API")
+
+@app.get("/redoc", include_in_schema=False)
+async def redoc_docs(admin: dict = Depends(require_admin)):
+    return get_redoc_html(openapi_url="/openapi.json", title="Tracker360 API")
+
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(entities.router)
