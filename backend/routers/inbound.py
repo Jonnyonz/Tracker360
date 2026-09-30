@@ -555,27 +555,26 @@ async def create_customer_return(
         target_branch_id = None
         target_sector_id = None
 
+        # Destino: la sucursal/sector del usuario si los tiene; si no, los que vienen en la devolucion
+        # (invalidos dan 400); si no, la primera sucursal y un sector de esa misma sucursal.
         if user.get("branch_id"):
-            try: target_branch_id = uuid.UUID(user["branch_id"])
-            except Exception: pass
+            target_branch_id = _parse_uuid(user["branch_id"], "La sucursal asignada al usuario es inválida.")
         if user.get("sector_id"):
-            try: target_sector_id = uuid.UUID(user["sector_id"])
-            except Exception: pass
-
+            target_sector_id = _parse_uuid(user["sector_id"], "El sector asignado al usuario es inválido.")
         if not target_branch_id and data.branch_id:
-            try: target_branch_id = uuid.UUID(data.branch_id)
-            except Exception: pass
+            target_branch_id = _parse_uuid(data.branch_id, "Sucursal de destino inválida.")
         if not target_sector_id and data.sector_id:
-            try: target_sector_id = uuid.UUID(data.sector_id)
-            except Exception: pass
+            target_sector_id = _parse_uuid(data.sector_id, "Sector de destino inválido.")
 
         if not target_branch_id:
-            target_branch_id = await conn.fetchval("SELECT id FROM branches LIMIT 1")
+            target_branch_id = await conn.fetchval("SELECT id FROM branches ORDER BY created_at LIMIT 1")
         if not target_sector_id:
-            target_sector_id = await conn.fetchval("SELECT id FROM sectors LIMIT 1")
+            target_sector_id = await conn.fetchval("SELECT id FROM sectors WHERE branch_id = $1 ORDER BY created_at LIMIT 1", target_branch_id)
 
         if not target_branch_id or not target_sector_id:
             raise HTTPException(400, "Debe configurar al menos una Sucursal y Sector de destino.")
+        if not await conn.fetchval("SELECT 1 FROM sectors WHERE id = $1 AND branch_id = $2", target_sector_id, target_branch_id):
+            raise HTTPException(400, "El sector de destino no pertenece a la sucursal de destino.")
 
         return_id = await conn.fetchval("""
             INSERT INTO customer_returns (return_number, customer_id, document_id, branch_id, sector_id, created_by)
