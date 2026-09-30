@@ -162,7 +162,7 @@ async def scan_transfer_item(transfer_number: str, data: MobileTransferScanInput
         if tr["status"] == "COMPLETED": raise HTTPException(400, "Traspaso ya completado.")
         require_valid_quantity(data.quantity)
         sku_clean = data.sku.strip().upper()
-        line = await conn.fetchrow("SELECT id, quantity_sent, quantity_received, origin_location_id FROM transfer_order_lines WHERE transfer_order_id = $1 AND UPPER(sku) = $2", tr["id"], sku_clean)
+        line = await conn.fetchrow("SELECT id, quantity_sent, quantity_received, origin_location_id, destination_location_id, COALESCE(lot_number, '') AS lot_number FROM transfer_order_lines WHERE transfer_order_id = $1 AND UPPER(sku) = $2", tr["id"], sku_clean)
         if not line: raise HTTPException(400, "SKU no pertenece al traspaso.")
         needed = float(line["quantity_sent"]) - float(line["quantity_received"])
         if needed <= 0: raise HTTPException(400, f"El SKU '{sku_clean}' ya fue transferido totalmente.")
@@ -170,13 +170,15 @@ async def scan_transfer_item(transfer_number: str, data: MobileTransferScanInput
 
         allow_neg = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'allow_negative_stock'")
         if allow_neg != "true":
-            avail = float(await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE branch_id = $1 AND sector_id = $2 AND UPPER(sku) = $3 AND location_id IS NOT DISTINCT FROM $4 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO'", tr["origin_branch_id"], tr["origin_sector_id"], sku_clean, line["origin_location_id"]) or 0)
+            avail = float(await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE branch_id = $1 AND sector_id = $2 AND UPPER(sku) = $3 AND location_id IS NOT DISTINCT FROM $4 AND COALESCE(lot_number, '') = $5 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO'", tr["origin_branch_id"], tr["origin_sector_id"], sku_clean, line["origin_location_id"], line["lot_number"]) or 0)
             if avail < data.quantity: raise HTTPException(400, f"Stock insuficiente en el origen (Disponible: {avail:g}).")
 
-        dest_loc_id = None
+        # Destino: el que indique el operario, si es del sector de destino; si no indica, el de la linea.
+        dest_loc_id = line["destination_location_id"]
         if data.destination_location_code and data.destination_location_code.strip():
-            loc = await conn.fetchrow("SELECT id FROM locations WHERE UPPER(location_code) = $1", data.destination_location_code.strip().upper())
-            if loc: dest_loc_id = loc["id"]
+            codigo = data.destination_location_code.strip().upper()
+            dest_loc_id = await conn.fetchval("SELECT id FROM locations WHERE sector_id = $1 AND UPPER(location_code) = $2", tr["destination_sector_id"], codigo)
+            if not dest_loc_id: raise HTTPException(400, f"La ubicación {codigo} no pertenece al sector de destino del traspaso.")
 
         await conn.execute("""
             UPDATE transfer_order_lines 
@@ -185,8 +187,8 @@ async def scan_transfer_item(transfer_number: str, data: MobileTransferScanInput
             WHERE id = $3
         """, data.quantity, json.dumps(data.serial_numbers or []), line["id"])
         
-        await record_stock_movement(conn, sku_clean, tr["origin_branch_id"], tr["origin_sector_id"], line["origin_location_id"], -data.quantity, 'TRANSFER_OUT', transfer_number.strip().upper(), user.get("username"), serial_numbers=data.serial_numbers)
-        await record_stock_movement(conn, sku_clean, tr["destination_branch_id"], tr["destination_sector_id"], dest_loc_id, data.quantity, 'TRANSFER_IN', transfer_number.strip().upper(), user.get("username"), serial_numbers=data.serial_numbers)
+        await record_stock_movement(conn, sku_clean, tr["origin_branch_id"], tr["origin_sector_id"], line["origin_location_id"], -data.quantity, 'TRANSFER_OUT', transfer_number.strip().upper(), user.get("username"), lot_number=line["lot_number"], serial_numbers=data.serial_numbers)
+        await record_stock_movement(conn, sku_clean, tr["destination_branch_id"], tr["destination_sector_id"], dest_loc_id, data.quantity, 'TRANSFER_IN', transfer_number.strip().upper(), user.get("username"), lot_number=line["lot_number"], serial_numbers=data.serial_numbers)
 
         await conn.execute("UPDATE transfer_orders SET status = 'IN_PROGRESS' WHERE id = $1 AND status IN ('PENDING', 'PENDING_CONTROL')", tr["id"])
         pending = await conn.fetchval("SELECT COUNT(*) FROM transfer_order_lines WHERE transfer_order_id = $1 AND quantity_received < quantity_sent", tr["id"])
