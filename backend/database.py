@@ -2,6 +2,7 @@ import os, asyncio, uuid, secrets, json, urllib.request, urllib.error, urllib.pa
 from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 import jwt, asyncpg
+from jztech_core.net import real_ip
 from fastapi import HTTPException, Header, Request, Depends
 from typing import Optional, Dict, List
 from passlib.context import CryptContext
@@ -76,15 +77,10 @@ def _from_trusted_proxy(request: Request) -> bool:
     return _is_trusted_proxy(peer)
 
 def get_client_ip(request: Request) -> str:
-    peer = request.client.host if request.client is not None else "Unknown"
-    if not _is_trusted_proxy(peer):
-        return peer
-    # Se recorre X-Forwarded-For de derecha a izquierda salteando proxies de confianza.
-    forwarded = [p.strip() for p in request.headers.get("x-forwarded-for", "").split(",") if p.strip()]
-    for hop in reversed(forwarded):
-        if not _is_trusted_proxy(hop):
-            return hop
-    return forwarded[0] if forwarded else peer
+    # jztech_core.net.real_ip: X-Forwarded-For solo desde TRUSTED_PROXIES, recorrido de derecha a izquierda.
+    if request.client is None:
+        return "Unknown"
+    return real_ip(request, TRUSTED_PROXIES)
 
 def get_request_scheme(request: Request) -> str:
     if _from_trusted_proxy(request):
