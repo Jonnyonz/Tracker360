@@ -526,6 +526,11 @@ async def init_db_schema():
                     "CREATE TABLE IF NOT EXISTS print_agent_auth_codes (code_hash VARCHAR(64) PRIMARY KEY, challenge VARCHAR(64) NOT NULL, agent_name VARCHAR(100) NOT NULL, username VARCHAR(50) NOT NULL, expires_at TIMESTAMP WITH TIME ZONE NOT NULL, used BOOLEAN DEFAULT FALSE);",
                     "CREATE TABLE IF NOT EXISTS print_agent_tokens (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), token_hash VARCHAR(64) UNIQUE NOT NULL, agent_name VARCHAR(100) NOT NULL, created_by VARCHAR(50) NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, last_used_at TIMESTAMP WITH TIME ZONE);",
 
+                    # REMITOS DE COMPRA: cada linea puede venir de una linea de OC (vacio = articulo suelto)
+                    "ALTER TABLE purchase_remitos ADD COLUMN IF NOT EXISTS created_by VARCHAR(50);",
+                    "ALTER TABLE purchase_remito_lines ADD COLUMN IF NOT EXISTS purchase_order_line_id UUID REFERENCES purchase_order_lines(id);",
+                    "ALTER TABLE purchase_remito_lines ADD COLUMN IF NOT EXISTS lot_number VARCHAR(100) DEFAULT '';",
+
                     # ORDENES DE COMPRA: sucursal de recepcion (su direccion es la de entrega) y quien la emitio
                     "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES branches(id);",
                     "ALTER TABLE purchase_orders ADD COLUMN IF NOT EXISTS created_by VARCHAR(50);",
