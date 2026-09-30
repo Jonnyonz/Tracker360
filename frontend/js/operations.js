@@ -309,20 +309,20 @@ async function loadRemitoData(search, limit = 50) {
             <td>${escapeHTML(r.supplier_name)}</td>
             <td><small>${escapeHTML(r.branch_name || '-')} (${escapeHTML(r.sector_name || '-')})</small></td>
             <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(REM_STATUS_LABEL[r.status] || r.status)}</span></td>
-            <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="verRemito(${jsArg(r.remito_number)})">Detalle</button></td>
+            <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="verRemito(${jsArg(r.id)}, ${jsArg(r.remito_number)})">Detalle</button></td>
         </tr>`).join('');
     } catch (e) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--danger);">Error al cargar el historial.</td></tr>';
     }
 }
 
-async function verRemito(remitoNumber) {
+async function verRemito(remitoId, remitoNumber) {
     const body = document.getElementById('remito-detail-body');
-    document.getElementById('remito-detail-label').textContent = remitoNumber;
+    document.getElementById('remito-detail-label').textContent = remitoNumber || '';
     body.innerHTML = '<p style="color:var(--text-muted);">Cargando...</p>';
     openModal('modal-remito-detail');
     try {
-        const d = await fetchAPI(`/api/admin/purchase-remitos/${encodeURIComponent(remitoNumber)}`);
+        const d = await fetchAPI(`/api/admin/purchase-remitos/${encodeURIComponent(remitoId)}`);
         const r = d.remito;
         const filas = d.lines.map(l => `<tr>
             <td>${l.order_number ? `<span class="font-mono">${escapeHTML(l.order_number)}</span>` : '<span class="badge badge-neutral">Suelto</span>'}</td>
@@ -338,7 +338,7 @@ async function verRemito(remitoNumber) {
             <p style="font-size:0.85rem; color:var(--text-muted);">Registrado ${escapeHTML(new Date(r.created_at).toLocaleString())} por ${escapeHTML(r.created_by || '-')}</p>
             <table><thead><tr><th>Origen</th><th>SKU</th><th>Descripción</th><th style="text-align:right;">Remitido</th><th style="text-align:right;">Controlado</th><th>Ubicación</th></tr></thead><tbody>${filas}</tbody></table>
             <div id="remito-notes"></div>`;
-        renderObservaciones(document.getElementById('remito-notes'), 'REMITO', remitoNumber);
+        renderObservaciones(document.getElementById('remito-notes'), 'REMITO', remitoId);
     } catch (e) {
         body.innerHTML = `<p style="color:var(--danger);">Error: ${escapeHTML(e.message)}</p>`;
     }

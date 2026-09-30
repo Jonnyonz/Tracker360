@@ -166,6 +166,21 @@ async def list_admin_purchase_remitos(search: str = "", limit: int = 50, admin: 
     rows = await conn.fetch("SELECT pr.id::text as id, pr.remito_number, pr.status, pr.created_at, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name, b.name as branch_name, sec.name as sector_name FROM purchase_remitos pr LEFT JOIN entities e ON pr.supplier_id = e.id LEFT JOIN branches b ON pr.branch_id = b.id LEFT JOIN sectors sec ON pr.sector_id = sec.id WHERE pr.remito_number ILIKE $1 ORDER BY pr.created_at DESC LIMIT $2", f"%{search}%", limit)
     return [dict(r) for r in rows]
 
+# Un remito se identifica por su id interno. El numero solo alcanza si no se repite entre proveedores.
+async def _resolve_remito_id(conn: asyncpg.Connection, ref: str) -> uuid.UUID:
+    ref = ref.strip()
+    try:
+        rid = uuid.UUID(ref)
+    except ValueError:
+        rid = None
+    if rid:
+        if not await conn.fetchval("SELECT 1 FROM purchase_remitos WHERE id = $1", rid): raise HTTPException(404, "Remito no encontrado.")
+        return rid
+    rows = await conn.fetch("SELECT id FROM purchase_remitos WHERE UPPER(remito_number) = $1", ref.upper())
+    if not rows: raise HTTPException(404, "Remito no encontrado.")
+    if len(rows) > 1: raise HTTPException(409, "Hay más de un remito con ese número (de distintos proveedores): elegilo desde la lista.")
+    return rows[0]["id"]
+
 async def _sector_location(conn: asyncpg.Connection, sector_id: uuid.UUID, code: Optional[str]):
     if not code or not code.strip(): return None
     loc = await conn.fetchval("SELECT id FROM locations WHERE sector_id = $1 AND UPPER(location_code) = $2", sector_id, code.strip().upper())
@@ -188,8 +203,8 @@ async def create_purchase_remito(data: PurchaseRemitoCreateInput, x_idempotency_
     if not data.items and not data.order_lines: raise HTTPException(400, "El remito debe tener al menos un artículo.")
 
     async with conn.transaction():
-        if await conn.fetchval("SELECT 1 FROM purchase_remitos WHERE UPPER(remito_number) = $1", number):
-            raise HTTPException(400, "El número de remito ya existe.")
+        if await conn.fetchval("SELECT 1 FROM purchase_remitos WHERE supplier_id = $1 AND UPPER(remito_number) = $2", supplier_id, number):
+            raise HTTPException(400, "Este proveedor ya tiene un remito con ese número.")
         if not await conn.fetchval("SELECT 1 FROM entities WHERE id = $1 AND is_supplier = TRUE", supplier_id):
             raise HTTPException(400, "El proveedor no existe o no está marcado como proveedor.")
         if not await conn.fetchval("SELECT 1 FROM sectors WHERE id = $1 AND branch_id = $2", sector_id, branch_id):
@@ -238,21 +253,20 @@ async def create_purchase_remito(data: PurchaseRemitoCreateInput, x_idempotency_
             await conn.execute("UPDATE purchase_orders SET status = $1 WHERE id = $2", "COMPLETED" if abiertas == 0 else "IN_PROGRESS", po_id)
 
         await log_action(conn, admin["username"], "PURCHASE_REMITO_CREATED", f"Remito de compra {number} registrado ({len(filas)} líneas, {len(ordenes)} OC).")
-        res_data = {"status": "success", "message": "Remito registrado.", "remito_number": number}
+        res_data = {"status": "success", "message": "Remito registrado.", "remito_number": number, "id": str(remito_id)}
         await save_idempotency(conn, x_idempotency_key, "/api/admin/purchase-remitos", res_data)
         return res_data
 
 @router.get("/api/admin/purchase-remitos/{remito_number}")
 async def get_purchase_remito(remito_number: str, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rem = await conn.fetchrow("""
-        SELECT pr.id, pr.remito_number, pr.status, pr.created_at, pr.created_by,
+        SELECT pr.id::text AS id, pr.remito_number, pr.status, pr.created_at, pr.created_by,
                COALESCE(e.company_name, 'Sin Proveedor') AS supplier_name, COALESCE(e.tax_id, '') AS supplier_tax_id,
                b.name AS branch_name, sec.name AS sector_name
         FROM purchase_remitos pr LEFT JOIN entities e ON pr.supplier_id = e.id
         LEFT JOIN branches b ON pr.branch_id = b.id LEFT JOIN sectors sec ON pr.sector_id = sec.id
-        WHERE UPPER(pr.remito_number) = $1
-    """, remito_number.strip().upper())
-    if not rem: raise HTTPException(404, "Remito no encontrado.")
+        WHERE pr.id = $1
+    """, await _resolve_remito_id(conn, remito_number))
     lines = await conn.fetch("""
         SELECT prl.sku, COALESCE(i.description, prl.sku) AS description, prl.quantity_sent::float AS sent,
                prl.quantity_received::float AS controlled, l.location_code, COALESCE(prl.lot_number, '') AS lot_number,
@@ -262,9 +276,9 @@ async def get_purchase_remito(remito_number: str, admin: dict = Depends(require_
         LEFT JOIN locations l ON prl.location_id = l.id
         LEFT JOIN purchase_order_lines pol ON prl.purchase_order_line_id = pol.id
         LEFT JOIN purchase_orders po ON pol.purchase_order_id = po.id
-        WHERE prl.purchase_remito_id = $1 ORDER BY po.order_number NULLS FIRST, prl.sku
+        WHERE prl.purchase_remito_id = $1::uuid ORDER BY po.order_number NULLS FIRST, prl.sku
     """, rem["id"])
-    header = {k: rem[k] for k in ("remito_number", "status", "created_at", "created_by", "supplier_name", "supplier_tax_id", "branch_name", "sector_name")}
+    header = {k: rem[k] for k in ("id", "remito_number", "status", "created_at", "created_by", "supplier_name", "supplier_tax_id", "branch_name", "sector_name")}
     return {"remito": header, "lines": [dict(l) for l in lines]}
 
 @router.get("/api/admin/purchase-invoices")
@@ -293,8 +307,8 @@ async def get_reception_remitos(user: dict = Depends(get_current_user), conn: as
 async def get_reception_remito_details(remito_number: str, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     rem = await conn.fetchrow("""
         SELECT pr.id, pr.remito_number, pr.status, pr.branch_id, pr.sector_id, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name 
-        FROM purchase_remitos pr LEFT JOIN entities e ON pr.supplier_id = e.id WHERE UPPER(pr.remito_number) = $1
-    """, remito_number.strip().upper())
+        FROM purchase_remitos pr LEFT JOIN entities e ON pr.supplier_id = e.id WHERE pr.id = $1
+    """, await _resolve_remito_id(conn, remito_number))
     if not rem: raise HTTPException(404, "Remito no encontrado")
     lines = await conn.fetch("""
         SELECT prl.id::text as id, prl.sku, prl.quantity_sent::float as quantity_sent, prl.quantity_received::float as quantity_received, l.location_code, prl.serial_numbers
@@ -306,7 +320,7 @@ async def get_reception_remito_details(remito_number: str, user: dict = Depends(
 @router.post("/api/reception/orders/{remito_number}/scan")
 async def scan_reception_item(remito_number: str, data: MobileRemitoScanInput, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     async with conn.transaction():
-        rem = await conn.fetchrow("SELECT id, status, branch_id, sector_id FROM purchase_remitos WHERE UPPER(remito_number) = $1 FOR UPDATE", remito_number.strip().upper())
+        rem = await conn.fetchrow("SELECT id, remito_number, status, branch_id, sector_id FROM purchase_remitos WHERE id = $1 FOR UPDATE", await _resolve_remito_id(conn, remito_number))
         if not rem: raise HTTPException(404, "Remito no encontrado")
         if rem["status"] == "COMPLETED": raise HTTPException(400, "Remito ya controlado completamente.")
         require_valid_quantity(data.quantity)
@@ -344,7 +358,7 @@ async def scan_reception_item(remito_number: str, data: MobileRemitoScanInput, u
                     serial_numbers = COALESCE(serial_numbers, '[]'::jsonb) || $2::jsonb
                 WHERE id = $3
             """, toma, json.dumps(sn), ln["id"])
-            await record_stock_movement(conn, sku_clean, rem["branch_id"], rem["sector_id"], loc_id or ln["location_id"], toma, 'IN_RECEPTION', remito_number.strip().upper(), user.get("username"), lot_number=ln["lot_number"], serial_numbers=sn)
+            await record_stock_movement(conn, sku_clean, rem["branch_id"], rem["sector_id"], loc_id or ln["location_id"], toma, 'IN_RECEPTION', rem["remito_number"], user.get("username"), lot_number=ln["lot_number"], serial_numbers=sn)
         await conn.execute("UPDATE purchase_remitos SET status = 'IN_PROGRESS' WHERE id = $1 AND status IN ('PENDING', 'PENDING_CONTROL')", rem["id"])
         
         pending = await conn.fetchval("SELECT COUNT(*) FROM purchase_remito_lines WHERE purchase_remito_id = $1 AND quantity_received < quantity_sent", rem["id"])

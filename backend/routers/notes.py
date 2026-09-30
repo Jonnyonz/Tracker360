@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-import asyncpg
+import asyncpg, uuid
 
 try:
     from backend.database import get_db_connection, get_current_user
@@ -31,9 +31,16 @@ async def _resolve_document(conn: asyncpg.Connection, user: dict, doc_type: str,
     table, column, restricted = spec
     if restricted and user.get("role") not in ("ADMIN", "SUPERVISOR"):
         raise HTTPException(403, "Permisos insuficientes.")
-    doc_id = await conn.fetchval(f"SELECT id FROM {table} WHERE UPPER({column}) = $1", number.strip().upper())
-    if not doc_id: raise HTTPException(404, "Documento no encontrado.")
-    return doc_type.upper(), doc_id
+    try:
+        doc_id = await conn.fetchval(f"SELECT id FROM {table} WHERE id = $1", uuid.UUID(number.strip()))
+        if not doc_id: raise HTTPException(404, "Documento no encontrado.")
+        return doc_type.upper(), doc_id
+    except ValueError:
+        pass
+    ids = await conn.fetch(f"SELECT id FROM {table} WHERE UPPER({column}) = $1", number.strip().upper())
+    if not ids: raise HTTPException(404, "Documento no encontrado.")
+    if len(ids) > 1: raise HTTPException(409, "Hay más de un documento con ese número: indicalo por su identificador.")
+    return doc_type.upper(), ids[0]["id"]
 
 @router.get("/api/documents/{doc_type}/{number}/notes")
 async def list_document_notes(doc_type: str, number: str, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):

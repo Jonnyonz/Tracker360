@@ -528,6 +528,9 @@ async def init_db_schema():
 
                     # REMITOS DE COMPRA: cada linea puede venir de una linea de OC (vacio = articulo suelto)
                     "ALTER TABLE purchase_remitos ADD COLUMN IF NOT EXISTS created_by VARCHAR(50);",
+                    # El numero de remito lo pone el proveedor: es unico por proveedor, no en todo el sistema.
+                    "ALTER TABLE purchase_remitos DROP CONSTRAINT IF EXISTS purchase_remitos_remito_number_key;",
+                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_purchase_remitos_supplier_number ON purchase_remitos (supplier_id, UPPER(remito_number));",
                     "ALTER TABLE purchase_remito_lines ADD COLUMN IF NOT EXISTS purchase_order_line_id UUID REFERENCES purchase_order_lines(id);",
                     "ALTER TABLE purchase_remito_lines ADD COLUMN IF NOT EXISTS lot_number VARCHAR(100) DEFAULT '';",
 

@@ -550,7 +550,7 @@ async function loadReceptions() {
             return;
         }
         container.innerHTML = remitos.map(r => `
-            <div class="list-item" onclick="startReceptionScan(${jsArg(r.remito_number)})">
+            <div class="list-item" onclick="startReceptionScan(${jsArg(r.id)}, ${jsArg(r.remito_number)})">
                 <strong>${escapeHTML(r.remito_number)}</strong>
                 <p>Proveedor: ${escapeHTML(r.supplier_name)}</p>
                 <span class="badge ${r.status === 'PENDING' ? 'badge-warning' : 'badge-info'}">${r.status}</span>
@@ -559,12 +559,12 @@ async function loadReceptions() {
     } catch (e) { container.innerHTML = `<p style="text-align:center; color:var(--danger);">Error: ${escapeHTML(e.message)}</p>`; }
 }
 
-async function startReceptionScan(remitoNumber) {
+async function startReceptionScan(remitoId, remitoNumber) {
     openView('view-reception-scan');
-    document.getElementById('rec-number').value = remitoNumber;
-    document.getElementById('rec-title').textContent = `Remito #${remitoNumber}`;
+    document.getElementById('rec-number').value = remitoId;
+    document.getElementById('rec-title').textContent = `Remito #${remitoNumber || remitoId}`;
     
-    await refreshReceptionOrderSheet(remitoNumber);
+    await refreshReceptionOrderSheet(remitoId);
     startModuleCameraStream('reception-video-stream', 'picking-camera-container');
     setModuleStepState('RECEPTION', 'SKU');
 }
