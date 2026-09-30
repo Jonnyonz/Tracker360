@@ -58,6 +58,10 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   con su avance, sus participantes y sus observaciones. (`f5d1fe9`)
 
 ### Corregido
+- **Seguridad: la autorización del agente de impresión vence si no se usa en 90 días** (cada uso
+  la renueva, así que un agente en uso no la pierde; uno abandonado tiene que volver a
+  autorizarse desde el navegador). Además, el agente solo puede confirmar trabajos que siguen
+  pendientes. (`cd1adea`)
 - **Reportes y traza de artículos: un filtro inválido ya no devuelve todos los datos**; se avisa
   del error. (`e689514`)
 - **Los avisos del panel vuelven a verse con su color** (verde, rojo o amarillo según el caso) y con
