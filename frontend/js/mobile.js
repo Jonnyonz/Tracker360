@@ -1,4 +1,4 @@
-// === CONTROLADOR NATIVO COLECTORA M”VIL (TRACKER360) ===
+// === CONTROLADOR NATIVO COLECTORA M√ìVIL (TRACKER360) ===
 // 100% SOBERANO: ZERO DEPENDENCIAS EXTERNAS NI CDN
 
 let activeModule = null; // 'PICKING' | 'RECEPTION' | 'TRANSFER' | 'WAVE'
@@ -21,7 +21,7 @@ window.onload = async () => {
     try {
         appSettingsCache = await fetchAPI('/api/settings');
         document.body.classList.toggle('con-lotes', appSettingsCache && appSettingsCache.enable_lots_expiration === 'true');
-    } catch (e) { console.warn("No se pudo cargar configuraciÛn inicial."); }
+    } catch (e) { console.warn("No se pudo cargar configuraci√≥n inicial."); }
 };
 
 function escapeHTML(str) {
@@ -117,7 +117,7 @@ function goHome() {
 }
 
 // =========================================================================================
-// === C¡MARA CONTINUA EN VIVO NATIVA HTML5 ================================================
+// === C√ÅMARA CONTINUA EN VIVO NATIVA HTML5 ================================================
 // =========================================================================================
 
 async function startModuleCameraStream(videoElementId, containerClass) {
@@ -126,7 +126,7 @@ async function startModuleCameraStream(videoElementId, containerClass) {
     if (!video || !container) return;
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.warn("C·mara bloqueada por falta de HTTPS o permisos.");
+        console.warn("C√°mara bloqueada por falta de HTTPS o permisos.");
         video.style.display = 'none';
         container.style.display = 'flex';
         container.style.alignItems = 'center';
@@ -136,8 +136,8 @@ async function startModuleCameraStream(videoElementId, containerClass) {
         container.innerHTML = `
             <div>
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:10px;"><path d="M2 2l20 20M15 15l5.2-3.18A2 2 0 0 0 21 10.1V5.9a2 2 0 0 0-1.09-1.73l-7-3.93a2 2 0 0 0-1.82 0l-7 3.93A2 2 0 0 0 3 5.9v4.2c0 .4.14.79.4 1.1"/></svg>
-                <p style="color:#FCA5A5; font-size:0.9rem; font-weight:bold; margin-bottom:5px;">C¡MARA RESTRINGIDA</p>
-                <p style="color:#9CA3AF; font-size:0.8rem;">El navegador bloqueÛ la c·mara. Use esc·ner l·ser o teclado.</p>
+                <p style="color:#FCA5A5; font-size:0.9rem; font-weight:bold; margin-bottom:5px;">C√ÅMARA RESTRINGIDA</p>
+                <p style="color:#9CA3AF; font-size:0.8rem;">El navegador bloque√≥ la c√°mara. Use esc√°ner l√°ser o teclado.</p>
             </div>
         `;
         return;
@@ -168,8 +168,8 @@ async function startModuleCameraStream(videoElementId, containerClass) {
             }, 250);
         }
     } catch (e) {
-        console.warn("[C¡MARA OPERATIVA]: Acceso denegado o dispositivo sin c·mara.", e);
-        showToast("Permiso de c·mara denegado. Use teclado manual.", "warning");
+        console.warn("[C√ÅMARA OPERATIVA]: Acceso denegado o dispositivo sin c√°mara.", e);
+        showToast("Permiso de c√°mara denegado. Use teclado manual.", "warning");
     }
 }
 
@@ -227,7 +227,7 @@ async function startCameraScanner(inputId) {
     if (!modal || !video) return;
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        showToast("El navegador bloquea la c·mara sin HTTPS.", "error");
+        showToast("El navegador bloquea la c√°mara sin HTTPS.", "error");
         return;
     }
 
@@ -251,7 +251,7 @@ async function startCameraScanner(inputId) {
             }, 300);
         }
     } catch(e) {
-        showToast("No se pudo acceder a la c·mara", "error");
+        showToast("No se pudo acceder a la c√°mara", "error");
         stopCameraScanner();
     }
 }
@@ -264,7 +264,7 @@ function stopCameraScanner() {
 }
 
 // =========================================================================================
-// === CONTROLADOR DE PASOS Y M¡QUINA DE ESTADOS REUTILIZABLE ==============================
+// === CONTROLADOR DE PASOS Y M√ÅQUINA DE ESTADOS REUTILIZABLE ==============================
 // =========================================================================================
 
 function setModuleStepState(moduleName, newState) {
@@ -282,13 +282,13 @@ function setModuleStepState(moduleName, newState) {
     const qtyInp = document.getElementById(`${prefix}-qty`);
 
     if (newState === 'SKU') {
-        if (banner) { banner.className = 'step-banner step-banner-sku'; banner.textContent = 'PASO 1: ESCANEE C”DIGO/QR DEL ARTÕCULO'; }
+        if (banner) { banner.className = 'step-banner step-banner-sku'; banner.textContent = 'PASO 1: ESCANEE C√ìDIGO/QR DEL ART√çCULO'; }
         if (grpSku) grpSku.style.display = 'block';
         if (grpLoc) grpLoc.style.display = 'none';
         if (grpQty) grpQty.style.display = 'none';
         if (skuInp) { skuInp.value = ''; skuInp.focus(); }
     } else if (newState === 'LOCATION') {
-        if (banner) { banner.className = 'step-banner step-banner-loc'; banner.textContent = `PASO 2: ESCANEE UBICACI”N PARA ${skuInp ? skuInp.value.toUpperCase() : ''}`; }
+        if (banner) { banner.className = 'step-banner step-banner-loc'; banner.textContent = `PASO 2: ESCANEE UBICACI√ìN PARA ${skuInp ? skuInp.value.toUpperCase() : ''}`; }
         if (grpSku) grpSku.style.display = 'block';
         if (grpLoc) grpLoc.style.display = 'block';
         if (grpQty) grpQty.style.display = 'none';
@@ -335,7 +335,7 @@ function onModuleInputProcess(moduleName, inputType) {
             setModuleStepState(moduleName, 'LOCATION');
         } else {
             playErrorTone();
-            showToast(`El SKU '${scannedSku}' no pertenece a la tarea activa o ya est· completo.`, 'error');
+            showToast(`El SKU '${scannedSku}' no pertenece a la tarea activa o ya est√° completo.`, 'error');
             if (skuInp) skuInp.value = '';
         }
     } else if (inputType === 'loc') {
@@ -345,7 +345,7 @@ function onModuleInputProcess(moduleName, inputType) {
 }
 
 // =========================================================================================
-// === 1. PICKING M”VIL GUIADO E INTELIGENTE ===============================================
+// === 1. PICKING M√ìVIL GUIADO E INTELIGENTE ===============================================
 // =========================================================================================
 
 async function loadPicking() {
@@ -372,11 +372,11 @@ async function loadPicking() {
                     <span class="badge ${o.status === 'PENDING' ? 'badge-warning' : 'badge-info'}">${o.status}</span>
                 </div>
                 <p>Cliente: ${escapeHTML(o.company_name)}</p>
-                <p><small style="color:var(--accent-blue); font-weight:bold;">A recolectar: ${o.requested_items || 0} unidades (${o.total_items || 0} Ìtems)</small></p>
+                <p><small style="color:var(--accent-blue); font-weight:bold;">A recolectar: ${o.requested_items || 0} unidades (${o.total_items || 0} √≠tems)</small></p>
             </div>
         `).join('');
     } catch (e) {
-        container.innerHTML = `<p style="text-align:center; color:var(--danger); padding:1rem;">Error de conexiÛn: ${escapeHTML(e.message)}</p>`;
+        container.innerHTML = `<p style="text-align:center; color:var(--danger); padding:1rem;">Error de conexi√≥n: ${escapeHTML(e.message)}</p>`;
     }
 }
 
@@ -403,7 +403,7 @@ async function refreshPickingOrderSheet(documentNumber) {
         const sheetBody = document.getElementById('pick-items-sheet-body');
         if (sheetBody) {
             if (pendingLines.length === 0) {
-                sheetBody.innerHTML = '<p style="text-align:center; color:var(--success); font-weight:bold; padding:1rem;">°Todos los artÌculos recolectados!</p>';
+                sheetBody.innerHTML = '<p style="text-align:center; color:var(--success); font-weight:bold; padding:1rem;">¬°Todos los art√≠culos recolectados!</p>';
             } else {
                 sheetBody.innerHTML = pendingLines.map(l => {
                     const remaining = l.quantity_requested - l.quantity_picked;
@@ -414,7 +414,7 @@ async function refreshPickingOrderSheet(documentNumber) {
                                 <span class="badge badge-warning">Faltan: ${remaining} un</span>
                             </div>
                             <div style="color:var(--text-main); font-weight:600; margin-top:2px;">${escapeHTML(l.description)}</div>
-                            <div style="color:var(--text-muted); font-size:0.75rem; margin-top:2px; font-weight:bold;">?? Ruta / UbicaciÛn: ${escapeHTML(l.suggested_locations)}</div>
+                            <div style="color:var(--text-muted); font-size:0.75rem; margin-top:2px; font-weight:bold;">?? Ruta / Ubicaci√≥n: ${escapeHTML(l.suggested_locations)}</div>
                         </div>
                     `;
                 }).join('');
@@ -438,7 +438,7 @@ async function handlePickingFormSubmit(event) {
         });
         showToast(res.message, "success");
         if (res.order_completed) {
-            showToast("°Pedido completado totalmente!", "success");
+            showToast("¬°Pedido completado totalmente!", "success");
             setTimeout(() => { openView('view-picking', loadPicking); }, 1000);
         } else {
             await refreshPickingOrderSheet(docNumber);
@@ -465,7 +465,7 @@ async function startWavePicking(limit) {
         refreshWaveOrderSheet(data.lines);
         startModuleCameraStream('wave-video-stream', 'picking-camera-container');
         setModuleStepState('WAVE', 'SKU');
-        showToast(`Ola generada con Èxito. Ruta optimizada.`, "success");
+        showToast(`Ola generada con √©xito. Ruta optimizada.`, "success");
 
     } catch (e) {
         showToast(e.message || "Error al generar la Ola de Picking.", "error");
@@ -479,7 +479,7 @@ function refreshWaveOrderSheet(lines) {
     const sheetBody = document.getElementById('wave-items-sheet-body');
     if (sheetBody) {
         if (pendingLines.length === 0) {
-            sheetBody.innerHTML = '<p style="text-align:center; color:var(--success); font-weight:bold; padding:1rem;">°Toda la Ola recolectada con Èxito!</p>';
+            sheetBody.innerHTML = '<p style="text-align:center; color:var(--success); font-weight:bold; padding:1rem;">¬°Toda la Ola recolectada con √©xito!</p>';
         } else {
             sheetBody.innerHTML = pendingLines.map(l => {
                 const remaining = l.quantity_requested - l.quantity_picked;
@@ -523,7 +523,7 @@ async function handleWaveFormSubmit(event) {
         showToast(res.message, "success");
 
         if (res.wave_completed) {
-            showToast("°Ola completada totalmente!", "success");
+            showToast("¬°Ola completada totalmente!", "success");
             activeWaveOrders = [];
             setTimeout(() => { openView('view-picking', loadPicking); }, 1500);
         } else {
@@ -536,7 +536,7 @@ async function handleWaveFormSubmit(event) {
 }
 
 // =========================================================================================
-// === 2. RECEPCIONES GUIADAS POR C¡MARA (REMITOS DE ENTRADA) ==============================
+// === 2. RECEPCIONES GUIADAS POR C√ÅMARA (REMITOS DE ENTRADA) ==============================
 // =========================================================================================
 
 async function loadReceptions() {
@@ -612,7 +612,7 @@ async function handleReceptionFormSubmit(event) {
     const enRemito = ((activeDocumentData && activeDocumentData.lines) || []).some(l => l.sku === sku);
     try {
         if (!enRemito) {
-            if (!confirm(`El artÌculo ${sku} no figura en este remito.\n\nøRegistrarlo como no esperado? Queda en cuarentena hasta que un responsable lo apruebe o lo rechace.`)) return;
+            if (!confirm(`El art√≠culo ${sku} no figura en este remito.\n\n¬øRegistrarlo como no esperado? Queda en cuarentena hasta que un responsable lo apruebe o lo rechace.`)) return;
             const r = await fetchAPI(`/api/reception/remitos/${encodeURIComponent(ref)}/unexpected`, {
                 method: 'POST', body: { sku: sku, quantity: qty, location_code: loc }
             });
@@ -631,7 +631,7 @@ async function handleReceptionFormSubmit(event) {
 async function finishReceptionControl() {
     const ref = document.getElementById('rec-number').value;
     if (!ref) return;
-    if (!confirm("øFinalizar el control de este remito?\n\nDespuÈs no se puede escanear m·s.")) return;
+    if (!confirm("¬øFinalizar el control de este remito?\n\nDespu√©s no se puede escanear m√°s.")) return;
     try {
         const r = await fetchAPI(`/api/reception/remitos/${encodeURIComponent(ref)}/finish`, { method: 'POST' });
         if (r.status === 'COMPLETED') {
@@ -648,7 +648,7 @@ async function finishReceptionControl() {
 }
 
 // =========================================================================================
-// === 3. TRASPASOS GUIADOS POR C¡MARA (ODTs) ==============================================
+// === 3. TRASPASOS GUIADOS POR C√ÅMARA (ODTs) ==============================================
 // =========================================================================================
 
 async function loadTransfers() {
@@ -694,7 +694,7 @@ async function refreshTransferOrderSheet(transferNumber) {
         const sheetBody = document.getElementById('tr-items-sheet-body');
         if (sheetBody) {
             if (pendingLines.length === 0) {
-                sheetBody.innerHTML = '<p style="text-align:center; color:var(--success); font-weight:bold; padding:1rem;">°Traspaso completado totalmente!</p>';
+                sheetBody.innerHTML = '<p style="text-align:center; color:var(--success); font-weight:bold; padding:1rem;">¬°Traspaso completado totalmente!</p>';
             } else {
                 sheetBody.innerHTML = pendingLines.map(l => {
                     const remaining = l.quantity_sent - l.quantity_received;
@@ -738,7 +738,7 @@ async function handleTransferFormSubmit(event) {
 }
 
 // =========================================================================================
-// === 4. INVENTARIO (CONTEOS CÕCLICOS) ====================================================
+// === 4. INVENTARIO (CONTEOS C√çCLICOS) ====================================================
 // =========================================================================================
 
 async function loadInventory() {
@@ -788,17 +788,17 @@ async function scanInventoryCount(event) {
 }
 
 async function finishInventorySession() {
-    if (!confirm("øSeguro que terminÛ de contar todo el sector?")) return;
+    if (!confirm("¬øSeguro que termin√≥ de contar todo el sector?")) return;
     const sessId = document.getElementById('inv-session-id').value;
     try {
         await fetchAPI(`/api/inventory/sessions/${sessId}/finish`, { method: 'POST' });
-        showToast("Conteo finalizado y enviado a revisiÛn.", "success");
+        showToast("Conteo finalizado y enviado a revisi√≥n.", "success");
         openView('view-inventory', loadInventory);
     } catch (e) { showToast(e.message, "error"); }
 }
 
 // =========================================================================================
-// === 5. SPOT CHECK (AUDITORÕA R¡PIDA) ====================================================
+// === 5. SPOT CHECK (AUDITOR√çA R√ÅPIDA) ====================================================
 // =========================================================================================
 
 function openSpotCheck() {
@@ -825,7 +825,7 @@ async function runSpotCheck(event) {
             resDiv.style.backgroundColor = '#ECFDF5';
             resDiv.style.border = '1px solid #10B981';
             resDiv.innerHTML = `<h3 style="color:#065F46; margin-bottom:5px;">STOCK COINCIDE</h3>
-                                <p style="color:#047857; margin:0;">El stock esperado y el contado son idÈnticos (${res.expected} un).</p>`;
+                                <p style="color:#047857; margin:0;">El stock esperado y el contado son id√©nticos (${res.expected} un).</p>`;
         } else {
             playErrorTone();
             resDiv.style.backgroundColor = '#FEF2F2';

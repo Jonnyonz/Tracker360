@@ -1,4 +1,4 @@
-// === NÚCLEO DE LÓGICA FRONTEND (admin-core.js) ===
+// === NÃšCLEO DE LÃ“GICA FRONTEND (admin-core.js) ===
 
 let cachedUsers = [], cachedBranches = [], cachedSectors = [], cachedEntities = [], cachedLocations = [], suppliersCache = [];
 let cachedAddressesCurrentEntity = [];
@@ -199,7 +199,7 @@ async function fetchAPI(url, options = {}) {
     } catch(e) {
         const banner = document.getElementById('net-banner');
         if (banner) banner.style.display = 'block';
-        if(options.method && options.method !== 'GET') { showToast('Falla de conexión con el servidor', 'error'); }
+        if(options.method && options.method !== 'GET') { showToast('Falla de conexiÃ³n con el servidor', 'error'); }
         return null;
     }
 }
@@ -227,14 +227,14 @@ async function loadDashboard() {
 
 async function loadLogs() { 
     const body = document.getElementById('table-logs-body');
-    if(body) body.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--accent); font-weight:bold;">Cargando auditoría...</td></tr>';
+    if(body) body.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--accent); font-weight:bold;">Cargando auditorÃ­a...</td></tr>';
     
     const logs = await fetchAPI('/api/admin/logs'); 
     if(logs) { 
         cachedLogsList = logs;
         filterLogs();
     } else if(body) {
-        body.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--danger);">Error al cargar los registros de auditoría.</td></tr>';
+        body.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--danger);">Error al cargar los registros de auditorÃ­a.</td></tr>';
     }
 }
 
@@ -250,7 +250,7 @@ function filterLogs() {
     });
 
     if (filtered.length === 0) {
-        body.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--text-muted); font-weight:bold;">No hay registros de auditoría.</td></tr>';
+        body.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--text-muted); font-weight:bold;">No hay registros de auditorÃ­a.</td></tr>';
         return;
     }
 

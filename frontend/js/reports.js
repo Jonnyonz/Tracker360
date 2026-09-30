@@ -1,4 +1,4 @@
-// === M”DULO DE REPORTES Y EXPORTACI”N (TRACKER360) ===
+// === M√ìDULO DE REPORTES Y EXPORTACI√ìN (TRACKER360) ===
 
 let lastStockReportData = [];
 let lastStockReportFilters = {};
@@ -102,11 +102,11 @@ window.generateStockReport = async function(e) {
         lastStockReportData = rows || [];
 
         if (lastStockReportData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:2rem; color:var(--error-red); font-weight:bold;">El reporte no arrojÛ resultados.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:2rem; color:var(--error-red); font-weight:bold;">El reporte no arroj√≥ resultados.</td></tr>';
             return;
         }
 
-        // Determinar columnas de Sucursales din·micas
+        // Determinar columnas de Sucursales din√°micas
         let branchColumns = [];
         if (typeof cachedBranches !== 'undefined' && cachedBranches.length > 0) {
             branchColumns = cachedBranches.map(b => b.name);
@@ -114,11 +114,11 @@ window.generateStockReport = async function(e) {
             branchColumns = Array.from(new Set(lastStockReportData.map(r => r.branch_name)));
         }
 
-        // Reconstruir Thead para Matriz Consolidada por Sucursales (Sin columna UbicaciÛn)
+        // Reconstruir Thead para Matriz Consolidada por Sucursales (Sin columna Ubicaci√≥n)
         thead.innerHTML = `
             <tr>
                 <th>SKU</th>
-                <th>DescripciÛn</th>
+                <th>Descripci√≥n</th>
                 ${branchColumns.map(b => `<th style="text-align:right;">${escapeHTML(b)}</th>`).join('')}
                 <th style="text-align:right;">Stock Total</th>
             </tr>
@@ -197,7 +197,7 @@ window.exportStockReportCSV = function() {
     document.body.removeChild(link);
 };
 
-// === 2. REPORTE DE TRAZA DE ARTÕCULOS (KARDEX) ===
+// === 2. REPORTE DE TRAZA DE ART√çCULOS (KARDEX) ===
 
 window.loadKardexSelectors = async function() {
     if (!cachedBranches || cachedBranches.length === 0) {
@@ -310,7 +310,7 @@ window.loadKardexFiltered = async function(event) {
             `).join('');
         }
     } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:var(--error-red); padding:2rem;">Fallo de conexiÛn o error al generar el reporte de traza.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:var(--error-red); padding:2rem;">Fallo de conexi√≥n o error al generar el reporte de traza.</td></tr>';
     } finally {
         if (btn) { btn.disabled = false; btn.textContent = "Generar Reporte de Traza"; }
     }
@@ -394,7 +394,7 @@ window.generateOrdersReport = async function(e) {
         lastOrdersReportData = rows || [];
 
         if (lastOrdersReportData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--error-red); font-weight:bold;">El reporte no arrojÛ resultados.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--error-red); font-weight:bold;">El reporte no arroj√≥ resultados.</td></tr>';
             return;
         }
 
@@ -518,7 +518,7 @@ window.generateRemitosReport = async function(e) {
         lastRemitosReportData = rows || [];
 
         if (lastRemitosReportData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--error-red); font-weight:bold;">El reporte no arrojÛ resultados.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--error-red); font-weight:bold;">El reporte no arroj√≥ resultados.</td></tr>';
             return;
         }
 
@@ -624,7 +624,7 @@ window.generateInvoicesReport = async function(e) {
         lastInvoicesReportData = rows || [];
 
         if (lastInvoicesReportData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--error-red); font-weight:bold;">El reporte no arrojÛ resultados.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--error-red); font-weight:bold;">El reporte no arroj√≥ resultados.</td></tr>';
             return;
         }
 
@@ -678,7 +678,7 @@ window.exportInvoicesReportCSV = function() {
     document.body.removeChild(link);
 };
 
-// === 6. REPORTE DE ”RDENES DE COMPRA ===
+// === 6. REPORTE DE √ìRDENES DE COMPRA ===
 
 window.loadReportPOSelectors = async function() {
     if (!suppliersCache || suppliersCache.length === 0) {
@@ -733,7 +733,7 @@ window.generatePOReport = async function(e) {
         lastPOReportData = rows || [];
 
         if (lastPOReportData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--error-red); font-weight:bold;">El reporte no arrojÛ resultados.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--error-red); font-weight:bold;">El reporte no arroj√≥ resultados.</td></tr>';
             return;
         }
 
