@@ -58,6 +58,10 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   con su avance, sus participantes y sus observaciones. (`f5d1fe9`)
 
 ### Corregido
+- **Picking: el stock se descuenta de donde realmente está.** Una ubicación mal escaneada ya no
+  descuenta de otra sucursal (se rechaza), no se puede pickear un artículo sin stock salvo que la
+  empresa permita stock negativo, y cada pickeo queda registrado en el stock. Con lotes, sale del
+  lote que vence primero. Vale para el picking por pedido y por olas. (`7246ad3`)
 - **Seguridad: dar de alta un usuario con un nombre existente ya no lo pisa.** Antes le cambiaba
   la contraseña y el rol (por ejemplo, a administrador); ahora avisa que ya existe. El rol tiene
   que ser administrador, supervisor o preparador. (`c4155ec`)
