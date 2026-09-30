@@ -33,6 +33,11 @@ Flujos principales:
 
 - **Compras:** órdenes de compra a un proveedor con sucursal de recepción (su dirección es la
   de entrega), número correlativo (`OC-000001`) y seguimiento de lo pendiente por línea.
+- **Remito de compra:** se elige el proveedor, se carga la cabecera y los artículos en dos
+  secciones: *Artículos* (sueltos) y *Órdenes de compra* (las pendientes de ese proveedor). Un
+  remito puede tomar varias OC y una OC puede recibirse en partes; contra una OC el tope es lo
+  pendiente (lo que llega de más se carga como suelto). Registrar el remito lo cierra y descuenta
+  lo pendiente de cada OC.
 - **Recepción:** escaneo de un remito de proveedor contra lo esperado; el stock entra a la
   ubicación sugerida (putaway).
 - **Salida:** pedido de venta → picking (por pedido u olas) → packing → despacho. Al despachar

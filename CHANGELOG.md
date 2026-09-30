@@ -19,11 +19,22 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 - **Dirección de las sucursales.** En "Depósitos" cada sucursal tiene calle, número, localidad y
   código postal, y se puede editar. Es la dirección de entrega de las órdenes de compra. (`7c71d4b`)
 
+- **Remitos de compra.** Ya se pueden registrar desde "Compras y Recepción" (antes el formulario
+  no guardaba nada). Primero se elige el proveedor y aparecen sus órdenes de compra pendientes;
+  en cada una se indica cuánto llegó. Contra una orden no se puede recibir más de lo pendiente: lo
+  que llegó de más se carga en la sección "Artículos", junto con lo que llegó sin orden. Un
+  remito puede tomar varias órdenes y una orden puede recibirse en varios remitos. Al registrar,
+  cada orden pasa a "Parcial" o "Completada". El stock entra, como hasta ahora, cuando el depósito
+  controla el remito con el celular. El historial tiene "Detalle" con el origen de cada artículo y
+  las observaciones. (`5b11cd3`, `f9a1840`)
+
 ### Cambiado
 - En la lista de pedidos, el botón "Participantes" ahora se llama "Detalle" y abre el pedido
   con su avance, sus participantes y sus observaciones. (`f5d1fe9`)
 
 ### Corregido
+- **Recepción: si un artículo figura en varias líneas del remito, el escaneo reparte entre ellas**
+  (primero las que tienen pendiente) y respeta el lote y la ubicación de cada línea. (`d8e0939`)
 - **Formularios con varios artículos: agregar una fila ya no borra lo que se había escrito en las
   anteriores.** Pasaba en traspasos, pedidos manuales, órdenes de compra, remitos y facturas.
   (`bcdfbf9`)
