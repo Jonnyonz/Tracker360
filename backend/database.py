@@ -337,7 +337,8 @@ async def record_stock_movement(conn: asyncpg.Connection, sku: str, branch_id: u
                         WHERE UPPER(sku) = $2 AND UPPER(serial_number) = $3
                     """, status_target, sku.upper(), sn_clean)
 
-    total_qty = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE UPPER(sku) = $1", sku.upper())
+    # Disponible = solo stock OPERATIVO (lo que esta en cuarentena u otra condicion no se puede vender).
+    total_qty = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE UPPER(sku) = $1 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO'", sku.upper())
     stock_payload = { "event": "stock.updated", "sku": sku.upper(), "available_quantity": float(total_qty), "timestamp": datetime.now(timezone.utc).isoformat() }
     await dispatch_event_to_channels(conn, "OUTBOUND_STOCK", stock_payload)
 
