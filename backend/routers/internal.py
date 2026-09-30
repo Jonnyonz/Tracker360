@@ -168,6 +168,11 @@ async def scan_transfer_item(transfer_number: str, data: MobileTransferScanInput
         if needed <= 0: raise HTTPException(400, f"El SKU '{sku_clean}' ya fue transferido totalmente.")
         if data.quantity > needed: raise HTTPException(400, f"La cantidad supera lo pendiente del SKU '{sku_clean}'. Solo faltan {needed:g}.")
 
+        allow_neg = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'allow_negative_stock'")
+        if allow_neg != "true":
+            avail = float(await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE branch_id = $1 AND sector_id = $2 AND UPPER(sku) = $3 AND location_id IS NOT DISTINCT FROM $4", tr["origin_branch_id"], tr["origin_sector_id"], sku_clean, line["origin_location_id"]) or 0)
+            if avail < data.quantity: raise HTTPException(400, f"Stock insuficiente en el origen (Disponible: {avail:g}).")
+
         dest_loc_id = None
         if data.destination_location_code and data.destination_location_code.strip():
             loc = await conn.fetchrow("SELECT id FROM locations WHERE UPPER(location_code) = $1", data.destination_location_code.strip().upper())
