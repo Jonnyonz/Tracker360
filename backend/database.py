@@ -526,6 +526,12 @@ async def init_db_schema():
                     "CREATE TABLE IF NOT EXISTS print_agent_auth_codes (code_hash VARCHAR(64) PRIMARY KEY, challenge VARCHAR(64) NOT NULL, agent_name VARCHAR(100) NOT NULL, username VARCHAR(50) NOT NULL, expires_at TIMESTAMP WITH TIME ZONE NOT NULL, used BOOLEAN DEFAULT FALSE);",
                     "CREATE TABLE IF NOT EXISTS print_agent_tokens (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), token_hash VARCHAR(64) UNIQUE NOT NULL, agent_name VARCHAR(100) NOT NULL, created_by VARCHAR(50) NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, last_used_at TIMESTAMP WITH TIME ZONE);",
 
+                    # DIRECCION DE CADA SUCURSAL (la usan las ordenes de compra como direccion de recepcion)
+                    "ALTER TABLE branches ADD COLUMN IF NOT EXISTS street VARCHAR(150) DEFAULT '';",
+                    "ALTER TABLE branches ADD COLUMN IF NOT EXISTS number VARCHAR(20) DEFAULT '';",
+                    "ALTER TABLE branches ADD COLUMN IF NOT EXISTS zip_code VARCHAR(20) DEFAULT '';",
+                    "ALTER TABLE branches ADD COLUMN IF NOT EXISTS city VARCHAR(100) DEFAULT '';",
+
                     # OBSERVACIONES DE DOCUMENTOS (solo se agregan: no se editan ni se borran)
                     "CREATE TABLE IF NOT EXISTS document_notes (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), doc_type VARCHAR(20) NOT NULL, doc_id UUID NOT NULL, body TEXT NOT NULL, source VARCHAR(10) NOT NULL DEFAULT 'USUARIO', username VARCHAR(100), created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "CREATE INDEX IF NOT EXISTS idx_document_notes_doc ON document_notes (doc_type, doc_id, created_at);",

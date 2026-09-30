@@ -13,10 +13,12 @@ async function loadWarehouseData() {
         if(bBody) {
             bBody.innerHTML = ''; 
             if(branches.length === 0) {
-                bBody.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center;">Sin sucursales registradas.</td></tr>';
+                bBody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted); text-align:center;">Sin sucursales registradas.</td></tr>';
             } else {
+                const soloConsulta = await esSupervisor();
                 branches.forEach(b => {
-                    bBody.innerHTML += `<tr><td style="font-weight:bold;">${escapeHTML(b.code)}</td><td>${escapeHTML(b.name)}</td><td><span class="badge badge-success">ACTIVA</span></td></tr>`;
+                    const editar = soloConsulta ? '' : `<button class="btn-secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="openEditBranch(${jsArg(b.id)})">Editar</button>`;
+                    bBody.innerHTML += `<tr><td style="font-weight:bold;">${escapeHTML(b.code)}</td><td>${escapeHTML(b.name)}</td><td><small>${escapeHTML(b.full_address || '-')}</small></td><td><span class="badge badge-success">ACTIVA</span></td><td>${editar}</td></tr>`;
                 });
             }
         }
@@ -62,19 +64,48 @@ async function loadWarehouseData() {
     }
 }
 
-async function saveBranch(e) { 
-    e.preventDefault(); 
-    const payload = { 
-        code: document.getElementById('branch-code').value.trim(), 
-        name: document.getElementById('branch-name').value.trim() 
-    }; 
-    const r = await fetchAPI('/api/admin/branches', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) }); 
-    if(r) { 
-        showToast('Sucursal creada exitosamente.', 'success'); 
-        closeModal('modal-branch'); 
-        document.getElementById('form-branch').reset();
-        loadWarehouseData(); 
-    } 
+function resetBranchModal() {
+    document.getElementById('form-branch').reset();
+    document.getElementById('branch-id').value = '';
+    document.getElementById('branch-code').disabled = false;
+    document.getElementById('branch-modal-title').textContent = 'Crear Sucursal';
+}
+
+function openEditBranch(branchId) {
+    const b = (cachedBranches || []).find(x => x.id === branchId);
+    if (!b) return;
+    resetBranchModal();
+    document.getElementById('branch-modal-title').textContent = 'Editar Sucursal';
+    document.getElementById('branch-id').value = b.id;
+    document.getElementById('branch-code').value = b.code;
+    document.getElementById('branch-code').disabled = true;
+    document.getElementById('branch-name').value = b.name;
+    document.getElementById('branch-street').value = b.street || '';
+    document.getElementById('branch-number').value = b.number || '';
+    document.getElementById('branch-city').value = b.city || '';
+    document.getElementById('branch-zip').value = b.zip_code || '';
+    openModal('modal-branch');
+}
+
+async function saveBranch(e) {
+    e.preventDefault();
+    const id = document.getElementById('branch-id').value;
+    const payload = {
+        name: document.getElementById('branch-name').value.trim(),
+        street: document.getElementById('branch-street').value.trim(),
+        number: document.getElementById('branch-number').value.trim(),
+        city: document.getElementById('branch-city').value.trim(),
+        zip_code: document.getElementById('branch-zip').value.trim()
+    };
+    if (!id) payload.code = document.getElementById('branch-code').value.trim();
+    const url = id ? `/api/admin/branches/${encodeURIComponent(id)}` : '/api/admin/branches';
+    const r = await fetchAPI(url, { method: id ? 'PUT' : 'POST', body: payload });
+    if(r) {
+        showToast(id ? 'Sucursal actualizada.' : 'Sucursal creada exitosamente.', 'success');
+        closeModal('modal-branch');
+        resetBranchModal();
+        loadWarehouseData();
+    }
 }
 
 async function saveSector(e) { 
@@ -138,6 +169,8 @@ async function uploadLocationsCSV(e) {
 
 window.loadWarehouseData = loadWarehouseData;
 window.saveBranch = saveBranch;
+window.openEditBranch = openEditBranch;
+window.resetBranchModal = resetBranchModal;
 window.saveSector = saveSector;
 window.saveLocation = saveLocation;
 window.uploadLocationsCSV = uploadLocationsCSV;

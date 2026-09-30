@@ -315,7 +315,7 @@
             <div class="content-header">
                 <h2>Estructura Física de Depósitos</h2>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    <button class="btn-submit" onclick="openModal('modal-branch')">+ Crear Sucursal</button>
+                    <button class="btn-submit" onclick="resetBranchModal(); openModal('modal-branch')">+ Crear Sucursal</button>
                     <button class="btn-submit" onclick="openModal('modal-sector')">+ Crear Sector</button>
                     <button class="btn-submit" onclick="openModal('modal-location')">+ Crear Ubicación</button>
                     <button class="btn-secondary" onclick="openImportModal('item_locations')">Agregar Masivamente</button>
@@ -326,7 +326,7 @@
                 <div class="card" data-help="Sucursales|Puntos físicos de almacenamiento o tiendas de la empresa.|Define los almacenes independientes entre los cuales se pueden realizar traspasos ODT.">
                     <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> 1. Sucursales Registradas</h3>
                     <table>
-                        <thead><tr><th>Código</th><th>Nombre Sucursal</th><th>Estado</th></tr></thead>
+                        <thead><tr><th>Código</th><th>Nombre Sucursal</th><th>Dirección</th><th>Estado</th><th></th></tr></thead>
                         <tbody id="table-branches-body"></tbody>
                     </table>
                 </div>
@@ -1529,10 +1529,17 @@
     <div id="modal-branch" class="modal">
         <div class="modal-content" style="max-width:500px;">
             <span class="close-modal" onclick="closeModal('modal-branch')">&times;</span>
-            <h3 style="color:var(--text-primary); margin-bottom:1.5rem;">Crear Sucursal</h3>
+            <h3 id="branch-modal-title" style="color:var(--text-primary); margin-bottom:1.5rem;">Crear Sucursal</h3>
             <form id="form-branch" onsubmit="saveBranch(event)">
+                <input type="hidden" id="branch-id">
                 <div class="form-group"><label>Código Sucursal *</label><input type="text" id="branch-code" class="font-mono" placeholder="Ej: SUC-02" required></div>
                 <div class="form-group"><label>Nombre de la Sucursal *</label><input type="text" id="branch-name" placeholder="Ej: Depósito Norte" required></div>
+                <div class="grid-layout" style="margin-bottom:0;">
+                    <div class="form-group"><label>Calle</label><input type="text" id="branch-street" maxlength="150"></div>
+                    <div class="form-group"><label>Número</label><input type="text" id="branch-number" maxlength="20"></div>
+                    <div class="form-group"><label>Localidad</label><input type="text" id="branch-city" maxlength="100"></div>
+                    <div class="form-group"><label>Código Postal</label><input type="text" id="branch-zip" maxlength="20"></div>
+                </div>
                 <button type="submit" class="btn-submit" style="margin-top:1.5rem; width:100%; justify-content:center;">Guardar Sucursal</button>
             </form>
         </div>
