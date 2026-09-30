@@ -9,10 +9,10 @@ import jwt
 
 try:
     from backend.database import init_db_schema, DB, SECRET_KEY, ALGORITHM, get_client_ip, get_request_scheme, is_private_ip
-    from backend.routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater
+    from backend.routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater, notes
 except ImportError:
     from database import init_db_schema, DB, SECRET_KEY, ALGORITHM, get_client_ip, get_request_scheme, is_private_ip
-    from routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater
+    from routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater, notes
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -96,6 +96,7 @@ app.include_router(dashboard.router)   # Tablero / Kpis / Logs
 app.include_router(reports.router)
 app.include_router(rfid.router)
 app.include_router(updater.router)
+app.include_router(notes.router)     # Observaciones de documentos
 
 # === ENDPOINTS EXPLICITOS DE FAVICON ===
 @app.get("/favicon.png", include_in_schema=False)

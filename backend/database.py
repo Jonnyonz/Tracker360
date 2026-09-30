@@ -526,6 +526,10 @@ async def init_db_schema():
                     "CREATE TABLE IF NOT EXISTS print_agent_auth_codes (code_hash VARCHAR(64) PRIMARY KEY, challenge VARCHAR(64) NOT NULL, agent_name VARCHAR(100) NOT NULL, username VARCHAR(50) NOT NULL, expires_at TIMESTAMP WITH TIME ZONE NOT NULL, used BOOLEAN DEFAULT FALSE);",
                     "CREATE TABLE IF NOT EXISTS print_agent_tokens (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), token_hash VARCHAR(64) UNIQUE NOT NULL, agent_name VARCHAR(100) NOT NULL, created_by VARCHAR(50) NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, last_used_at TIMESTAMP WITH TIME ZONE);",
 
+                    # OBSERVACIONES DE DOCUMENTOS (solo se agregan: no se editan ni se borran)
+                    "CREATE TABLE IF NOT EXISTS document_notes (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), doc_type VARCHAR(20) NOT NULL, doc_id UUID NOT NULL, body TEXT NOT NULL, source VARCHAR(10) NOT NULL DEFAULT 'USUARIO', username VARCHAR(100), created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
+                    "CREATE INDEX IF NOT EXISTS idx_document_notes_doc ON document_notes (doc_type, doc_id, created_at);",
+
                     # INSERTS DE CONFIGURACIONES INICIALES ENTERPRISE
                     "INSERT INTO system_settings (key, value) VALUES ('allow_multiproduct_locations', 'false') ON CONFLICT (key) DO NOTHING;",
                     "INSERT INTO system_settings (key, value) VALUES ('require_mobile_reception', 'false') ON CONFLICT (key) DO NOTHING;",
