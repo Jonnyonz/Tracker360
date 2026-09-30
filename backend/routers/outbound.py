@@ -412,8 +412,11 @@ async def scan_wave_picking_item(data: WavePickScanInput, user: dict = Depends(g
         if snt_enabled == "true" and data.serial_numbers and len(data.serial_numbers) > 0:
             if len(data.serial_numbers) != int(data.quantity): raise HTTPException(400, "Descuadre en trazabilidad. La cantidad de números de serie debe coincidir con la cantidad física extraída.")
         
-        docs = await conn.fetch("SELECT id, document_number, status FROM documents WHERE document_number = ANY($1::text[]) FOR UPDATE", data.order_numbers)
+        numeros = [n.strip().upper() for n in data.order_numbers]
+        docs = await conn.fetch("SELECT id, document_number, status FROM documents WHERE UPPER(document_number) = ANY($1::text[]) FOR UPDATE", numeros)
         if not docs: raise HTTPException(404, "Pedidos de la ola no encontrados.")
+        cerrados = [d["document_number"] for d in docs if d["status"] in ("CANCELLED", "DISPATCHED")]
+        if cerrados: raise HTTPException(400, f"Pedidos cancelados o ya despachados en la ola: {', '.join(cerrados)}.")
         
         total_needed = 0
         lines_to_update = []
