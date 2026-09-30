@@ -53,6 +53,8 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 - Tracker360 empieza a usar la librería común de JZTech (`jztech-core`), la misma que JZTravell y
   JZPass: por ahora, el cálculo de la IP real del cliente. Las dependencias quedan fijadas con
   verificación de integridad. No cambia nada del funcionamiento. (`e69f142`, `6477d2f`)
+- Las cabeceras de seguridad comunes también salen de `jztech-core`; el navegador ahora solo
+  permite usar la cámara (para escanear) y bloquea ubicación y micrófono, que no se usan. (`3ac3c46`)
 - Los tests automáticos ya no forman parte del repositorio: se mantienen aparte, fuera del
   código del sistema. No cambia nada del funcionamiento.
 - **El número de remito es único por proveedor.** Dos proveedores pueden usar el mismo número
