@@ -28,6 +28,10 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   controla el remito con el celular. El historial tiene "Detalle" con el origen de cada artículo y
   las observaciones. (`5b11cd3`, `f9a1840`)
 
+- **Reporte "Diferencias de Recepción" (Reportes).** Muestra, por proveedor y período, lo que faltó
+  y lo que sobró en los remitos ya controlados y los artículos que llegaron sin figurar en el
+  remito (con su estado: en cuarentena, aprobado o rechazado). Arriba, un resumen por proveedor
+  para los reclamos; cada fila abre su remito. Se puede exportar a CSV. (`f2f01bb`, `c5e5967`)
 - **Control ciego de remitos en el celular (con segundo control).** El depósito ya no ve cuánto
   dice el remito: escanea lo que llegó y ve lo que lleva contado. Si llega más, el excedente se
   agrega como artículo suelto, con aviso al operario y una observación en el remito. Si llega un

@@ -46,6 +46,8 @@ Flujos principales:
   un ADMIN o SUPERVISOR lo apruebe o lo rechace. Al finalizar, el remito queda *Controlado* o
   *Controlado con diferencias*, con los faltantes y sobrantes como observación. El picking y los
   traspasos solo usan stock `OPERATIVO`.
+- **Reporte de diferencias de recepción:** faltantes, sobrantes y no esperados por proveedor y
+  período, con resumen por proveedor para los reclamos y exportación a CSV.
 - **Recepción:** escaneo de un remito de proveedor contra lo esperado; el stock entra a la
   ubicación sugerida (putaway).
 - **Salida:** pedido de venta → picking (por pedido u olas) → packing → despacho. Al despachar
