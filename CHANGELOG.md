@@ -11,11 +11,22 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   que queden como registro. Las que genere el sistema aparecen marcadas como "Sistema". Remitos
   y órdenes de compra las van a tener cuando se habilite su pantalla. (`d769b71`, `f5d1fe9`)
 
+- **Órdenes de compra.** Ya se pueden emitir desde "Compras y Recepción" (antes el formulario
+  no guardaba nada): proveedor, sucursal de recepción con su dirección, número automático y
+  artículos. El historial muestra el estado y el botón "Detalle" abre la orden con lo pedido, lo
+  recibido y lo pendiente de cada artículo, más sus observaciones. El supervisor puede
+  consultarlas pero no emitirlas. (`9d66025`, `5ae20ac`)
+- **Dirección de las sucursales.** En "Depósitos" cada sucursal tiene calle, número, localidad y
+  código postal, y se puede editar. Es la dirección de entrega de las órdenes de compra. (`7c71d4b`)
+
 ### Cambiado
 - En la lista de pedidos, el botón "Participantes" ahora se llama "Detalle" y abre el pedido
   con su avance, sus participantes y sus observaciones. (`f5d1fe9`)
 
 ### Corregido
+- **Formularios con varios artículos: agregar una fila ya no borra lo que se había escrito en las
+  anteriores.** Pasaba en traspasos, pedidos manuales, órdenes de compra, remitos y facturas.
+  (`bcdfbf9`)
 - **Traspasos: ya no se puede transferir más de lo que dice la orden.** El escaneo se rechaza con
   el aviso "Solo faltan N", igual que en el picking. (`c2807e2`)
 - **Traspasos: ya no se puede sacar del origen más stock del que hay.** Antes, con 2 unidades en

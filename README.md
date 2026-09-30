@@ -31,6 +31,8 @@ común.
 
 Flujos principales:
 
+- **Compras:** órdenes de compra a un proveedor con sucursal de recepción (su dirección es la
+  de entrega), número correlativo (`OC-000001`) y seguimiento de lo pendiente por línea.
 - **Recepción:** escaneo de un remito de proveedor contra lo esperado; el stock entra a la
   ubicación sugerida (putaway).
 - **Salida:** pedido de venta → picking (por pedido u olas) → packing → despacho. Al despachar
