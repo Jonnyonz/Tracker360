@@ -5,6 +5,11 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 ## 2026-09-30
 
 ### Corregido
+- **Traspasos: ya no se puede transferir más de lo que dice la orden.** El escaneo se rechaza con
+  el aviso "Solo faltan N", igual que en el picking. (`c2807e2`)
+- **Traspasos: ya no se puede sacar del origen más stock del que hay.** Antes, con 2 unidades en
+  la ubicación de origen se podían transferir 5 y el origen quedaba en -3. Ahora se rechaza
+  mostrando lo disponible, salvo que esté activada la opción de permitir stock negativo. (`60b6b7c`)
 - **Picking: ya no se puede recolectar más de lo que pide el pedido.** Antes, si faltaban 2
   unidades y se escaneaban 50, el sistema las aceptaba: la línea quedaba en 58 de 10 y se
   descontaban 50 del stock. Ahora el escaneo se rechaza con el aviso "Solo faltan N" y no se
