@@ -447,7 +447,7 @@ async function openBatchPrintModal() {
             const sectors = Array.isArray(data) ? data : (data.sectors || data.rows || data.data || []);
             if (sectors.length > 0) {
                 selectEl.innerHTML = '<option value="">-- Seleccionar Sector --</option>' + 
-                    sectors.map(s => `<option value="${s.print_queue_code || s.code || s.name}">${s.name || s.sector_name || s.code}</option>`).join('');
+                    sectors.map(s => `<option value="${escapeHTML(s.print_queue_code || s.code || s.name)}">${escapeHTML(s.name || s.sector_name || s.code)}</option>`).join('');
             } else {
                 selectEl.innerHTML = '<option value="RECEPCION">Recepcion</option>';
             }
