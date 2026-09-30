@@ -20,6 +20,7 @@ let appSettingsCache = null;
 window.onload = async () => {
     try {
         appSettingsCache = await fetchAPI('/api/settings');
+        document.body.classList.toggle('con-lotes', appSettingsCache && appSettingsCache.enable_lots_expiration === 'true');
     } catch (e) { console.warn("No se pudo cargar configuración inicial."); }
 };
 

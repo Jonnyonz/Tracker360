@@ -199,6 +199,7 @@ async function saveSettings(e) {
 
     if (r) {
         if (typeof showToast === 'function') showToast('Configuración guardada exitosamente.', 'success');
+        if (typeof aplicarAjusteLotes === 'function') aplicarAjusteLotes();
         await loadSettings();
     }
 }

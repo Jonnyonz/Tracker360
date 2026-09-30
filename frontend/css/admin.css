@@ -602,3 +602,6 @@ tbody tr:hover { background-color: rgba(0,0,0,0.015); }
     .form-row { flex-direction: column; gap: 0.8rem; }
     .form-row .form-group { width: 100%; max-width: 100% !important; }
 }
+/* Lotes: ocultos salvo que la empresa trabaje con lotes (body.con-lotes, ver aplicarAjusteLotes) */
+.lot-input { display: none !important; }
+body.con-lotes .lot-input { display: revert !important; }

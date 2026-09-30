@@ -38,7 +38,17 @@ async function loadDashboardSummary() {
     } catch (e) { console.error("Error cargando dashboard:", e); }
 }
 
+// Muestra u oculta los campos de lote en todos los formularios segun la configuracion.
+async function aplicarAjusteLotes() {
+    try {
+        const cfg = await fetchAPI('/api/settings');
+        document.body.classList.toggle('con-lotes', cfg && cfg.enable_lots_expiration === 'true');
+    } catch (e) { /* sin configuracion: quedan ocultos */ }
+}
+window.aplicarAjusteLotes = aplicarAjusteLotes;
+
 document.addEventListener('DOMContentLoaded', async () => {
+    aplicarAjusteLotes();
     // Usuarios, configuracion e integraciones son solo del admin (ver aplicarModoSupervisor).
     const supervisor = await esSupervisor();
     loadDashboardSummary();
