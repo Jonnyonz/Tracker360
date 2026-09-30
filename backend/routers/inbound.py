@@ -4,9 +4,9 @@ from typing import Optional, List
 import asyncpg, uuid, re, json
 
 try:
-    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, build_full_address
+    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, build_full_address, add_system_note
 except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, build_full_address
+    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, build_full_address, add_system_note
 
 router = APIRouter(tags=["Inbound & Receptions"])
 
@@ -26,6 +26,12 @@ class PurchaseOrderCreateInput(BaseModel):
     supplier_id: str
     branch_id: str
     lines: List[PurchaseOrderLineInput]
+
+class UnexpectedItemInput(BaseModel):
+    sku: str
+    quantity: float
+    location_code: Optional[str] = None
+    lot_number: str = ""
 
 class RemitoItemInput(BaseModel):
     sku: str
@@ -274,7 +280,7 @@ async def get_purchase_remito(remito_number: str, admin: dict = Depends(require_
     lines = await conn.fetch("""
         SELECT prl.sku, COALESCE(i.description, prl.sku) AS description, prl.quantity_sent::float AS sent,
                prl.quantity_received::float AS controlled, l.location_code, COALESCE(prl.lot_number, '') AS lot_number,
-               po.order_number
+               po.order_number, prl.added_in_control
         FROM purchase_remito_lines prl
         LEFT JOIN items i ON UPPER(i.sku) = UPPER(prl.sku)
         LEFT JOIN locations l ON prl.location_id = l.id
@@ -283,7 +289,13 @@ async def get_purchase_remito(remito_number: str, admin: dict = Depends(require_
         WHERE prl.purchase_remito_id = $1::uuid ORDER BY po.order_number NULLS FIRST, prl.sku
     """, rem["id"])
     header = {k: rem[k] for k in ("id", "remito_number", "status", "created_at", "created_by", "supplier_name", "supplier_tax_id", "branch_name", "sector_name")}
-    return {"remito": header, "lines": [dict(l) for l in lines]}
+    exceptions = await conn.fetch("""
+        SELECT x.id::text AS id, x.sku, COALESCE(i.description, x.sku) AS description, x.quantity::float AS quantity, l.location_code,
+               x.status, x.reported_by, x.resolved_by, x.created_at, x.resolved_at
+        FROM reception_exceptions x LEFT JOIN items i ON UPPER(i.sku) = UPPER(x.sku) LEFT JOIN locations l ON x.location_id = l.id
+        WHERE x.remito_id = $1::uuid ORDER BY x.created_at
+    """, rem["id"])
+    return {"remito": header, "lines": [dict(l) for l in lines], "exceptions": [dict(x) for x in exceptions]}
 
 @router.get("/api/admin/purchase-invoices")
 async def list_admin_purchase_invoices(search: str = "", limit: int = 50, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
@@ -313,12 +325,19 @@ async def get_reception_remito_details(remito_number: str, user: dict = Depends(
         SELECT pr.id, pr.remito_number, pr.status, pr.branch_id, pr.sector_id, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name 
         FROM purchase_remitos pr LEFT JOIN entities e ON pr.supplier_id = e.id WHERE pr.id = $1
     """, await _resolve_remito_id(conn, remito_number))
-    if not rem: raise HTTPException(404, "Remito no encontrado")
+    # Control ciego: el operario ve que articulos trae el remito, donde van y cuanto lleva escaneado,
+    # nunca cuanto dice el remito (asi cuenta lo que llego en vez de confirmar el papel).
     lines = await conn.fetch("""
-        SELECT prl.id::text as id, prl.sku, prl.quantity_sent::float as quantity_sent, prl.quantity_received::float as quantity_received, l.location_code, prl.serial_numbers
-        FROM purchase_remito_lines prl LEFT JOIN locations l ON prl.location_id = l.id WHERE prl.purchase_remito_id = $1 ORDER BY prl.sku ASC
+        SELECT UPPER(prl.sku) AS sku, COALESCE(MAX(i.description), UPPER(prl.sku)) AS description,
+               MAX(l.location_code) AS location_code, SUM(prl.quantity_received)::float AS scanned
+        FROM purchase_remito_lines prl LEFT JOIN locations l ON prl.location_id = l.id LEFT JOIN items i ON UPPER(i.sku) = UPPER(prl.sku)
+        WHERE prl.purchase_remito_id = $1 GROUP BY UPPER(prl.sku) ORDER BY UPPER(prl.sku)
     """, rem["id"])
-    return {"remito": dict(rem), "lines": [dict(l) for l in lines]}
+    unexpected = await conn.fetch("""
+        SELECT x.sku, x.quantity::float AS quantity, x.status FROM reception_exceptions x WHERE x.remito_id = $1 ORDER BY x.created_at
+    """, rem["id"])
+    remito = {k: rem[k] for k in ("id", "remito_number", "status", "supplier_name")}
+    return {"remito": remito, "lines": [dict(l) for l in lines], "unexpected": [dict(u) for u in unexpected], "blind": True}
 
 @router.post("/api/reception/remitos/{remito_number}/scan")
 @router.post("/api/reception/orders/{remito_number}/scan")
@@ -326,17 +345,17 @@ async def scan_reception_item(remito_number: str, data: MobileRemitoScanInput, u
     async with conn.transaction():
         rem = await conn.fetchrow("SELECT id, remito_number, status, branch_id, sector_id FROM purchase_remitos WHERE id = $1 FOR UPDATE", await _resolve_remito_id(conn, remito_number))
         if not rem: raise HTTPException(404, "Remito no encontrado")
-        if rem["status"] == "COMPLETED": raise HTTPException(400, "Remito ya controlado completamente.")
+        if rem["status"] in ("COMPLETED", "COMPLETED_DIFF"): raise HTTPException(400, "El control de este remito ya está finalizado.")
         require_valid_quantity(data.quantity)
         sku_clean = data.sku.strip().upper()
-        # Un mismo SKU puede venir en varias lineas (suelto y contra una o mas OC): el escaneo llena
-        # primero las lineas con pendiente y lo que sobre queda en la ultima (como antes).
+        # Un mismo SKU puede venir en varias lineas (suelto y contra una o mas OC): el escaneo llena lo
+        # remitido y lo que sobra va a una linea suelta "agregada en el control" (nunca contra una OC).
         lines = await conn.fetch("""
             SELECT id, quantity_sent::float AS sent, quantity_received::float AS received, location_id, COALESCE(lot_number, '') AS lot_number
-            FROM purchase_remito_lines WHERE purchase_remito_id = $1 AND UPPER(sku) = $2
+            FROM purchase_remito_lines WHERE purchase_remito_id = $1 AND UPPER(sku) = $2 AND NOT added_in_control
             ORDER BY (quantity_received < quantity_sent) DESC, id
         """, rem["id"], sku_clean)
-        if not lines: raise HTTPException(400, "SKU no pertenece al remito.")
+        if not lines: raise HTTPException(400, f"El artículo {sku_clean} no figura en este remito. Si llegó, registralo como no esperado (queda en cuarentena).")
 
         loc_id = None
         if data.location_code and data.location_code.strip():
@@ -344,16 +363,25 @@ async def scan_reception_item(remito_number: str, data: MobileRemitoScanInput, u
             if loc: loc_id = loc["id"]
 
         restante = float(data.quantity)
-        serials = list(data.serial_numbers or [])
         repartos = []
-        for i, ln in enumerate(lines):
+        for ln in lines:
             if restante <= 0: break
-            ultima = i == len(lines) - 1
-            toma = restante if ultima else min(restante, max(ln["sent"] - ln["received"], 0))
+            toma = min(restante, max(ln["sent"] - ln["received"], 0))
             if toma <= 0: continue
-            repartos.append((ln, toma))
+            repartos.append((ln["id"], ln["location_id"], ln["lot_number"], toma))
             restante -= toma
-        for ln, toma in repartos:
+        excedente = restante
+        if excedente > 0:
+            extra = await conn.fetchrow("SELECT id, location_id, COALESCE(lot_number, '') AS lot_number FROM purchase_remito_lines WHERE purchase_remito_id = $1 AND UPPER(sku) = $2 AND added_in_control", rem["id"], sku_clean)
+            if not extra:
+                extra = await conn.fetchrow("""
+                    INSERT INTO purchase_remito_lines (purchase_remito_id, sku, quantity_sent, quantity_received, location_id, lot_number, added_in_control)
+                    VALUES ($1, $2, 0, 0, $3, $4, TRUE) RETURNING id, location_id, COALESCE(lot_number, '') AS lot_number
+                """, rem["id"], sku_clean, loc_id or lines[0]["location_id"], lines[0]["lot_number"])
+            repartos.append((extra["id"], extra["location_id"], extra["lot_number"], excedente))
+
+        serials = list(data.serial_numbers or [])
+        for line_id, line_loc, lot, toma in repartos:
             sn = serials[:int(toma)] if serials else []
             serials = serials[int(toma):] if serials else []
             await conn.execute("""
@@ -361,14 +389,101 @@ async def scan_reception_item(remito_number: str, data: MobileRemitoScanInput, u
                 SET quantity_received = quantity_received + $1,
                     serial_numbers = COALESCE(serial_numbers, '[]'::jsonb) || $2::jsonb
                 WHERE id = $3
-            """, toma, json.dumps(sn), ln["id"])
-            await record_stock_movement(conn, sku_clean, rem["branch_id"], rem["sector_id"], loc_id or ln["location_id"], toma, 'IN_RECEPTION', rem["remito_number"], user.get("username"), lot_number=ln["lot_number"], serial_numbers=sn)
+            """, toma, json.dumps(sn), line_id)
+            await record_stock_movement(conn, sku_clean, rem["branch_id"], rem["sector_id"], loc_id or line_loc, toma, 'IN_RECEPTION', rem["remito_number"], user.get("username"), lot_number=lot, serial_numbers=sn)
         await conn.execute("UPDATE purchase_remitos SET status = 'IN_PROGRESS' WHERE id = $1 AND status IN ('PENDING', 'PENDING_CONTROL')", rem["id"])
-        
-        pending = await conn.fetchval("SELECT COUNT(*) FROM purchase_remito_lines WHERE purchase_remito_id = $1 AND quantity_received < quantity_sent", rem["id"])
-        if pending == 0: await conn.execute("UPDATE purchase_remitos SET status = 'COMPLETED' WHERE id = $1", rem["id"])
-        
-        return {"status": "success", "message": f"Ingresado {data.quantity} un de {sku_clean}", "remito_completed": pending == 0}
+
+        aviso = None
+        if excedente > 0:
+            aviso = f"Llegó más de lo que dice el remito: {excedente:g} de {sku_clean} se agregaron como artículo suelto."
+            await add_system_note(conn, "REMITO", rem["id"], f"Control: {user.get('username')} recibió {excedente:g} de {sku_clean} por encima de lo remitido; se agregaron como artículo suelto.")
+        # Control ciego: el remito no se cierra solo (eso le diria al operario que llego a lo esperado).
+        return {"status": "success", "message": f"Ingresado {data.quantity:g} un de {sku_clean}", "warning": aviso, "remito_completed": False}
+
+async def _remito_en_control(conn: asyncpg.Connection, ref: str):
+    rem = await conn.fetchrow("SELECT id, remito_number, status, branch_id, sector_id FROM purchase_remitos WHERE id = $1 FOR UPDATE", await _resolve_remito_id(conn, ref))
+    if rem["status"] not in ("PENDING", "PENDING_CONTROL", "IN_PROGRESS"): raise HTTPException(400, "El control de este remito ya está finalizado.")
+    return rem
+
+# Articulo que no figura en el remito: entra a cuarentena (en el deposito, pero no disponible) hasta que
+# ADMIN o SUPERVISOR lo apruebe (pasa a disponible y se suma al remito) o lo rechace (se devuelve).
+@router.post("/api/reception/remitos/{remito_number}/unexpected")
+async def report_unexpected_item(remito_number: str, data: UnexpectedItemInput, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    async with conn.transaction():
+        rem = await _remito_en_control(conn, remito_number)
+        require_valid_quantity(data.quantity)
+        sku = data.sku.strip().upper()
+        if not await conn.fetchval("SELECT 1 FROM items WHERE UPPER(sku) = $1", sku):
+            raise HTTPException(400, f"El artículo {sku} no existe en el maestro: dejá una observación en el remito.")
+        if await conn.fetchval("SELECT 1 FROM purchase_remito_lines WHERE purchase_remito_id = $1 AND UPPER(sku) = $2", rem["id"], sku):
+            raise HTTPException(400, f"El artículo {sku} figura en el remito: escanealo normalmente.")
+        loc_id = None
+        if data.location_code and data.location_code.strip():
+            loc_id = await conn.fetchval("SELECT id FROM locations WHERE UPPER(location_code) = $1", data.location_code.strip().upper())
+            if not loc_id: raise HTTPException(400, f"La ubicación {data.location_code.strip().upper()} no existe.")
+        await conn.execute("INSERT INTO reception_exceptions (remito_id, sku, quantity, location_id, lot_number, reported_by) VALUES ($1, $2, $3, $4, $5, $6)",
+                           rem["id"], sku, data.quantity, loc_id, data.lot_number.strip(), user.get("username"))
+        await record_stock_movement(conn, sku, rem["branch_id"], rem["sector_id"], loc_id, data.quantity, 'IN_QUARANTINE', rem["remito_number"], user.get("username"), lot_number=data.lot_number.strip(), condition="CUARENTENA")
+        await conn.execute("UPDATE purchase_remitos SET status = 'IN_PROGRESS' WHERE id = $1 AND status IN ('PENDING', 'PENDING_CONTROL')", rem["id"])
+        await add_system_note(conn, "REMITO", rem["id"], f"Control: {user.get('username')} registró {data.quantity:g} de {sku}, que no figura en el remito. Quedan en cuarentena hasta que un responsable los apruebe o rechace.")
+        return {"status": "success", "message": f"{data.quantity:g} de {sku} quedan en cuarentena hasta que un responsable los apruebe."}
+
+@router.post("/api/reception/remitos/{remito_number}/finish")
+async def finish_reception_control(remito_number: str, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    async with conn.transaction():
+        rem = await _remito_en_control(conn, remito_number)
+        por_sku = await conn.fetch("""
+            SELECT UPPER(sku) AS sku, SUM(quantity_sent)::float AS sent, SUM(quantity_received)::float AS received
+            FROM purchase_remito_lines WHERE purchase_remito_id = $1 GROUP BY UPPER(sku) ORDER BY UPPER(sku)
+        """, rem["id"])
+        faltantes = [(r["sku"], r["sent"] - r["received"]) for r in por_sku if r["received"] < r["sent"]]
+        sobrantes = [(r["sku"], r["received"] - r["sent"]) for r in por_sku if r["received"] > r["sent"]]
+        cuarentena = await conn.fetchval("SELECT COUNT(*) FROM reception_exceptions WHERE remito_id = $1 AND status = 'PENDING'", rem["id"])
+        con_diferencias = bool(faltantes or sobrantes or cuarentena)
+        await conn.execute("UPDATE purchase_remitos SET status = $1 WHERE id = $2", "COMPLETED_DIFF" if con_diferencias else "COMPLETED", rem["id"])
+        partes = [f"Control finalizado por {user.get('username')}."]
+        if faltantes: partes.append("Faltantes: " + ", ".join(f"{s} {q:g}" for s, q in faltantes) + ".")
+        if sobrantes: partes.append("Sobrantes: " + ", ".join(f"{s} {q:g}" for s, q in sobrantes) + ".")
+        if cuarentena: partes.append(f"Artículos no esperados en cuarentena: {cuarentena}.")
+        if not con_diferencias: partes.append("Sin diferencias con el remito.")
+        await add_system_note(conn, "REMITO", rem["id"], " ".join(partes))
+        return {"status": "COMPLETED_DIFF" if con_diferencias else "COMPLETED",
+                "faltantes": [{"sku": s, "quantity": q} for s, q in faltantes],
+                "sobrantes": [{"sku": s, "quantity": q} for s, q in sobrantes],
+                "cuarentena": cuarentena}
+
+async def _resolver_excepcion(conn: asyncpg.Connection, exception_id: str, user: dict, aprobar: bool):
+    x = await conn.fetchrow("""
+        SELECT x.id, x.sku, x.quantity::float AS quantity, x.location_id, COALESCE(x.lot_number, '') AS lot_number, x.status,
+               pr.id AS remito_id, pr.remito_number, pr.branch_id, pr.sector_id
+        FROM reception_exceptions x JOIN purchase_remitos pr ON pr.id = x.remito_id WHERE x.id = $1 FOR UPDATE OF x
+    """, _parse_uuid(exception_id, "Excepción inválida."))
+    if not x: raise HTTPException(404, "Excepción no encontrada.")
+    if x["status"] != "PENDING": raise HTTPException(400, "Esta excepción ya fue resuelta.")
+    quien = user.get("username")
+    # Sale de cuarentena en los dos casos; si se aprueba, entra como disponible y se suma al remito.
+    await record_stock_movement(conn, x["sku"], x["branch_id"], x["sector_id"], x["location_id"], -x["quantity"], 'QUARANTINE_RELEASE' if aprobar else 'QUARANTINE_REJECT', x["remito_number"], quien, lot_number=x["lot_number"], condition="CUARENTENA")
+    if aprobar:
+        await record_stock_movement(conn, x["sku"], x["branch_id"], x["sector_id"], x["location_id"], x["quantity"], 'QUARANTINE_RELEASE', x["remito_number"], quien, lot_number=x["lot_number"])
+        await conn.execute("INSERT INTO purchase_remito_lines (purchase_remito_id, sku, quantity_sent, quantity_received, location_id, lot_number, added_in_control) VALUES ($1, $2, 0, $3, $4, $5, TRUE)",
+                           x["remito_id"], x["sku"], x["quantity"], x["location_id"], x["lot_number"])
+        texto = f"{quien} aprobó {x['quantity']:g} de {x['sku']} no esperados: pasan a stock disponible y se suman al remito como artículo suelto."
+    else:
+        texto = f"{quien} rechazó {x['quantity']:g} de {x['sku']} no esperados: salen de la cuarentena para devolverse al proveedor."
+    await conn.execute("UPDATE reception_exceptions SET status = $1, resolved_by = $2, resolved_at = CURRENT_TIMESTAMP WHERE id = $3", "APPROVED" if aprobar else "REJECTED", quien, x["id"])
+    await add_system_note(conn, "REMITO", x["remito_id"], texto)
+    await log_action(conn, quien, "RECEPTION_EXCEPTION_APPROVED" if aprobar else "RECEPTION_EXCEPTION_REJECTED", f"Remito {x['remito_number']}: {texto}")
+    return {"status": "success", "message": texto}
+
+@router.post("/api/admin/reception-exceptions/{exception_id}/approve")
+async def approve_reception_exception(exception_id: str, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+    async with conn.transaction():
+        return await _resolver_excepcion(conn, exception_id, admin, True)
+
+@router.post("/api/admin/reception-exceptions/{exception_id}/reject")
+async def reject_reception_exception(exception_id: str, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+    async with conn.transaction():
+        return await _resolver_excepcion(conn, exception_id, admin, False)
 
 @router.get("/api/admin/returns/next-number")
 async def get_next_return_number(user: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):

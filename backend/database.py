@@ -280,6 +280,10 @@ def require_valid_quantity(quantity: float, allow_zero: bool = False) -> None:
     if not math.isfinite(quantity) or quantity < 0 or (quantity == 0 and not allow_zero):
         raise HTTPException(400, "La cantidad no puede ser negativa." if allow_zero else "La cantidad debe ser mayor a cero.")
 
+async def add_system_note(conn: asyncpg.Connection, doc_type: str, doc_id: uuid.UUID, body: str):
+    # Observacion automatica (la escribe el sistema, no un usuario). doc_type: ver DOC_TYPES en routers/notes.py.
+    await conn.execute("INSERT INTO document_notes (doc_type, doc_id, body, source, username) VALUES ($1, $2, $3, 'SISTEMA', 'SISTEMA')", doc_type, doc_id, body)
+
 async def record_stock_movement(conn: asyncpg.Connection, sku: str, branch_id: uuid.UUID, sector_id: uuid.UUID, location_id: Optional[uuid.UUID], quantity: float, movement_type: str, ref_doc: str, username: str, lot_number: str = "", expiration_date = None, condition: str = "OPERATIVO", serial_numbers: Optional[List[str]] = None):
     cond_clean = condition.strip().upper() if condition else "OPERATIVO"
     # NULL nunca coincide en un indice unico (dos NULL son distintos): sin esto, cada movimiento
@@ -525,6 +529,11 @@ async def init_db_schema():
                     # LOGIN DEL AGENTE DE IMPRESION POR NAVEGADOR (codigo de un solo uso + PKCE, tokens guardados como hash)
                     "CREATE TABLE IF NOT EXISTS print_agent_auth_codes (code_hash VARCHAR(64) PRIMARY KEY, challenge VARCHAR(64) NOT NULL, agent_name VARCHAR(100) NOT NULL, username VARCHAR(50) NOT NULL, expires_at TIMESTAMP WITH TIME ZONE NOT NULL, used BOOLEAN DEFAULT FALSE);",
                     "CREATE TABLE IF NOT EXISTS print_agent_tokens (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), token_hash VARCHAR(64) UNIQUE NOT NULL, agent_name VARCHAR(100) NOT NULL, created_by VARCHAR(50) NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, last_used_at TIMESTAMP WITH TIME ZONE);",
+
+                    # CONTROL FISICO DE REMITOS: lineas agregadas en el control (excedentes y no esperados
+                    # aprobados) y articulos no esperados en cuarentena hasta que ADMIN/SUPERVISOR resuelve.
+                    "ALTER TABLE purchase_remito_lines ADD COLUMN IF NOT EXISTS added_in_control BOOLEAN NOT NULL DEFAULT FALSE;",
+                    "CREATE TABLE IF NOT EXISTS reception_exceptions (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), remito_id UUID NOT NULL REFERENCES purchase_remitos(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, quantity NUMERIC NOT NULL, location_id UUID REFERENCES locations(id), lot_number VARCHAR(100) DEFAULT '', status VARCHAR(20) NOT NULL DEFAULT 'PENDING', reported_by VARCHAR(50), resolved_by VARCHAR(50), resolved_at TIMESTAMP WITH TIME ZONE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
 
                     # REMITOS DE COMPRA: cada linea puede venir de una linea de OC (vacio = articulo suelto)
                     "ALTER TABLE purchase_remitos ADD COLUMN IF NOT EXISTS created_by VARCHAR(50);",
