@@ -186,25 +186,6 @@ function navigateToSubTab(sectionId, tabId) { switchView(sectionId); if(typeof s
 function openModal(id) { const m = document.getElementById(id); if(m) m.style.display = 'flex'; }
 function closeModal(id) { const m = document.getElementById(id); if(m) m.style.display = 'none'; }
 
-async function fetchAPI(url, options = {}) {
-    try {
-        const r = await fetch(url, options);
-        if (r.status === 401) { window.location.href = '/index.html'; return null; }
-        if(!r.ok) {
-            const err = await r.json().catch(()=>({}));
-            const msg = err.detail || r.statusText || 'Error en el servidor';
-            if(options.method && options.method !== 'GET') { showToast('Error: ' + msg, 'error'); }
-            return null;
-        }
-        return await r.json();
-    } catch(e) {
-        const banner = document.getElementById('net-banner');
-        if (banner) banner.style.display = 'block';
-        if(options.method && options.method !== 'GET') { showToast('Falla de conexión con el servidor', 'error'); }
-        return null;
-    }
-}
-
 async function loadDashboard() {
     try {
         const data = await fetchAPI('/api/admin/dashboard');

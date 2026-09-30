@@ -529,7 +529,8 @@ tbody tr:hover { background-color: rgba(0,0,0,0.015); }
 .toast-container { position: fixed; top: 1.2rem; right: 1.2rem; z-index: 10000; display: flex; flex-direction: column; gap: 0.6rem; max-width: 380px; pointer-events: none; }
 .toast { background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border); padding: 1rem 1.2rem; border-radius: 8px; box-shadow: var(--shadow); font-size: 0.9rem; font-weight: 500; display: flex; align-items: center; justify-content: space-between; gap: 12px; pointer-events: auto; }
 .toast-success { border-left: 4px solid var(--success); }
-.toast-error { border-left: 4px solid var(--danger); }
+.toast-error, .toast-danger { border-left: 4px solid var(--danger); }
+.toast-warning { border-left: 4px solid var(--warning); }
 .toast-info { border-left: 4px solid var(--accent); }
 .toast-neutral { border-left: 4px solid var(--text-muted); }
 

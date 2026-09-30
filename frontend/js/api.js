@@ -1,5 +1,6 @@
 // === MOTOR CENTRAL DE PETICIONES Y NOTIFICACIONES ===
 
+// Unico fetchAPI del panel y del celular. showToast lo define cada pagina (admin-core.js / mobile.js).
 async function fetchAPI(url, options = {}) {
     options.credentials = 'include';
     
@@ -30,37 +31,6 @@ async function fetchAPI(url, options = {}) {
         showToast(error.message, "danger");
         throw error;
     }
-}
-
-function showToast(message, type = "info") {
-    let container = document.getElementById('toastContainer');
-    if (!container) {
-        container = document.createElement('div');
-        container.id = 'toastContainer';
-        container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-        container.style.zIndex = '9999';
-        document.body.appendChild(container);
-    }
-    
-    const toastEl = document.createElement('div');
-    const bgClass = type === 'danger' ? 'bg-danger' : type === 'success' ? 'bg-success' : 'bg-dark';
-    toastEl.className = `toast align-items-center text-white ${bgClass} border-0 show mb-2`;
-    toastEl.role = 'alert';
-    // El mensaje puede venir del servidor y repetir lo que escribio el usuario: se inserta
-    // siempre como texto (textContent), nunca como HTML, para que no pueda inyectar codigo.
-    const fila = document.createElement('div');
-    fila.className = 'd-flex';
-    const cuerpo = document.createElement('div');
-    cuerpo.className = 'toast-body fw-bold';
-    cuerpo.textContent = String(message);
-    const cerrar = document.createElement('button');
-    cerrar.type = 'button';
-    cerrar.className = 'btn-close btn-close-white me-2 m-auto';
-    cerrar.addEventListener('click', () => toastEl.remove());
-    fila.append(cuerpo, cerrar);
-    toastEl.appendChild(fila);
-    container.appendChild(toastEl);
-    setTimeout(() => { if (toastEl) toastEl.remove(); }, 4000);
 }
 
 async function logoutUser() {
