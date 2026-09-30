@@ -242,13 +242,13 @@ function openManualOrderModal() {
 }
 
 function addDynamicLineManualOrder() {
-    document.getElementById('manual-order-lines').innerHTML += `
+    document.getElementById('manual-order-lines').insertAdjacentHTML('beforeend', `
         <div class="dynamic-row">
             <input type="text" placeholder="SKU" class="manual-sku font-mono" style="flex:2;" required>
             <input type="number" placeholder="Cantidad" class="manual-qty" style="flex:1;" min="0.01" step="0.01" required>
             <input type="text" placeholder="Lote" class="manual-lot lot-input" style="flex:1; display:none;">
             <button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button>
-        </div>`;
+        </div>`);
 }
 
 async function saveManualOrder(e) {
@@ -1077,10 +1077,10 @@ function fallbackCopyText(inputEl) {
     }
 }
 
-function addDynamicLinePO() { document.getElementById('po-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="po-sku font-mono" style="flex:2;" required><input type="number" placeholder="Cantidad" class="po-qty" style="flex:1;" min="0.01" step="0.01" required><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`; }
-function addDynamicLineRemito() { document.getElementById('rem-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="rem-sku font-mono" style="flex:2;" required onblur="fetchPutawaySuggestion(this.value, this.parentElement.querySelector('.rem-loc'))"><input type="number" placeholder="Cant" class="rem-qty" style="flex:1;" min="0.01" step="0.01" required><input type="text" placeholder="Ubicación" class="rem-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="rem-lot lot-input font-mono" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`; }
-function addDynamicLineInvoice() { document.getElementById('inv-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="inv-sku font-mono" style="flex:2;" onblur="fetchPutawaySuggestion(this.value, this.parentElement.querySelector('.inv-loc'))"><input type="number" placeholder="Cantidad" class="inv-qty" style="flex:1;" min="0.01" step="0.01"><input type="text" placeholder="Ubicación" class="inv-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="inv-lot lot-input" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`; }
-function addDynamicLineTransfer() { document.getElementById('tr-lines').innerHTML += `<div class="dynamic-row"><input type="text" placeholder="SKU" class="tr-sku font-mono" style="flex:2;" required><input type="number" placeholder="Cant" class="tr-qty" style="flex:1;" min="0.01" step="0.01" required><input type="text" placeholder="Origen" class="tr-orig-loc font-mono" style="flex:1;"><input type="text" placeholder="Destino" class="tr-dest-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="tr-lot lot-input" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`; }
+function addDynamicLinePO() { document.getElementById('po-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="po-sku font-mono" style="flex:2;" required><input type="number" placeholder="Cantidad" class="po-qty" style="flex:1;" min="0.01" step="0.01" required><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`); }
+function addDynamicLineRemito() { document.getElementById('rem-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="rem-sku font-mono" style="flex:2;" required onblur="fetchPutawaySuggestion(this.value, this.parentElement.querySelector('.rem-loc'))"><input type="number" placeholder="Cant" class="rem-qty" style="flex:1;" min="0.01" step="0.01" required><input type="text" placeholder="Ubicación" class="rem-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="rem-lot lot-input font-mono" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`); }
+function addDynamicLineInvoice() { document.getElementById('inv-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="inv-sku font-mono" style="flex:2;" onblur="fetchPutawaySuggestion(this.value, this.parentElement.querySelector('.inv-loc'))"><input type="number" placeholder="Cantidad" class="inv-qty" style="flex:1;" min="0.01" step="0.01"><input type="text" placeholder="Ubicación" class="inv-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="inv-lot lot-input" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`); }
+function addDynamicLineTransfer() { document.getElementById('tr-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="tr-sku font-mono" style="flex:2;" required><input type="number" placeholder="Cant" class="tr-qty" style="flex:1;" min="0.01" step="0.01" required><input type="text" placeholder="Origen" class="tr-orig-loc font-mono" style="flex:1;"><input type="text" placeholder="Destino" class="tr-dest-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="tr-lot lot-input" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`); }
 
 window.loadNextTransferNumber = loadNextTransferNumber;
 window.switchPurchaseTab = switchPurchaseTab;
