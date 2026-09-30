@@ -7,6 +7,10 @@ import asyncpg, uuid, secrets, hashlib, base64, re
 
 router = APIRouter()
 
+# Tope de etiquetas por pedido de impresion: una cantidad sin limite podia encolar millones de
+# trabajos de una sola vez.
+MAX_ETIQUETAS_POR_PEDIDO = 5000
+
 class PrintJobItem(BaseModel):
     sku: str
     quantity: int = 1
@@ -148,7 +152,11 @@ async def create_print_job(req: PrintJobRequest, admin: dict = Depends(require_a
     sku_list = list(req.skus)
     for it in req.items:
         if it.sku:
+            if len(sku_list) + max(1, it.quantity) > MAX_ETIQUETAS_POR_PEDIDO:
+                raise HTTPException(400, f"Máximo {MAX_ETIQUETAS_POR_PEDIDO} etiquetas por pedido de impresión.")
             sku_list.extend([it.sku] * max(1, it.quantity))
+    if len(sku_list) > MAX_ETIQUETAS_POR_PEDIDO:
+        raise HTTPException(400, f"Máximo {MAX_ETIQUETAS_POR_PEDIDO} etiquetas por pedido de impresión.")
 
     if not sku_list:
         raise HTTPException(status_code=400, detail="Debe ingresar al menos un SKU para imprimir.")

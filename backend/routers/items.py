@@ -27,6 +27,10 @@ class ItemUpdate(BaseModel):
     is_combo: Optional[bool] = False
     components: Optional[List[ComboComponentLine]] = None
 
+# Tope de etiquetas por pedido de impresion: una cantidad sin limite podia encolar millones de
+# trabajos de una sola vez.
+MAX_ETIQUETAS_POR_PEDIDO = 5000
+
 class BatchItemPrintLine(BaseModel):
     sku: str
     quantity: int
@@ -230,12 +234,16 @@ async def batch_print_items_labels(req: dict, admin: dict = Depends(require_admi
             for it in req["items"]:
                 if isinstance(it, dict) and "sku" in it:
                     qty = int(it.get("quantity") or it.get("qty") or 1)
+                    if len(skus) + max(qty, 0) > MAX_ETIQUETAS_POR_PEDIDO:
+                        raise HTTPException(400, f"Máximo {MAX_ETIQUETAS_POR_PEDIDO} etiquetas por pedido de impresión.")
                     skus.extend([str(it["sku"]).strip()] * qty)
                 elif isinstance(it, str):
                     skus.append(it.strip())
 
         if not skus:
             raise HTTPException(status_code=400, detail="Debe proporcionar al menos un SKU.")
+        if len(skus) > MAX_ETIQUETAS_POR_PEDIDO:
+            raise HTTPException(400, f"Máximo {MAX_ETIQUETAS_POR_PEDIDO} etiquetas por pedido de impresión.")
 
         template_row = await conn.fetchrow("SELECT value FROM system_settings WHERE key = 'zpl_item_template'")
         custom_tpl = template_row["value"] if template_row and template_row["value"] else None
