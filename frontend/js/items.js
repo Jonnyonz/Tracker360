@@ -64,10 +64,10 @@ async function handleSearchItems(page = 1) {
                     <td style="font-weight:bold; color:${stockColor}; font-size:1.1rem;">${stockTotal}</td>
                     <td>
                         <div style="display:flex; gap:6px;">
-                            <button type="button" class="btn-secondary" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="openStockBreakdownModal(${jsArg(itemSku)})">
+                            <button type="button" class="btn-secondary" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="openStockBreakdownModal(${jsArg(item.sku || item.code || '-')})">
                                 Stock
                             </button>
-                            <button type="button" class="btn-submit" style="width:auto; margin:0; padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="openEditItemModal(${jsArg(itemSku)})">
+                            <button type="button" class="btn-submit" style="width:auto; margin:0; padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="openEditItemModal(${jsArg(item.sku || item.code || '-')})">
                                 Editar
                             </button>
                         </div>
