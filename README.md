@@ -37,7 +37,9 @@ Flujos principales:
   secciones: *Artículos* (sueltos) y *Órdenes de compra* (las pendientes de ese proveedor). Un
   remito puede tomar varias OC y una OC puede recibirse en partes; contra una OC el tope es lo
   pendiente (lo que llega de más se carga como suelto). Registrar el remito lo cierra y descuenta
-  lo pendiente de cada OC.
+  lo pendiente de cada OC. Con la opción *Trabaja con segundo control de stock en remitos* en
+  "No" (por defecto) la mercadería suma al stock al registrar; en "Sí", el remito queda pendiente
+  y el stock entra cuando el depósito lo controla con el celular.
 - **Recepción:** escaneo de un remito de proveedor contra lo esperado; el stock entra a la
   ubicación sugerida (putaway).
 - **Salida:** pedido de venta → picking (por pedido u olas) → packing → despacho. Al despachar

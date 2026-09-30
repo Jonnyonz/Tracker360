@@ -28,6 +28,10 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   controla el remito con el celular. El historial tiene "Detalle" con el origen de cada artículo y
   las observaciones. (`5b11cd3`, `f9a1840`)
 
+- **Opción "Trabaja con segundo control de stock en remitos" (Configuración).** En "No" (por
+  defecto), al registrar un remito la mercadería suma al stock en ese momento y el remito queda
+  "Ingresado". En "Sí", el remito queda "Pendiente de control" y el stock entra cuando el depósito
+  lo escanea con el celular. Cada remito sigue el modo que había al registrarlo. (`f1c5173`)
 - **Trabaja con lotes (Sí/No).** El ajuste de Configuración (ahora "Trabaja con lotes y
   vencimientos") existía pero no hacía nada. Ahora, si está en "No", ningún formulario pide lote;
   si está en "Sí", todos lo piden, en el panel y en el celular. (`72fecdb`)
