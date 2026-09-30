@@ -39,6 +39,10 @@ def _pkce_challenge(verifier: str) -> str:
     digest = hashlib.sha256(verifier.encode("ascii")).digest()
     return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
 
+# Un token de agente que no se usa en este plazo deja de valer (el agente vuelve a pedir autorizacion
+# por el navegador). Cada uso lo renueva, asi que un agente en uso diario no vence nunca.
+AGENT_TOKEN_INACTIVITY_DAYS = 90
+
 async def verify_print_agent(request: Request, authorization: Optional[str] = Header(None), x_api_key: Optional[str] = Header(None), conn: asyncpg.Connection = Depends(get_db_connection)):
     # Agente autorizado desde el navegador: Authorization: Bearer <token>
     if authorization and authorization.startswith("Bearer "):
@@ -48,13 +52,14 @@ async def verify_print_agent(request: Request, authorization: Optional[str] = He
             SELECT t.id, t.agent_name FROM print_agent_tokens t
             JOIN users u ON u.username = t.created_by
             WHERE t.token_hash = $1 AND t.is_active = TRUE AND u.is_active = TRUE
-        """, _sha256_hex(token))
+              AND COALESCE(t.last_used_at, t.created_at) > NOW() - make_interval(days => $2)
+        """, _sha256_hex(token), AGENT_TOKEN_INACTIVITY_DAYS)
         if row:
             await conn.execute("UPDATE print_agent_tokens SET last_used_at = NOW() WHERE id = $1", row["id"])
             return row["agent_name"]
         client_ip = get_client_ip(request)
         await log_action(conn, "SYSTEM", "API_INTRUSION", "Agente de impresion con token invalido o revocado", client_ip)
-        raise HTTPException(status_code=401, detail="Token de agente invalido o revocado.")
+        raise HTTPException(status_code=401, detail="Token de agente invalido, revocado o vencido por falta de uso.")
     # Agentes existentes configurados con la clave API del sistema.
     return await verify_system_api_key(request, x_api_key, conn)
 
@@ -139,11 +144,15 @@ async def get_pending_jobs(queue_code: str = "RECEPCION", agent=Depends(verify_p
 
 @router.post("/api/print-agent/jobs/{job_id}/ack")
 async def ack_print_job(job_id: str, agent=Depends(verify_print_agent), conn: asyncpg.Connection = Depends(get_db_connection)):
+    # Solo se confirma un trabajo que existe y sigue pendiente: antes cualquier id (inexistente o ya
+    # impreso) respondia 200 y el agente no se enteraba del error.
     try:
-        await conn.execute("UPDATE print_jobs SET status = 'COMPLETED' WHERE CAST(id AS TEXT) = $1", str(job_id).strip())
-    except Exception as e:
-        print(f"[ACK ERROR]: {e!r}")
-        raise HTTPException(status_code=500, detail="Error al confirmar el trabajo de impresion.")
+        jid = uuid.UUID(str(job_id).strip())
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Trabajo de impresion inexistente o ya confirmado.")
+    res = await conn.execute("UPDATE print_jobs SET status = 'COMPLETED' WHERE id = $1 AND status = 'PENDING'", jid)
+    if res == "UPDATE 0":
+        raise HTTPException(status_code=404, detail="Trabajo de impresion inexistente o ya confirmado.")
     return {"status": "ok", "job_id": job_id}
 
 @router.post("/api/admin/print-jobs")
