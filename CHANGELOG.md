@@ -58,6 +58,13 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   con su avance, sus participantes y sus observaciones. (`f5d1fe9`)
 
 ### Corregido
+- **Etiquetas de pedido: ya salen con el número y el destino.** Antes quedaban con el texto
+  "{{ORDER_NUM}}" porque no se reemplazaba; además, un nombre de cliente ya no puede alterar la
+  etiqueta. (`16c51c4`)
+- **Integraciones: el stock informado como disponible ya no incluye la mercadería en
+  cuarentena.** (`9789701`)
+- **Un identificador mal formado ahora devuelve un error claro** en vez de un error interno del
+  servidor. (`e826cf9`)
 - **Conteo "en caliente": ya no descuenta dos veces lo que se vendió mientras se contaba.** La
   diferencia ahora tiene en cuenta los movimientos del local abierto entre la foto y el momento en
   que se contó cada artículo, y la pantalla de revisión muestra exactamente lo que se va a
