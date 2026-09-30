@@ -196,7 +196,8 @@ async function verOC(orderNumber) {
 }
 
 // === REMITOS DE COMPRA ===
-const REM_STATUS_LABEL = { PENDING: 'Pendiente de control', PENDING_CONTROL: 'Pendiente de control', IN_PROGRESS: 'En control', COMPLETED: 'Ingresado' };
+const REM_STATUS_LABEL = { PENDING: 'Pendiente de control', PENDING_CONTROL: 'Pendiente de control', IN_PROGRESS: 'En control', COMPLETED: 'Ingresado', COMPLETED_DIFF: 'Controlado con diferencias' };
+const EXC_STATUS_LABEL = { PENDING: 'En cuarentena', APPROVED: 'Aprobado', REJECTED: 'Rechazado' };
 let remSectorsCache = [];
 let remPendingLines = {};
 
@@ -312,12 +313,42 @@ async function loadRemitoData(search, limit = 50) {
             <td style="color:var(--accent); font-weight:bold;">${escapeHTML(r.remito_number)}</td>
             <td>${escapeHTML(r.supplier_name)}</td>
             <td><small>${escapeHTML(r.branch_name || '-')} (${escapeHTML(r.sector_name || '-')})</small></td>
-            <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(REM_STATUS_LABEL[r.status] || r.status)}</span></td>
+            <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : (r.status === 'COMPLETED_DIFF' ? 'badge-danger' : 'badge-warning')}">${escapeHTML(REM_STATUS_LABEL[r.status] || r.status)}</span></td>
             <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="verRemito(${jsArg(r.id)}, ${jsArg(r.remito_number)})">Detalle</button></td>
         </tr>`).join('');
     } catch (e) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--danger);">Error al cargar el historial.</td></tr>';
     }
+}
+
+// Articulos no esperados del control fisico: en cuarentena hasta que ADMIN/SUPERVISOR los resuelva.
+function renderNoEsperados(excepciones, remitoId, remitoNumber) {
+    if (!excepciones.length) return '';
+    const filas = excepciones.map(x => `<tr>
+        <td class="font-mono">${escapeHTML(x.sku)}</td>
+        <td>${escapeHTML(x.description)}</td>
+        <td style="text-align:right;">${escapeHTML(String(x.quantity))}</td>
+        <td>${escapeHTML(x.location_code || '-')}</td>
+        <td><span class="badge ${x.status === 'PENDING' ? 'badge-warning' : 'badge-neutral'}">${escapeHTML(EXC_STATUS_LABEL[x.status] || x.status)}</span>
+            <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHTML(x.reported_by || '')}${x.resolved_by ? ' &rarr; ' + escapeHTML(x.resolved_by) : ''}</div></td>
+        <td>${x.status === 'PENDING' ? `<button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="resolverNoEsperado(${jsArg(x.id)}, true, ${jsArg(remitoId)}, ${jsArg(remitoNumber)})">Aprobar</button>
+            <button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem; color:var(--danger);" onclick="resolverNoEsperado(${jsArg(x.id)}, false, ${jsArg(remitoId)}, ${jsArg(remitoNumber)})">Rechazar</button>` : ''}</td>
+    </tr>`).join('');
+    return `<h3 style="font-size:1rem; margin-top:1.5rem;">Artículos no esperados</h3>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 0.5rem;">Llegaron sin figurar en el remito. Aprobar los pasa a stock disponible y los suma al remito; rechazar los saca del stock para devolverlos al proveedor.</p>
+        <table><thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:right;">Cantidad</th><th>Ubicación</th><th>Estado</th><th></th></tr></thead><tbody>${filas}</tbody></table>`;
+}
+
+async function resolverNoEsperado(exceptionId, aprobar, remitoId, remitoNumber) {
+    const pregunta = aprobar ? '¿Aprobar? La mercadería pasa a stock disponible y se suma al remito como artículo suelto.'
+                             : '¿Rechazar? La mercadería sale del stock (queda para devolver al proveedor).';
+    if (!confirm(pregunta)) return;
+    try {
+        const r = await fetchAPI(`/api/admin/reception-exceptions/${encodeURIComponent(exceptionId)}/${aprobar ? 'approve' : 'reject'}`, { method: 'POST' });
+        showToast(r.message, 'success');
+        await verRemito(remitoId, remitoNumber);
+        loadRemitoData();
+    } catch (e) { /* fetchAPI ya mostro el error */ }
 }
 
 async function verRemito(remitoId, remitoNumber) {
@@ -329,7 +360,7 @@ async function verRemito(remitoId, remitoNumber) {
         const d = await fetchAPI(`/api/admin/purchase-remitos/${encodeURIComponent(remitoId)}`);
         const r = d.remito;
         const filas = d.lines.map(l => `<tr>
-            <td>${l.order_number ? `<span class="font-mono">${escapeHTML(l.order_number)}</span>` : '<span class="badge badge-neutral">Suelto</span>'}</td>
+            <td>${l.order_number ? `<span class="font-mono">${escapeHTML(l.order_number)}</span>` : (l.added_in_control ? '<span class="badge badge-warning">Agregado en el control</span>' : '<span class="badge badge-neutral">Suelto</span>')}</td>
             <td class="font-mono">${escapeHTML(l.sku)}</td>
             <td>${escapeHTML(l.description)}</td>
             <td style="text-align:right;">${escapeHTML(String(l.sent))}</td>
@@ -341,6 +372,7 @@ async function verRemito(remitoId, remitoNumber) {
             <p>Ingreso: ${escapeHTML(r.branch_name || '-')} &middot; ${escapeHTML(r.sector_name || '-')}</p>
             <p style="font-size:0.85rem; color:var(--text-muted);">Registrado ${escapeHTML(new Date(r.created_at).toLocaleString())} por ${escapeHTML(r.created_by || '-')}</p>
             <table><thead><tr><th>Origen</th><th>SKU</th><th>Descripción</th><th style="text-align:right;">Remitido</th><th style="text-align:right;">Controlado</th><th>Ubicación</th></tr></thead><tbody>${filas}</tbody></table>
+            ${renderNoEsperados(d.exceptions || [], remitoId, remitoNumber)}
             <div id="remito-notes"></div>`;
         renderObservaciones(document.getElementById('remito-notes'), 'REMITO', remitoId);
     } catch (e) {
@@ -1379,6 +1411,7 @@ window.onRemSupplierChange = onRemSupplierChange;
 window.saveRemito = saveRemito;
 window.loadRemitoData = loadRemitoData;
 window.verRemito = verRemito;
+window.resolverNoEsperado = resolverNoEsperado;
 window.addDynamicLineRemito = addDynamicLineRemito;
 window.addDynamicLineInvoice = addDynamicLineInvoice;
 window.addDynamicLineTransfer = addDynamicLineTransfer;
