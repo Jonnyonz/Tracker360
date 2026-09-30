@@ -73,6 +73,124 @@ async function agregarObservacion(container, tipo, numero) {
     finally { btn.disabled = false; }
 }
 
+// === ÓRDENES DE COMPRA ===
+const PO_STATUS_LABEL = { PENDING: 'Pendiente', IN_PROGRESS: 'Parcial', COMPLETED: 'Completada' };
+let poBranchesCache = [];
+
+// Se llama al entrar a "Compras y Recepción" (admin-core.js).
+async function loadPurchaseSelectors() {
+    const soloConsulta = await esSupervisor();
+    const form = document.getElementById('form-po');
+    if (form) form.closest('.card').style.display = soloConsulta ? 'none' : '';
+    if (soloConsulta) return;
+    try {
+        const [ents, branches] = await Promise.all([fetchAPI('/api/admin/entities'), fetchAPI('/api/admin/branches')]);
+        const proveedores = (ents || []).filter(e => e.is_supplier && e.is_active !== false);
+        poBranchesCache = branches || [];
+        document.getElementById('po-supplier').innerHTML = '<option value="">-- Seleccionar Proveedor --</option>' +
+            proveedores.map(e => `<option value="${escapeHTML(e.id)}">${escapeHTML(e.company_name)} (${escapeHTML(e.tax_id)})</option>`).join('');
+        document.getElementById('po-branch').innerHTML = '<option value="">-- Seleccionar Sucursal --</option>' +
+            poBranchesCache.map(b => `<option value="${escapeHTML(b.id)}">${escapeHTML(b.name)} (${escapeHTML(b.code)})</option>`).join('');
+        onPOBranchChange();
+        await loadNextPONumber();
+    } catch (e) { /* fetchAPI ya mostro el error */ }
+}
+
+async function loadAllPurchaseHistories() {
+    loadPOData();
+}
+
+async function loadNextPONumber() {
+    const input = document.getElementById('po-num');
+    if (!input) return;
+    input.readOnly = true;
+    input.style.backgroundColor = 'var(--bg-page)';
+    input.style.fontWeight = 'bold';
+    input.style.color = 'var(--accent)';
+    const data = await fetchAPI('/api/admin/purchase-orders/next-number');
+    if (data && data.next_number) input.value = data.next_number;
+}
+
+function onPOBranchChange() {
+    const b = poBranchesCache.find(x => x.id === document.getElementById('po-branch').value);
+    const p = document.getElementById('po-branch-address');
+    if (!b) { p.textContent = ''; return; }
+    p.textContent = b.full_address ? `Dirección de entrega: ${b.full_address}` : 'Esta sucursal no tiene dirección cargada (se carga en Depósitos).';
+}
+
+async function savePO(event) {
+    if (event) event.preventDefault();
+    const lines = [];
+    document.querySelectorAll('#po-lines .dynamic-row').forEach(r => {
+        const sku = r.querySelector('.po-sku')?.value.trim();
+        const qty = parseFloat(r.querySelector('.po-qty')?.value);
+        if (sku && !isNaN(qty)) lines.push({ sku: sku.toUpperCase(), quantity: qty });
+    });
+    if (!lines.length) { showToast('Ingrese al menos un artículo.', 'danger'); return; }
+    const payload = {
+        order_number: document.getElementById('po-num').value.trim(),
+        supplier_id: document.getElementById('po-supplier').value,
+        branch_id: document.getElementById('po-branch').value,
+        lines
+    };
+    const btn = document.querySelector('#form-po button[type=submit]');
+    btn.disabled = true;
+    try {
+        const r = await fetchAPI('/api/admin/purchase-orders', { method: 'POST', body: payload });
+        showToast(`Orden de compra ${r.order_number} registrada.`, 'success');
+        document.getElementById('po-lines').innerHTML = '';
+        addDynamicLinePO();
+        await loadNextPONumber();
+        loadPOData();
+    } catch (e) { /* fetchAPI ya mostro el error */ }
+    finally { btn.disabled = false; }
+}
+
+async function loadPOData(search, limit = 50) {
+    const tbody = document.getElementById('table-po-body');
+    if (!tbody) return;
+    const q = search !== undefined ? search : (document.getElementById('search-po-text')?.value || '');
+    try {
+        const rows = await fetchAPI(`/api/admin/purchase-orders?search=${encodeURIComponent(q)}&limit=${limit}`);
+        if (!rows || !rows.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:1rem;">Sin órdenes de compra.</td></tr>'; return; }
+        tbody.innerHTML = rows.map(o => `<tr>
+            <td style="color:var(--accent); font-weight:bold;">${escapeHTML(o.order_number)}</td>
+            <td>${escapeHTML(o.supplier_name)}</td>
+            <td><span class="badge ${o.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(PO_STATUS_LABEL[o.status] || o.status)}</span></td>
+            <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="verOC(${jsArg(o.order_number)})">Detalle</button></td>
+        </tr>`).join('');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--danger);">Error al cargar el historial.</td></tr>';
+    }
+}
+
+async function verOC(orderNumber) {
+    const body = document.getElementById('po-detail-body');
+    document.getElementById('po-detail-label').textContent = orderNumber;
+    body.innerHTML = '<p style="color:var(--text-muted);">Cargando...</p>';
+    openModal('modal-po-detail');
+    try {
+        const d = await fetchAPI(`/api/admin/purchase-orders/${encodeURIComponent(orderNumber)}`);
+        const o = d.order;
+        const filas = d.lines.map(l => `<tr>
+            <td class="font-mono">${escapeHTML(l.sku)}</td>
+            <td>${escapeHTML(l.description)}</td>
+            <td style="text-align:right;">${escapeHTML(String(l.ordered))}</td>
+            <td style="text-align:right;">${escapeHTML(String(l.received))}</td>
+            <td style="text-align:right; font-weight:bold;">${escapeHTML(String(l.pending))}</td>
+        </tr>`).join('');
+        body.innerHTML = `
+            <p>Estado: <span class="badge badge-neutral">${escapeHTML(PO_STATUS_LABEL[o.status] || o.status)}</span> &nbsp; Proveedor: <strong>${escapeHTML(o.supplier_name)}</strong> ${o.supplier_tax_id ? '(' + escapeHTML(o.supplier_tax_id) + ')' : ''}</p>
+            <p>Recepción: ${escapeHTML(o.branch_name || '-')}${o.delivery_address ? ' &middot; ' + escapeHTML(o.delivery_address) : ''}</p>
+            <p style="font-size:0.85rem; color:var(--text-muted);">Emitida ${escapeHTML(new Date(o.created_at).toLocaleString())} por ${escapeHTML(o.created_by || '-')}</p>
+            <table><thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:right;">Pedido</th><th style="text-align:right;">Recibido</th><th style="text-align:right;">Pendiente</th></tr></thead><tbody>${filas}</tbody></table>
+            <div id="po-notes"></div>`;
+        renderObservaciones(document.getElementById('po-notes'), 'OC', orderNumber);
+    } catch (e) {
+        body.innerHTML = `<p style="color:var(--danger);">Error: ${escapeHTML(e.message)}</p>`;
+    }
+}
+
 // === GESTIÓN DE PEDIDOS Y FILTROS ===
 
 let cancelacionActual = null;
@@ -1093,6 +1211,12 @@ window.fetchPutawaySuggestion = fetchPutawaySuggestion;
 window.loadReplenishmentSuggestions = loadReplenishmentSuggestions;
 window.createReplenishmentTransfer = createReplenishmentTransfer;
 window.addDynamicLinePO = addDynamicLinePO;
+window.loadPurchaseSelectors = loadPurchaseSelectors;
+window.loadAllPurchaseHistories = loadAllPurchaseHistories;
+window.onPOBranchChange = onPOBranchChange;
+window.savePO = savePO;
+window.loadPOData = loadPOData;
+window.verOC = verOC;
 window.addDynamicLineRemito = addDynamicLineRemito;
 window.addDynamicLineInvoice = addDynamicLineInvoice;
 window.addDynamicLineTransfer = addDynamicLineTransfer;

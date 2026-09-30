@@ -443,7 +443,9 @@
                             <div class="grid-layout" style="margin-bottom:0;">
                                 <div class="form-group"><label>Nº de Orden</label><input type="text" id="po-num" placeholder="Ej: OC-2026-001" required></div>
                                 <div class="form-group"><label>Proveedor</label><select id="po-supplier" required></select></div>
+                                <div class="form-group"><label>Sucursal de Recepción</label><select id="po-branch" onchange="onPOBranchChange()" required></select></div>
                             </div>
+                            <p id="po-branch-address" style="font-size:0.85rem; color:var(--text-muted); margin:-0.5rem 0 1rem;"></p>
                             <label>Artículos Solicitados:</label>
                             <div class="dynamic-list" id="po-lines">
                                 <div class="dynamic-row">
@@ -464,7 +466,7 @@
                             <button class="btn-secondary" onclick="loadPOData('', 50)">Ver Todos</button>
                         </div>
                         <table>
-                            <thead><tr><th>Nº Orden</th><th>Proveedor</th><th>Estado</th></tr></thead>
+                            <thead><tr><th>Nº Orden</th><th>Proveedor</th><th>Estado</th><th>Acciones</th></tr></thead>
                             <tbody id="table-po-body"></tbody>
                         </table>
                     </div>
@@ -1449,6 +1451,14 @@
             <span class="close-modal" onclick="closeModal('modal-participants')">&times;</span>
             <h2 style="color:var(--text-primary); margin:0 0 1rem; font-size:1.3rem;">Pedido <span id="part-order-label" class="font-mono" style="color:var(--accent);"></span></h2>
             <div id="part-body"></div>
+        </div>
+    </div>
+
+    <div id="modal-po-detail" class="modal">
+        <div class="modal-content" style="max-width:760px;">
+            <span class="close-modal" onclick="closeModal('modal-po-detail')">&times;</span>
+            <h2 style="color:var(--text-primary); margin:0 0 1rem; font-size:1.3rem;">Orden de compra <span id="po-detail-label" class="font-mono" style="color:var(--accent);"></span></h2>
+            <div id="po-detail-body"></div>
         </div>
     </div>
 
