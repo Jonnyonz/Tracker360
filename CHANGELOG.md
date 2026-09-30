@@ -58,6 +58,10 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   con su avance, sus participantes y sus observaciones. (`f5d1fe9`)
 
 ### Corregido
+- **Reportes y traza de artículos: un filtro inválido ya no devuelve todos los datos**; se avisa
+  del error. (`e689514`)
+- **Los avisos del panel vuelven a verse con su color** (verde, rojo o amarillo según el caso) y con
+  la X para cerrarlos. (`f484f1f`)
 - **Etiquetas de pedido: ya salen con el número y el destino.** Antes quedaban con el texto
   "{{ORDER_NUM}}" porque no se reemplazaba; además, un nombre de cliente ya no puede alterar la
   etiqueta. (`16c51c4`)
