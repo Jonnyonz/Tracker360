@@ -58,6 +58,17 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   con su avance, sus participantes y sus observaciones. (`f5d1fe9`)
 
 ### Corregido
+- **Picking por ola: ya no se puede pickear un pedido cancelado o despachado** que llegue en la
+  ola; el escaneo se rechaza nombrando esos pedidos. (`48655d1`)
+- **Traspasos: se respeta el lote y la ubicación de destino de cada línea.** Antes el stock salía
+  y entraba sin lote, y el destino se buscaba en cualquier sucursal; ahora, sin indicar destino se
+  usa el de la línea, y una ubicación de otro sector se rechaza. (`8cb8b3d`)
+- **Devoluciones: una sucursal o sector inválidos ya no mandan la mercadería al primer depósito**:
+  se rechazan, y el sector tiene que pertenecer a la sucursal. (`10eabd6`)
+- **Arranque del servidor más seguro:** ya no borra y vuelve a crear en cada inicio las
+  relaciones de los pedidos con sus clientes (si fallaba, quedaban borradas). (`c984e07`)
+- **Seguridad: el selector de sectores de la impresión masiva ya no permite inyectar código**
+  con un nombre o código de cola de impresión malicioso. (`41952d3`)
 - **Pantallas del panel alineadas en computadora.** Las tarjetas se veían descuadradas: en
   Depósitos y en Compras quedaban todas en la columna izquierda con la derecha vacía, y en Inicio
   y Configuración las columnas terminaban a alturas distintas. Ahora se ordenan en filas
