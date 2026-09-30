@@ -236,59 +236,65 @@ async def finish_inventory_count(session_id: str, user: dict = Depends(get_curre
     await conn.execute("UPDATE inventory_sessions SET status = 'REVIEW' WHERE id = $1 AND status = 'OPEN'", sess_uuid)
     return {"status": "success", "message": "Conteo enviado a revisión."}
 
-@router.get("/api/inventory/sessions/{session_id}/review")
-async def review_inventory_deltas(session_id: str, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("""
+async def _deltas_conteo(conn: asyncpg.Connection, sess):
+    # EN FRIO (operacion detenida): el stock pasa a ser lo contado, contra la foto del inicio.
+    # EN CALIENTE (local abierto): lo esperado al momento de contar es la foto mas los movimientos
+    # OPERATIVO de esa ubicacion y lote desde la foto hasta el ultimo escaneo; la diferencia se
+    # aplica sobre el stock actual. Lo que no se conto no se ajusta.
+    en_caliente = (sess["count_type"] or "HOT").upper() != "COLD"
+    return await conn.fetch("""
         WITH snapshot_agg AS (
             SELECT sku, location_id, lot_number, SUM(expected_quantity) as expected
             FROM inventory_snapshots WHERE session_id = $1 GROUP BY sku, location_id, lot_number
         ),
         count_agg AS (
-            SELECT sku, location_id, lot_number, SUM(counted_quantity) as counted
+            SELECT sku, location_id, lot_number, SUM(counted_quantity) as counted, MAX(scanned_at) AS ultimo
             FROM inventory_counts WHERE session_id = $1 GROUP BY sku, location_id, lot_number
+        ),
+        movs AS (
+            SELECT c.sku, c.location_id, c.lot_number, COALESCE(SUM(m.quantity), 0) AS movido
+            FROM count_agg c
+            JOIN stock_movements m ON UPPER(m.sku) = UPPER(c.sku) AND m.sector_id = $2
+                 AND m.location_id IS NOT DISTINCT FROM c.location_id
+                 AND COALESCE(m.lot_number, '') = COALESCE(c.lot_number, '')
+                 AND COALESCE(m.condition, 'OPERATIVO') = 'OPERATIVO'
+                 AND m.created_at > $3 AND m.created_at <= c.ultimo
+            WHERE $4
+            GROUP BY c.sku, c.location_id, c.lot_number
         )
-        SELECT 
-            c.sku,
-            c.location_id,
-            l.location_code,
-            c.lot_number,
-            COALESCE(s.expected, 0) as expected_quantity,
-            c.counted as counted_quantity,
-            (c.counted - COALESCE(s.expected, 0)) as delta
+        SELECT c.sku, c.location_id, l.location_code, c.lot_number,
+               (COALESCE(s.expected, 0) + COALESCE(mv.movido, 0)) as expected_quantity,
+               c.counted as counted_quantity,
+               (c.counted - COALESCE(s.expected, 0) - COALESCE(mv.movido, 0)) as delta
         FROM count_agg c
-        LEFT JOIN snapshot_agg s ON c.sku = s.sku 
-            AND c.location_id IS NOT DISTINCT FROM s.location_id 
+        LEFT JOIN snapshot_agg s ON c.sku = s.sku
+            AND c.location_id IS NOT DISTINCT FROM s.location_id
             AND c.lot_number IS NOT DISTINCT FROM s.lot_number
+        LEFT JOIN movs mv ON c.sku = mv.sku
+            AND c.location_id IS NOT DISTINCT FROM mv.location_id
+            AND c.lot_number IS NOT DISTINCT FROM mv.lot_number
         LEFT JOIN locations l ON c.location_id = l.id
-    """, uuid.UUID(session_id))
-    return [dict(r) for r in rows]
+    """, sess["id"], sess["sector_id"], sess["created_at"], en_caliente)
+
+@router.get("/api/inventory/sessions/{session_id}/review")
+async def review_inventory_deltas(session_id: str, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+    # Muestra exactamente lo que va a aplicar /apply (mismo calculo, incluidos los movimientos en caliente).
+    try:
+        sess_uuid = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(400, "Sesión de conteo inválida.")
+    sess = await conn.fetchrow("SELECT id, sector_id, count_type, created_at FROM inventory_sessions WHERE id = $1", sess_uuid)
+    if not sess: raise HTTPException(404, "Sesión de conteo no encontrada.")
+    return [dict(r) for r in await _deltas_conteo(conn, sess)]
 
 @router.post("/api/inventory/sessions/{session_id}/apply")
 async def apply_inventory_adjustments(session_id: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     async with conn.transaction():
-        sess = await conn.fetchrow("SELECT id, status, branch_id, sector_id FROM inventory_sessions WHERE id = $1 FOR UPDATE", uuid.UUID(session_id))
+        sess = await conn.fetchrow("SELECT id, status, branch_id, sector_id, count_type, created_at FROM inventory_sessions WHERE id = $1 FOR UPDATE", uuid.UUID(session_id))
         if not sess or sess["status"] != "REVIEW":
             raise HTTPException(400, "La sesión no está en estado de revisión.")
 
-        deltas = await conn.fetch("""
-            WITH snapshot_agg AS (
-                SELECT sku, location_id, lot_number, SUM(expected_quantity) as expected 
-                FROM inventory_snapshots WHERE session_id = $1 GROUP BY sku, location_id, lot_number
-            ),
-            count_agg AS (
-                SELECT sku, location_id, lot_number, SUM(counted_quantity) as counted 
-                FROM inventory_counts WHERE session_id = $1 GROUP BY sku, location_id, lot_number
-            )
-            SELECT 
-                c.sku, 
-                c.location_id, 
-                c.lot_number, 
-                (c.counted - COALESCE(s.expected, 0)) as delta
-            FROM count_agg c 
-            LEFT JOIN snapshot_agg s ON c.sku = s.sku 
-                AND c.location_id IS NOT DISTINCT FROM s.location_id 
-                AND c.lot_number IS NOT DISTINCT FROM s.lot_number
-        """, sess["id"])
+        deltas = await _deltas_conteo(conn, sess)
 
         for row in deltas:
             if row["delta"] != 0:
