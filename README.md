@@ -40,6 +40,12 @@ Flujos principales:
   lo pendiente de cada OC. Con la opción *Trabaja con segundo control de stock en remitos* en
   "No" (por defecto) la mercadería suma al stock al registrar; en "Sí", el remito queda pendiente
   y el stock entra cuando el depósito lo controla con el celular.
+- **Control de remitos en el depósito (segundo control):** ciego (el operario no ve cuánto dice el
+  remito, solo escanea lo que llegó). Lo que sobra se agrega como suelto con aviso y observación;
+  lo que no figura en el remito entra en *cuarentena* (en el depósito pero no disponible) hasta que
+  un ADMIN o SUPERVISOR lo apruebe o lo rechace. Al finalizar, el remito queda *Controlado* o
+  *Controlado con diferencias*, con los faltantes y sobrantes como observación. El picking y los
+  traspasos solo usan stock `OPERATIVO`.
 - **Recepción:** escaneo de un remito de proveedor contra lo esperado; el stock entra a la
   ubicación sugerida (putaway).
 - **Salida:** pedido de venta → picking (por pedido u olas) → packing → despacho. Al despachar

@@ -28,6 +28,15 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   controla el remito con el celular. El historial tiene "Detalle" con el origen de cada artículo y
   las observaciones. (`5b11cd3`, `f9a1840`)
 
+- **Control ciego de remitos en el celular (con segundo control).** El depósito ya no ve cuánto
+  dice el remito: escanea lo que llegó y ve lo que lleva contado. Si llega más, el excedente se
+  agrega como artículo suelto, con aviso al operario y una observación en el remito. Si llega un
+  artículo que no figura en el remito, se registra como "no esperado" y queda en cuarentena: está
+  en el depósito pero no se puede vender, preparar ni transferir hasta que un administrador o
+  supervisor lo apruebe (pasa a disponible y se suma al remito) o lo rechace (sale del stock para
+  devolverlo). El control termina con "Finalizar control" y el remito queda "Ingresado" o
+  "Controlado con diferencias", con los faltantes y sobrantes anotados en sus observaciones.
+  (`3d5b904`, `2e1731e`, `8a2ada3`)
 - **Opción "Trabaja con segundo control de stock en remitos" (Configuración).** En "No" (por
   defecto), al registrar un remito la mercadería suma al stock en ese momento y el remito queda
   "Ingresado". En "Sí", el remito queda "Pendiente de control" y el stock entra cuando el depósito
@@ -43,6 +52,10 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   con su avance, sus participantes y sus observaciones. (`f5d1fe9`)
 
 ### Corregido
+- **El stock en cuarentena ya no se puede preparar ni transferir**, ni aparece como ubicación
+  sugerida en el picking o la reposición. (`a8bc359`)
+- **Acentos rotos en el celular y en partes del panel** (por ejemplo "Permiso de c?mara"): algunos
+  archivos estaban guardados en otra codificación. (`d6661e4`)
 - **Recepción: si un artículo figura en varias líneas del remito, el escaneo reparte entre ellas**
   (primero las que tienen pendiente) y respeta el lote y la ubicación de cada línea. (`d8e0939`)
 - **Formularios con varios artículos: agregar una fila ya no borra lo que se había escrito en las
