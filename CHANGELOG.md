@@ -58,6 +58,18 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   con su avance, sus participantes y sus observaciones. (`f5d1fe9`)
 
 ### Corregido
+- **Seguridad: dar de alta un usuario con un nombre existente ya no lo pisa.** Antes le cambiaba
+  la contraseña y el rol (por ejemplo, a administrador); ahora avisa que ya existe. El rol tiene
+  que ser administrador, supervisor o preparador. (`c4155ec`)
+- **Seguridad: la documentación de la API (`/docs`, `/redoc`) ya no es pública**: pide sesión de
+  administrador. (`ea7530c`)
+- **Seguridad: los errores de los webhooks ya no muestran datos internos** (direcciones o
+  puertos del servidor); se ve un mensaje general y el detalle queda en el registro. (`a6fddd4`)
+- **Impresión de etiquetas: máximo 5000 por pedido de impresión**, para que un pedido no pueda
+  encolar millones de trabajos. (`c25bea5`)
+- **Seguridad: el selector de operario del conteo escapa el nombre de usuario.** (`19252ee`)
+- **Reportes: los datos de los filtros ya no se piden dos veces** al entrar a un reporte. (`81d0e1c`)
+- **Artículos: un SKU con símbolos (`&`, `<`, `'`) ya abre su stock y su edición.** (`1142141`)
 - **Picking por ola: ya no se puede pickear un pedido cancelado o despachado** que llegue en la
   ola; el escaneo se rechaza nombrando esos pedidos. (`48655d1`)
 - **Traspasos: se respeta el lote y la ubicación de destino de cada línea.** Antes el stock salía
