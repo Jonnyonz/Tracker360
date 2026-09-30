@@ -7,13 +7,13 @@ from typing import Optional
 try:
     from backend.database import (
         get_db_connection, check_rate_limit, record_failed_login,
-        reset_failed_login, verify_password, get_password_hash, create_access_token, log_action,
+        reset_failed_login, verify_password, get_password_hash, create_access_token, log_action, needs_rehash,
         get_current_user, get_client_ip, invalidate_user_sessions, SECRET_KEY, ALGORITHM
     )
 except ImportError:
     from database import (
         get_db_connection, check_rate_limit, record_failed_login,
-        reset_failed_login, verify_password, get_password_hash, create_access_token, log_action,
+        reset_failed_login, verify_password, get_password_hash, create_access_token, log_action, needs_rehash,
         get_current_user, get_client_ip, invalidate_user_sessions, SECRET_KEY, ALGORITHM
     )
 
@@ -120,6 +120,8 @@ async def login(request: Request, response: Response, credentials: LoginRequest,
         raise HTTPException(status_code=401, detail="Credenciales incorrectas o cuenta no aprobada.")
 
     await reset_failed_login(client_ip, conn)
+    if needs_rehash(user["password_hash"]):
+        await conn.execute("UPDATE users SET password_hash = $1 WHERE id = $2", get_password_hash(credentials.password), user["id"])
     token = create_access_token({"sub": user["username"], "role": user["role"], "id": str(user["id"]), "tv": user["token_version"]})
     
     response.set_cookie(

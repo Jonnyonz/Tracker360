@@ -5,7 +5,7 @@ import jwt, asyncpg
 from jztech_core.net import real_ip
 from fastapi import HTTPException, Header, Request, Depends
 from typing import Optional, Dict, List
-from passlib.context import CryptContext
+from jztech_core.passwords import hash_password, needs_rehash, verify_password as _verify_password
 
 # === SEGURIDAD Y CONFIGURACIÓN ===
 SECRET_KEY = os.getenv("SECRET_KEY", "")
@@ -15,14 +15,13 @@ if not SECRET_KEY:
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 240  # Fallback en caso de no leer la DB
 
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+# Hash de claves: jztech_core.passwords (Argon2id, parametros OWASP). Los hashes Argon2 que dejo
+# passlib tienen el mismo formato y se verifican igual; en el login se rehashean (needs_rehash).
+def verify_password(p, h):
+    return bool(h) and isinstance(h, str) and _verify_password(p, h)
 
-def verify_password(p, h): 
-    try: return pwd_context.verify(p, h)
-    except Exception: return False
-
-def get_password_hash(p): 
-    return pwd_context.hash(p)
+def get_password_hash(p):
+    return hash_password(p)
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
