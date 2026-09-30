@@ -569,60 +569,82 @@ async function startReceptionScan(remitoId, remitoNumber) {
     setModuleStepState('RECEPTION', 'SKU');
 }
 
-async function refreshReceptionOrderSheet(remitoNumber) {
+async function refreshReceptionOrderSheet(remitoId) {
     try {
-        const data = await fetchAPI(`/api/reception/remitos/${encodeURIComponent(remitoNumber)}`);
+        const data = await fetchAPI(`/api/reception/remitos/${encodeURIComponent(remitoId)}`);
         activeDocumentData = data;
-
         const lines = data.lines || [];
-        const pendingLines = lines.filter(l => l.quantity_received < l.quantity_sent);
+        const noEsperados = data.unexpected || [];
+        const estado = { PENDING: 'En cuarentena', APPROVED: 'Aprobado', REJECTED: 'Rechazado' };
 
-        document.getElementById('rec-items-count-badge').textContent = `${lines.length - pendingLines.length}/${lines.length} listos`;
-
+        // Control ciego: se muestra lo escaneado, nunca lo que dice el remito.
+        document.getElementById('rec-items-count-badge').textContent = `${lines.length} art.`;
         const sheetBody = document.getElementById('rec-items-sheet-body');
-        if (sheetBody) {
-            if (pendingLines.length === 0) {
-                sheetBody.innerHTML = '<p style="text-align:center; color:var(--success); font-weight:bold; padding:1rem;">¡Remito controlado e ingresado totalmente!</p>';
-            } else {
-                sheetBody.innerHTML = pendingLines.map(l => {
-                    const remaining = l.quantity_sent - l.quantity_received;
-                    return `
-                        <div style="padding:8px 0; border-bottom:1px solid var(--border-color); font-size:0.85rem;">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <strong style="color:var(--primary-blue); font-family:monospace;">${escapeHTML(l.sku)}</strong>
-                                <span class="badge badge-warning">Faltan: ${remaining} un</span>
-                            </div>
-                            <div style="color:var(--text-muted); font-size:0.75rem; margin-top:2px;">Sugerido: ${escapeHTML(l.location_code || 'General')}</div>
-                        </div>
-                    `;
-                }).join('');
-            }
-        }
+        if (!sheetBody) return;
+        const filas = lines.map(l => `
+            <div style="padding:8px 0; border-bottom:1px solid var(--border-color); font-size:0.85rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong style="color:var(--primary-blue); font-family:monospace;">${escapeHTML(l.sku)}</strong>
+                    <span class="badge badge-neutral">Escaneado: ${escapeHTML(String(l.scanned))}</span>
+                </div>
+                <div style="font-size:0.8rem;">${escapeHTML(l.description || '')}</div>
+                <div style="color:var(--text-muted); font-size:0.75rem; margin-top:2px;">Sugerido: ${escapeHTML(l.location_code || 'General')}</div>
+            </div>`).join('');
+        const extra = noEsperados.length ? `<div style="margin-top:0.75rem; font-size:0.8rem; font-weight:bold;">No esperados</div>` + noEsperados.map(u => `
+            <div style="padding:6px 0; border-bottom:1px solid var(--border-color); font-size:0.8rem; display:flex; justify-content:space-between;">
+                <span style="font-family:monospace;">${escapeHTML(u.sku)} x ${escapeHTML(String(u.quantity))}</span>
+                <span class="badge badge-warning">${escapeHTML(estado[u.status] || u.status)}</span>
+            </div>`).join('') : '';
+        sheetBody.innerHTML = filas + extra;
     } catch (e) { console.error(e); }
 }
 
 async function handleReceptionFormSubmit(event) {
     event.preventDefault();
-    const num = document.getElementById('rec-number').value;
+    const ref = document.getElementById('rec-number').value;
     const sku = document.getElementById('rec-sku').value.trim().toUpperCase();
     const qty = parseFloat(document.getElementById('rec-qty').value);
-    const loc = document.getElementById('rec-loc').value.trim().toUpperCase() || 'GENERAL';
-    
+    const locRaw = document.getElementById('rec-loc').value.trim().toUpperCase();
+    const loc = locRaw && locRaw !== 'GENERAL' ? locRaw : null;
+
     if (!sku || isNaN(qty) || qty <= 0) return showToast("Revise SKU y cantidad", "error");
 
+    const enRemito = ((activeDocumentData && activeDocumentData.lines) || []).some(l => l.sku === sku);
     try {
-        const res = await fetchAPI(`/api/reception/remitos/${encodeURIComponent(num)}/scan`, {
-            method: 'POST', body: { remito_number: num, sku: sku, quantity: qty, location_code: loc }
-        });
-        showToast(res.message, "success");
-        if (res.remito_completed) {
-            showToast("Remito completado e ingresado", "success");
-            setTimeout(() => openView('view-receptions', loadReceptions), 1000);
+        if (!enRemito) {
+            if (!confirm(`El artículo ${sku} no figura en este remito.\n\n¿Registrarlo como no esperado? Queda en cuarentena hasta que un responsable lo apruebe o lo rechace.`)) return;
+            const r = await fetchAPI(`/api/reception/remitos/${encodeURIComponent(ref)}/unexpected`, {
+                method: 'POST', body: { sku: sku, quantity: qty, location_code: loc }
+            });
+            showToast(r.message, "warning");
         } else {
-            await refreshReceptionOrderSheet(num);
-            setModuleStepState('RECEPTION', 'SKU');
+            const res = await fetchAPI(`/api/reception/remitos/${encodeURIComponent(ref)}/scan`, {
+                method: 'POST', body: { remito_number: ref, sku: sku, quantity: qty, location_code: loc }
+            });
+            showToast(res.warning || res.message, res.warning ? "warning" : "success");
         }
-    } catch (e) { showToast(e.message, "error"); }
+        await refreshReceptionOrderSheet(ref);
+        setModuleStepState('RECEPTION', 'SKU');
+    } catch (e) { /* fetchAPI ya mostro el error */ }
+}
+
+async function finishReceptionControl() {
+    const ref = document.getElementById('rec-number').value;
+    if (!ref) return;
+    if (!confirm("¿Finalizar el control de este remito?\n\nDespués no se puede escanear más.")) return;
+    try {
+        const r = await fetchAPI(`/api/reception/remitos/${encodeURIComponent(ref)}/finish`, { method: 'POST' });
+        if (r.status === 'COMPLETED') {
+            showToast("Control finalizado: sin diferencias con el remito.", "success");
+        } else {
+            const partes = [];
+            if (r.faltantes.length) partes.push("Faltan: " + r.faltantes.map(x => `${x.sku} ${x.quantity}`).join(", "));
+            if (r.sobrantes.length) partes.push("Sobran: " + r.sobrantes.map(x => `${x.sku} ${x.quantity}`).join(", "));
+            if (r.cuarentena) partes.push(`En cuarentena: ${r.cuarentena}`);
+            showToast("Control finalizado con diferencias. " + partes.join(". "), "warning");
+        }
+        setTimeout(() => openView('view-receptions', loadReceptions), 1500);
+    } catch (e) { /* fetchAPI ya mostro el error */ }
 }
 
 // =========================================================================================
@@ -834,6 +856,7 @@ window.handleWaveFormSubmit = handleWaveFormSubmit;
 
 window.loadReceptions = loadReceptions;
 window.startReceptionScan = startReceptionScan;
+window.finishReceptionControl = finishReceptionControl;
 window.handleReceptionFormSubmit = handleReceptionFormSubmit;
 
 window.loadTransfers = loadTransfers;
