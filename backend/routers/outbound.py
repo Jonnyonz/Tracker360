@@ -289,6 +289,39 @@ async def get_picking_order_details(document_number: str, user: dict = Depends(g
     
     return {"document": dict(doc), "lines": result_lines}
 
+SIN_UBICACION = ("GENERAL", "SIN_UBICACION", "N/A")
+
+# De que fila de stock sale un pickeo (por pedido o por ola). Con ubicacion, tiene que existir y
+# tener el SKU; sin ubicacion, se toma cualquier fila con stock. Dentro de eso se prefiere una fila
+# que alcance y la que vence antes (FEFO), y el movimiento sale de esa fila (con su lote). Sin stock
+# solo se sigue si la empresa permite stock negativo, y siempre en un sector de la misma sucursal.
+async def _origen_picking(conn: asyncpg.Connection, sku: str, location_code: Optional[str], cantidad: float):
+    codigo = (location_code or "").strip().upper()
+    loc = None
+    if codigo and codigo not in SIN_UBICACION:
+        loc = await conn.fetchrow("SELECT l.id, l.sector_id, s.branch_id FROM locations l JOIN sectors s ON l.sector_id = s.id WHERE UPPER(l.location_code) = $1", codigo)
+        if not loc: raise HTTPException(400, f"La ubicación {codigo} no existe.")
+    fila = await conn.fetchrow("""
+        SELECT branch_id, sector_id, location_id, COALESCE(lot_number, '') AS lot_number, quantity::float AS quantity
+        FROM stock_inventory
+        WHERE UPPER(sku) = $1 AND quantity > 0 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO'
+          AND ($2::uuid IS NULL OR location_id = $2)
+        ORDER BY (quantity >= $3) DESC, expiration_date NULLS LAST, quantity DESC
+        LIMIT 1
+    """, sku, loc["id"] if loc else None, cantidad)
+    permite_negativo = (await conn.fetchval("SELECT value FROM system_settings WHERE key = 'allow_negative_stock'")) == "true"
+    donde = f" en la ubicación {codigo}" if loc else ""
+    if fila and (fila["quantity"] >= cantidad or permite_negativo):
+        return fila["branch_id"], fila["sector_id"], fila["location_id"], fila["lot_number"]
+    if not permite_negativo:
+        disponible = fila["quantity"] if fila else 0
+        raise HTTPException(400, f"Stock insuficiente de {sku}{donde} (Disponible: {disponible:g}).")
+    if loc: return loc["branch_id"], loc["sector_id"], loc["id"], ""
+    branch_id = await conn.fetchval("SELECT id FROM branches ORDER BY created_at LIMIT 1")
+    sector_id = await conn.fetchval("SELECT id FROM sectors WHERE branch_id = $1 ORDER BY created_at LIMIT 1", branch_id)
+    if not branch_id or not sector_id: raise HTTPException(400, "No hay una sucursal con sector configurados para registrar el movimiento.")
+    return branch_id, sector_id, None, ""
+
 @router.post("/api/picking/orders/{document_number}/scan")
 async def scan_picking_item(document_number: str, data: PickScanInput, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     async with conn.transaction():
@@ -311,33 +344,7 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
             if len(data.serial_numbers) != int(data.quantity):
                 raise HTTPException(400, f"La cantidad de números de serie ({len(data.serial_numbers)}) debe coincidir con la cantidad ({data.quantity}).")
 
-        loc_id = None
-        branch_id = None
-        sector_id = None
-
-        if data.location_code and data.location_code.strip() and data.location_code.strip().upper() not in ["GENERAL", "SIN_UBICACION", "N/A"]:
-            loc = await conn.fetchrow("SELECT l.id, l.sector_id, s.branch_id FROM locations l JOIN sectors s ON l.sector_id = s.id WHERE UPPER(l.location_code) = $1", data.location_code.strip().upper())
-            if loc:
-                loc_id = loc["id"]
-                sector_id = loc["sector_id"]
-                branch_id = loc["branch_id"]
-
-        if not loc_id:
-            stock_entry = await conn.fetchrow("SELECT branch_id, sector_id, location_id FROM stock_inventory WHERE UPPER(sku) = $1 AND quantity > 0 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO' LIMIT 1", sku_clean)
-            if stock_entry:
-                branch_id = stock_entry["branch_id"]
-                sector_id = stock_entry["sector_id"]
-                loc_id = stock_entry["location_id"]
-            else:
-                default_branch = await conn.fetchval("SELECT id FROM branches LIMIT 1")
-                default_sector = await conn.fetchval("SELECT id FROM sectors LIMIT 1")
-                branch_id = default_branch
-                sector_id = default_sector
-
-        allow_neg = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'allow_negative_stock'")
-        if allow_neg != "true" and loc_id:
-            avail = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE branch_id = $1 AND sector_id = $2 AND UPPER(sku) = $3 AND location_id = $4 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO'", branch_id, sector_id, sku_clean, loc_id)
-            if float(avail or 0) < data.quantity: raise HTTPException(400, f"Stock insuficiente en la ubicación (Disponible: {avail}).")
+        branch_id, sector_id, loc_id, lot = await _origen_picking(conn, sku_clean, data.location_code, float(data.quantity))
 
         await conn.execute("""
             UPDATE document_lines 
@@ -346,8 +353,7 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
             WHERE id = $3
         """, data.quantity, json.dumps(data.serial_numbers or []), line["id"])
         
-        if branch_id and sector_id:
-            await record_stock_movement(conn, sku_clean, branch_id, sector_id, loc_id, -data.quantity, 'OUT_PICKING', document_number.strip().upper(), user.get("username"), serial_numbers=data.serial_numbers)
+        await record_stock_movement(conn, sku_clean, branch_id, sector_id, loc_id, -data.quantity, 'OUT_PICKING', document_number.strip().upper(), user.get("username"), lot_number=lot, serial_numbers=data.serial_numbers)
         
         await conn.execute("UPDATE documents SET status = 'IN_PROGRESS' WHERE id = $1 AND status = 'PENDING'", doc["id"])
         
@@ -454,37 +460,10 @@ async def scan_wave_picking_item(data: WavePickScanInput, user: dict = Depends(g
             asignaciones.append((lu["doc_number"], apply_qty, apply_serials))
             await conn.execute("UPDATE documents SET status = 'IN_PROGRESS' WHERE id = $1 AND status = 'PENDING'", lu["doc_id"])
         
-        loc_id = None
-        branch_id = None
-        sector_id = None
-        
-        if data.location_code and data.location_code.strip() and data.location_code.strip().upper() not in ["GENERAL", "SIN_UBICACION", "N/A"]:
-            loc = await conn.fetchrow("SELECT l.id, l.sector_id, s.branch_id FROM locations l JOIN sectors s ON l.sector_id = s.id WHERE UPPER(l.location_code) = $1", data.location_code.strip().upper())
-            if loc:
-                loc_id = loc["id"]
-                sector_id = loc["sector_id"]
-                branch_id = loc["branch_id"]
+        branch_id, sector_id, loc_id, lot = await _origen_picking(conn, sku_clean, data.location_code, float(data.quantity))
 
-        if not loc_id:
-            stock_entry = await conn.fetchrow("SELECT branch_id, sector_id, location_id FROM stock_inventory WHERE UPPER(sku) = $1 AND quantity > 0 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO' LIMIT 1", sku_clean)
-            if stock_entry:
-                branch_id = stock_entry["branch_id"]
-                sector_id = stock_entry["sector_id"]
-                loc_id = stock_entry["location_id"]
-            else:
-                default_branch = await conn.fetchval("SELECT id FROM branches LIMIT 1")
-                default_sector = await conn.fetchval("SELECT id FROM sectors LIMIT 1")
-                branch_id = default_branch
-                sector_id = default_sector
-
-        allow_neg = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'allow_negative_stock'")
-        if allow_neg != "true" and loc_id:
-            avail = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE branch_id = $1 AND sector_id = $2 AND UPPER(sku) = $3 AND location_id = $4 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO'", branch_id, sector_id, sku_clean, loc_id)
-            if float(avail or 0) < data.quantity: raise HTTPException(400, f"Stock insuficiente en la ubicación (Disponible: {avail}).")
-
-        if branch_id and sector_id:
-            for doc_number, cantidad, seriales in asignaciones:
-                await record_stock_movement(conn, sku_clean, branch_id, sector_id, loc_id, -cantidad, 'OUT_PICKING', doc_number.strip().upper(), user.get("username"), serial_numbers=seriales)
+        for doc_number, cantidad, seriales in asignaciones:
+            await record_stock_movement(conn, sku_clean, branch_id, sector_id, loc_id, -cantidad, 'OUT_PICKING', doc_number.strip().upper(), user.get("username"), lot_number=lot, serial_numbers=seriales)
 
         auto_complete = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'auto_complete_picking'") or "true"
         wave_completed = True
