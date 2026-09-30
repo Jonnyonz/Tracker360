@@ -80,8 +80,10 @@ let poBranchesCache = [];
 // Se llama al entrar a "Compras y Recepción" (admin-core.js).
 async function loadPurchaseSelectors() {
     const soloConsulta = await esSupervisor();
-    const form = document.getElementById('form-po');
-    if (form) form.closest('.card').style.display = soloConsulta ? 'none' : '';
+    ['form-po', 'form-remito'].forEach(id => {
+        const form = document.getElementById(id);
+        if (form) form.closest('.card').style.display = soloConsulta ? 'none' : '';
+    });
     if (soloConsulta) return;
     try {
         const [ents, branches] = await Promise.all([fetchAPI('/api/admin/entities'), fetchAPI('/api/admin/branches')]);
@@ -93,11 +95,13 @@ async function loadPurchaseSelectors() {
             poBranchesCache.map(b => `<option value="${escapeHTML(b.id)}">${escapeHTML(b.name)} (${escapeHTML(b.code)})</option>`).join('');
         onPOBranchChange();
         await loadNextPONumber();
+        await loadRemitoSelectors(proveedores, poBranchesCache);
     } catch (e) { /* fetchAPI ya mostro el error */ }
 }
 
 async function loadAllPurchaseHistories() {
     loadPOData();
+    loadRemitoData();
 }
 
 async function loadNextPONumber() {
@@ -186,6 +190,155 @@ async function verOC(orderNumber) {
             <table><thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:right;">Pedido</th><th style="text-align:right;">Recibido</th><th style="text-align:right;">Pendiente</th></tr></thead><tbody>${filas}</tbody></table>
             <div id="po-notes"></div>`;
         renderObservaciones(document.getElementById('po-notes'), 'OC', orderNumber);
+    } catch (e) {
+        body.innerHTML = `<p style="color:var(--danger);">Error: ${escapeHTML(e.message)}</p>`;
+    }
+}
+
+// === REMITOS DE COMPRA ===
+const REM_STATUS_LABEL = { PENDING: 'Pendiente de control', PENDING_CONTROL: 'Pendiente de control', IN_PROGRESS: 'En control', COMPLETED: 'Controlado' };
+let remSectorsCache = [];
+let remPendingLines = {};
+
+async function loadRemitoSelectors(proveedores, branches) {
+    remSectorsCache = (await fetchAPI('/api/admin/sectors')) || [];
+    document.getElementById('rem-supplier').innerHTML = '<option value="">-- Seleccionar Proveedor --</option>' +
+        proveedores.map(e => `<option value="${escapeHTML(e.id)}">${escapeHTML(e.company_name)} (${escapeHTML(e.tax_id)})</option>`).join('');
+    document.getElementById('rem-branch').innerHTML = '<option value="">-- Seleccionar Sucursal --</option>' +
+        branches.map(b => `<option value="${escapeHTML(b.id)}">${escapeHTML(b.name)} (${escapeHTML(b.code)})</option>`).join('');
+    onRemBranchChange();
+    onRemSupplierChange();
+}
+
+function onRemBranchChange() {
+    const branchId = document.getElementById('rem-branch').value;
+    const sectores = remSectorsCache.filter(s => s.branch_id === branchId);
+    document.getElementById('rem-sector').innerHTML = '<option value="">-- Seleccionar Sector --</option>' +
+        sectores.map(s => `<option value="${escapeHTML(s.id)}">${escapeHTML(s.name)}</option>`).join('');
+}
+
+async function onRemSupplierChange() {
+    const cont = document.getElementById('rem-po-section');
+    const supplierId = document.getElementById('rem-supplier').value;
+    remPendingLines = {};
+    if (!supplierId) { cont.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Elegí un proveedor para ver sus órdenes pendientes.</p>'; return; }
+    cont.innerHTML = '<p style="color:var(--text-muted);">Cargando órdenes pendientes...</p>';
+    try {
+        const ordenes = await fetchAPI(`/api/admin/purchase-orders/pending?supplier_id=${encodeURIComponent(supplierId)}`);
+        if (!ordenes.length) { cont.innerHTML = '<p style="font-size:0.85rem; color:var(--text-muted);">Este proveedor no tiene órdenes pendientes.</p>'; return; }
+        cont.innerHTML = ordenes.map(o => {
+            const filas = o.lines.map(l => {
+                remPendingLines[l.line_id] = { pending: l.pending, sku: l.sku, order: o.order_number };
+                return `<tr>
+                    <td class="font-mono">${escapeHTML(l.sku)}</td>
+                    <td>${escapeHTML(l.description)}</td>
+                    <td style="text-align:right;">${escapeHTML(String(l.pending))}</td>
+                    <td><input type="number" class="rem-po-qty" data-line-id="${escapeHTML(l.line_id)}" min="0" max="${Number(l.pending)}" step="0.01" placeholder="0" style="width:90px;"></td>
+                    <td><input type="text" class="rem-po-loc font-mono" placeholder="Ubicación" style="width:110px;"></td>
+                </tr>`;
+            }).join('');
+            return `<div style="margin-bottom:1rem;">
+                <strong class="font-mono" style="color:var(--accent);">${escapeHTML(o.order_number)}</strong>
+                <span style="font-size:0.8rem; color:var(--text-muted);"> &middot; ${escapeHTML(new Date(o.created_at).toLocaleDateString())} &middot; ${escapeHTML(PO_STATUS_LABEL[o.status] || o.status)}</span>
+                <table style="margin-top:0.25rem;"><thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:right;">Pendiente</th><th>Recibe</th><th>Ubicación</th></tr></thead><tbody>${filas}</tbody></table>
+            </div>`;
+        }).join('');
+        // Tope estricto por OC: el navegador frena el envio; el mensaje dice que hacer con el excedente.
+        cont.querySelectorAll('.rem-po-qty').forEach(inp => inp.addEventListener('input', () => {
+            const max = Number(inp.max);
+            inp.setCustomValidity(parseFloat(inp.value) > max ? `Máximo ${max} contra esta orden: el excedente cargalo en Artículos.` : '');
+        }));
+    } catch (e) {
+        cont.innerHTML = '<p style="color:var(--danger);">No se pudieron cargar las órdenes pendientes.</p>';
+    }
+}
+
+async function saveRemito(event) {
+    if (event) event.preventDefault();
+    const items = [];
+    document.querySelectorAll('#rem-lines .dynamic-row').forEach(r => {
+        const sku = r.querySelector('.rem-sku')?.value.trim();
+        const qty = parseFloat(r.querySelector('.rem-qty')?.value);
+        if (!sku && isNaN(qty)) return;
+        items.push({ sku: (sku || '').toUpperCase(), quantity: isNaN(qty) ? 0 : qty, location_code: r.querySelector('.rem-loc')?.value.trim() || null, lot_number: r.querySelector('.rem-lot')?.value.trim() || '' });
+    });
+    const order_lines = [];
+    for (const inp of document.querySelectorAll('#rem-po-section .rem-po-qty')) {
+        const qty = parseFloat(inp.value);
+        if (isNaN(qty) || qty === 0) continue;
+        const info = remPendingLines[inp.dataset.lineId];
+        if (info && qty > info.pending) {
+            showToast(`La orden ${info.order} solo tiene ${info.pending} pendientes de ${info.sku}: el excedente se carga en Artículos.`, 'danger');
+            inp.focus();
+            return;
+        }
+        order_lines.push({ purchase_order_line_id: inp.dataset.lineId, quantity: qty, location_code: inp.closest('tr').querySelector('.rem-po-loc')?.value.trim() || null });
+    }
+    if (!items.length && !order_lines.length) { showToast('Cargá al menos un artículo o una cantidad contra una orden de compra.', 'danger'); return; }
+    const payload = {
+        remito_number: document.getElementById('rem-num').value.trim(),
+        supplier_id: document.getElementById('rem-supplier').value,
+        branch_id: document.getElementById('rem-branch').value,
+        sector_id: document.getElementById('rem-sector').value,
+        items, order_lines
+    };
+    const btn = document.querySelector('#form-remito button[type=submit]');
+    btn.disabled = true;
+    try {
+        const r = await fetchAPI('/api/admin/purchase-remitos', { method: 'POST', body: payload });
+        showToast(`Remito ${r.remito_number} registrado.`, 'success');
+        document.getElementById('rem-num').value = '';
+        document.getElementById('rem-lines').innerHTML = '';
+        addDynamicLineRemito();
+        onRemSupplierChange();
+        loadRemitoData();
+        loadPOData();
+    } catch (e) { /* fetchAPI ya mostro el error */ }
+    finally { btn.disabled = false; }
+}
+
+async function loadRemitoData(search, limit = 50) {
+    const tbody = document.getElementById('table-remito-body');
+    if (!tbody) return;
+    const q = search !== undefined ? search : (document.getElementById('search-rem-text')?.value || '');
+    try {
+        const rows = await fetchAPI(`/api/admin/purchase-remitos?search=${encodeURIComponent(q)}&limit=${limit}`);
+        if (!rows || !rows.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:1rem;">Sin remitos registrados.</td></tr>'; return; }
+        tbody.innerHTML = rows.map(r => `<tr>
+            <td style="color:var(--accent); font-weight:bold;">${escapeHTML(r.remito_number)}</td>
+            <td>${escapeHTML(r.supplier_name)}</td>
+            <td><small>${escapeHTML(r.branch_name || '-')} (${escapeHTML(r.sector_name || '-')})</small></td>
+            <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(REM_STATUS_LABEL[r.status] || r.status)}</span></td>
+            <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="verRemito(${jsArg(r.remito_number)})">Detalle</button></td>
+        </tr>`).join('');
+    } catch (e) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--danger);">Error al cargar el historial.</td></tr>';
+    }
+}
+
+async function verRemito(remitoNumber) {
+    const body = document.getElementById('remito-detail-body');
+    document.getElementById('remito-detail-label').textContent = remitoNumber;
+    body.innerHTML = '<p style="color:var(--text-muted);">Cargando...</p>';
+    openModal('modal-remito-detail');
+    try {
+        const d = await fetchAPI(`/api/admin/purchase-remitos/${encodeURIComponent(remitoNumber)}`);
+        const r = d.remito;
+        const filas = d.lines.map(l => `<tr>
+            <td>${l.order_number ? `<span class="font-mono">${escapeHTML(l.order_number)}</span>` : '<span class="badge badge-neutral">Suelto</span>'}</td>
+            <td class="font-mono">${escapeHTML(l.sku)}</td>
+            <td>${escapeHTML(l.description)}</td>
+            <td style="text-align:right;">${escapeHTML(String(l.sent))}</td>
+            <td style="text-align:right;">${escapeHTML(String(l.controlled))}</td>
+            <td>${escapeHTML(l.location_code || '-')}</td>
+        </tr>`).join('');
+        body.innerHTML = `
+            <p>Estado: <span class="badge badge-neutral">${escapeHTML(REM_STATUS_LABEL[r.status] || r.status)}</span> &nbsp; Proveedor: <strong>${escapeHTML(r.supplier_name)}</strong> ${r.supplier_tax_id ? '(' + escapeHTML(r.supplier_tax_id) + ')' : ''}</p>
+            <p>Ingreso: ${escapeHTML(r.branch_name || '-')} &middot; ${escapeHTML(r.sector_name || '-')}</p>
+            <p style="font-size:0.85rem; color:var(--text-muted);">Registrado ${escapeHTML(new Date(r.created_at).toLocaleString())} por ${escapeHTML(r.created_by || '-')}</p>
+            <table><thead><tr><th>Origen</th><th>SKU</th><th>Descripción</th><th style="text-align:right;">Remitido</th><th style="text-align:right;">Controlado</th><th>Ubicación</th></tr></thead><tbody>${filas}</tbody></table>
+            <div id="remito-notes"></div>`;
+        renderObservaciones(document.getElementById('remito-notes'), 'REMITO', remitoNumber);
     } catch (e) {
         body.innerHTML = `<p style="color:var(--danger);">Error: ${escapeHTML(e.message)}</p>`;
     }
@@ -1196,7 +1349,7 @@ function fallbackCopyText(inputEl) {
 }
 
 function addDynamicLinePO() { document.getElementById('po-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="po-sku font-mono" style="flex:2;" required><input type="number" placeholder="Cantidad" class="po-qty" style="flex:1;" min="0.01" step="0.01" required><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`); }
-function addDynamicLineRemito() { document.getElementById('rem-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="rem-sku font-mono" style="flex:2;" required onblur="fetchPutawaySuggestion(this.value, this.parentElement.querySelector('.rem-loc'))"><input type="number" placeholder="Cant" class="rem-qty" style="flex:1;" min="0.01" step="0.01" required><input type="text" placeholder="Ubicación" class="rem-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="rem-lot lot-input font-mono" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`); }
+function addDynamicLineRemito() { document.getElementById('rem-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="rem-sku font-mono" style="flex:2;" onblur="fetchPutawaySuggestion(this.value, this.parentElement.querySelector('.rem-loc'))"><input type="number" placeholder="Cant" class="rem-qty" style="flex:1;" min="0.01" step="0.01"><input type="text" placeholder="Ubicación" class="rem-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="rem-lot lot-input font-mono" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`); }
 function addDynamicLineInvoice() { document.getElementById('inv-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="inv-sku font-mono" style="flex:2;" onblur="fetchPutawaySuggestion(this.value, this.parentElement.querySelector('.inv-loc'))"><input type="number" placeholder="Cantidad" class="inv-qty" style="flex:1;" min="0.01" step="0.01"><input type="text" placeholder="Ubicación" class="inv-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="inv-lot lot-input" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`); }
 function addDynamicLineTransfer() { document.getElementById('tr-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="tr-sku font-mono" style="flex:2;" required><input type="number" placeholder="Cant" class="tr-qty" style="flex:1;" min="0.01" step="0.01" required><input type="text" placeholder="Origen" class="tr-orig-loc font-mono" style="flex:1;"><input type="text" placeholder="Destino" class="tr-dest-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="tr-lot lot-input" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`); }
 
@@ -1217,6 +1370,11 @@ window.onPOBranchChange = onPOBranchChange;
 window.savePO = savePO;
 window.loadPOData = loadPOData;
 window.verOC = verOC;
+window.onRemBranchChange = onRemBranchChange;
+window.onRemSupplierChange = onRemSupplierChange;
+window.saveRemito = saveRemito;
+window.loadRemitoData = loadRemitoData;
+window.verRemito = verRemito;
 window.addDynamicLineRemito = addDynamicLineRemito;
 window.addDynamicLineInvoice = addDynamicLineInvoice;
 window.addDynamicLineTransfer = addDynamicLineTransfer;

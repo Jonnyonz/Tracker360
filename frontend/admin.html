@@ -479,22 +479,25 @@
                         <h3>Registrar Remito</h3>
                         <form id="form-remito" onsubmit="saveRemito(event)">
                             <div class="grid-layout" style="margin-bottom:0;">
-                                <div class="form-group"><label>Nº de Remito</label><input type="text" id="rem-num" placeholder="Ej: REM-2026-09" required></div>
-                                <div class="form-group"><label>Proveedor</label><select id="rem-supplier" required></select></div>
+                                <div class="form-group"><label>Proveedor</label><select id="rem-supplier" onchange="onRemSupplierChange()" required></select></div>
+                                <div class="form-group"><label>Nº de Remito</label><input type="text" id="rem-num" placeholder="Ej: 0001-00012345" maxlength="50" required></div>
                                 <div class="form-group"><label>Sucursal de Ingreso</label><select id="rem-branch" onchange="onRemBranchChange()" required></select></div>
                                 <div class="form-group"><label>Sector de Ingreso</label><select id="rem-sector" required></select></div>
                             </div>
-                            <label>Mercadería Recibida:</label>
+                            <h4 style="margin:1rem 0 0.5rem;">Artículos</h4>
+                            <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 0.5rem;">Sueltos, sin orden de compra (también lo que llegó de más sobre una orden).</p>
                             <div class="dynamic-list" id="rem-lines">
                                 <div class="dynamic-row">
-                                    <input type="text" placeholder="SKU" class="rem-sku" style="flex:2;" required onblur="fetchPutawaySuggestion(this.value, this.parentElement.querySelector('.rem-loc'))">
-                                    <input type="number" placeholder="Cant" class="rem-qty" style="flex:1;" min="0.01" step="0.01" required>
-                                    <input type="text" placeholder="Ubicación" class="rem-loc" style="flex:1;">
+                                    <input type="text" placeholder="SKU" class="rem-sku font-mono" style="flex:2;" onblur="fetchPutawaySuggestion(this.value, this.parentElement.querySelector('.rem-loc'))">
+                                    <input type="number" placeholder="Cant" class="rem-qty" style="flex:1;" min="0.01" step="0.01">
+                                    <input type="text" placeholder="Ubicación" class="rem-loc font-mono" style="flex:1;">
                                     <input type="text" placeholder="Lote / Vto" class="rem-lot lot-input" style="flex:1; display:none;">
                                     <button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button>
                                 </div>
                             </div>
                             <button type="button" onclick="addDynamicLineRemito()" class="btn-secondary">+ Añadir Artículo</button>
+                            <h4 style="margin:1.5rem 0 0.5rem;">Órdenes de compra</h4>
+                            <div id="rem-po-section"><p style="font-size:0.85rem; color:var(--text-muted);">Elegí un proveedor para ver sus órdenes pendientes.</p></div>
                             <button type="submit" class="btn-submit" style="margin-top:1.5rem;">Registrar Remito</button>
                         </form>
                     </div>
@@ -1451,6 +1454,14 @@
             <span class="close-modal" onclick="closeModal('modal-participants')">&times;</span>
             <h2 style="color:var(--text-primary); margin:0 0 1rem; font-size:1.3rem;">Pedido <span id="part-order-label" class="font-mono" style="color:var(--accent);"></span></h2>
             <div id="part-body"></div>
+        </div>
+    </div>
+
+    <div id="modal-remito-detail" class="modal">
+        <div class="modal-content" style="max-width:820px;">
+            <span class="close-modal" onclick="closeModal('modal-remito-detail')">&times;</span>
+            <h2 style="color:var(--text-primary); margin:0 0 1rem; font-size:1.3rem;">Remito <span id="remito-detail-label" class="font-mono" style="color:var(--accent);"></span></h2>
+            <div id="remito-detail-body"></div>
         </div>
     </div>
 
