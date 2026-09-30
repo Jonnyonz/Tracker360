@@ -1017,7 +1017,7 @@ async function openCreateInventoryModal() {
         if (users && users.length > 0) {
             const ops = users.filter(u => u.role !== 'ADMIN' && u.is_active);
             oSelect.innerHTML = '<option value="">-- Seleccione Operador --</option>' + 
-                ops.map(u => `<option value="${u.username}">${escapeHTML(u.full_name)} (${escapeHTML(u.username)})</option>`).join('');
+                ops.map(u => `<option value="${escapeHTML(u.username)}">${escapeHTML(u.full_name)} (${escapeHTML(u.username)})</option>`).join('');
         } else {
             oSelect.innerHTML = '<option value="">-- Sin Operadores Activos --</option>';
         }
