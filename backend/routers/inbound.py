@@ -311,22 +311,40 @@ async def scan_reception_item(remito_number: str, data: MobileRemitoScanInput, u
         if rem["status"] == "COMPLETED": raise HTTPException(400, "Remito ya controlado completamente.")
         require_valid_quantity(data.quantity)
         sku_clean = data.sku.strip().upper()
-        line = await conn.fetchrow("SELECT id, quantity_sent, quantity_received FROM purchase_remito_lines WHERE purchase_remito_id = $1 AND UPPER(sku) = $2", rem["id"], sku_clean)
-        if not line: raise HTTPException(400, "SKU no pertenece al remito.")
-        
+        # Un mismo SKU puede venir en varias lineas (suelto y contra una o mas OC): el escaneo llena
+        # primero las lineas con pendiente y lo que sobre queda en la ultima (como antes).
+        lines = await conn.fetch("""
+            SELECT id, quantity_sent::float AS sent, quantity_received::float AS received, location_id, COALESCE(lot_number, '') AS lot_number
+            FROM purchase_remito_lines WHERE purchase_remito_id = $1 AND UPPER(sku) = $2
+            ORDER BY (quantity_received < quantity_sent) DESC, id
+        """, rem["id"], sku_clean)
+        if not lines: raise HTTPException(400, "SKU no pertenece al remito.")
+
         loc_id = None
         if data.location_code and data.location_code.strip():
             loc = await conn.fetchrow("SELECT id FROM locations WHERE UPPER(location_code) = $1", data.location_code.strip().upper())
             if loc: loc_id = loc["id"]
 
-        await conn.execute("""
-            UPDATE purchase_remito_lines 
-            SET quantity_received = quantity_received + $1,
-                serial_numbers = COALESCE(serial_numbers, '[]'::jsonb) || $2::jsonb 
-            WHERE id = $3
-        """, data.quantity, json.dumps(data.serial_numbers or []), line["id"])
-        
-        await record_stock_movement(conn, sku_clean, rem["branch_id"], rem["sector_id"], loc_id, data.quantity, 'IN_RECEPTION', remito_number.strip().upper(), user.get("username"), serial_numbers=data.serial_numbers)
+        restante = float(data.quantity)
+        serials = list(data.serial_numbers or [])
+        repartos = []
+        for i, ln in enumerate(lines):
+            if restante <= 0: break
+            ultima = i == len(lines) - 1
+            toma = restante if ultima else min(restante, max(ln["sent"] - ln["received"], 0))
+            if toma <= 0: continue
+            repartos.append((ln, toma))
+            restante -= toma
+        for ln, toma in repartos:
+            sn = serials[:int(toma)] if serials else []
+            serials = serials[int(toma):] if serials else []
+            await conn.execute("""
+                UPDATE purchase_remito_lines
+                SET quantity_received = quantity_received + $1,
+                    serial_numbers = COALESCE(serial_numbers, '[]'::jsonb) || $2::jsonb
+                WHERE id = $3
+            """, toma, json.dumps(sn), ln["id"])
+            await record_stock_movement(conn, sku_clean, rem["branch_id"], rem["sector_id"], loc_id or ln["location_id"], toma, 'IN_RECEPTION', remito_number.strip().upper(), user.get("username"), lot_number=ln["lot_number"], serial_numbers=sn)
         await conn.execute("UPDATE purchase_remitos SET status = 'IN_PROGRESS' WHERE id = $1 AND status IN ('PENDING', 'PENDING_CONTROL')", rem["id"])
         
         pending = await conn.fetchval("SELECT COUNT(*) FROM purchase_remito_lines WHERE purchase_remito_id = $1 AND quantity_received < quantity_sent", rem["id"])
