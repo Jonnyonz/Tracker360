@@ -2,6 +2,13 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 2026-10-01
+
+### Cambiado
+- Los avisos y errores internos del servidor (conexión a la base, webhooks, reportes, indicadores)
+  quedan en el registro del servidor con su nivel de gravedad y el detalle completo, en el mismo
+  formato que el resto. No cambia nada de lo que ve el usuario. (`d4b3b23`)
+
 ## 2026-09-30
 
 ### Agregado
