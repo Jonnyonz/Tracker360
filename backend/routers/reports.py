@@ -74,12 +74,8 @@ async def report_stock(
 
     query += " ORDER BY b.name ASC, sec.name ASC, si.sku ASC"
     
-    try:
-        rows = await conn.fetch(query, *params)
-        return [dict(r) for r in rows]
-    except Exception as e:
-        logger.exception(f"Error procesando Reporte de Stock: {e}")
-        raise HTTPException(status_code=400, detail="Error al generar el reporte de stock.")
+    rows = await conn.fetch(query, *params)
+    return [dict(r) for r in rows]
 
 # === 2. REPORTE DE PEDIDOS DE VENTA (SALIDAS) ===
 @router.get("/api/admin/reports/orders")
@@ -151,12 +147,8 @@ async def report_orders(
 
     query += " ORDER BY d.created_at DESC"
     
-    try:
-        rows = await conn.fetch(query, *params)
-        return [dict(r) for r in rows]
-    except Exception as e:
-        logger.exception(f"Error procesando Reporte de Pedidos: {e}")
-        raise HTTPException(status_code=400, detail="Error al generar el reporte de pedidos.")
+    rows = await conn.fetch(query, *params)
+    return [dict(r) for r in rows]
 
 # === 3. REPORTE DE REMITOS DE COMPRA (INGRESOS) ===
 @router.get("/api/admin/reports/remitos")
@@ -241,12 +233,8 @@ async def report_remitos(
 
     query += " ORDER BY pr.created_at DESC"
     
-    try:
-        rows = await conn.fetch(query, *params)
-        return [dict(r) for r in rows]
-    except Exception as e:
-        logger.exception(f"Error procesando Reporte de Remitos: {e}")
-        raise HTTPException(status_code=400, detail="Error al generar el reporte de remitos.")
+    rows = await conn.fetch(query, *params)
+    return [dict(r) for r in rows]
 
 # === DIFERENCIAS DE RECEPCION (control fisico de remitos) ===
 # Faltantes y sobrantes por remito y articulo (solo articulos que figuraban en el remito, asi un no
@@ -366,12 +354,8 @@ async def report_invoices(
 
     query += " ORDER BY pi.created_at DESC"
     
-    try:
-        rows = await conn.fetch(query, *params)
-        return [dict(r) for r in rows]
-    except Exception as e:
-        logger.exception(f"Error procesando Reporte de Facturas: {e}")
-        raise HTTPException(status_code=400, detail="Error al generar el reporte de facturas.")
+    rows = await conn.fetch(query, *params)
+    return [dict(r) for r in rows]
 
 # === 5. REPORTE DE ÓRDENES DE COMPRA ===
 @router.get("/api/admin/reports/purchase-orders")
@@ -442,9 +426,5 @@ async def report_purchase_orders(
 
     query += " ORDER BY po.created_at DESC"
     
-    try:
-        rows = await conn.fetch(query, *params)
-        return [dict(r) for r in rows]
-    except Exception as e:
-        logger.exception(f"Error procesando Reporte de Ordenes de Compra: {e}")
-        raise HTTPException(status_code=400, detail="Error al generar el reporte de ordenes de compra.")
+    rows = await conn.fetch(query, *params)
+    return [dict(r) for r in rows]

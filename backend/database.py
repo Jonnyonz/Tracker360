@@ -126,7 +126,7 @@ def _parse_networks(raw: str):
         part = part.strip()
         if not part: continue
         try: nets.append(ipaddress.ip_network(part, strict=False))
-        except ValueError: print(f"[Tracker360] TRUSTED_PROXIES: valor invalido ignorado: {part}")
+        except ValueError: logger.warning(f"[Tracker360] TRUSTED_PROXIES: valor invalido ignorado: {part}")
     return nets
 
 TRUSTED_PROXIES = _parse_networks(os.getenv("TRUSTED_PROXIES", "127.0.0.1/32,::1/128,172.16.0.0/12"))
@@ -169,7 +169,7 @@ async def get_db_connection():
 
 async def log_action(conn: asyncpg.Connection, username: str, action: str, details: str, ip_address: str = "127.0.0.1"):
     try: await conn.execute("INSERT INTO audit_logs (username, action, details) VALUES ($1, $2, $3)", username, action, f"[{ip_address}] {details}")
-    except Exception as e: print(f"[AUDIT LOG ERROR] {action} ({username}): {e!r}")
+    except Exception as e: logger.exception(f"[AUDIT LOG ERROR] {action} ({username}): {e!r}")
 
 # === PROTECCIÓN ANTI-FUERZA BRUTA DINÁMICA ===
 # Limite de intentos de login. La clave es IP + usuario: en un deposito todos salen por la misma IP, y
@@ -334,7 +334,7 @@ async def execute_and_log_webhook(channel_id: Optional[uuid.UUID], channel_name:
                 INSERT INTO webhook_logs (channel_id, channel_name, event_type, target_url, payload, response_status, response_body, error_message, status)
                 VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
             """, channel_id, channel_name, event_type, target_url, json.dumps(payload), status, body, err, log_status)
-    except Exception as e: print(f"[WEBHOOK LOG ERROR] {channel_name} {event_type}: {e!r}")
+    except Exception as e: logger.exception(f"[WEBHOOK LOG ERROR] {channel_name} {event_type}: {e!r}")
 
 async def dispatch_event_to_channels(conn: asyncpg.Connection, event_type: str, payload: dict):
     channels = await conn.fetch("SELECT id, name, target_url, api_key FROM integration_channels WHERE channel_type = $1 AND is_active = TRUE", event_type)

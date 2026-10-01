@@ -144,11 +144,8 @@ async def list_admin_stock_kardex(
 
     query += " ORDER BY sm.created_at DESC LIMIT 500"
     
-    try:
-        rows = await conn.fetch(query, *params)
-        return [dict(r) for r in rows]
-    except Exception as e:
-        raise HTTPException(status_code=400, detail="Error al procesar la consulta.")
+    rows = await conn.fetch(query, *params)
+    return [dict(r) for r in rows]
 
 @router.get("/api/inventory/sessions")
 async def list_inventory_sessions(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):

@@ -29,11 +29,13 @@ async def _resolve_document(conn: asyncpg.Connection, user: dict, doc_type: str,
     if restricted and user.get("role") not in ("ADMIN", "SUPERVISOR"):
         raise HTTPException(403, "Permisos insuficientes.")
     try:
-        doc_id = await conn.fetchval(f"SELECT id FROM {table} WHERE id = $1", uuid.UUID(number.strip()))
+        doc_uuid = uuid.UUID(number.strip())
+    except ValueError:
+        doc_uuid = None  # no es un identificador: se busca por numero
+    if doc_uuid:
+        doc_id = await conn.fetchval(f"SELECT id FROM {table} WHERE id = $1", doc_uuid)
         if not doc_id: raise HTTPException(404, "Documento no encontrado.")
         return doc_type.upper(), doc_id
-    except ValueError:
-        pass
     ids = await conn.fetch(f"SELECT id FROM {table} WHERE UPPER({column}) = $1", number.strip().upper())
     if not ids: raise HTTPException(404, "Documento no encontrado.")
     if len(ids) > 1: raise HTTPException(409, "Hay más de un documento con ese número: indicalo por su identificador.")
