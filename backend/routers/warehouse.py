@@ -4,10 +4,7 @@ from typing import Optional
 import asyncpg, uuid, csv
 from io import StringIO
 
-try:
-    from backend.database import get_db_connection, require_admin, require_supervisor, build_full_address, parse_uuid
-except ImportError:
-    from database import get_db_connection, require_admin, require_supervisor, build_full_address, parse_uuid
+from backend.database import get_db_connection, require_admin, require_supervisor, build_full_address, parse_uuid
 
 router = APIRouter(tags=["Warehouse"])
 

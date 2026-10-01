@@ -3,10 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import asyncpg, uuid
 
-try:
-    from backend.database import get_db_connection, require_admin, require_supervisor, build_full_address, parse_uuid
-except ImportError:
-    from database import get_db_connection, require_admin, require_supervisor, build_full_address, parse_uuid
+from backend.database import get_db_connection, require_admin, require_supervisor, build_full_address, parse_uuid
 
 router = APIRouter(tags=["Entities"])
 

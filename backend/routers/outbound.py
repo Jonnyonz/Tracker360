@@ -4,10 +4,7 @@ from typing import Optional, List
 from datetime import datetime, timezone
 import asyncpg, uuid, json, math
 
-try:
-    from backend.database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency, require_valid_quantity
-except ImportError:
-    from database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency, require_valid_quantity
+from backend.database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency, require_valid_quantity
 
 router = APIRouter(tags=["Outbound & Dispatch"])
 

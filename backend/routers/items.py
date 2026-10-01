@@ -8,10 +8,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-try:
-    from backend.database import get_db_connection, require_admin, require_supervisor, queue_zpl_print_job, parse_uuid
-except ImportError:
-    from database import get_db_connection, require_admin, require_supervisor, queue_zpl_print_job, parse_uuid
+from backend.database import get_db_connection, require_admin, require_supervisor, queue_zpl_print_job, parse_uuid
 
 router = APIRouter(tags=["Items"])
 

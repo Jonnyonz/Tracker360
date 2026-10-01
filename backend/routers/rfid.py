@@ -3,10 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import asyncpg
 
-try:
-    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action
-except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action
+from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action
 
 router = APIRouter(prefix="/api/rfid", tags=["RFID Operations"])
 

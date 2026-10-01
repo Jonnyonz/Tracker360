@@ -2,10 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 import asyncpg, uuid
 
-try:
-    from backend.database import get_db_connection, get_current_user
-except ImportError:
-    from database import get_db_connection, get_current_user
+from backend.database import get_db_connection, get_current_user
 
 router = APIRouter(tags=["Document Notes"])
 

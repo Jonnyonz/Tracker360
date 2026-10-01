@@ -4,10 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-try:
-    from backend.database import get_db_connection, require_admin, require_supervisor
-except ImportError:
-    from database import get_db_connection, require_admin, require_supervisor
+from backend.database import get_db_connection, require_admin, require_supervisor
 
 router = APIRouter(tags=["Dashboard & Logs"])
 

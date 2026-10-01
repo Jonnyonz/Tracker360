@@ -4,10 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-try:
-    from backend.database import require_admin
-except ImportError:
-    from database import require_admin
+from backend.database import require_admin
 
 router = APIRouter(prefix="/api/admin/updater", tags=["System Updater"])
 

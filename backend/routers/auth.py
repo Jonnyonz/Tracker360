@@ -8,18 +8,11 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-try:
-    from backend.database import (
-        get_db_connection, login_limit_key, reserve_login_attempt,
-        reset_failed_login, verify_password, get_password_hash, log_action, needs_rehash,
-        get_current_user, get_client_ip, start_session, end_session
-    )
-except ImportError:
-    from database import (
-        get_db_connection, login_limit_key, reserve_login_attempt,
-        reset_failed_login, verify_password, get_password_hash, log_action, needs_rehash,
-        get_current_user, get_client_ip, start_session, end_session
-    )
+from backend.database import (
+    get_db_connection, login_limit_key, reserve_login_attempt,
+    reset_failed_login, verify_password, get_password_hash, log_action, needs_rehash,
+    get_current_user, get_client_ip, start_session, end_session
+)
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 

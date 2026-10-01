@@ -3,10 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import asyncpg, uuid, json
 
-try:
-    from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, parse_uuid
-except ImportError:
-    from database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, parse_uuid
+from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, parse_uuid
 
 router = APIRouter(tags=["Internal Movements"])
 

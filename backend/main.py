@@ -15,12 +15,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-try:
-    from backend.database import init_db_schema, DB, session_user, get_client_ip, get_request_scheme, is_private_ip, require_admin
-    from backend.routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater, notes
-except ImportError:
-    from database import init_db_schema, DB, session_user, get_client_ip, get_request_scheme, is_private_ip, require_admin
-    from routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater, notes
+from backend.database import init_db_schema, DB, session_user, get_client_ip, get_request_scheme, is_private_ip, require_admin
+from backend.routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater, notes
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

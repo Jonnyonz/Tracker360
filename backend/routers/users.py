@@ -3,10 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 import asyncpg, uuid
 
-try:
-    from backend.database import get_db_connection, require_admin, get_password_hash, log_action, invalidate_user_sessions
-except ImportError:
-    from database import get_db_connection, require_admin, get_password_hash, log_action, invalidate_user_sessions
+from backend.database import get_db_connection, require_admin, get_password_hash, log_action, invalidate_user_sessions
 
 router = APIRouter(prefix="/api/admin/users", tags=["Users"])
 
