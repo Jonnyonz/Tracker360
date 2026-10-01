@@ -23,6 +23,8 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   veces al mismo tiempo: la segunda alta espera y se rechaza. (`dd67505`)
 
 ### Cambiado
+- Limpieza interna del código (los módulos se importan de una sola forma). No cambia nada del
+  funcionamiento. (`592d1a3`)
 - La estructura de la base de datos ahora se actualiza con migraciones numeradas: cada cambio se
   aplica una sola vez y queda registrado. Si una actualización de la base falla, el sistema no
   arranca a medias y el error queda en el registro. Las instalaciones existentes se actualizan
