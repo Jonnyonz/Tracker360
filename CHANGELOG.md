@@ -13,6 +13,9 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   tienen que volver a iniciar sesión una vez. (`b1a4bd9`)
 
 ### Corregido
+- El ajuste "duración de la sesión" de Configuración ahora se respeta (antes la sesión duraba
+  siempre 4 horas). Vale para las sesiones que se abran después de cambiarlo, entre 5 minutos y 7
+  días. (`5cce370`)
 - La configuración inicial ya no puede crear dos administradores si se envía el formulario dos
   veces al mismo tiempo: la segunda alta espera y se rechaza. (`dd67505`)
 
