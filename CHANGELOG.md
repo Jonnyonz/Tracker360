@@ -5,6 +5,8 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 ## 2026-10-01
 
 ### Seguridad
+- Protección contra CSRF: otra página abierta en el navegador ya no puede hacer operaciones en
+  Tracker360 usando tu sesión. Para el usuario no cambia nada. (`5263861`)
 - Las sesiones ahora se guardan en el servidor y se pueden cerrar de verdad. "Cerrar sesión" cierra
   solo el dispositivo donde se usa (antes cerraba todos). Cambiar la clave de un usuario,
   desactivarlo o borrarlo cierra todas sus sesiones al instante. Al actualizar, todos los usuarios
