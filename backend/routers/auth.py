@@ -10,13 +10,13 @@ logger = logging.getLogger(__name__)
 
 try:
     from backend.database import (
-        get_db_connection, check_rate_limit, record_failed_login,
+        get_db_connection, login_limit_key, reserve_login_attempt,
         reset_failed_login, verify_password, get_password_hash, log_action, needs_rehash,
         get_current_user, get_client_ip, start_session, end_session
     )
 except ImportError:
     from database import (
-        get_db_connection, check_rate_limit, record_failed_login,
+        get_db_connection, login_limit_key, reserve_login_attempt,
         reset_failed_login, verify_password, get_password_hash, log_action, needs_rehash,
         get_current_user, get_client_ip, start_session, end_session
     )
@@ -119,17 +119,17 @@ def validate_google_claims(data: dict, client_id: str) -> Optional[str]:
 async def login(request: Request, response: Response, credentials: LoginRequest, conn: asyncpg.Connection = Depends(get_db_connection)):
     client_ip = get_client_ip(request)
     
-    await check_rate_limit(client_ip, conn)
-    
     user = await conn.fetchrow("SELECT id, username, password_hash, role, is_active, token_version FROM users WHERE LOWER(username) = $1 OR LOWER(email) = $1", credentials.username.strip().lower())
+    # Mismo contador para el usuario y su email; un usuario inexistente se cuenta por lo escrito.
+    limit_key = login_limit_key(client_ip, str(user["id"]) if user else credentials.username.strip().lower())
+    await reserve_login_attempt(limit_key, conn)
 
     if not user or not user["is_active"] or not verify_password(credentials.password, user["password_hash"]):
-        await record_failed_login(client_ip, conn)
         username_attempt = credentials.username.strip().lower() if credentials.username else "UNKNOWN"
         await log_action(conn, username_attempt, "LOGIN_FAILED", "Intento de acceso fallido", client_ip)
         raise HTTPException(status_code=401, detail="Credenciales incorrectas o cuenta no aprobada.")
 
-    await reset_failed_login(client_ip, conn)
+    await reset_failed_login(limit_key, conn)
     if needs_rehash(user["password_hash"]):
         await conn.execute("UPDATE users SET password_hash = $1 WHERE id = $2", get_password_hash(credentials.password), user["id"])
     await start_session(conn, response, user["id"])
@@ -185,7 +185,7 @@ async def verify_google_login(request: Request, response: Response, body: Google
         await log_action(conn, user["username"], "GOOGLE_LOGIN_PENDING", "Intento de ingreso con cuenta pendiente de aprobacion", client_ip)
         raise HTTPException(status_code=403, detail=PENDING_MSG)
 
-    await reset_failed_login(client_ip, conn)
+    await reset_failed_login(login_limit_key(client_ip, str(user["id"])), conn)
     await start_session(conn, response, user["id"])
 
     await log_action(conn, user["username"], "GOOGLE_LOGIN_SUCCESS", "Inicio de sesion via Google SSO", client_ip)

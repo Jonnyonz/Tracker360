@@ -170,38 +170,43 @@ async def log_action(conn: asyncpg.Connection, username: str, action: str, detai
     except Exception as e: print(f"[AUDIT LOG ERROR] {action} ({username}): {e!r}")
 
 # === PROTECCIÓN ANTI-FUERZA BRUTA DINÁMICA ===
-async def check_rate_limit(ip: str, conn: asyncpg.Connection):
-    now = datetime.now(timezone.utc)
-    row = await conn.fetchrow("SELECT attempts, blocked_until FROM auth_rate_limits WHERE ip_address = $1", ip)
-    if row:
-        if row["blocked_until"] and now < row["blocked_until"]:
-            time_left = int((row["blocked_until"] - now).total_seconds() / 60) + 1
-            raise HTTPException(status_code=429, detail=f"Demasiados intentos fallidos. Bloqueado por {time_left} min.")
-        elif row["blocked_until"] and now >= row["blocked_until"]:
-            await conn.execute("UPDATE auth_rate_limits SET attempts = 0, blocked_until = NULL WHERE ip_address = $1", ip)
+# Limite de intentos de login. La clave es IP + usuario: en un deposito todos salen por la misma IP, y
+# con una clave solo por IP un usuario equivocado bloqueaba a todos y cualquier login correcto desde
+# esa IP borraba el contador (con una cuenta propia se podian probar claves sin limite contra otra).
+def login_limit_key(ip: str, user_ref: str) -> str:
+    return f"{ip}|{user_ref}"[:255]
 
-async def record_failed_login(ip: str, conn: asyncpg.Connection):
-    now = datetime.now(timezone.utc)
-    await conn.execute("""
-        INSERT INTO auth_rate_limits (ip_address, attempts) VALUES ($1, 1)
-        ON CONFLICT (ip_address) DO UPDATE SET attempts = auth_rate_limits.attempts + 1
-    """, ip)
-    
-    attempts = await conn.fetchval("SELECT attempts FROM auth_rate_limits WHERE ip_address = $1", ip)
+async def _login_limits(conn: asyncpg.Connection):
     max_attempts_str = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'max_login_attempts'") or "5"
     lockout_mins_str = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'lockout_time_minutes'") or "15"
-    
     try: max_attempts = int(max_attempts_str)
     except ValueError: max_attempts = 5
-    
     try: lockout_mins = int(lockout_mins_str)
     except ValueError: lockout_mins = 15
+    return max_attempts, lockout_mins
 
-    if attempts >= max_attempts:
-        await conn.execute("UPDATE auth_rate_limits SET blocked_until = $1 WHERE ip_address = $2", now + timedelta(minutes=lockout_mins), ip)
+async def reserve_login_attempt(key: str, conn: asyncpg.Connection) -> None:
+    """Cuenta el intento ANTES de verificar la clave, en una sola sentencia: intentos simultaneos no
+    pueden pasar todos el control. 429 si la clave esta bloqueada o se pasa del maximo."""
+    max_attempts, lockout_mins = await _login_limits(conn)
+    row = await conn.fetchrow("""
+        INSERT INTO auth_rate_limits (ip_address, attempts) VALUES ($1, 1)
+        ON CONFLICT (ip_address) DO UPDATE SET
+            attempts = CASE WHEN auth_rate_limits.blocked_until <= now() THEN 1 ELSE auth_rate_limits.attempts + 1 END,
+            blocked_until = CASE WHEN auth_rate_limits.blocked_until <= now() THEN NULL ELSE auth_rate_limits.blocked_until END
+        RETURNING attempts, blocked_until
+    """, key)
+    now = datetime.now(timezone.utc)
+    blocked_until = row["blocked_until"]
+    if not blocked_until and row["attempts"] > max_attempts:
+        blocked_until = now + timedelta(minutes=lockout_mins)
+        await conn.execute("UPDATE auth_rate_limits SET blocked_until = $2 WHERE ip_address = $1 AND blocked_until IS NULL", key, blocked_until)
+    if blocked_until and now < blocked_until:
+        time_left = int((blocked_until - now).total_seconds() / 60) + 1
+        raise HTTPException(status_code=429, detail=f"Demasiados intentos fallidos. Bloqueado por {time_left} min.")
 
-async def reset_failed_login(ip: str, conn: asyncpg.Connection):
-    await conn.execute("DELETE FROM auth_rate_limits WHERE ip_address = $1", ip)
+async def reset_failed_login(key: str, conn: asyncpg.Connection):
+    await conn.execute("DELETE FROM auth_rate_limits WHERE ip_address = $1", key)
 
 # === AUXILIARES DE IDEMPOTENCIA Y SERIALES (WMS ENTERPRISE) ===
 async def check_idempotency(conn: asyncpg.Connection, idempotency_key: Optional[str], endpoint: str):
@@ -583,6 +588,7 @@ async def init_db_schema():
                     "CREATE TABLE IF NOT EXISTS inventory_counts (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), session_id UUID REFERENCES inventory_sessions(id) ON DELETE CASCADE, sku VARCHAR(100) NOT NULL, location_id UUID REFERENCES locations(id), lot_number VARCHAR(100) DEFAULT '', counted_quantity NUMERIC NOT NULL, scanned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, scanned_by VARCHAR(50));",
 
                     "CREATE TABLE IF NOT EXISTS auth_rate_limits (ip_address VARCHAR(50) PRIMARY KEY, attempts INT DEFAULT 0, blocked_until TIMESTAMP WITH TIME ZONE);",
+                    "ALTER TABLE auth_rate_limits ALTER COLUMN ip_address TYPE VARCHAR(255);",
                     "CREATE TABLE IF NOT EXISTS inbound_api_keys (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name VARCHAR(100) NOT NULL, api_key TEXT UNIQUE NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
 
                     # LOGIN DEL AGENTE DE IMPRESION POR NAVEGADOR (codigo de un solo uso + PKCE, tokens guardados como hash)
