@@ -63,11 +63,18 @@ async def setup_admin(data: SetupAdminRequest, request: Request, response: Respo
         raise HTTPException(status_code=400, detail="La contraseña debe tener al menos 8 caracteres.")
 
     hashed_pass = get_password_hash(password)
-    user = await conn.fetchrow(
-        "INSERT INTO users (username, full_name, password_hash, role, is_active) VALUES ($1, $2, $3, 'ADMIN', TRUE) RETURNING id, username, role, token_version",
-        username, full_name, hashed_pass
-    )
-    await log_action(conn, username, "SETUP_ADMIN_CREATED", "Usuario administrador inicial creado desde la pantalla de configuración", client_ip)
+    # Dos altas simultaneas podian pasar el chequeo de arriba con la tabla vacia y crear dos
+    # administradores. Con el lock, la segunda espera a que la primera termine y ve su usuario.
+    async with conn.transaction():
+        await conn.execute("SELECT pg_advisory_xact_lock(hashtext('tracker360_setup_admin'))")
+        count = await conn.fetchval("SELECT COUNT(*) FROM users")
+        if (count or 0) > 0:
+            raise HTTPException(status_code=403, detail="La configuración inicial ya fue completada.")
+        user = await conn.fetchrow(
+            "INSERT INTO users (username, full_name, password_hash, role, is_active) VALUES ($1, $2, $3, 'ADMIN', TRUE) RETURNING id, username, role, token_version",
+            username, full_name, hashed_pass
+        )
+        await log_action(conn, username, "SETUP_ADMIN_CREATED", "Usuario administrador inicial creado desde la pantalla de configuración", client_ip)
 
     token = create_access_token({"sub": user["username"], "role": user["role"], "id": str(user["id"]), "tv": user["token_version"]})
     response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="strict", max_age=14400)
