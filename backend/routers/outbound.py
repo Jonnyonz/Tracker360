@@ -130,11 +130,11 @@ class CancelOrderInput(BaseModel):
 def _tipo_retroceso(num: str) -> str:
     return f"Retroceso de PDV ID:{num}"
 
-@router.post("/api/admin/sales-orders/{document_number}/cancel")
-async def cancel_sales_order(document_number: str, data: CancelOrderInput, request: Request, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    """Cancelacion total o parcial (solo ADMIN). Lo ya pickeado de la parte cancelada vuelve al
+async def cancelar_pedido(conn: asyncpg.Connection, document_number: str, lineas_cancelar: Optional[List[CancelLine]], usuario: str, ip: str) -> dict:
+    """Cancelacion total (sin lineas) o parcial. Lo ya pickeado de la parte cancelada vuelve al
     stock tal como estaba antes de prepararlo: misma sucursal, sector, ubicacion, lote, condicion
-    y numeros de serie, con el movimiento "Retroceso de PDV ID:<pedido>" en la traza."""
+    y numeros de serie, con el movimiento "Retroceso de PDV ID:<pedido>" en la traza. La usan el
+    panel (solo ADMIN) y los canales de venta."""
     num = document_number.strip().upper()
     tipo = _tipo_retroceso(num)
     async with conn.transaction():
@@ -145,11 +145,11 @@ async def cancel_sales_order(document_number: str, data: CancelOrderInput, reque
 
         lineas = await conn.fetch("SELECT id, UPPER(sku) AS sku, quantity_requested::float AS pedido, quantity_picked::float AS pickeado FROM document_lines WHERE document_id = $1 FOR UPDATE", doc["id"])
         por_sku = {l["sku"]: l for l in lineas}
-        if not data.lines:
+        if not lineas_cancelar:
             objetivo = {l["sku"]: l["pedido"] for l in lineas if l["pedido"] > 0}
         else:
             objetivo = {}
-            for cl in data.lines:
+            for cl in lineas_cancelar:
                 sku = cl.sku.strip().upper()
                 if sku not in por_sku: raise HTTPException(400, f"El SKU '{sku}' no pertenece a este pedido.")
                 if cl.quantity <= 0: raise HTTPException(400, "La cantidad a cancelar debe ser mayor a cero.")
@@ -192,7 +192,7 @@ async def cancel_sales_order(document_number: str, data: CancelOrderInput, reque
                     cant = min(o["neto"], restante)
                     if cant <= 1e-9: continue
                     seriales = o["seriales"][-int(cant):] if o["seriales"] and cant >= 1 else []
-                    await record_stock_movement(conn, sku, clave[0], clave[1], clave[2], cant, tipo, num, admin.get("username"), lot_number=clave[3], expiration_date=o["vence"], condition=clave[4], serial_numbers=seriales)
+                    await record_stock_movement(conn, sku, clave[0], clave[1], clave[2], cant, tipo, num, usuario, lot_number=clave[3], expiration_date=o["vence"], condition=clave[4], serial_numbers=seriales)
                     devuelto.append({"sku": sku, "cantidad": cant, "location_id": str(clave[2]) if clave[2] else None})
                     restante -= cant
             await conn.execute("UPDATE document_lines SET quantity_requested = $1, quantity_picked = $2 WHERE id = $3", nuevo_pedido, linea["pickeado"] - a_devolver, linea["id"])
@@ -204,9 +204,13 @@ async def cancel_sales_order(document_number: str, data: CancelOrderInput, reque
         else: estado = "PENDING"
         await conn.execute("UPDATE documents SET status = $1 WHERE id = $2", estado, doc["id"])
         detalle = ", ".join(f"{sku} x{cant:g}" for sku, cant in objetivo.items())
-        await log_action(conn, admin.get("username"), "ORDER_CANCELLED" if estado == "CANCELLED" else "ORDER_PARTIAL_CANCEL",
-                         f"Pedido {num}: cancelado {detalle}. Stock devuelto: {sum(d['cantidad'] for d in devuelto):g} un.", get_client_ip(request))
+        await log_action(conn, usuario, "ORDER_CANCELLED" if estado == "CANCELLED" else "ORDER_PARTIAL_CANCEL",
+                         f"Pedido {num}: cancelado {detalle}. Stock devuelto: {sum(d['cantidad'] for d in devuelto):g} un.", ip)
     return {"status": estado, "devuelto": devuelto}
+
+@router.post("/api/admin/sales-orders/{document_number}/cancel")
+async def cancel_sales_order(document_number: str, data: CancelOrderInput, request: Request, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    return await cancelar_pedido(conn, document_number, data.lines, admin.get("username"), get_client_ip(request))
 
 # Etiqueta de pedido: la plantilla por defecto (y la del editor) usa {{ORDER_NUM}} y {{DESTINATION}};
 # el codigo solo reemplazaba {order_number}/{client_name}/{delivery_address} y la etiqueta salia con el
