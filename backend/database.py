@@ -351,6 +351,30 @@ async def dispatch_event_to_channels(conn: asyncpg.Connection, event_type: str, 
         WHERE channel_type = $1::varchar AND is_active = TRUE AND target_url LIKE 'http%'
     """, event_type, json.dumps(payload))
 
+# === EVENTOS PARA CANALES DE VENTA ===
+# Se guardan en channel_events en la MISMA transaccion que el cambio; cada canal los lee con un cursor
+# (GET /api/v1/channel/events). stock.changed solo dice que SKU cambio: el canal consulta el disponible
+# (que depende de su modo) con GET /api/v1/channel/stock.
+async def emitir_stock_a_canales(conn: asyncpg.Connection, skus) -> None:
+    lista = sorted({str(x).strip().upper() for x in skus if x and str(x).strip()})
+    if lista:
+        await conn.execute("""
+            INSERT INTO channel_events (sales_channel_id, event_type, payload)
+            SELECT c.id, 'stock.changed', jsonb_build_object('sku', s)
+            FROM sales_channels c CROSS JOIN unnest($1::text[]) AS s WHERE c.is_active
+        """, lista)
+
+async def emitir_estado_a_canal(conn: asyncpg.Connection, doc_id) -> None:
+    """order.status para el canal del pedido (si vino de un canal activo)."""
+    await conn.execute("""
+        INSERT INTO channel_events (sales_channel_id, event_type, payload)
+        SELECT d.sales_channel_id, 'order.status',
+               jsonb_build_object('external_ref', d.external_ref, 'document_number', d.document_number,
+                                  'status', d.status, 'account', d.external_account, 'shipment_ref', d.shipment_ref)
+        FROM documents d JOIN sales_channels c ON c.id = d.sales_channel_id AND c.is_active
+        WHERE d.id = $1
+    """, doc_id)
+
 async def procesar_outbox(limite: int = 20) -> int:
     """Envia los eventos pendientes. Devuelve cuantos intento. Los toma con SKIP LOCKED y los reserva
     corriendo next_attempt_at, asi dos procesos no envian el mismo evento a la vez."""
@@ -385,7 +409,7 @@ async def procesar_outbox(limite: int = 20) -> int:
 
 async def outbox_en_segundo_plano():
     """Bucle del proceso de envio: cada 2 s (enseguida si habia trabajo). Una vez por hora borra los
-    eventos entregados o abandonados de mas de 30 dias."""
+    webhooks entregados o abandonados de mas de 30 dias y los eventos de canales de mas de 14."""
     ultima_limpieza = 0.0
     while True:
         try:
@@ -393,6 +417,7 @@ async def outbox_en_segundo_plano():
             if DB.pool is not None and asyncio.get_running_loop().time() - ultima_limpieza > 3600:
                 async with DB.pool.acquire() as conn:
                     await conn.execute("DELETE FROM webhook_outbox WHERE COALESCE(delivered_at, failed_at) < now() - interval '30 days'")
+                    await conn.execute("DELETE FROM channel_events WHERE created_at < now() - interval '14 days'")
                 ultima_limpieza = asyncio.get_running_loop().time()
         except asyncio.CancelledError:
             raise
@@ -509,6 +534,7 @@ async def record_stock_movement(conn: asyncpg.Connection, sku: str, branch_id: u
     total_qty = await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE UPPER(sku) = $1 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO'", sku.upper())
     stock_payload = { "event": "stock.updated", "sku": sku.upper(), "available_quantity": float(total_qty), "timestamp": datetime.now(timezone.utc).isoformat() }
     await dispatch_event_to_channels(conn, "OUTBOUND_STOCK", stock_payload)
+    await emitir_stock_a_canales(conn, [sku])
 
 async def queue_zpl_print_job(conn: asyncpg.Connection, queue_code: str, zpl_content: str):
     await conn.execute("INSERT INTO print_jobs (queue_code, zpl_content, status) VALUES ($1, $2, 'PENDING')", queue_code.strip().upper(), zpl_content)

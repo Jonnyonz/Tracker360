@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel
 from typing import List, Optional
-import asyncpg, re, secrets
+import asyncpg, json, re, secrets
 import logging
 
 from backend.database import (get_db_connection, require_admin, log_action, get_client_ip, hash_system_api_key, parse_uuid,
-                              numero_correlativo, require_valid_quantity)
+                              numero_correlativo, require_valid_quantity, emitir_stock_a_canales)
 from backend.routers.outbound import cancelar_pedido
 
 logger = logging.getLogger(__name__)
@@ -246,6 +246,7 @@ async def crear_pedido_del_canal(data: PedidoCanal, request: Request, canal: dic
         for sku, cant in cantidades.items():
             await conn.execute("INSERT INTO document_lines (document_id, sku, quantity_requested, quantity_picked, serial_numbers) VALUES ($1, $2, $3, 0, '[]'::jsonb)",
                                doc_id, sku, cant)
+        await emitir_stock_a_canales(conn, cantidades.keys())
         await log_action(conn, f"canal:{canal['code']}", "ORDER_CREATED", f"Pedido {numero} creado desde el canal {canal['code']} (ref {ref}).", get_client_ip(request))
         doc = await conn.fetchrow("SELECT id, document_number, status, external_ref, external_account, shipping_type, shipment_ref, created_at FROM documents WHERE id = $1", doc_id)
         return {**await _pedido_dict(conn, doc), "created": True}
@@ -313,3 +314,19 @@ async def stock_del_canal(skus: Optional[str] = Query(None, description="SKU sep
     filas = await stock_para_canal(conn, canal, lista, after, limite)
     return {"stock_mode": canal["stock_mode"], "items": filas,
             "next_after": filas[-1]["sku"] if lista is None and len(filas) == limite else None}
+
+
+@router.get("/api/v1/channel/events")
+async def eventos_del_canal(after: int = 0, limit: int = 200, canal: dict = Depends(require_sales_channel),
+                            conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Eventos del canal con id mayor a 'after', en orden. El canal guarda el ultimo id que proceso y
+    pide desde ahi (entrega al menos una vez: puede ver un evento repetido si no guardo el cursor).
+    stock.changed {sku}: consultar el disponible con /api/v1/channel/stock. order.status
+    {external_ref, document_number, status, account, shipment_ref}. Se guardan 14 dias."""
+    limite = max(1, min(int(limit), 500))
+    filas = await conn.fetch("""
+        SELECT id, event_type, payload::text AS payload, created_at FROM channel_events
+        WHERE sales_channel_id = $1 AND id > $2 ORDER BY id LIMIT $3
+    """, canal["id"], max(0, int(after)), limite)
+    eventos = [{"id": f["id"], "type": f["event_type"], "payload": json.loads(f["payload"]), "created_at": f["created_at"]} for f in filas]
+    return {"events": eventos, "next_after": eventos[-1]["id"] if eventos else max(0, int(after))}

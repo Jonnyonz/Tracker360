@@ -4,7 +4,7 @@ from typing import Optional, List
 from datetime import datetime, timezone
 import asyncpg, uuid, json, math
 
-from backend.database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, numero_correlativo, siguiente_numero, check_idempotency, save_idempotency, require_valid_quantity
+from backend.database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, numero_correlativo, siguiente_numero, check_idempotency, save_idempotency, require_valid_quantity, emitir_stock_a_canales, emitir_estado_a_canal
 
 router = APIRouter(tags=["Outbound & Dispatch"])
 
@@ -112,6 +112,7 @@ async def create_manual_sales_order(
                 doc_id, line.sku.strip().upper(), line.quantity, json.dumps(line.serial_numbers or [])
             )
         
+        await emitir_stock_a_canales(conn, [line.sku for line in data.lines])
         await log_action(conn, admin.get("username"), "ORDER_CREATED", f"Pedido manual {numero} creado.")
         res_data = {"status": "success", "message": f"Pedido {numero} creado correctamente." + (f" {aviso}" if aviso else ""),
                     "document_number": numero}
@@ -203,6 +204,8 @@ async def cancelar_pedido(conn: asyncpg.Connection, document_number: str, lineas
         elif tot["pickeado"] > 0: estado = "IN_PROGRESS"
         else: estado = "PENDING"
         await conn.execute("UPDATE documents SET status = $1 WHERE id = $2", estado, doc["id"])
+        await emitir_stock_a_canales(conn, objetivo.keys())
+        await emitir_estado_a_canal(conn, doc["id"])
         detalle = ", ".join(f"{sku} x{cant:g}" for sku, cant in objetivo.items())
         await log_action(conn, usuario, "ORDER_CANCELLED" if estado == "CANCELLED" else "ORDER_PARTIAL_CANCEL",
                          f"Pedido {num}: cancelado {detalle}. Stock devuelto: {sum(d['cantidad'] for d in devuelto):g} un.", ip)
@@ -370,7 +373,8 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
         
         await record_stock_movement(conn, sku_clean, branch_id, sector_id, loc_id, -data.quantity, 'OUT_PICKING', document_number.strip().upper(), user.get("username"), lot_number=lot, serial_numbers=data.serial_numbers)
         
-        await conn.execute("UPDATE documents SET status = 'IN_PROGRESS' WHERE id = $1 AND status = 'PENDING'", doc["id"])
+        if await conn.execute("UPDATE documents SET status = 'IN_PROGRESS' WHERE id = $1 AND status = 'PENDING'", doc["id"]) != "UPDATE 0":
+            await emitir_estado_a_canal(conn, doc["id"])
         
         pending = await conn.fetchval("SELECT COUNT(*) FROM document_lines WHERE document_id = $1 AND quantity_picked < quantity_requested", doc["id"])
         
@@ -378,6 +382,7 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
         order_completed = (pending == 0)
         if order_completed and auto_complete == "true": 
             await conn.execute("UPDATE documents SET status = 'COMPLETED' WHERE id = $1", doc["id"])
+            await emitir_estado_a_canal(conn, doc["id"])
         
         return {"status": "success", "message": f"Extraído {data.quantity} un de {sku_clean}", "order_completed": order_completed, "remaining_lines": pending}
 
@@ -466,7 +471,8 @@ async def scan_wave_picking_item(data: WavePickScanInput, user: dict = Depends(g
             
             qty_to_distribute -= apply_qty
             asignaciones.append((lu["doc_number"], apply_qty, apply_serials))
-            await conn.execute("UPDATE documents SET status = 'IN_PROGRESS' WHERE id = $1 AND status = 'PENDING'", lu["doc_id"])
+            if await conn.execute("UPDATE documents SET status = 'IN_PROGRESS' WHERE id = $1 AND status = 'PENDING'", lu["doc_id"]) != "UPDATE 0":
+                await emitir_estado_a_canal(conn, lu["doc_id"])
         
         branch_id, sector_id, loc_id, lot = await _origen_picking(conn, sku_clean, data.location_code, float(data.quantity))
 
@@ -480,6 +486,7 @@ async def scan_wave_picking_item(data: WavePickScanInput, user: dict = Depends(g
             pending = await conn.fetchval("SELECT COUNT(*) FROM document_lines WHERE document_id = $1 AND quantity_picked < quantity_requested", doc["id"])
             if pending == 0 and auto_complete == "true":
                 await conn.execute("UPDATE documents SET status = 'COMPLETED' WHERE id = $1", doc["id"])
+                await emitir_estado_a_canal(conn, doc["id"])
             if pending > 0: wave_completed = False
         
         return {"status": "success", "message": f"Consolidado {data.quantity} un de {sku_clean} en Ola.", "wave_completed": wave_completed}
@@ -546,6 +553,7 @@ async def pack_order_and_dispatch(document_number: str, data: PackOrderInput, us
         """, doc["id"])
 
         await conn.execute("UPDATE documents SET status = 'DISPATCHED' WHERE id = $1", doc["id"])
+        await emitir_estado_a_canal(conn, doc["id"])
         await log_action(conn, user.get("username"), "PACKING_DISPATCH", f"Empacó y despachó {document_number} ({data.boxes} bultos)")
 
         template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_order_template'")
