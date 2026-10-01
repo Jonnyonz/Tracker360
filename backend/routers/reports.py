@@ -263,6 +263,11 @@ async def report_reception_differences(
     kind = (kind or "").strip().upper()
     if kind and kind not in ("FALTANTE", "SOBRANTE", "NO_ESPERADO"): raise HTTPException(400, "Tipo inválido.")
     where = (" AND " + " AND ".join(filtros)) if filtros else ""
+    # El tipo va como parametro, no pegado en el SQL (aunque ya se valido contra la lista de arriba).
+    filtro_tipo = ""
+    if kind:
+        params.append(kind)
+        filtro_tipo = f"WHERE d.kind = ${len(params)}"
 
     rows = await conn.fetch(f"""
         WITH por_sku AS (
@@ -288,7 +293,7 @@ async def report_reception_differences(
         FROM dif d JOIN purchase_remitos pr ON pr.id = d.remito_id
         LEFT JOIN entities e ON pr.supplier_id = e.id LEFT JOIN branches b ON pr.branch_id = b.id
         LEFT JOIN items i ON UPPER(i.sku) = d.sku
-        {"WHERE d.kind = '" + kind + "'" if kind else ""}
+        {filtro_tipo}
         ORDER BY pr.created_at DESC, pr.remito_number, d.sku
     """, *params)
     return [dict(r) for r in rows]
