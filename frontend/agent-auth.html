@@ -131,6 +131,11 @@
             const challenge = params.get('challenge') || '';
             const agentName = (params.get('name') || 'Agente de impresion').slice(0, 100);
 
+            // Token CSRF de la sesion (cookie csrf_token), igual que fetchAPI en js/api.js.
+            const csrfCookie = () => {
+                const c = document.cookie.split('; ').find(row => row.startsWith('csrf_token='));
+                return c ? decodeURIComponent(c.slice('csrf_token='.length)) : '';
+            };
             const show = (id) => {
                 ['viewLoading', 'viewConsent', 'viewDone'].forEach(v => document.getElementById(v).classList.add('hidden'));
                 document.getElementById(id).classList.remove('hidden');
@@ -169,7 +174,7 @@
                     const resp = await fetch('/api/print-agent/authorize', {
                         method: 'POST',
                         credentials: 'include',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfCookie() },
                         body: JSON.stringify({ challenge: challenge, agent_name: agentName })
                     });
                     const data = await resp.json().catch(() => ({}));

@@ -1,8 +1,19 @@
 // === MOTOR CENTRAL DE PETICIONES Y NOTIFICACIONES ===
 
+// Token CSRF de la sesion: lo pone el servidor en la cookie csrf_token y hay que repetirlo en el
+// header X-CSRF-Token de cada escritura (POST/PUT/PATCH/DELETE).
+function csrfToken() {
+    const c = document.cookie.split('; ').find(row => row.startsWith('csrf_token='));
+    return c ? decodeURIComponent(c.slice('csrf_token='.length)) : '';
+}
+
 // Unico fetchAPI del panel y del celular. showToast lo define cada pagina (admin-core.js / mobile.js).
 async function fetchAPI(url, options = {}) {
     options.credentials = 'include';
+    const method = (options.method || 'GET').toUpperCase();
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+        options.headers = { ...options.headers, 'X-CSRF-Token': csrfToken() };
+    }
     
     if (options.body && typeof options.body === 'object' && !(options.body instanceof FormData)) {
         options.headers = {

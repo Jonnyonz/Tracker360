@@ -389,9 +389,7 @@ async function uploadCSV() {
     btn.textContent = 'Procesando...';
 
     try {
-        const token = document.cookie.split('; ').find(row => row.startsWith('access_token='));
-        const headers = {};
-        if (token) headers['Authorization'] = decodeURIComponent(token.split('=')[1]);
+        const headers = { 'X-CSRF-Token': csrfToken() };
 
         const response = await fetch(url, {
             method: 'POST',

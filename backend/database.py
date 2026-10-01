@@ -7,6 +7,7 @@ from fastapi import HTTPException, Header, Request, Depends
 from typing import Optional, Dict, List
 from jztech_core.passwords import hash_password, needs_rehash, verify_password as _verify_password
 from jztech_core import sessions as core_sessions
+from jztech_core.csrf import enforce_csrf, generate_csrf_token
 import logging
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,14 @@ def get_password_hash(p):
 # Token opaco al azar en la cookie; en la base solo queda su hash. Se revoca borrando la fila.
 SESSION_TTL = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
 LEGACY_COOKIE = "access_token"  # cookie del JWT anterior: se borra al iniciar o cerrar sesion
+# CSRF de doble envio: la cookie csrf_token (legible por el JS de la pagina) se repite en el header
+# X-CSRF-Token en cada POST/PUT/PATCH/DELETE. Es un HMAC con la propia sesion como clave: otro sitio
+# no puede leerlo ni calcularlo, y no depende de SECRET_KEY (sigue valiendo despues de un reinicio).
+CSRF_COOKIE = "csrf_token"
+_CSRF_SUJETO = "tracker360-csrf"
+
+def csrf_token_de(session_token: str) -> str:
+    return generate_csrf_token(session_token, _CSRF_SUJETO)
 
 class _ConexionComoPool:
     """jztech_core.sessions pide un pool; asi usa la conexion que ya tiene el request."""
@@ -46,6 +55,8 @@ async def start_session(conn: asyncpg.Connection, response, user_id) -> None:
     await conn.execute("DELETE FROM jztech_sessions WHERE expires_at <= now()")
     token = await core_sessions.create_session(_ConexionComoPool(conn), str(user_id), SESSION_TTL)
     core_sessions.set_session_cookie(response, token, SESSION_TTL)
+    response.set_cookie(key=CSRF_COOKIE, value=csrf_token_de(token), httponly=False, secure=True,
+                        samesite="strict", max_age=int(SESSION_TTL.total_seconds()))
     response.delete_cookie(LEGACY_COOKIE, secure=True, httponly=True, samesite="strict")
 
 async def end_session(conn: asyncpg.Connection, request: Request, response) -> None:
@@ -54,6 +65,7 @@ async def end_session(conn: asyncpg.Connection, request: Request, response) -> N
     if token:
         await core_sessions.revoke_session(_ConexionComoPool(conn), token)
     core_sessions.clear_session_cookie(response)
+    response.delete_cookie(CSRF_COOKIE, secure=True, samesite="strict")
     response.delete_cookie(LEGACY_COOKIE, secure=True, httponly=True, samesite="strict")
 
 async def session_user(conn: asyncpg.Connection, request: Request):
@@ -395,6 +407,7 @@ async def get_current_user(request: Request, conn: asyncpg.Connection = Depends(
         client_ip = get_client_ip(request)
         await log_action(conn, user["username"], "SECURITY_ALERT", f"Usuario desactivado intentó operar desde {client_ip}", client_ip)
         raise HTTPException(status_code=401, detail="Usuario desactivado.")
+    await enforce_csrf(request, request.cookies[core_sessions.SESSION_COOKIE_NAME], _CSRF_SUJETO)
     return dict(user)
 
 async def require_admin(request: Request, current_user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
