@@ -4,7 +4,9 @@ from typing import List, Optional
 import asyncpg, re, secrets
 import logging
 
-from backend.database import get_db_connection, require_admin, log_action, get_client_ip, hash_system_api_key, parse_uuid
+from backend.database import (get_db_connection, require_admin, log_action, get_client_ip, hash_system_api_key, parse_uuid,
+                              numero_correlativo, require_valid_quantity)
+from backend.routers.outbound import cancelar_pedido
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +24,35 @@ class CanalInput(BaseModel):
     name: str
     stock_mode: str = "DISPONIBLE"
     stock_branch_ids: Optional[List[str]] = None
+
+
+class PedidoLinea(BaseModel):
+    sku: str
+    quantity: float
+
+
+class PedidoComprador(BaseModel):
+    name: Optional[str] = None
+    tax_id: Optional[str] = None
+    address: Optional[str] = None
+
+
+class PedidoEnvio(BaseModel):
+    type: Optional[str] = None          # tipo de logistica del canal (en ML: cross_docking, self_service, drop_off, fulfillment...)
+    shipment_ref: Optional[str] = None  # id del envio en el canal
+
+
+class PedidoCanal(BaseModel):
+    external_ref: str                   # numero de la venta en el canal
+    account: Optional[str] = None       # cuenta del canal (un cliente puede tener varias)
+    buyer: Optional[PedidoComprador] = None
+    shipping: Optional[PedidoEnvio] = None
+    lines: List[PedidoLinea]
+
+
+# Envios que no pasan por el deposito de Tracker (el stock esta en el del marketplace): se resuelven
+# aparte (paso 5 de la integracion).
+ENVIOS_FUERA_DEL_DEPOSITO = {"FULFILLMENT"}
 
 
 class CanalUpdate(BaseModel):
@@ -142,3 +173,97 @@ async def rotar_clave(channel_id: str, request: Request, admin: dict = Depends(r
 @router.get("/api/v1/channel/me")
 async def canal_actual(canal: dict = Depends(require_sales_channel)):
     return _canal_dict(canal)
+
+
+def _ref(valor: str) -> str:
+    ref = (valor or "").strip()
+    if not ref or len(ref) > 100:
+        raise HTTPException(400, "Referencia externa inválida (obligatoria, hasta 100 caracteres).")
+    return ref
+
+
+async def _pedido_del_canal(conn: asyncpg.Connection, canal: dict, ref: str):
+    doc = await conn.fetchrow("""
+        SELECT id, document_number, status, external_ref, external_account, shipping_type, shipment_ref, created_at
+        FROM documents WHERE sales_channel_id = $1 AND external_ref = $2
+    """, canal["id"], ref)
+    if not doc:
+        raise HTTPException(404, "Pedido no encontrado en este canal.")
+    return doc
+
+
+async def _pedido_dict(conn: asyncpg.Connection, doc) -> dict:
+    lineas = await conn.fetch("""SELECT UPPER(sku) AS sku, quantity_requested::float AS pedido, quantity_picked::float AS pickeado
+                                 FROM document_lines WHERE document_id = $1 ORDER BY sku""", doc["id"])
+    return {"document_number": doc["document_number"], "external_ref": doc["external_ref"], "account": doc["external_account"],
+            "status": doc["status"], "shipping_type": doc["shipping_type"], "shipment_ref": doc["shipment_ref"],
+            "created_at": doc["created_at"],
+            "lines": [{"sku": l["sku"], "quantity": l["pedido"], "picked": l["pickeado"]} for l in lineas]}
+
+
+@router.post("/api/v1/channel/orders")
+async def crear_pedido_del_canal(data: PedidoCanal, request: Request, canal: dict = Depends(require_sales_channel),
+                                 conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Alta de un pedido desde el canal. Idempotente por (canal, external_ref): si ya existe, devuelve el
+    existente con created=false. Los SKU tienen que existir en Tracker tal cual (son los mismos que en el
+    canal). El numero de Tracker es el correlativo."""
+    ref = _ref(data.external_ref)
+    envio = data.shipping or PedidoEnvio()
+    tipo_envio = (envio.type or "").strip().upper() or None
+    if tipo_envio in ENVIOS_FUERA_DEL_DEPOSITO:
+        raise HTTPException(422, "Los envíos Full salen del depósito del marketplace: todavía no se cargan en Tracker.")
+    if not data.lines:
+        raise HTTPException(400, "El pedido no tiene artículos.")
+    cantidades = {}
+    for l in data.lines:
+        require_valid_quantity(l.quantity)
+        sku = l.sku.strip().upper()
+        if not sku:
+            raise HTTPException(400, "Hay un artículo sin SKU.")
+        cantidades[sku] = cantidades.get(sku, 0) + l.quantity
+
+    async with conn.transaction():
+        # Dos altas simultaneas del mismo pedido (reintento del canal) se ordenan por este lock.
+        await conn.execute("SELECT pg_advisory_xact_lock(hashtext($1))", f"tracker360_pedido_canal_{canal['id']}_{ref}")
+        existente = await conn.fetchrow("SELECT id, document_number, status, external_ref, external_account, shipping_type, shipment_ref, created_at FROM documents WHERE sales_channel_id = $1 AND external_ref = $2", canal["id"], ref)
+        if existente:
+            return {**await _pedido_dict(conn, existente), "created": False}
+        conocidos = {r["sku"] for r in await conn.fetch("SELECT UPPER(sku) AS sku FROM items WHERE UPPER(sku) = ANY($1::text[])", list(cantidades))}
+        faltan = sorted(set(cantidades) - conocidos)
+        if faltan:
+            raise HTTPException(422, "SKU inexistente en Tracker: " + ", ".join(faltan) + ". Tienen que ser los mismos que en el canal.")
+        comprador = data.buyer or PedidoComprador()
+        cliente = None
+        if comprador.tax_id and comprador.tax_id.strip():
+            cliente = await conn.fetchval("SELECT id FROM entities WHERE tax_id = $1", comprador.tax_id.strip())
+        numero, _ = await numero_correlativo(conn, "PEDIDO")
+        doc_id = await conn.fetchval("""
+            INSERT INTO documents (document_number, customer_id, status, channel_origin, sales_channel_id, external_ref, external_account,
+                                   shipping_type, shipment_ref, buyer_name, buyer_address)
+            VALUES ($1, $2, 'PENDING', $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id
+        """, numero, cliente, canal["code"], canal["id"], ref, (data.account or "").strip() or None, tipo_envio,
+             (envio.shipment_ref or "").strip() or None, (comprador.name or "").strip()[:200] or None, (comprador.address or "").strip() or None)
+        for sku, cant in cantidades.items():
+            await conn.execute("INSERT INTO document_lines (document_id, sku, quantity_requested, quantity_picked, serial_numbers) VALUES ($1, $2, $3, 0, '[]'::jsonb)",
+                               doc_id, sku, cant)
+        await log_action(conn, f"canal:{canal['code']}", "ORDER_CREATED", f"Pedido {numero} creado desde el canal {canal['code']} (ref {ref}).", get_client_ip(request))
+        doc = await conn.fetchrow("SELECT id, document_number, status, external_ref, external_account, shipping_type, shipment_ref, created_at FROM documents WHERE id = $1", doc_id)
+        return {**await _pedido_dict(conn, doc), "created": True}
+
+
+@router.get("/api/v1/channel/orders/{external_ref}")
+async def ver_pedido_del_canal(external_ref: str, canal: dict = Depends(require_sales_channel), conn: asyncpg.Connection = Depends(get_db_connection)):
+    return await _pedido_dict(conn, await _pedido_del_canal(conn, canal, _ref(external_ref)))
+
+
+@router.post("/api/v1/channel/orders/{external_ref}/cancel")
+async def cancelar_pedido_del_canal(external_ref: str, request: Request, canal: dict = Depends(require_sales_channel),
+                                    conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Cancelacion total desde el canal (la venta se cancelo en el marketplace). Lo pickeado vuelve al
+    stock. Un pedido ya despachado no se puede cancelar (400)."""
+    doc = await _pedido_del_canal(conn, canal, _ref(external_ref))
+    if doc["status"] == "CANCELLED":
+        return {**await _pedido_dict(conn, doc), "devuelto": []}
+    r = await cancelar_pedido(conn, doc["document_number"], None, f"canal:{canal['code']}", get_client_ip(request))
+    doc = await _pedido_del_canal(conn, canal, doc["external_ref"])
+    return {**await _pedido_dict(conn, doc), "devuelto": r["devuelto"]}

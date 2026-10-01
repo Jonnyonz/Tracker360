@@ -12,7 +12,7 @@ router = APIRouter(tags=["Dashboard & Logs"])
 async def get_admin_dashboard_op(admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     # 1. Bloque Core del Dashboard (A prueba de fallos)
     pending_orders = await conn.fetch("""
-        SELECT d.document_number, COALESCE(e.company_name, 'Consumidor Final') as company_name, d.status 
+        SELECT d.document_number, COALESCE(e.company_name, d.buyer_name, 'Consumidor Final') as company_name, d.status 
         FROM documents d 
         LEFT JOIN entities e ON d.customer_id = e.id 
         WHERE d.status IN ('PENDING', 'IN_PROGRESS') 

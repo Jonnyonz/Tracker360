@@ -93,7 +93,7 @@ async def report_orders(
 ):
     query = """
         SELECT d.document_number, d.created_at, d.status,
-               COALESCE(e.company_name, 'Consumidor Final') as customer_name,
+               COALESCE(e.company_name, d.buyer_name, 'Consumidor Final') as customer_name,
                COALESCE(e.tax_id, 'N/A') as customer_tax_id,
                COALESCE(d.channel_origin, 'NO VINCULADO') as related_document,
                COALESCE((SELECT SUM(quantity_picked) * 100.0 / NULLIF(SUM(quantity_requested), 0) 

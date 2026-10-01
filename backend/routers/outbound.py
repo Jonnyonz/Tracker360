@@ -45,7 +45,7 @@ class ManualOrderInput(BaseModel):
 @router.get("/api/admin/documents")
 async def list_admin_documents(admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
-        SELECT d.document_number, COALESCE(e.company_name, 'Consumidor Final') as company_name, 
+        SELECT d.document_number, COALESCE(e.company_name, d.buyer_name, 'Consumidor Final') as company_name, 
                d.status, 
                COALESCE((SELECT SUM(quantity_picked) * 100.0 / NULLIF(SUM(quantity_requested), 0) 
                          FROM document_lines WHERE document_id = d.id), 0)::int as progress_pct
@@ -227,7 +227,7 @@ def _zpl_pedido(template: str, doc) -> str:
 
 @router.post("/api/admin/sales-orders/{document_number}/print-label")
 async def reprint_order_label(document_number: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    doc = await conn.fetchrow("SELECT d.document_number, COALESCE(c.company_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, 'A coordinar') as delivery_address FROM documents d LEFT JOIN entities c ON d.customer_id = c.id LEFT JOIN entity_addresses a ON d.customer_address_id = a.id WHERE d.document_number = $1", document_number.strip().upper())
+    doc = await conn.fetchrow("SELECT d.document_number, COALESCE(c.company_name, d.buyer_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, d.buyer_address, 'A coordinar') as delivery_address FROM documents d LEFT JOIN entities c ON d.customer_id = c.id LEFT JOIN entity_addresses a ON d.customer_address_id = a.id WHERE d.document_number = $1", document_number.strip().upper())
     if not doc: raise HTTPException(404, "Pedido no encontrado.")
     template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_order_template'")
     if template:
@@ -253,7 +253,7 @@ async def _ubicaciones_sugeridas(conn: asyncpg.Connection, sku: str):
 @router.get("/api/picking/orders")
 async def get_picking_mailbox(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
-        SELECT d.id, d.document_number, d.status, COALESCE(c.company_name, 'Consumidor Final') as company_name
+        SELECT d.id, d.document_number, d.status, COALESCE(c.company_name, d.buyer_name, 'Consumidor Final') as company_name
         FROM documents d 
         LEFT JOIN entities c ON d.customer_id = c.id 
         WHERE d.status IN ('PENDING', 'IN_PROGRESS') 
@@ -512,7 +512,7 @@ async def get_packing_order_details(document_number: str, user: dict = Depends(g
 @router.post("/api/packing/orders/{document_number}/pack")
 async def pack_order_and_dispatch(document_number: str, data: PackOrderInput, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     async with conn.transaction():
-        doc = await conn.fetchrow("SELECT d.id, d.status, d.document_number, d.channel_origin, COALESCE(c.company_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, 'A coordinar') as delivery_address FROM documents d LEFT JOIN entities c ON d.customer_id = c.id LEFT JOIN entity_addresses a ON d.customer_address_id = a.id WHERE UPPER(d.document_number) = $1 FOR UPDATE", document_number.strip().upper())
+        doc = await conn.fetchrow("SELECT d.id, d.status, d.document_number, d.channel_origin, COALESCE(c.company_name, d.buyer_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, d.buyer_address, 'A coordinar') as delivery_address FROM documents d LEFT JOIN entities c ON d.customer_id = c.id LEFT JOIN entity_addresses a ON d.customer_address_id = a.id WHERE UPPER(d.document_number) = $1 FOR UPDATE", document_number.strip().upper())
         if not doc: raise HTTPException(404, "Pedido no encontrado.")
         if doc["status"] == "DISPATCHED": raise HTTPException(400, "El pedido ya fue despachado.")
         if doc["status"] != "COMPLETED": raise HTTPException(400, "El pedido aún no está pickeado completamente.")
