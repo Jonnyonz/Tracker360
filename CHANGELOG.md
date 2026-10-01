@@ -4,6 +4,12 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 
 ## 2026-10-01
 
+### Agregado
+- Canales de venta: Tracker puede conectarse con sistemas externos de venta (el primero va a ser
+  Mercado Libre). El administrador da de alta el canal, que recibe su propia clave de acceso, y elige
+  cómo se informa el stock: el disponible, o el disponible menos lo ya comprometido en pedidos, y de
+  qué sucursales. (`f846161`)
+
 ### Seguridad
 - El navegador ya no ejecuta código JavaScript escrito dentro de las páginas, solo el de los archivos
   del sistema: si alguien lograra meter código en un dato (un nombre, una descripción), no se ejecuta.
