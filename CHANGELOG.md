@@ -7,7 +7,7 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 ### Seguridad
 - El navegador ya no ejecuta código JavaScript escrito dentro de las páginas, solo el de los archivos
   del sistema: si alguien lograra meter código en un dato (un nombre, una descripción), no se ejecuta.
-  Para el usuario no cambia nada. (`a219a83`)
+  Para el usuario no cambia nada. (`a219a83`, `2b37925`)
 - Las etiquetas de artículo ya no se pueden romper con caracteres especiales en el código o la
   descripción del artículo (pasaba lo mismo que se había corregido en las etiquetas de pedido). (`eea5cf4`)
 - El bloqueo por claves mal ingresadas ahora es por usuario: si alguien se equivoca varias veces,
