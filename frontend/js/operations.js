@@ -141,7 +141,7 @@ async function savePO(event) {
     btn.disabled = true;
     try {
         const r = await fetchAPI('/api/admin/purchase-orders', { method: 'POST', body: payload });
-        showToast(`Orden de compra ${r.order_number} registrada.`, 'success');
+        showToast(r.message, 'success');
         document.getElementById('po-lines').innerHTML = '';
         addDynamicLinePO();
         await loadNextPONumber();
@@ -1276,8 +1276,8 @@ async function saveTransfer(event) {
             headers['X-Idempotency-Key'] = `TR-${num}-${Date.now()}`;
         }
         
-        await fetchAPI('/api/admin/transfer-orders', { method: 'POST', headers: headers, body: JSON.stringify(payload) });
-        showToast("Orden de Traspaso (ODT) generada correctamente.", "success");
+        const r = await fetchAPI('/api/admin/transfer-orders', { method: 'POST', headers: headers, body: JSON.stringify(payload) });
+        showToast(r.message, "success");
         
         document.getElementById('form-transfer').reset();
         await loadNextTransferNumber();

@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import asyncpg, uuid, json
 
-from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, parse_uuid
+from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, parse_uuid, asignar_numero, siguiente_numero
 
 router = APIRouter(tags=["Internal Movements"])
 
@@ -52,18 +52,7 @@ async def get_replenishment_suggestions(admin: dict = Depends(require_supervisor
 
 @router.get("/api/admin/transfer-orders/next-number")
 async def get_next_transfer_number(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    import re
-    val = await conn.fetchval("SELECT transfer_number FROM transfer_orders ORDER BY created_at DESC LIMIT 1")
-    if val:
-        digits = re.findall(r'\d+', val)
-        if digits:
-            last_num = int(digits[-1]) + 1
-            next_num = f"TR-{last_num:06d}"
-        else:
-            next_num = "TR-000001"
-    else:
-        next_num = "TR-000001"
-    return {"next_number": next_num}
+    return {"next_number": await siguiente_numero(conn, "TRASPASO")}
 
 @router.get("/api/admin/transfer-orders")
 async def list_admin_transfer_orders(search: str = "", limit: int = 50, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
@@ -82,15 +71,15 @@ async def create_transfer_order(
         return cached_resp[0]
 
     async with conn.transaction():
-        existing = await conn.fetchval("SELECT id FROM transfer_orders WHERE UPPER(transfer_number) = $1", data.transfer_number.strip().upper())
-        if existing:
+        numero, aviso = await asignar_numero(conn, "TRASPASO", data.transfer_number.strip().upper())
+        if not numero:
             raise HTTPException(400, "El número de traspaso ya existe.")
 
         tr_id = await conn.fetchval("""
             INSERT INTO transfer_orders (transfer_number, origin_branch_id, origin_sector_id, destination_branch_id, destination_sector_id, status, created_by)
             VALUES ($1, $2, $3, $4, $5, 'PENDING', $6)
             RETURNING id
-        """, data.transfer_number.strip().upper(), parse_uuid(data.origin_branch_id), parse_uuid(data.origin_sector_id), parse_uuid(data.destination_branch_id), parse_uuid(data.destination_sector_id), admin["username"])
+        """, numero, parse_uuid(data.origin_branch_id), parse_uuid(data.origin_sector_id), parse_uuid(data.destination_branch_id), parse_uuid(data.destination_sector_id), admin["username"])
 
         for line in data.lines:
             require_valid_quantity(line.quantity)
@@ -111,8 +100,9 @@ async def create_transfer_order(
                 VALUES ($1, $2, $3, 0, $4, $5, $6, $7::jsonb)
             """, tr_id, line.sku.strip().upper(), line.quantity, orig_loc_id, dest_loc_id, line.lot_number or "", json.dumps(line.serial_numbers or []))
 
-        await log_action(conn, admin["username"], "TRANSFER_CREATED", f"Orden de traspaso {data.transfer_number} creada.")
-        res_data = {"status": "success", "message": "Orden de Traspaso (ODT) generada correctamente."}
+        await log_action(conn, admin["username"], "TRANSFER_CREATED", f"Orden de traspaso {numero} creada.")
+        res_data = {"status": "success", "message": f"Orden de Traspaso {numero} generada correctamente." + (f" {aviso}" if aviso else ""),
+                    "transfer_number": numero}
         
         await save_idempotency(conn, x_idempotency_key, "/api/admin/transfer-orders", res_data)
         return res_data

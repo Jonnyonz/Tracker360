@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import asyncpg, uuid, re, json
 
-from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, build_full_address, add_system_note, parse_uuid
+from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, build_full_address, add_system_note, parse_uuid, asignar_numero, siguiente_numero
 
 router = APIRouter(tags=["Inbound & Receptions"])
 
@@ -78,9 +78,7 @@ def _parse_uuid(value: str, message: str) -> uuid.UUID:
 
 @router.get("/api/admin/purchase-orders/next-number")
 async def get_next_purchase_order_number(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    val = await conn.fetchval("SELECT order_number FROM purchase_orders ORDER BY created_at DESC LIMIT 1")
-    digits = re.findall(r'\d+', val or "")
-    return {"next_number": f"OC-{(int(digits[-1]) + 1) if digits else 1:06d}"}
+    return {"next_number": await siguiente_numero(conn, "OC")}
 
 @router.post("/api/admin/purchase-orders")
 async def create_purchase_order(data: PurchaseOrderCreateInput, x_idempotency_key: Optional[str] = Header(None), admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
@@ -95,7 +93,8 @@ async def create_purchase_order(data: PurchaseOrderCreateInput, x_idempotency_ke
     if not data.lines: raise HTTPException(400, "La orden debe tener al menos un artículo.")
 
     async with conn.transaction():
-        if await conn.fetchval("SELECT 1 FROM purchase_orders WHERE UPPER(order_number) = $1", number):
+        number, aviso = await asignar_numero(conn, "OC", number)
+        if not number:
             raise HTTPException(400, "El número de orden ya existe.")
         if not await conn.fetchval("SELECT 1 FROM entities WHERE id = $1 AND is_supplier = TRUE", supplier_id):
             raise HTTPException(400, "El proveedor no existe o no está marcado como proveedor.")
@@ -119,7 +118,8 @@ async def create_purchase_order(data: PurchaseOrderCreateInput, x_idempotency_ke
                                po_id, line.sku.strip().upper(), line.quantity)
 
         await log_action(conn, admin["username"], "PURCHASE_ORDER_CREATED", f"Orden de compra {number} creada.")
-        res_data = {"status": "success", "message": "Orden de compra registrada correctamente.", "order_number": number}
+        res_data = {"status": "success", "message": f"Orden de compra {number} registrada correctamente." + (f" {aviso}" if aviso else ""),
+                    "order_number": number}
         await save_idempotency(conn, x_idempotency_key, "/api/admin/purchase-orders", res_data)
         return res_data
 
@@ -484,17 +484,7 @@ async def reject_reception_exception(exception_id: str, admin: dict = Depends(re
 
 @router.get("/api/admin/returns/next-number")
 async def get_next_return_number(user: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    prefix = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'return_number_prefix'") or "DEV-"
-    val = await conn.fetchval("SELECT return_number FROM customer_returns ORDER BY created_at DESC LIMIT 1")
-    if val:
-        digits = re.findall(r'\d+', val)
-        if digits:
-            next_num = f"{prefix}{int(digits[-1]) + 1:06d}"
-        else:
-            next_num = f"{prefix}000001"
-    else:
-        next_num = f"{prefix}000001"
-    return {"next_number": next_num}
+    return {"next_number": await siguiente_numero(conn, "DEVOLUCION")}
 
 @router.get("/api/admin/returns/customers")
 async def get_return_customers(user: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
@@ -544,10 +534,10 @@ async def create_customer_return(
         return cached_resp[0]
 
     async with conn.transaction():
-        ret_num = data.return_number.strip().upper()
-        existing = await conn.fetchval("SELECT id FROM customer_returns WHERE UPPER(return_number) = $1", ret_num)
-        if existing:
+        ret_num, aviso = await asignar_numero(conn, "DEVOLUCION", data.return_number.strip().upper())
+        if not ret_num:
             raise HTTPException(400, "El número de devolución ya fue registrado.")
+        ret_num = ret_num.upper()
 
         target_branch_id = None
         target_sector_id = None
@@ -608,7 +598,8 @@ async def create_customer_return(
             raise HTTPException(400, "Debe ingresar una cantidad mayor a 0 para al menos un artículo devuelto.")
 
         await log_action(conn, user["username"], "RETURN_CREATED", f"Devolución {ret_num} procesada para el pedido {data.document_id}.")
-        res_data = {"status": "success", "message": f"Devolución {ret_num} registrada exitosamente."}
+        res_data = {"status": "success", "message": f"Devolución {ret_num} registrada exitosamente." + (f" {aviso}" if aviso else ""),
+                    "return_number": ret_num}
         
         await save_idempotency(conn, x_idempotency_key, "/api/admin/returns", res_data)
         return res_data

@@ -1,4 +1,4 @@
-import os, asyncio, uuid, secrets, json, urllib.request, urllib.error, urllib.parse, ipaddress, socket, hashlib, math
+import os, asyncio, uuid, secrets, json, urllib.request, urllib.error, urllib.parse, ipaddress, socket, hashlib, math, re
 from decimal import Decimal
 from datetime import datetime, timedelta, timezone
 import asyncpg
@@ -348,6 +348,46 @@ def parse_uuid(value, mensaje: str = "Identificador inválido.") -> uuid.UUID:
         return uuid.UUID(str(value)) if value is not None else uuid.UUID("")
     except ValueError:
         raise HTTPException(400, mensaje)
+
+# === NUMERACION DE DOCUMENTOS ===
+# El formulario muestra el proximo numero sugerido; el numero definitivo se asigna al guardar. Si dos
+# usuarios abrieron el formulario con el mismo numero, el que guarda primero se lo queda y el otro
+# recibe el siguiente libre (regla del usuario, 2026-10-01). Un numero cargado a mano que ya existe
+# sigue siendo un error.
+_NUMERACION = {
+    "PEDIDO": ("documents", "document_number"),
+    "TRASPASO": ("transfer_orders", "transfer_number"),
+    "OC": ("purchase_orders", "order_number"),
+    "DEVOLUCION": ("customer_returns", "return_number"),
+}
+
+async def _prefijo_numero(conn: asyncpg.Connection, tipo: str) -> str:
+    if tipo == "DEVOLUCION":
+        return await conn.fetchval("SELECT value FROM system_settings WHERE key = 'return_number_prefix'") or "DEV-"
+    return {"PEDIDO": "", "TRASPASO": "TR-", "OC": "OC-"}[tipo]
+
+async def siguiente_numero(conn: asyncpg.Connection, tipo: str) -> str:
+    """Proximo numero automatico: el mayor con el formato <prefijo><digitos> mas uno, con 6 digitos."""
+    tabla, col = _NUMERACION[tipo]
+    prefijo = await _prefijo_numero(conn, tipo)
+    ultimo = await conn.fetchval(
+        f"SELECT MAX(substring(UPPER({col}) FROM $2::int)::numeric) FROM {tabla} WHERE UPPER({col}) ~ $1",
+        "^" + re.escape(prefijo.upper()) + "[0-9]+$", len(prefijo) + 1)
+    return f"{prefijo}{int(ultimo or 0) + 1:06d}"
+
+async def asignar_numero(conn: asyncpg.Connection, tipo: str, pedido: str):
+    """Numero definitivo de un documento nuevo. Llamar DENTRO de la transaccion del alta: el lock por
+    tipo ordena las altas simultaneas hasta el commit. Devuelve (numero, aviso); (None, None) si es un
+    numero cargado a mano que ya existe."""
+    tabla, col = _NUMERACION[tipo]
+    await conn.execute("SELECT pg_advisory_xact_lock(hashtext($1))", f"tracker360_numero_{tipo}")
+    if not await conn.fetchval(f"SELECT 1 FROM {tabla} WHERE UPPER({col}) = UPPER($1)", pedido):
+        return pedido, None
+    prefijo = await _prefijo_numero(conn, tipo)
+    if not re.fullmatch(re.escape(prefijo) + r"[0-9]+", pedido, flags=re.IGNORECASE):
+        return None, None
+    nuevo = await siguiente_numero(conn, tipo)
+    return nuevo, f"El número {pedido} ya lo usó otro documento: se registró con el {nuevo}."
 
 def require_valid_quantity(quantity: float, allow_zero: bool = False) -> None:
     # Una cantidad negativa invierte el movimiento (una recepcion resta stock, un traspaso lo

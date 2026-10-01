@@ -4,7 +4,7 @@ from typing import Optional, List
 from datetime import datetime, timezone
 import asyncpg, uuid, json, math
 
-from backend.database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, check_idempotency, save_idempotency, require_valid_quantity
+from backend.database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, asignar_numero, siguiente_numero, check_idempotency, save_idempotency, require_valid_quantity
 
 router = APIRouter(tags=["Outbound & Dispatch"])
 
@@ -82,9 +82,7 @@ async def get_document_participants(document_number: str, user: dict = Depends(r
 
 @router.get("/api/admin/sales-orders/next-number")
 async def get_next_order_number(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    val = await conn.fetchval("SELECT document_number FROM documents WHERE document_number ~ '^[0-9]+$' ORDER BY document_number::bigint DESC LIMIT 1")
-    next_num = str(int(val) + 1).zfill(6) if val else "000001"
-    return {"next_number": next_num}
+    return {"next_number": await siguiente_numero(conn, "PEDIDO")}
 
 @router.post("/api/admin/sales-orders")
 async def create_manual_sales_order(
@@ -98,12 +96,15 @@ async def create_manual_sales_order(
         return cached_resp[0]
 
     async with conn.transaction():
+        numero, aviso = await asignar_numero(conn, "PEDIDO", data.document_number)
+        if not numero:
+            raise HTTPException(400, "El número de pedido ya existe.")
         ent = await conn.fetchrow("SELECT id FROM entities WHERE tax_id = $1", data.customer_tax_id)
         ent_id = ent["id"] if ent else None
         
         doc_id = await conn.fetchval(
             "INSERT INTO documents (document_number, customer_id, status, channel_origin) VALUES ($1, $2, 'PENDING', 'MANUAL') RETURNING id",
-            data.document_number, ent_id
+            numero, ent_id
         )
         
         for line in data.lines:
@@ -113,8 +114,9 @@ async def create_manual_sales_order(
                 doc_id, line.sku.strip().upper(), line.quantity, json.dumps(line.serial_numbers or [])
             )
         
-        await log_action(conn, admin.get("username"), "ORDER_CREATED", f"Pedido manual {data.document_number} creado.")
-        res_data = {"status": "success", "message": "Pedido creado correctamente."}
+        await log_action(conn, admin.get("username"), "ORDER_CREATED", f"Pedido manual {numero} creado.")
+        res_data = {"status": "success", "message": f"Pedido {numero} creado correctamente." + (f" {aviso}" if aviso else ""),
+                    "document_number": numero}
         
         await save_idempotency(conn, x_idempotency_key, "/api/admin/sales-orders", res_data)
         return res_data
