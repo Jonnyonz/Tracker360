@@ -157,7 +157,10 @@ async def ack_print_job(job_id: str, agent=Depends(verify_print_agent), conn: as
 
 # Etiqueta de articulo: la plantilla configurada (con {{SKU}}/{{DESC}} y sus variantes) o, si no hay,
 # una etiqueta fija de 38x20 mm con SKU, descripcion y QR. La usan esta ruta y la impresion masiva de items.py.
+# A los datos se les quitan ^ y ~ (comandos ZPL), como en la etiqueta de pedido: una descripcion con
+# "^XZ" cortaba la etiqueta o le agregaba campos.
 def zpl_etiqueta_articulo(plantilla: Optional[str], sku: str, desc: str) -> str:
+    sku, desc = (str(v or "").replace("^", "").replace("~", "") for v in (sku, desc))
     if not plantilla:
         return f"^XA\n^PW304\n^LL160\n^LS0\n^FO40,25^A0N,24,24^FD{sku}^FS\n^FO40,65^A0N,18,18^FD{desc}^FS\n^FO205,20^BQN,2,3^FDLA,{sku}^FS\n^XZ"
     zpl = plantilla
