@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import asyncpg, uuid, re, json
 
-from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, build_full_address, add_system_note, parse_uuid, asignar_numero, siguiente_numero
+from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, build_full_address, add_system_note, parse_uuid, numero_correlativo, siguiente_numero
 
 router = APIRouter(tags=["Inbound & Receptions"])
 
@@ -19,7 +19,7 @@ class PurchaseOrderLineInput(BaseModel):
     quantity: float
 
 class PurchaseOrderCreateInput(BaseModel):
-    order_number: str
+    order_number: Optional[str] = None  # se ignora: el numero lo asigna el sistema
     supplier_id: str
     branch_id: str
     lines: List[PurchaseOrderLineInput]
@@ -58,7 +58,7 @@ class CustomerReturnLineInput(BaseModel):
     serial_numbers: Optional[List[str]] = []
 
 class CustomerReturnCreateInput(BaseModel):
-    return_number: str
+    return_number: Optional[str] = None  # se ignora: el numero lo asigna el sistema
     customer_id: str
     document_id: str
     branch_id: Optional[str] = None
@@ -86,16 +86,12 @@ async def create_purchase_order(data: PurchaseOrderCreateInput, x_idempotency_ke
     if cached_resp:
         return cached_resp[0]
 
-    number = data.order_number.strip().upper()
-    if not number: raise HTTPException(400, "El número de orden es obligatorio.")
     supplier_id = _parse_uuid(data.supplier_id, "Proveedor inválido.")
     branch_id = _parse_uuid(data.branch_id, "Sucursal inválida.")
     if not data.lines: raise HTTPException(400, "La orden debe tener al menos un artículo.")
 
     async with conn.transaction():
-        number, aviso = await asignar_numero(conn, "OC", number)
-        if not number:
-            raise HTTPException(400, "El número de orden ya existe.")
+        number, aviso = await numero_correlativo(conn, "OC", data.order_number)
         if not await conn.fetchval("SELECT 1 FROM entities WHERE id = $1 AND is_supplier = TRUE", supplier_id):
             raise HTTPException(400, "El proveedor no existe o no está marcado como proveedor.")
         if not await conn.fetchval("SELECT 1 FROM branches WHERE id = $1", branch_id):
@@ -534,9 +530,7 @@ async def create_customer_return(
         return cached_resp[0]
 
     async with conn.transaction():
-        ret_num, aviso = await asignar_numero(conn, "DEVOLUCION", data.return_number.strip().upper())
-        if not ret_num:
-            raise HTTPException(400, "El número de devolución ya fue registrado.")
+        ret_num, aviso = await numero_correlativo(conn, "DEVOLUCION", data.return_number)
         ret_num = ret_num.upper()
 
         target_branch_id = None

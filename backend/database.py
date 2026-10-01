@@ -350,10 +350,10 @@ def parse_uuid(value, mensaje: str = "Identificador inválido.") -> uuid.UUID:
         raise HTTPException(400, mensaje)
 
 # === NUMERACION DE DOCUMENTOS ===
-# El formulario muestra el proximo numero sugerido; el numero definitivo se asigna al guardar. Si dos
-# usuarios abrieron el formulario con el mismo numero, el que guarda primero se lo queda y el otro
-# recibe el siguiente libre (regla del usuario, 2026-10-01). Un numero cargado a mano que ya existe
-# sigue siendo un error.
+# Pedidos, ordenes de compra, traspasos y devoluciones llevan un numero correlativo que asigna el
+# sistema al guardar: no se edita a mano (regla del usuario, 2026-10-01; facturas y remitos de compra
+# si, porque son los del proveedor). El formulario muestra el proximo numero; si otro documento lo
+# toma antes, el que guarda despues recibe el siguiente y la respuesta lo avisa.
 _NUMERACION = {
     "PEDIDO": ("documents", "document_number"),
     "TRASPASO": ("transfer_orders", "transfer_number"),
@@ -375,19 +375,16 @@ async def siguiente_numero(conn: asyncpg.Connection, tipo: str) -> str:
         "^" + re.escape(prefijo.upper()) + "[0-9]+$", len(prefijo) + 1)
     return f"{prefijo}{int(ultimo or 0) + 1:06d}"
 
-async def asignar_numero(conn: asyncpg.Connection, tipo: str, pedido: str):
-    """Numero definitivo de un documento nuevo. Llamar DENTRO de la transaccion del alta: el lock por
-    tipo ordena las altas simultaneas hasta el commit. Devuelve (numero, aviso); (None, None) si es un
-    numero cargado a mano que ya existe."""
-    tabla, col = _NUMERACION[tipo]
+async def numero_correlativo(conn: asyncpg.Connection, tipo: str, mostrado: Optional[str] = None):
+    """Numero de un documento nuevo. Llamar DENTRO de la transaccion del alta: el lock por tipo ordena
+    las altas simultaneas hasta el commit. Devuelve (numero, aviso); hay aviso si el numero no es el que
+    se le mostro al usuario (o el que mando otro sistema), que se ignora."""
     await conn.execute("SELECT pg_advisory_xact_lock(hashtext($1))", f"tracker360_numero_{tipo}")
-    if not await conn.fetchval(f"SELECT 1 FROM {tabla} WHERE UPPER({col}) = UPPER($1)", pedido):
-        return pedido, None
-    prefijo = await _prefijo_numero(conn, tipo)
-    if not re.fullmatch(re.escape(prefijo) + r"[0-9]+", pedido, flags=re.IGNORECASE):
-        return None, None
-    nuevo = await siguiente_numero(conn, tipo)
-    return nuevo, f"El número {pedido} ya lo usó otro documento: se registró con el {nuevo}."
+    numero = await siguiente_numero(conn, tipo)
+    aviso = None
+    if mostrado and mostrado.strip() and mostrado.strip().upper() != numero.upper():
+        aviso = f"El número {mostrado.strip()} ya no estaba disponible: se registró con el {numero}."
+    return numero, aviso
 
 def require_valid_quantity(quantity: float, allow_zero: bool = False) -> None:
     # Una cantidad negativa invierte el movimiento (una recepcion resta stock, un traspaso lo

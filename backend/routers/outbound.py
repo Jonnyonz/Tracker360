@@ -4,7 +4,7 @@ from typing import Optional, List
 from datetime import datetime, timezone
 import asyncpg, uuid, json, math
 
-from backend.database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, asignar_numero, siguiente_numero, check_idempotency, save_idempotency, require_valid_quantity
+from backend.database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, numero_correlativo, siguiente_numero, check_idempotency, save_idempotency, require_valid_quantity
 
 router = APIRouter(tags=["Outbound & Dispatch"])
 
@@ -36,7 +36,7 @@ class ManualOrderLine(BaseModel):
     serial_numbers: Optional[List[str]] = []
 
 class ManualOrderInput(BaseModel):
-    document_number: str
+    document_number: Optional[str] = None  # se ignora: el numero lo asigna el sistema
     customer_tax_id: str
     customer_name: Optional[str] = None
     address_label: str = "Principal"
@@ -96,9 +96,7 @@ async def create_manual_sales_order(
         return cached_resp[0]
 
     async with conn.transaction():
-        numero, aviso = await asignar_numero(conn, "PEDIDO", data.document_number)
-        if not numero:
-            raise HTTPException(400, "El número de pedido ya existe.")
+        numero, aviso = await numero_correlativo(conn, "PEDIDO", data.document_number)
         ent = await conn.fetchrow("SELECT id FROM entities WHERE tax_id = $1", data.customer_tax_id)
         ent_id = ent["id"] if ent else None
         

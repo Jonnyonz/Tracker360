@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import asyncpg, uuid, json
 
-from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, parse_uuid, asignar_numero, siguiente_numero
+from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, parse_uuid, numero_correlativo, siguiente_numero
 
 router = APIRouter(tags=["Internal Movements"])
 
@@ -23,7 +23,7 @@ class TransferLineInput(BaseModel):
     serial_numbers: Optional[List[str]] = []
 
 class TransferOrderCreateInput(BaseModel):
-    transfer_number: str
+    transfer_number: Optional[str] = None  # se ignora: el numero lo asigna el sistema
     origin_branch_id: str
     origin_sector_id: str
     destination_branch_id: str
@@ -71,9 +71,7 @@ async def create_transfer_order(
         return cached_resp[0]
 
     async with conn.transaction():
-        numero, aviso = await asignar_numero(conn, "TRASPASO", data.transfer_number.strip().upper())
-        if not numero:
-            raise HTTPException(400, "El número de traspaso ya existe.")
+        numero, aviso = await numero_correlativo(conn, "TRASPASO", data.transfer_number)
 
         tr_id = await conn.fetchval("""
             INSERT INTO transfer_orders (transfer_number, origin_branch_id, origin_sector_id, destination_branch_id, destination_sector_id, status, created_by)

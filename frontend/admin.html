@@ -442,7 +442,7 @@
                         <h3>Emitir Orden de Compra</h3>
                         <form id="form-po" onsubmit="savePO(event)">
                             <div class="grid-layout" style="margin-bottom:0;">
-                                <div class="form-group"><label>Nº de Orden</label><input type="text" id="po-num" placeholder="Ej: OC-2026-001" required></div>
+                                <div class="form-group"><label>Nº de Orden</label><input type="text" id="po-num" readonly placeholder="Se asigna al guardar" title="Lo asigna el sistema"></div>
                                 <div class="form-group"><label>Proveedor</label><select id="po-supplier" required></select></div>
                                 <div class="form-group"><label>Sucursal de Recepción</label><select id="po-branch" onchange="onPOBranchChange()" required></select></div>
                             </div>
@@ -577,7 +577,7 @@
                         <form id="form-transfer" onsubmit="saveTransfer(event)">
                             <div class="form-group">
                                 <label>Nº Documento Traspaso</label>
-                                <input type="text" id="tr-num" readonly placeholder="Cargando correlativo..." required>
+                                <input type="text" id="tr-num" readonly placeholder="Se asigna al guardar" title="Lo asigna el sistema">
                             </div>
                             <div class="grid-layout" style="margin-bottom:0;">
                                 <div class="form-group"><label>Sucursal Origen</label><select id="tr-orig-branch" onchange="onTrOrigBranchChange()" required></select></div>
@@ -2143,7 +2143,7 @@
             <h3 style="color:var(--text-primary); margin-bottom:1.5rem;">Crear Pedido de Venta Manual</h3>
             <form id="form-manual-order" onsubmit="saveManualOrder(event)">
                 <div class="grid-layout" style="margin-bottom:0;">
-                    <div class="form-group"><label>Nº Documento / Pedido *</label><input type="text" id="manual-doc-num" class="font-mono" required style="font-weight:bold; color:var(--accent);"></div>
+                    <div class="form-group"><label>Nº Documento / Pedido *</label><input type="text" id="manual-doc-num" class="font-mono" readonly placeholder="Se asigna al guardar" title="Lo asigna el sistema" style="font-weight:bold; color:var(--accent);"></div>
                     <div class="form-group">
                         <label>CUIT / DNI Cliente *</label>
                         <div style="display:flex; gap:6px;">
