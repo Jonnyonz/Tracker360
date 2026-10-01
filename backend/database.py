@@ -30,6 +30,17 @@ def get_password_hash(p):
 # === SESIONES (jztech_core.sessions) ===
 # Token opaco al azar en la cookie; en la base solo queda su hash. Se revoca borrando la fila.
 SESSION_TTL = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+SESSION_TTL_MIN, SESSION_TTL_MAX = timedelta(minutes=5), timedelta(days=7)
+
+async def session_ttl(conn: asyncpg.Connection) -> timedelta:
+    """Duracion de una sesion nueva: el ajuste session_timeout_minutes (Configuracion), entre 5
+    minutos y 7 dias. Si falta o no es un numero, 240 minutos."""
+    raw = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'session_timeout_minutes'")
+    try:
+        ttl = timedelta(minutes=int(str(raw).strip()))
+    except (TypeError, ValueError):
+        return SESSION_TTL
+    return min(max(ttl, SESSION_TTL_MIN), SESSION_TTL_MAX)
 LEGACY_COOKIE = "access_token"  # cookie del JWT anterior: se borra al iniciar o cerrar sesion
 # CSRF de doble envio: la cookie csrf_token (legible por el JS de la pagina) se repite en el header
 # X-CSRF-Token en cada POST/PUT/PATCH/DELETE. Es un HMAC con la propia sesion como clave: otro sitio
@@ -53,10 +64,11 @@ class _ConexionComoPool:
 
 async def start_session(conn: asyncpg.Connection, response, user_id) -> None:
     await conn.execute("DELETE FROM jztech_sessions WHERE expires_at <= now()")
-    token = await core_sessions.create_session(_ConexionComoPool(conn), str(user_id), SESSION_TTL)
-    core_sessions.set_session_cookie(response, token, SESSION_TTL)
+    ttl = await session_ttl(conn)
+    token = await core_sessions.create_session(_ConexionComoPool(conn), str(user_id), ttl)
+    core_sessions.set_session_cookie(response, token, ttl)
     response.set_cookie(key=CSRF_COOKIE, value=csrf_token_de(token), httponly=False, secure=True,
-                        samesite="strict", max_age=int(SESSION_TTL.total_seconds()))
+                        samesite="strict", max_age=int(ttl.total_seconds()))
     response.delete_cookie(LEGACY_COOKIE, secure=True, httponly=True, samesite="strict")
 
 async def end_session(conn: asyncpg.Connection, request: Request, response) -> None:
