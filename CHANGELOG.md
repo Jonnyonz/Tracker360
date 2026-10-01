@@ -9,6 +9,9 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   Mercado Libre). El administrador da de alta el canal, que recibe su propia clave de acceso, y elige
   cómo se informa el stock: el disponible, o el disponible menos lo ya comprometido en pedidos, y de
   qué sucursales. (`f846161`)
+- Los canales de venta pueden cargar pedidos en Tracker: llegan con el número de la venta del canal,
+  la cuenta y el envío, se preparan como cualquier pedido y el canal los puede cancelar. Si el mismo
+  pedido llega dos veces se registra una sola. En las listas se ve el nombre del comprador. (`3e57033`)
 
 ### Seguridad
 - El navegador ya no ejecuta código JavaScript escrito dentro de las páginas, solo el de los archivos
@@ -51,7 +54,7 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   detalle para poder revisarlo, y la pantalla muestra "Error interno del servidor". (`1f4f652`)
 - Limpieza interna del código (los módulos se importan de una sola forma y las consultas a la
   base reciben todos los valores como parámetros). No cambia nada del
-  funcionamiento. (`592d1a3`, `81eb8af`, `ceb40d9`, `250cf33`, `b12f5aa`)
+  funcionamiento. (`592d1a3`, `81eb8af`, `ceb40d9`, `250cf33`, `b12f5aa`, `7e0cfe9`)
 - La estructura de la base de datos ahora se actualiza con migraciones numeradas: cada cambio se
   aplica una sola vez y queda registrado. Si una actualización de la base falla, el sistema no
   arranca a medias y el error queda en el registro. Las instalaciones existentes se actualizan
