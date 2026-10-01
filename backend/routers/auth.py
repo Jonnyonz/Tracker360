@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, Request
 from pydantic import BaseModel
-import asyncpg, json, urllib.request, urllib.parse, asyncio, secrets, os, jwt, uuid
+import asyncpg, json, urllib.request, urllib.parse, asyncio, secrets, os
 from datetime import datetime, timezone
 from typing import Optional
 from jztech_core.setup_flow import verify_setup_token
@@ -11,14 +11,14 @@ logger = logging.getLogger(__name__)
 try:
     from backend.database import (
         get_db_connection, check_rate_limit, record_failed_login,
-        reset_failed_login, verify_password, get_password_hash, create_access_token, log_action, needs_rehash,
-        get_current_user, get_client_ip, invalidate_user_sessions, SECRET_KEY, ALGORITHM
+        reset_failed_login, verify_password, get_password_hash, log_action, needs_rehash,
+        get_current_user, get_client_ip, start_session, end_session
     )
 except ImportError:
     from database import (
         get_db_connection, check_rate_limit, record_failed_login,
-        reset_failed_login, verify_password, get_password_hash, create_access_token, log_action, needs_rehash,
-        get_current_user, get_client_ip, invalidate_user_sessions, SECRET_KEY, ALGORITHM
+        reset_failed_login, verify_password, get_password_hash, log_action, needs_rehash,
+        get_current_user, get_client_ip, start_session, end_session
     )
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
@@ -76,8 +76,7 @@ async def setup_admin(data: SetupAdminRequest, request: Request, response: Respo
         )
         await log_action(conn, username, "SETUP_ADMIN_CREATED", "Usuario administrador inicial creado desde la pantalla de configuración", client_ip)
 
-    token = create_access_token({"sub": user["username"], "role": user["role"], "id": str(user["id"]), "tv": user["token_version"]})
-    response.set_cookie(key="access_token", value=f"Bearer {token}", httponly=True, secure=True, samesite="strict", max_age=14400)
+    await start_session(conn, response, user["id"])
     return {"message": "Exito", "role": user["role"]}
 
 @router.get("/google/config")
@@ -133,16 +132,7 @@ async def login(request: Request, response: Response, credentials: LoginRequest,
     await reset_failed_login(client_ip, conn)
     if needs_rehash(user["password_hash"]):
         await conn.execute("UPDATE users SET password_hash = $1 WHERE id = $2", get_password_hash(credentials.password), user["id"])
-    token = create_access_token({"sub": user["username"], "role": user["role"], "id": str(user["id"]), "tv": user["token_version"]})
-    
-    response.set_cookie(
-        key="access_token", 
-        value=f"Bearer {token}", 
-        httponly=True, 
-        secure=True, 
-        samesite="strict", 
-        max_age=14400 
-    )
+    await start_session(conn, response, user["id"])
     
     await log_action(conn, user["username"], "LOGIN_SUCCESS", "Inicio de sesion", client_ip)
     return {"message": "Exito", "role": user["role"]}
@@ -196,16 +186,7 @@ async def verify_google_login(request: Request, response: Response, body: Google
         raise HTTPException(status_code=403, detail=PENDING_MSG)
 
     await reset_failed_login(client_ip, conn)
-    token = create_access_token({"sub": user["username"], "role": user["role"], "id": str(user["id"]), "tv": user["token_version"]})
-
-    response.set_cookie(
-        key="access_token", 
-        value=f"Bearer {token}", 
-        httponly=True, 
-        secure=True, 
-        samesite="strict", 
-        max_age=14400 
-    )
+    await start_session(conn, response, user["id"])
 
     await log_action(conn, user["username"], "GOOGLE_LOGIN_SUCCESS", "Inicio de sesion via Google SSO", client_ip)
     return {"message": "Exito", "role": user["role"]}
@@ -216,15 +197,6 @@ async def me(user: dict = Depends(get_current_user)):
 
 @router.post("/logout")
 async def logout(request: Request, response: Response, conn: asyncpg.Connection = Depends(get_db_connection)):
-    # Ademas de borrar la cookie, invalida el token del lado servidor (por si fue copiado).
-    token = request.cookies.get("access_token")
-    if token and token.startswith("Bearer "):
-        try:
-            payload = jwt.decode(token.split(" ")[1], SECRET_KEY, algorithms=[ALGORITHM])
-            user_id = payload.get("id")
-            if user_id:
-                await invalidate_user_sessions(conn, uuid.UUID(user_id))
-        except (jwt.PyJWTError, ValueError):
-            pass
-    response.delete_cookie("access_token", secure=True, httponly=True, samesite="strict")
+    # Cierra la sesion de este dispositivo; las de otros dispositivos siguen abiertas.
+    await end_session(conn, request, response)
     return {"message": "Exito"}

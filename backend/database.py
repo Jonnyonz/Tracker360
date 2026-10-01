@@ -1,11 +1,12 @@
 import os, asyncio, uuid, secrets, json, urllib.request, urllib.error, urllib.parse, ipaddress, socket, hashlib, math
 from decimal import Decimal
 from datetime import datetime, timedelta, timezone
-import jwt, asyncpg
+import asyncpg
 from jztech_core.net import real_ip
 from fastapi import HTTPException, Header, Request, Depends
 from typing import Optional, Dict, List
 from jztech_core.passwords import hash_password, needs_rehash, verify_password as _verify_password
+from jztech_core import sessions as core_sessions
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,6 @@ SECRET_KEY = os.getenv("SECRET_KEY", "")
 if not SECRET_KEY:
     logger.warning("[Tracker360] SECRET_KEY no esta configurada en el .env: se usa una clave temporal y las sesiones se cierran en cada reinicio.")
     SECRET_KEY = secrets.token_hex(32)
-ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 240  # Fallback en caso de no leer la DB
 
 # Hash de claves: jztech_core.passwords (Argon2id, parametros OWASP). Los hashes Argon2 que dejo
@@ -26,14 +26,49 @@ def verify_password(p, h):
 def get_password_hash(p):
     return hash_password(p)
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(timezone.utc) + expires_delta
-    else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+# === SESIONES (jztech_core.sessions) ===
+# Token opaco al azar en la cookie; en la base solo queda su hash. Se revoca borrando la fila.
+SESSION_TTL = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+LEGACY_COOKIE = "access_token"  # cookie del JWT anterior: se borra al iniciar o cerrar sesion
+
+class _ConexionComoPool:
+    """jztech_core.sessions pide un pool; asi usa la conexion que ya tiene el request."""
+    def __init__(self, conn):
+        self._conn = conn
+    def acquire(self):
+        return self
+    async def __aenter__(self):
+        return self._conn
+    async def __aexit__(self, *exc):
+        return False
+
+async def start_session(conn: asyncpg.Connection, response, user_id) -> None:
+    await conn.execute("DELETE FROM jztech_sessions WHERE expires_at <= now()")
+    token = await core_sessions.create_session(_ConexionComoPool(conn), str(user_id), SESSION_TTL)
+    core_sessions.set_session_cookie(response, token, SESSION_TTL)
+    response.delete_cookie(LEGACY_COOKIE, secure=True, httponly=True, samesite="strict")
+
+async def end_session(conn: asyncpg.Connection, request: Request, response) -> None:
+    """Cierra solo la sesion de este dispositivo."""
+    token = request.cookies.get(core_sessions.SESSION_COOKIE_NAME)
+    if token:
+        await core_sessions.revoke_session(_ConexionComoPool(conn), token)
+    core_sessions.clear_session_cookie(response)
+    response.delete_cookie(LEGACY_COOKIE, secure=True, httponly=True, samesite="strict")
+
+async def session_user(conn: asyncpg.Connection, request: Request):
+    """Usuario de la cookie de sesion (o None si no hay sesion valida). No valida is_active."""
+    token = request.cookies.get(core_sessions.SESSION_COOKIE_NAME)
+    if not token:
+        return None
+    user_id = await core_sessions.verify_session(_ConexionComoPool(conn), token)
+    if not user_id:
+        return None
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError:
+        return None
+    return await conn.fetchrow("SELECT id, username, role, branch_id, sector_id, is_active, token_version FROM users WHERE id = $1", uid)
 
 # === CLAVE API DEL SISTEMA: HASH EN REPOSO ===
 # La clave del sistema se guarda hasheada (nunca en claro): un backup o una lectura de la DB
@@ -52,7 +87,8 @@ def verify_system_key_value(raw: str, stored: str) -> bool:
     return secrets.compare_digest(raw.strip(), stored.strip())
 
 async def invalidate_user_sessions(conn: asyncpg.Connection, user_id) -> None:
-    """Incrementa token_version: invalida todas las sesiones activas del usuario."""
+    """Cierra todas las sesiones del usuario (cambio de clave, desactivacion o baja)."""
+    await core_sessions.revoke_all_sessions_for_user(_ConexionComoPool(conn), str(user_id))
     await conn.execute("UPDATE users SET token_version = token_version + 1 WHERE id = $1", user_id)
 
 # === IP REAL DEL CLIENTE (DETRAS DE PROXY INVERSO) ===
@@ -352,26 +388,14 @@ async def queue_zpl_print_job(conn: asyncpg.Connection, queue_code: str, zpl_con
 
 # === AUTENTICACIÓN BLINDADA ===
 async def get_current_user(request: Request, conn: asyncpg.Connection = Depends(get_db_connection)):
-    token = request.cookies.get("access_token")
-    client_ip = get_client_ip(request)
-    
-    if not token or not token.startswith("Bearer "): 
+    user = await session_user(conn, request)
+    if not user:
         raise HTTPException(status_code=401, detail="Sesión expirada.")
-    try:
-        payload = jwt.decode(token.split(" ")[1], SECRET_KEY, algorithms=[ALGORITHM])
-        user = await conn.fetchrow("SELECT id, username, role, branch_id, sector_id, is_active, token_version FROM users WHERE username = $1", payload.get("sub"))
-
-        if not user or not user["is_active"]:
-            await log_action(conn, payload.get("sub", "Unknown"), "SECURITY_ALERT", f"Usuario desactivado o eliminado intentó operar desde {client_ip}", client_ip)
-            raise HTTPException(status_code=401, detail="Usuario desactivado.")
-        # token_version (epoch de sesion): al cerrar sesion, cambiar la clave o desactivar
-        # al usuario se incrementa, invalidando todos los tokens emitidos antes.
-        if payload.get("tv", 0) != user["token_version"]:
-            raise HTTPException(status_code=401, detail="Sesión expirada.")
-        return dict(user)
-    except jwt.PyJWTError:
-        await log_action(conn, "SYSTEM", "SECURITY_ALERT", f"Firma JWT inválida o manipulada interceptada", client_ip)
-        raise HTTPException(status_code=401, detail="Sesión inválida.")
+    if not user["is_active"]:
+        client_ip = get_client_ip(request)
+        await log_action(conn, user["username"], "SECURITY_ALERT", f"Usuario desactivado intentó operar desde {client_ip}", client_ip)
+        raise HTTPException(status_code=401, detail="Usuario desactivado.")
+    return dict(user)
 
 async def require_admin(request: Request, current_user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     if current_user.get("role") != "ADMIN": 
@@ -438,6 +462,7 @@ async def init_db_schema():
                     "CREATE TABLE IF NOT EXISTS users (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), username VARCHAR(50) UNIQUE NOT NULL, full_name VARCHAR(100) NOT NULL, password_hash TEXT NOT NULL, role VARCHAR(20) NOT NULL DEFAULT 'PREPARADOR', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",
                     "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(150);",
                     "ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;",
+                    core_sessions.CREATE_TABLE_SQL,
                     "ALTER TABLE users ADD COLUMN IF NOT EXISTS branch_id VARCHAR(100);",
                     "ALTER TABLE users ADD COLUMN IF NOT EXISTS sector_id VARCHAR(100);",
                     "CREATE TABLE IF NOT EXISTS branches (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), code VARCHAR(50) UNIQUE NOT NULL, name VARCHAR(150) NOT NULL, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);",

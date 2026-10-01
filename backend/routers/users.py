@@ -4,9 +4,9 @@ from typing import Optional
 import asyncpg, uuid
 
 try:
-    from backend.database import get_db_connection, require_admin, get_password_hash, log_action
+    from backend.database import get_db_connection, require_admin, get_password_hash, log_action, invalidate_user_sessions
 except ImportError:
-    from database import get_db_connection, require_admin, get_password_hash, log_action
+    from database import get_db_connection, require_admin, get_password_hash, log_action, invalidate_user_sessions
 
 router = APIRouter(prefix="/api/admin/users", tags=["Users"])
 
@@ -108,14 +108,13 @@ async def update_user(identifier: str, data: UserUpdate, admin: dict = Depends(r
         params.append(get_password_hash(data.password.strip()))
         idx += 1
 
-    # Cambiar la clave o desactivar al usuario invalida todas sus sesiones activas.
-    if (data.password and data.password.strip()) or data.is_active is False:
-        updates.append("token_version = token_version + 1")
-
     if updates:
         query = f"UPDATE users SET {', '.join(updates)} WHERE id = ${idx}"
         params.append(user["id"])
         await conn.execute(query, *params)
+        # Cambiar la clave o desactivar al usuario cierra todas sus sesiones activas.
+        if (data.password and data.password.strip()) or data.is_active is False:
+            await invalidate_user_sessions(conn, user["id"])
         await log_action(conn, admin.get("username", "admin"), "USER_UPDATE", f"Actualizó usuario {user['username']}")
 
     return {"status": "success", "message": "Usuario actualizado correctamente."}
@@ -133,6 +132,7 @@ async def delete_user(identifier: str, admin: dict = Depends(require_admin), con
     if not user:
         raise HTTPException(status_code=404, detail="Usuario no encontrado.")
 
+    await invalidate_user_sessions(conn, user["id"])
     await conn.execute("DELETE FROM users WHERE id = $1", user["id"])
     await log_action(conn, admin.get("username", "admin"), "USER_DELETED", f"Eliminó/Rechazó usuario {user['username']}")
     return {"status": "success", "message": "Usuario/Solicitud eliminada correctamente."}

@@ -11,16 +11,15 @@ from fastapi import FastAPI, Request, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
-import jwt
 import logging
 
 logger = logging.getLogger(__name__)
 
 try:
-    from backend.database import init_db_schema, DB, SECRET_KEY, ALGORITHM, get_client_ip, get_request_scheme, is_private_ip, require_admin
+    from backend.database import init_db_schema, DB, session_user, get_client_ip, get_request_scheme, is_private_ip, require_admin
     from backend.routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater, notes
 except ImportError:
-    from database import init_db_schema, DB, SECRET_KEY, ALGORITHM, get_client_ip, get_request_scheme, is_private_ip, require_admin
+    from database import init_db_schema, DB, session_user, get_client_ip, get_request_scheme, is_private_ip, require_admin
     from routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater, notes
 
 @asynccontextmanager
@@ -149,20 +148,18 @@ async def download_agent_file():
     return RedirectResponse(url=AGENT_DOWNLOAD_URL, status_code=307)
 
 # === RUTAS INTELIGENTES DE ENRUTAMIENTO (SWITCH DE VISTAS) ===
-def get_user_role_from_cookie(request: Request) -> str:
-    token = request.cookies.get("access_token")
-    if not token or not token.startswith("Bearer "):
+async def get_user_role_from_cookie(request: Request):
+    """Rol del usuario de la sesion, para elegir la pantalla. None si no hay sesion valida."""
+    if DB.pool is None:
         return None
-    try:
-        payload = jwt.decode(token.split(" ")[1], SECRET_KEY, algorithms=[ALGORITHM])
-        return payload.get("role")
-    except jwt.PyJWTError:
-        return None
+    async with DB.pool.acquire() as conn:
+        user = await session_user(conn, request)
+    return user["role"] if user and user["is_active"] else None
 
 @app.get("/")
 @app.get("/index.html")
 async def serve_root(request: Request):
-    role = get_user_role_from_cookie(request)
+    role = await get_user_role_from_cookie(request)
     if not role:
         return FileResponse("frontend/index.html")
     
@@ -174,7 +171,7 @@ async def serve_root(request: Request):
 @app.get("/admin")
 @app.get("/admin.html")
 async def serve_admin(request: Request):
-    role = get_user_role_from_cookie(request)
+    role = await get_user_role_from_cookie(request)
     if not role:
         return RedirectResponse(url="/index.html", status_code=303)
     
@@ -186,7 +183,7 @@ async def serve_admin(request: Request):
 @app.get("/mobile")
 @app.get("/preparador.html")
 async def serve_mobile(request: Request):
-    role = get_user_role_from_cookie(request)
+    role = await get_user_role_from_cookie(request)
     if not role:
         return RedirectResponse(url="/index.html", status_code=303)
     
