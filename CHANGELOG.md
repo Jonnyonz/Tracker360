@@ -5,6 +5,8 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 ## 2026-10-01
 
 ### Seguridad
+- Las etiquetas de artículo ya no se pueden romper con caracteres especiales en el código o la
+  descripción del artículo (pasaba lo mismo que se había corregido en las etiquetas de pedido). (`eea5cf4`)
 - El bloqueo por claves mal ingresadas ahora es por usuario: si alguien se equivoca varias veces,
   se bloquea solo esa cuenta en esa conexión y no el resto del depósito. Tampoco se puede esquivar el
   bloqueo entrando con otra cuenta ni mandando muchos intentos a la vez. (`42c252a`)
