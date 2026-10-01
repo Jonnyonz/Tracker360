@@ -23,6 +23,8 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   veces al mismo tiempo: la segunda alta espera y se rechaza. (`dd67505`)
 
 ### Cambiado
+- Si un reporte o el kardex fallan por un problema interno, ahora queda registrado con todo el
+  detalle para poder revisarlo, y la pantalla muestra "Error interno del servidor". (`1f4f652`)
 - Limpieza interna del código (los módulos se importan de una sola forma). No cambia nada del
   funcionamiento. (`592d1a3`)
 - La estructura de la base de datos ahora se actualiza con migraciones numeradas: cada cambio se
