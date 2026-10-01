@@ -313,7 +313,7 @@ async function openStockBreakdownModal(sku) {
                     <td style="padding:10px; font-weight:600; color:var(--text-main);">${escapeHTML(r.branch_name)}</td>
                     <td style="padding:10px; color:var(--text-muted);">${escapeHTML(r.sector_name)}</td>
                     <td style="padding:10px; font-family:monospace; color:var(--primary-blue); font-weight:bold;">${escapeHTML(r.location_code)}</td>
-                    <td style="padding:10px; text-align:right; font-weight:bold; color:var(--success-green); font-size:1.1rem;">${r.quantity}</td>
+                    <td style="padding:10px; text-align:right; font-weight:bold; color:var(--success-green); font-size:1.1rem;">${escapeHTML(r.quantity)}</td>
                 </tr>
             `;
             total += (parseFloat(r.quantity) || 0);

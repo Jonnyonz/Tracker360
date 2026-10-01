@@ -76,7 +76,7 @@ function populateUserBranchSectorDropdowns(branchSelectId, sectorSelectId) {
 
     if (branchSelect && typeof cachedBranches !== 'undefined') {
         branchSelect.innerHTML = '<option value="">-- Todas / Sin restricción --</option>' +
-            cachedBranches.map(b => `<option value="${b.id}">${escapeHTML(b.name)}</option>`).join('');
+            cachedBranches.map(b => `<option value="${escapeHTML(b.id)}">${escapeHTML(b.name)}</option>`).join('');
     }
 
     if (sectorSelect) {
@@ -92,7 +92,7 @@ function onUserBranchChange(branchSelectId, sectorSelectId) {
     sectorSelect.innerHTML = '<option value="">-- Todos / Sin restricción --</option>';
     cachedSectors.forEach(s => {
         if (!branchId || String(s.branch_id) === String(branchId)) {
-            sectorSelect.innerHTML += `<option value="${s.id}">${escapeHTML(s.name)}</option>`;
+            sectorSelect.innerHTML += `<option value="${escapeHTML(s.id)}">${escapeHTML(s.name)}</option>`;
         }
     });
 }

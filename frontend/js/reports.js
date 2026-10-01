@@ -55,7 +55,7 @@ window.loadReportStockSelectors = async function() {
     const bSelect = document.getElementById('rep-stock-branch');
     if (bSelect && cachedBranches) {
         bSelect.innerHTML = '<option value="">-- Todas --</option>' + 
-            cachedBranches.map(b => `<option value="${b.id}">${escapeHTML(b.name)}</option>`).join('');
+            cachedBranches.map(b => `<option value="${escapeHTML(b.id)}">${escapeHTML(b.name)}</option>`).join('');
     }
     window.onRepStockBranchChange();
 };
@@ -68,7 +68,7 @@ window.onRepStockBranchChange = function() {
     sSelect.innerHTML = '<option value="">-- Todos --</option>';
     cachedSectors.forEach(s => {
         if (!branchId || String(s.branch_id) === String(branchId)) {
-            sSelect.innerHTML += `<option value="${s.id}">${escapeHTML(s.name)}</option>`;
+            sSelect.innerHTML += `<option value="${escapeHTML(s.id)}">${escapeHTML(s.name)}</option>`;
         }
     });
 };
@@ -165,7 +165,7 @@ window.generateStockReport = async function(e) {
                     <td style="color:var(--primary-blue); font-weight:bold;"><code>${escapeHTML(item.sku)}</code></td>
                     <td><small>${escapeHTML(item.description)}</small></td>
                     ${bColsHtml}
-                    <td style="text-align:right; font-weight:900; color:${totalColor}; font-size:1.05rem;">${item.total}</td>
+                    <td style="text-align:right; font-weight:900; color:${totalColor}; font-size:1.05rem;">${escapeHTML(item.total)}</td>
                 </tr>
             `;
         }).join('');
@@ -221,7 +221,7 @@ window.loadKardexSelectors = async function() {
     const branchSelect = document.getElementById('kardex-filter-branch');
     if (branchSelect && cachedBranches) {
         branchSelect.innerHTML = '<option value="">-- Todas --</option>' + 
-            cachedBranches.map(b => `<option value="${b.id}">${escapeHTML(b.name)}</option>`).join('');
+            cachedBranches.map(b => `<option value="${escapeHTML(b.id)}">${escapeHTML(b.name)}</option>`).join('');
     }
     
     if (typeof window.onKardexBranchChange === 'function') window.onKardexBranchChange();
@@ -246,7 +246,7 @@ window.onKardexBranchChange = function() {
     sectorSelect.innerHTML = '<option value="">-- Todos --</option>';
     cachedSectors.forEach(s => {
         if (!branchId || String(s.branch_id) === String(branchId)) {
-            sectorSelect.innerHTML += `<option value="${s.id}">${escapeHTML(s.name)}</option>`;
+            sectorSelect.innerHTML += `<option value="${escapeHTML(s.id)}">${escapeHTML(s.name)}</option>`;
         }
     });
 };
@@ -414,7 +414,7 @@ window.generateOrdersReport = async function(e) {
                     <td><small class="text-muted" style="font-weight:600;">${new Date(r.created_at).toLocaleDateString()}</small></td>
                     <td>${escapeHTML(r.customer_name)} <br><small class="text-muted">(${escapeHTML(r.customer_tax_id)})</small></td>
                     <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(r.status)}</span></td>
-                    <td style="font-weight:bold;">${r.progress_pct}%</td>
+                    <td style="font-weight:bold;">${escapeHTML(r.progress_pct)}%</td>
                     <td><span class="badge badge-neutral">${escapeHTML(r.related_document)}</span></td>
                 </tr>
             `;
@@ -473,13 +473,13 @@ window.loadReportRemitosSelectors = async function() {
     const supSelect = document.getElementById('rep-remito-supplier');
     if (supSelect && suppliersCache) {
         supSelect.innerHTML = '<option value="">-- Todos los Proveedores --</option>' + 
-            suppliersCache.map(s => `<option value="${s.id}">${escapeHTML(s.company_name)}</option>`).join('');
+            suppliersCache.map(s => `<option value="${escapeHTML(s.id)}">${escapeHTML(s.company_name)}</option>`).join('');
     }
 
     const bSelect = document.getElementById('rep-remito-branch');
     if (bSelect && cachedBranches) {
         bSelect.innerHTML = '<option value="">-- Todas las Sucursales --</option>' + 
-            cachedBranches.map(b => `<option value="${b.id}">${escapeHTML(b.name)}</option>`).join('');
+            cachedBranches.map(b => `<option value="${escapeHTML(b.id)}">${escapeHTML(b.name)}</option>`).join('');
     }
 };
 
@@ -538,7 +538,7 @@ window.generateRemitosReport = async function(e) {
                     <td><small class="text-muted" style="font-weight:600;">${new Date(r.created_at).toLocaleDateString()}</small></td>
                     <td>${escapeHTML(r.supplier_name)}</td>
                     <td><small>${escapeHTML(r.branch_name)} > ${escapeHTML(r.sector_name)}</small></td>
-                    <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(r.status)}</span> <span style="font-weight:bold; margin-left:8px;">${r.progress_pct}%</span></td>
+                    <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(r.status)}</span> <span style="font-weight:bold; margin-left:8px;">${escapeHTML(r.progress_pct)}%</span></td>
                 </tr>
             `;
         }).join('');
@@ -609,7 +609,7 @@ function renderDiffsSummary(rows) {
     });
     const filas = Object.entries(porProv).map(([nombre, p]) => `<tr>
         <td>${escapeHTML(nombre)}</td>
-        <td style="text-align:right;">${p.remitos.size}</td>
+        <td style="text-align:right;">${escapeHTML(p.remitos.size)}</td>
         <td style="text-align:right; color:var(--danger); font-weight:bold;">${escapeHTML(String(p.faltan))}</td>
         <td style="text-align:right;">${escapeHTML(String(p.sobran))}</td>
         <td style="text-align:right;">${escapeHTML(String(p.noEsp))}</td>
@@ -701,7 +701,7 @@ window.loadReportInvoicesSelectors = async function() {
     const supSelect = document.getElementById('rep-invoice-supplier');
     if (supSelect && suppliersCache) {
         supSelect.innerHTML = '<option value="">-- Todos los Proveedores --</option>' + 
-            suppliersCache.map(s => `<option value="${s.id}">${escapeHTML(s.company_name)}</option>`).join('');
+            suppliersCache.map(s => `<option value="${escapeHTML(s.id)}">${escapeHTML(s.company_name)}</option>`).join('');
     }
 };
 
@@ -807,7 +807,7 @@ window.loadReportPOSelectors = async function() {
     const supSelect = document.getElementById('rep-po-supplier');
     if (supSelect && suppliersCache) {
         supSelect.innerHTML = '<option value="">-- Todos los Proveedores --</option>' + 
-            suppliersCache.map(s => `<option value="${s.id}">${escapeHTML(s.company_name)}</option>`).join('');
+            suppliersCache.map(s => `<option value="${escapeHTML(s.id)}">${escapeHTML(s.company_name)}</option>`).join('');
     }
 };
 
@@ -862,7 +862,7 @@ window.generatePOReport = async function(e) {
                     <td><small class="text-muted" style="font-weight:600;">${new Date(r.created_at).toLocaleDateString()}</small></td>
                     <td>${escapeHTML(r.supplier_name)}</td>
                     <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(r.status)}</span></td>
-                    <td style="font-weight:bold;">${r.total_units} un. en ${r.total_skus} SKUs</td>
+                    <td style="font-weight:bold;">${escapeHTML(r.total_units)} un. en ${escapeHTML(r.total_skus)} SKUs</td>
                 </tr>
             `;
         }).join('');

@@ -527,9 +527,9 @@ function filterOrders() {
             <td><span class="badge ${badgeClass}">${escapeHTML(o.status)}</span></td>
             <td>
                 <div style="width:100%; background:var(--border); border-radius:4px; height:8px; overflow:hidden;">
-                    <div style="width:${o.progress_pct}%; background:${o.progress_pct === 100 ? 'var(--success)' : 'var(--accent)'}; height:100%;"></div>
+                    <div style="width:${escapeHTML(o.progress_pct)}%; background:${o.progress_pct === 100 ? 'var(--success)' : 'var(--accent)'}; height:100%;"></div>
                 </div>
-                <small style="display:block; text-align:right; margin-top:2px; font-weight:bold; color:var(--text-secondary);">${o.progress_pct}%</small>
+                <small style="display:block; text-align:right; margin-top:2px; font-weight:bold; color:var(--text-secondary);">${escapeHTML(o.progress_pct)}%</small>
             </td>
             <td style="text-align:right;">${actionBtn}</td>
         </tr>`;
@@ -711,8 +711,8 @@ function renderPackingVerificationTable() {
             <tr style="${bgClass}">
                 <td style="font-family:monospace; font-weight:bold; ${colorClass}">${escapeHTML(sku)}</td>
                 <td style="font-size:0.85rem;">${escapeHTML(data.desc)}</td>
-                <td style="text-align:center; font-weight:bold;">${data.expected}</td>
-                <td style="text-align:center; font-weight:bold; ${colorClass}">${data.scanned}</td>
+                <td style="text-align:center; font-weight:bold;">${escapeHTML(data.expected)}</td>
+                <td style="text-align:center; font-weight:bold; ${colorClass}">${escapeHTML(data.scanned)}</td>
                 <td style="text-align:right;">${badge}</td>
             </tr>
         `;
@@ -868,8 +868,8 @@ async function loadReplenishmentSuggestions() {
             <tr>
                 <td style="font-weight:bold; color:var(--accent);">${escapeHTML(s.sku)}</td>
                 <td>${escapeHTML(s.description)}</td>
-                <td style="color:var(--danger); font-weight:bold;">${s.stock_picking}</td>
-                <td style="color:var(--success); font-weight:bold;">${s.stock_pulmon}</td>
+                <td style="color:var(--danger); font-weight:bold;">${escapeHTML(s.stock_picking)}</td>
+                <td style="color:var(--success); font-weight:bold;">${escapeHTML(s.stock_pulmon)}</td>
                 <td><code class="font-mono">${escapeHTML(s.origin_location || 'N/A')}</code></td>
                 <td><code class="font-mono">${escapeHTML(s.destination_location)}</code></td>
                 <td style="text-align:right;">
@@ -932,11 +932,11 @@ async function runSpotCheck(e) {
             if(r.match) {
                 resDiv.style.backgroundColor = 'rgba(0, 200, 83, 0.1)';
                 resDiv.style.border = '1px solid var(--success)';
-                resDiv.innerHTML = `<h4 style="color:var(--success); margin:0;">ACTUALIZADO: ¡STOCK CORRECTO!</h4><p style="margin:5px 0 0 0;">Físico Contado: <strong>${r.counted}</strong> | Sistema: <strong>${r.expected}</strong></p>`;
+                resDiv.innerHTML = `<h4 style="color:var(--success); margin:0;">ACTUALIZADO: ¡STOCK CORRECTO!</h4><p style="margin:5px 0 0 0;">Físico Contado: <strong>${escapeHTML(r.counted)}</strong> | Sistema: <strong>${escapeHTML(r.expected)}</strong></p>`;
             } else {
                 resDiv.style.backgroundColor = 'rgba(213, 0, 0, 0.1)';
                 resDiv.style.border = '1px solid var(--danger)';
-                resDiv.innerHTML = `<h4 style="color:var(--danger); margin:0;">ALERTA: DESCUADRE DETECTADO (DELTA: ${r.delta > 0 ? '+'+r.delta : r.delta})</h4><p style="margin:5px 0 0 0;">Físico Contado: <strong>${r.counted}</strong> | Sistema Esperaba: <strong>${r.expected}</strong></p>`;
+                resDiv.innerHTML = `<h4 style="color:var(--danger); margin:0;">ALERTA: DESCUADRE DETECTADO (DELTA: ${r.delta > 0 ? '+'+r.delta : r.delta})</h4><p style="margin:5px 0 0 0;">Físico Contado: <strong>${escapeHTML(r.counted)}</strong> | Sistema Esperaba: <strong>${escapeHTML(r.expected)}</strong></p>`;
             }
         }
     } finally {
@@ -1009,7 +1009,7 @@ async function openCreateInventoryModal() {
         
         if (branches && branches.length > 0) {
             bSelect.innerHTML = '<option value="">-- Seleccione Sucursal --</option>' + 
-                branches.map(b => `<option value="${b.id}">${escapeHTML(b.name)}</option>`).join('');
+                branches.map(b => `<option value="${escapeHTML(b.id)}">${escapeHTML(b.name)}</option>`).join('');
         } else {
             bSelect.innerHTML = '<option value="">-- Sin Sucursales --</option>';
         }
@@ -1034,7 +1034,7 @@ function onInvSessionBranchChange() {
     
     if (opsSectorsCache && opsSectorsCache.length > 0) {
         opsSectorsCache.filter(s => String(s.branch_id) === String(branchId)).forEach(s => {
-            sSelect.innerHTML += `<option value="${s.id}">${escapeHTML(s.name)}</option>`;
+            sSelect.innerHTML += `<option value="${escapeHTML(s.id)}">${escapeHTML(s.name)}</option>`;
         });
     }
 }
@@ -1116,8 +1116,8 @@ async function openReviewInventoryModal(sessionId) {
                 <td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(d.sku)}</td>
                 <td><code class="font-mono">${escapeHTML(d.location_code || 'N/A')}</code></td>
                 <td class="lot-input">${escapeHTML(d.lot_number || '-')}</td>
-                <td style="text-align:center;">${d.expected_quantity}</td>
-                <td style="text-align:center; font-weight:bold;">${d.counted_quantity}</td>
+                <td style="text-align:center;">${escapeHTML(d.expected_quantity)}</td>
+                <td style="text-align:center; font-weight:bold;">${escapeHTML(d.counted_quantity)}</td>
                 <td style="text-align:center; font-weight:bold; color:${deltaColor};">${delta > 0 ? '+'+delta : delta}</td>
             </tr>`;
         }).join('');
@@ -1179,7 +1179,7 @@ async function loadTransferSelectors() {
 
         const defaultOpt = '<option value="">-- Seleccionar --</option>';
         if (branches && branches.length > 0) {
-            const branchOpts = branches.map(b => `<option value="${b.id}">${escapeHTML(b.name)}</option>`).join('');
+            const branchOpts = branches.map(b => `<option value="${escapeHTML(b.id)}">${escapeHTML(b.name)}</option>`).join('');
             origBranch.innerHTML = defaultOpt + branchOpts;
             destBranch.innerHTML = defaultOpt + branchOpts;
         } else {
@@ -1199,7 +1199,7 @@ function onTrOrigBranchChange() {
     sectorSelect.innerHTML = '<option value="">-- Seleccionar --</option>';
     if (opsSectorsCache && opsSectorsCache.length > 0) {
         opsSectorsCache.filter(s => String(s.branch_id) === String(branchId)).forEach(s => {
-            sectorSelect.innerHTML += `<option value="${s.id}">${escapeHTML(s.name)}</option>`;
+            sectorSelect.innerHTML += `<option value="${escapeHTML(s.id)}">${escapeHTML(s.name)}</option>`;
         });
     }
 }
@@ -1212,7 +1212,7 @@ function onTrDestBranchChange() {
     sectorSelect.innerHTML = '<option value="">-- Seleccionar --</option>';
     if (opsSectorsCache && opsSectorsCache.length > 0) {
         opsSectorsCache.filter(s => String(s.branch_id) === String(branchId)).forEach(s => {
-            sectorSelect.innerHTML += `<option value="${s.id}">${escapeHTML(s.name)}</option>`;
+            sectorSelect.innerHTML += `<option value="${escapeHTML(s.id)}">${escapeHTML(s.name)}</option>`;
         });
     }
 }

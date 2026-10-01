@@ -24,7 +24,7 @@ async function loadWarehouseData() {
         }
         const sBranchSelect = document.getElementById('sector-branch'); 
         if(sBranchSelect) {
-            sBranchSelect.innerHTML = '<option value="">-- Seleccionar Sucursal --</option>' + branches.map(b => `<option value="${b.id}">${escapeHTML(b.name)} (${escapeHTML(b.code)})</option>`).join('');
+            sBranchSelect.innerHTML = '<option value="">-- Seleccionar Sucursal --</option>' + branches.map(b => `<option value="${escapeHTML(b.id)}">${escapeHTML(b.name)} (${escapeHTML(b.code)})</option>`).join('');
         }
     }
 
@@ -43,7 +43,7 @@ async function loadWarehouseData() {
         }
         const locSecSelect = document.getElementById('loc-sector'); 
         const impSecSelect = document.getElementById('import-loc-sector');
-        const optionsHtml = '<option value="">-- Seleccionar Sector --</option>' + sectors.map(s => `<option value="${s.id}">${escapeHTML(s.branch_name || 'Sin Sucursal')} > ${escapeHTML(s.name)}</option>`).join('');
+        const optionsHtml = '<option value="">-- Seleccionar Sector --</option>' + sectors.map(s => `<option value="${escapeHTML(s.id)}">${escapeHTML(s.branch_name || 'Sin Sucursal')} > ${escapeHTML(s.name)}</option>`).join('');
         if(locSecSelect) locSecSelect.innerHTML = optionsHtml; 
         if(impSecSelect) impSecSelect.innerHTML = optionsHtml;
     }

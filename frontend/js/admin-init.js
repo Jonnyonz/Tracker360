@@ -32,7 +32,7 @@ async function loadDashboardSummary() {
         const tLeader = document.getElementById('dash-leaderboard-body');
         if(tLeader) {
             tLeader.innerHTML = (data.leaderboard && data.leaderboard.length) 
-                ? data.leaderboard.map((l, i) => `<tr><td style="font-weight:bold; color:var(--text-primary);"><span style="color:var(--warning);">#${i+1}</span> ${escapeHTML(l.username)}</td><td style="text-align:center;">${l.picking_lines}</td><td style="text-align:right; font-weight:bold; color:var(--success);">${l.picked_units}</td></tr>`).join('')
+                ? data.leaderboard.map((l, i) => `<tr><td style="font-weight:bold; color:var(--text-primary);"><span style="color:var(--warning);">#${i+1}</span> ${escapeHTML(l.username)}</td><td style="text-align:center;">${escapeHTML(l.picking_lines)}</td><td style="text-align:right; font-weight:bold; color:var(--success);">${escapeHTML(l.picked_units)}</td></tr>`).join('')
                 : '<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">Sin actividad en los últimos 7 días.</td></tr>';
         }
     } catch (e) { console.error("Error cargando dashboard:", e); }
