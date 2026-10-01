@@ -4,6 +4,10 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 
 ## 2026-10-01
 
+### Corregido
+- La configuración inicial ya no puede crear dos administradores si se envía el formulario dos
+  veces al mismo tiempo: la segunda alta espera y se rechaza. (`dd67505`)
+
 ### Cambiado
 - Los avisos y errores internos del servidor (conexión a la base, webhooks, reportes, indicadores)
   quedan en el registro del servidor con su nivel de gravedad y el detalle completo, en el mismo
