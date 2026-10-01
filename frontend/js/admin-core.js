@@ -35,7 +35,7 @@ function escapeHTML(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-// Argumento de texto para handlers inline: onclick="fn(${jsArg(valor)})".
+// Argumento de texto para handlers inline: data-on-click="fn(${jsArg(valor)})".
 // escapeHTML solo no alcanza ahi (el navegador decodifica &#39; antes de ejecutar el JS).
 function jsArg(value) {
     return escapeHTML(JSON.stringify(value === null || value === undefined ? '' : String(value)));
@@ -46,7 +46,7 @@ function showToast(msg, type = 'success') {
     if(!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
-    toast.innerHTML = `<span>${escapeHTML(msg)}</span><span style="cursor:pointer; font-weight:bold; margin-left:10px;" onclick="this.parentElement.remove()">&times;</span>`;
+    toast.innerHTML = `<span>${escapeHTML(msg)}</span><span style="cursor:pointer; font-weight:bold; margin-left:10px;" data-on-click="quitarPadre(this)">&times;</span>`;
     container.appendChild(toast);
     setTimeout(() => { if(toast.parentElement) toast.remove(); }, 3500);
 }

@@ -64,10 +64,10 @@ async function handleSearchItems(page = 1) {
                     <td style="font-weight:bold; color:${stockColor}; font-size:1.1rem;">${stockTotal}</td>
                     <td>
                         <div style="display:flex; gap:6px;">
-                            <button type="button" class="btn-secondary" style="padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="openStockBreakdownModal(${jsArg(item.sku || item.code || '-')})">
+                            <button type="button" class="btn-secondary" style="padding:0.3rem 0.6rem; font-size:0.75rem;" data-on-click="openStockBreakdownModal(${jsArg(item.sku || item.code || '-')})">
                                 Stock
                             </button>
-                            <button type="button" class="btn-submit" style="width:auto; margin:0; padding:0.3rem 0.6rem; font-size:0.75rem;" onclick="openEditItemModal(${jsArg(item.sku || item.code || '-')})">
+                            <button type="button" class="btn-submit" style="width:auto; margin:0; padding:0.3rem 0.6rem; font-size:0.75rem;" data-on-click="openEditItemModal(${jsArg(item.sku || item.code || '-')})">
                                 Editar
                             </button>
                         </div>
@@ -179,7 +179,7 @@ function addComboComponentRow(compSku = '', qty = 1) {
     div.innerHTML = `
         <input type="text" placeholder="SKU Componente" class="combo-comp-sku" value="${escapeHTML(compSku)}" style="flex:2;" required autocomplete="off">
         <input type="number" placeholder="Cantidad" class="combo-comp-qty" value="${qty}" style="flex:1;" min="0.01" step="0.01" required>
-        <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
+        <button type="button" data-on-click="quitarPadre(this)" style="background:var(--error-red); color:white; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
     `;
     list.appendChild(div);
 }
@@ -260,7 +260,7 @@ function ensureStockModalExists() {
     const modalHTML = `
     <div id="modal-stock-breakdown" class="modal">
         <div class="modal-content" style="max-width:700px;">
-            <span class="close-modal" onclick="document.getElementById('modal-stock-breakdown').style.display='none'">&times;</span>
+            <span class="close-modal" data-on-click="ocultarElemento('modal-stock-breakdown')">&times;</span>
             <h3 style="color:var(--primary-blue); margin-bottom:0.5rem;">Desglose de Stock Físico</h3>
             <h4 id="stock-breakdown-subtitle" style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;"></h4>
             
@@ -428,7 +428,7 @@ function addDynamicLineBatchPrint() {
     div.innerHTML = `
         <input type="text" placeholder="Código SKU" style="flex:2;" required>
         <input type="number" placeholder="Cantidad" style="flex:1;" min="1" value="1" required>
-        <button type="button" onclick="this.parentElement.remove()" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
+        <button type="button" data-on-click="quitarPadre(this)" style="background:var(--error-red); color:white; border:none; padding:4px 8px; border-radius:4px; font-weight:bold; cursor:pointer;">X</button>
     `;
     list.appendChild(div);
 }

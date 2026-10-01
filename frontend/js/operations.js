@@ -161,7 +161,7 @@ async function loadPOData(search, limit = 50) {
             <td style="color:var(--accent); font-weight:bold;">${escapeHTML(o.order_number)}</td>
             <td>${escapeHTML(o.supplier_name)}</td>
             <td><span class="badge ${o.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(PO_STATUS_LABEL[o.status] || o.status)}</span></td>
-            <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="verOC(${jsArg(o.order_number)})">Detalle</button></td>
+            <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-on-click="verOC(${jsArg(o.order_number)})">Detalle</button></td>
         </tr>`).join('');
     } catch (e) {
         tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--danger);">Error al cargar el historial.</td></tr>';
@@ -314,7 +314,7 @@ async function loadRemitoData(search, limit = 50) {
             <td>${escapeHTML(r.supplier_name)}</td>
             <td><small>${escapeHTML(r.branch_name || '-')} (${escapeHTML(r.sector_name || '-')})</small></td>
             <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : (r.status === 'COMPLETED_DIFF' ? 'badge-danger' : 'badge-warning')}">${escapeHTML(REM_STATUS_LABEL[r.status] || r.status)}</span></td>
-            <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="verRemito(${jsArg(r.id)}, ${jsArg(r.remito_number)})">Detalle</button></td>
+            <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-on-click="verRemito(${jsArg(r.id)}, ${jsArg(r.remito_number)})">Detalle</button></td>
         </tr>`).join('');
     } catch (e) {
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--danger);">Error al cargar el historial.</td></tr>';
@@ -331,8 +331,8 @@ function renderNoEsperados(excepciones, remitoId, remitoNumber) {
         <td>${escapeHTML(x.location_code || '-')}</td>
         <td><span class="badge ${x.status === 'PENDING' ? 'badge-warning' : 'badge-neutral'}">${escapeHTML(EXC_STATUS_LABEL[x.status] || x.status)}</span>
             <div style="font-size:0.75rem; color:var(--text-muted);">${escapeHTML(x.reported_by || '')}${x.resolved_by ? ' &rarr; ' + escapeHTML(x.resolved_by) : ''}</div></td>
-        <td>${x.status === 'PENDING' ? `<button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="resolverNoEsperado(${jsArg(x.id)}, true, ${jsArg(remitoId)}, ${jsArg(remitoNumber)})">Aprobar</button>
-            <button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem; color:var(--danger);" onclick="resolverNoEsperado(${jsArg(x.id)}, false, ${jsArg(remitoId)}, ${jsArg(remitoNumber)})">Rechazar</button>` : ''}</td>
+        <td>${x.status === 'PENDING' ? `<button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" data-on-click="resolverNoEsperado(${jsArg(x.id)}, true, ${jsArg(remitoId)}, ${jsArg(remitoNumber)})">Aprobar</button>
+            <button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem; color:var(--danger);" data-on-click="resolverNoEsperado(${jsArg(x.id)}, false, ${jsArg(remitoId)}, ${jsArg(remitoNumber)})">Rechazar</button>` : ''}</td>
     </tr>`).join('');
     return `<h3 style="font-size:1rem; margin-top:1.5rem;">Artículos no esperados</h3>
         <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 0.5rem;">Llegaron sin figurar en el remito. Aprobar los pasa a stock disponible y los suma al remito; rechazar los saca del stock para devolverlos al proveedor.</p>
@@ -403,8 +403,8 @@ async function abrirCancelacion(documentNumber) {
             <p style="font-size:0.9rem;">Lo ya pickeado de la cantidad cancelada vuelve al stock en las mismas ubicaciones de las que salio (movimiento "Retroceso de PDV" en la traza).</p>
             <table><thead><tr><th>SKU</th><th>Descripcion</th><th style="text-align:right;">Pedido</th><th style="text-align:right;">Pickeado</th><th style="text-align:right;">Cancelar</th></tr></thead><tbody>${filas}</tbody></table>
             <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:1rem;">
-                <button class="btn-secondary" onclick="confirmarCancelacion(false)">Cancelar cantidades indicadas</button>
-                <button class="btn-submit" style="background:var(--danger);" onclick="confirmarCancelacion(true)">Cancelar pedido completo</button>
+                <button class="btn-secondary" data-on-click="confirmarCancelacion(false)">Cancelar cantidades indicadas</button>
+                <button class="btn-submit" style="background:var(--danger);" data-on-click="confirmarCancelacion(true)">Cancelar pedido completo</button>
             </div>`;
     } catch (e) {
         body.innerHTML = `<p style="color:var(--danger);">Error: ${escapeHTML(e.message)}</p>`;
@@ -507,17 +507,17 @@ function filterOrders() {
         
         let actionBtn = `<span style="color:var(--text-muted); font-size:0.8rem;">Sin Acción</span>`;
         if (o.status === 'COMPLETED') {
-            actionBtn = `<button class="btn-submit" style="padding:4px 10px; font-size:0.75rem; background:var(--accent);" onclick="openPackingStation(${jsArg(o.document_number)}, ${jsArg(o.company_name)})">Empacar (Verificar)</button>`;
+            actionBtn = `<button class="btn-submit" style="padding:4px 10px; font-size:0.75rem; background:var(--accent);" data-on-click="openPackingStation(${jsArg(o.document_number)}, ${jsArg(o.company_name)})">Empacar (Verificar)</button>`;
         } else if (o.status === 'PENDING' || o.status === 'IN_PROGRESS') {
             actionBtn = `<span style="color:var(--text-secondary); font-size:0.8rem;">En Picking</span>`;
         } else if (o.status === 'DISPATCHED') {
-            actionBtn = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="reprintOrderLabel(${jsArg(o.document_number)})">Re-imprimir</button>`;
+            actionBtn = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-on-click="reprintOrderLabel(${jsArg(o.document_number)})">Re-imprimir</button>`;
         }
         // El supervisor solo consulta: estado (columna) y participantes. Empacar y re-imprimir son del admin.
-        const btnPart = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; margin-left:6px;" onclick="verParticipantes(${jsArg(o.document_number)})">Detalle</button>`;
+        const btnPart = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; margin-left:6px;" data-on-click="verParticipantes(${jsArg(o.document_number)})">Detalle</button>`;
         // Cancelar (total o parcial) es solo del admin; no aplica a despachados ni cancelados.
         const btnCancel = (o.status !== 'DISPATCHED' && o.status !== 'CANCELLED')
-            ? `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; margin-left:6px; color:var(--danger);" onclick="abrirCancelacion(${jsArg(o.document_number)})">Cancelar</button>`
+            ? `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; margin-left:6px; color:var(--danger);" data-on-click="abrirCancelacion(${jsArg(o.document_number)})">Cancelar</button>`
             : '';
         actionBtn = (window.ROL_ACTUAL === 'SUPERVISOR') ? btnPart : actionBtn + btnPart + btnCancel;
 
@@ -554,7 +554,7 @@ function addDynamicLineManualOrder() {
             <input type="text" placeholder="SKU" class="manual-sku font-mono" style="flex:2;" required>
             <input type="number" placeholder="Cantidad" class="manual-qty" style="flex:1;" min="0.01" step="0.01" required>
             <input type="text" placeholder="Lote" class="manual-lot lot-input" style="flex:1; display:none;">
-            <button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button>
+            <button type="button" data-on-click="quitarPadre(this)" class="btn-danger">X</button>
         </div>`);
 }
 
@@ -873,7 +873,7 @@ async function loadReplenishmentSuggestions() {
                 <td><code class="font-mono">${escapeHTML(s.origin_location || 'N/A')}</code></td>
                 <td><code class="font-mono">${escapeHTML(s.destination_location)}</code></td>
                 <td style="text-align:right;">
-                    <button class="btn-submit" style="padding:4px 8px; font-size:0.75rem;" onclick="createReplenishmentTransfer(${jsArg(s.sku)}, ${jsArg(s.origin_location || '')}, ${jsArg(s.destination_location)}, ${Number(s.stock_pulmon) || 0})">Crear ODT</button>
+                    <button class="btn-submit" style="padding:4px 8px; font-size:0.75rem;" data-on-click="createReplenishmentTransfer(${jsArg(s.sku)}, ${jsArg(s.origin_location || '')}, ${jsArg(s.destination_location)}, ${Number(s.stock_pulmon) || 0})">Crear ODT</button>
                 </td>
             </tr>
         `).join('');
@@ -962,10 +962,10 @@ async function loadInventorySessions() {
             
             if(s.status === 'OPEN') {
                 badge = '<span class="badge badge-warning">ABIERTO (ESCANEO)</span>';
-                btn = `<button class="btn-secondary" onclick="openScanInventoryModal(${jsArg(s.id)})" style="padding:4px 8px; font-size:0.75rem;">Escanear Físico</button>`;
+                btn = `<button class="btn-secondary" data-on-click="openScanInventoryModal(${jsArg(s.id)})" style="padding:4px 8px; font-size:0.75rem;">Escanear Físico</button>`;
             } else if (s.status === 'REVIEW') {
                 badge = '<span class="badge badge-info">EN REVISIÓN (DELTAS)</span>';
-                btn = `<button class="btn-submit" onclick="openReviewInventoryModal(${jsArg(s.id)})" style="padding:4px 8px; font-size:0.75rem;">Auditar Deltas</button>`;
+                btn = `<button class="btn-submit" data-on-click="openReviewInventoryModal(${jsArg(s.id)})" style="padding:4px 8px; font-size:0.75rem;">Auditar Deltas</button>`;
             } else {
                 badge = '<span class="badge badge-success">CERRADO</span>';
                 btn = `<span style="color:var(--text-muted); font-size:0.8rem; padding-right:8px;">Finalizado</span>`;
@@ -1306,7 +1306,7 @@ async function loadTransferData(search = "", limit = 50) {
                 <td><small>${escapeHTML(r.origin_branch)} (${escapeHTML(r.origin_sector)})</small></td>
                 <td><small>${escapeHTML(r.destination_branch)} (${escapeHTML(r.destination_sector)})</small></td>
                 <td><span class="badge badge-warning">${escapeHTML(r.status)}</span></td>
-                <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" onclick="verTraspaso(${jsArg(r.transfer_number)})">Detalle</button></td>
+                <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-on-click="verTraspaso(${jsArg(r.transfer_number)})">Detalle</button></td>
             </tr>
         `).join('');
     } catch (e) {
@@ -1384,10 +1384,10 @@ function fallbackCopyText(inputEl) {
     }
 }
 
-function addDynamicLinePO() { document.getElementById('po-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="po-sku font-mono" style="flex:2;" required><input type="number" placeholder="Cantidad" class="po-qty" style="flex:1;" min="0.01" step="0.01" required><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`); }
-function addDynamicLineRemito() { document.getElementById('rem-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="rem-sku font-mono" style="flex:2;" onblur="fetchPutawaySuggestion(this.value, this.parentElement.querySelector('.rem-loc'))"><input type="number" placeholder="Cant" class="rem-qty" style="flex:1;" min="0.01" step="0.01"><input type="text" placeholder="Ubicación" class="rem-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="rem-lot lot-input font-mono" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`); }
-function addDynamicLineInvoice() { document.getElementById('inv-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="inv-sku font-mono" style="flex:2;" onblur="fetchPutawaySuggestion(this.value, this.parentElement.querySelector('.inv-loc'))"><input type="number" placeholder="Cantidad" class="inv-qty" style="flex:1;" min="0.01" step="0.01"><input type="text" placeholder="Ubicación" class="inv-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="inv-lot lot-input" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`); }
-function addDynamicLineTransfer() { document.getElementById('tr-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="tr-sku font-mono" style="flex:2;" required><input type="number" placeholder="Cant" class="tr-qty" style="flex:1;" min="0.01" step="0.01" required><input type="text" placeholder="Origen" class="tr-orig-loc font-mono" style="flex:1;"><input type="text" placeholder="Destino" class="tr-dest-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="tr-lot lot-input" style="flex:1; display:none;"><button type="button" onclick="this.parentElement.remove()" class="btn-danger">X</button></div>`); }
+function addDynamicLinePO() { document.getElementById('po-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="po-sku font-mono" style="flex:2;" required><input type="number" placeholder="Cantidad" class="po-qty" style="flex:1;" min="0.01" step="0.01" required><button type="button" data-on-click="quitarPadre(this)" class="btn-danger">X</button></div>`); }
+function addDynamicLineRemito() { document.getElementById('rem-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="rem-sku font-mono" style="flex:2;" data-on-blur="putawayDesde(this, '.rem-loc')"><input type="number" placeholder="Cant" class="rem-qty" style="flex:1;" min="0.01" step="0.01"><input type="text" placeholder="Ubicación" class="rem-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="rem-lot lot-input font-mono" style="flex:1; display:none;"><button type="button" data-on-click="quitarPadre(this)" class="btn-danger">X</button></div>`); }
+function addDynamicLineInvoice() { document.getElementById('inv-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="inv-sku font-mono" style="flex:2;" data-on-blur="putawayDesde(this, '.inv-loc')"><input type="number" placeholder="Cantidad" class="inv-qty" style="flex:1;" min="0.01" step="0.01"><input type="text" placeholder="Ubicación" class="inv-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="inv-lot lot-input" style="flex:1; display:none;"><button type="button" data-on-click="quitarPadre(this)" class="btn-danger">X</button></div>`); }
+function addDynamicLineTransfer() { document.getElementById('tr-lines').insertAdjacentHTML('beforeend', `<div class="dynamic-row"><input type="text" placeholder="SKU" class="tr-sku font-mono" style="flex:2;" required><input type="number" placeholder="Cant" class="tr-qty" style="flex:1;" min="0.01" step="0.01" required><input type="text" placeholder="Origen" class="tr-orig-loc font-mono" style="flex:1;"><input type="text" placeholder="Destino" class="tr-dest-loc font-mono" style="flex:1;"><input type="text" placeholder="Lote / Vto" class="tr-lot lot-input" style="flex:1; display:none;"><button type="button" data-on-click="quitarPadre(this)" class="btn-danger">X</button></div>`); }
 
 window.loadNextTransferNumber = loadNextTransferNumber;
 window.switchPurchaseTab = switchPurchaseTab;

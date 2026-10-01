@@ -17,7 +17,7 @@ async function loadWarehouseData() {
             } else {
                 const soloConsulta = await esSupervisor();
                 branches.forEach(b => {
-                    const editar = soloConsulta ? '' : `<button class="btn-secondary" style="padding:4px 8px; font-size:0.8rem;" onclick="openEditBranch(${jsArg(b.id)})">Editar</button>`;
+                    const editar = soloConsulta ? '' : `<button class="btn-secondary" style="padding:4px 8px; font-size:0.8rem;" data-on-click="openEditBranch(${jsArg(b.id)})">Editar</button>`;
                     bBody.innerHTML += `<tr><td style="font-weight:bold;">${escapeHTML(b.code)}</td><td>${escapeHTML(b.name)}</td><td><small>${escapeHTML(b.full_address || '-')}</small></td><td><span class="badge badge-success">ACTIVA</span></td><td>${editar}</td></tr>`;
                 });
             }

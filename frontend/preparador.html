@@ -312,7 +312,7 @@
     <div id="toast-container" class="toast-container"></div>
 
     <div class="header">
-        <span class="btn-back" id="btn-back" onclick="goHome()">Volver</span>
+        <span class="btn-back" id="btn-back" data-on-click="goHome()">Volver</span>
         <span id="header-title">Terminal Operativa</span>
         <svg class="header-logo-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
             <defs>
@@ -340,27 +340,27 @@
     <!-- MENÚ PRINCIPAL -->
     <div id="view-home" class="view active">
         <div class="menu-grid">
-            <div class="menu-card" onclick="openView('view-picking', loadPicking)">
+            <div class="menu-card" data-on-click="openView('view-picking', loadPicking)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
                 <span>Picking</span>
                 <small>Armado Guiado de Pedidos</small>
             </div>
-            <div class="menu-card" onclick="openView('view-receptions', loadReceptions)">
+            <div class="menu-card" data-on-click="openView('view-receptions', loadReceptions)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
                 <span>Recepci&oacute;n</span>
                 <small>Control Ingreso Remitos</small>
             </div>
-            <div class="menu-card" onclick="openView('view-transfers', loadTransfers)">
+            <div class="menu-card" data-on-click="openView('view-transfers', loadTransfers)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 3l4 4-4 4"></path><path d="M3 7h18"></path><path d="M7 21l-4-4 4-4"></path><path d="M21 17H3"></path></svg>
                 <span>Traspasos</span>
                 <small>Movimientos entre Sucursales</small>
             </div>
-            <div class="menu-card" onclick="openView('view-inventory', loadInventory)">
+            <div class="menu-card" data-on-click="openView('view-inventory', loadInventory)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                 <span>Inventario</span>
                 <small>Auditor&iacute;a y Conteos</small>
             </div>
-            <div class="menu-card" onclick="openSpotCheck()">
+            <div class="menu-card" data-on-click="openSpotCheck()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="M8 17l4 4 4-4"></path></svg>
                 <span>Spot Check</span>
                 <small>Consulta R&aacute;pida de Stock</small>
@@ -368,17 +368,17 @@
         </div>
         
         <div id="bottom-actions" class="bottom-actions">
-            <div id="btn-switch-desktop" class="menu-card card-secondary" onclick="window.location.href='/admin'" style="display:none;">
+            <div id="btn-switch-desktop" class="menu-card card-secondary" data-on-click="irA('/admin')" style="display:none;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
                 <span>Modo Escritorio</span>
             </div>
             
-            <div class="menu-card card-secondary" onclick="toggleTheme()">
+            <div class="menu-card card-secondary" data-on-click="toggleTheme()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path></svg>
                 <span>Tema Visual</span>
             </div>
 
-            <div class="menu-card card-danger" onclick="logout()">
+            <div class="menu-card card-danger" data-on-click="logout()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
                 <span>Cerrar Sesi&oacute;n</span>
             </div>
@@ -403,7 +403,7 @@
     <div id="view-picking" class="view">
         <h3>Pedidos Pendientes</h3>
         <div id="wave-picking-container" style="display:none; margin-bottom: 1.5rem;">
-            <button style="width: 100%; background-color: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--warning);" onclick="startWavePicking(5)">
+            <button style="width: 100%; background-color: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--warning);" data-on-click="startWavePicking(5)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
                 Agrupar Ola de Picking (Max 5)
             </button>
@@ -424,20 +424,20 @@
             Paso 1: Escanee SKU
         </div>
 
-        <form id="form-picking" onsubmit="handlePickingFormSubmit(event)">
+        <form id="form-picking" data-on-submit="handlePickingFormSubmit(event)">
             <input type="hidden" id="pick-number">
             
             <div id="grp-pick-sku" class="form-group">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> 1. SKU del Producto *</label>
                 <div class="input-group">
-                    <input type="text" id="pick-sku" placeholder="A la espera..." autocomplete="off" oninput="onModuleInputProcess('PICKING', 'sku')" onkeydown="handleScannerEnter(event, null, 'form-picking')">
+                    <input type="text" id="pick-sku" placeholder="A la espera..." autocomplete="off" data-on-input="onModuleInputProcess('PICKING', 'sku')" data-on-keydown="handleScannerEnter(event, null, 'form-picking')">
                 </div>
             </div>
 
             <div id="grp-pick-loc" class="form-group" style="display:none;">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> 2. Ubicaci&oacute;n *</label>
                 <div class="input-group">
-                    <input type="text" id="pick-loc" placeholder="Etiqueta rack..." autocomplete="off" oninput="onModuleInputProcess('PICKING', 'loc')" onkeydown="handleScannerEnter(event, 'pick-qty')">
+                    <input type="text" id="pick-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-input="onModuleInputProcess('PICKING', 'loc')" data-on-keydown="handleScannerEnter(event, 'pick-qty')">
                 </div>
             </div>
 
@@ -474,18 +474,18 @@
             Paso 1: Escanee SKU
         </div>
 
-        <form id="form-wave" onsubmit="handleWaveFormSubmit(event)">
+        <form id="form-wave" data-on-submit="handleWaveFormSubmit(event)">
             <div id="grp-wave-sku" class="form-group">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> 1. SKU Consolidado *</label>
                 <div class="input-group">
-                    <input type="text" id="wave-sku" placeholder="A la espera..." autocomplete="off" oninput="onModuleInputProcess('WAVE', 'sku')" onkeydown="handleScannerEnter(event, null, 'form-wave')">
+                    <input type="text" id="wave-sku" placeholder="A la espera..." autocomplete="off" data-on-input="onModuleInputProcess('WAVE', 'sku')" data-on-keydown="handleScannerEnter(event, null, 'form-wave')">
                 </div>
             </div>
 
             <div id="grp-wave-loc" class="form-group" style="display:none;">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> 2. Ubicaci&oacute;n *</label>
                 <div class="input-group">
-                    <input type="text" id="wave-loc" placeholder="Etiqueta rack..." autocomplete="off" oninput="onModuleInputProcess('WAVE', 'loc')" onkeydown="handleScannerEnter(event, 'wave-qty')">
+                    <input type="text" id="wave-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-input="onModuleInputProcess('WAVE', 'loc')" data-on-keydown="handleScannerEnter(event, 'wave-qty')">
                 </div>
             </div>
 
@@ -526,20 +526,20 @@
             Paso 1: Escanee SKU
         </div>
 
-        <form id="form-reception" onsubmit="handleReceptionFormSubmit(event)">
+        <form id="form-reception" data-on-submit="handleReceptionFormSubmit(event)">
             <input type="hidden" id="rec-number">
             
             <div id="grp-rec-sku" class="form-group">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> 1. SKU Recibido *</label>
                 <div class="input-group">
-                    <input type="text" id="rec-sku" placeholder="A la espera..." autocomplete="off" oninput="onModuleInputProcess('RECEPTION', 'sku')" onkeydown="handleScannerEnter(event, null, 'form-reception')">
+                    <input type="text" id="rec-sku" placeholder="A la espera..." autocomplete="off" data-on-input="onModuleInputProcess('RECEPTION', 'sku')" data-on-keydown="handleScannerEnter(event, null, 'form-reception')">
                 </div>
             </div>
 
             <div id="grp-rec-loc" class="form-group" style="display:none;">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> 2. Destino (Opc.)</label>
                 <div class="input-group">
-                    <input type="text" id="rec-loc" placeholder="Etiqueta rack..." autocomplete="off" oninput="onModuleInputProcess('RECEPTION', 'loc')" onkeydown="handleScannerEnter(event, 'rec-qty')">
+                    <input type="text" id="rec-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-input="onModuleInputProcess('RECEPTION', 'loc')" data-on-keydown="handleScannerEnter(event, 'rec-qty')">
                 </div>
             </div>
 
@@ -560,7 +560,7 @@
             </div>
             <div id="rec-items-sheet-body"></div>
         </div>
-        <button type="button" onclick="finishReceptionControl()" style="margin-top:1rem; width:100%;">Finalizar control</button>
+        <button type="button" data-on-click="finishReceptionControl()" style="margin-top:1rem; width:100%;">Finalizar control</button>
     </div>
 
     <!-- 3. TRASPASOS GUIADOS POR CÁMARA (ODTs) -->
@@ -581,20 +581,20 @@
             Paso 1: Escanee SKU
         </div>
 
-        <form id="form-transfer-scan" onsubmit="handleTransferFormSubmit(event)">
+        <form id="form-transfer-scan" data-on-submit="handleTransferFormSubmit(event)">
             <input type="hidden" id="tr-number">
             
             <div id="grp-tr-sku" class="form-group">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> 1. SKU a Transferir *</label>
                 <div class="input-group">
-                    <input type="text" id="tr-sku" placeholder="A la espera..." autocomplete="off" oninput="onModuleInputProcess('TRANSFER', 'sku')" onkeydown="handleScannerEnter(event, null, 'form-transfer-scan')">
+                    <input type="text" id="tr-sku" placeholder="A la espera..." autocomplete="off" data-on-input="onModuleInputProcess('TRANSFER', 'sku')" data-on-keydown="handleScannerEnter(event, null, 'form-transfer-scan')">
                 </div>
             </div>
 
             <div id="grp-tr-loc" class="form-group" style="display:none;">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> 2. Destino *</label>
                 <div class="input-group">
-                    <input type="text" id="tr-dest-loc" placeholder="Etiqueta rack..." autocomplete="off" oninput="onModuleInputProcess('TRANSFER', 'loc')" onkeydown="handleScannerEnter(event, 'tr-qty')">
+                    <input type="text" id="tr-dest-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-input="onModuleInputProcess('TRANSFER', 'loc')" data-on-keydown="handleScannerEnter(event, 'tr-qty')">
                 </div>
             </div>
 
@@ -628,15 +628,15 @@
             <span>ID Sesi&oacute;n:</span>
             <span id="inv-session-id-label" class="font-mono"></span>
         </div>
-        <form id="form-inventory-scan" onsubmit="scanInventoryCount(event)">
+        <form id="form-inventory-scan" data-on-submit="scanInventoryCount(event)">
             <input type="hidden" id="inv-session-id">
             <div class="form-group">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> Ubicaci&oacute;n (Opcional)</label>
-                <div class="input-group"><input type="text" id="inv-loc" placeholder="Ej: RACK-01" autocomplete="off" onkeydown="handleScannerEnter(event, 'inv-sku')"></div>
+                <div class="input-group"><input type="text" id="inv-loc" placeholder="Ej: RACK-01" autocomplete="off" data-on-keydown="handleScannerEnter(event, 'inv-sku')"></div>
             </div>
             <div class="form-group">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="7" y1="12" x2="17" y2="12"></line></svg> SKU *</label>
-                <div class="input-group"><input type="text" id="inv-sku" required placeholder="Escanee SKU..." autocomplete="off" onkeydown="handleScannerEnter(event, 'inv-qty')"></div>
+                <div class="input-group"><input type="text" id="inv-sku" required placeholder="Escanee SKU..." autocomplete="off" data-on-keydown="handleScannerEnter(event, 'inv-qty')"></div>
             </div>
             <div class="form-group">
                 <label>Cantidad Contada *</label>
@@ -651,7 +651,7 @@
                 Registrar Lectura
             </button>
         </form>
-        <button type="button" class="btn-danger" style="width: 100%; margin-top: 2rem;" onclick="finishInventorySession()">
+        <button type="button" class="btn-danger" style="width: 100%; margin-top: 2rem;" data-on-click="finishInventorySession()">
             Finalizar Conteo de Sector
         </button>
     </div>
@@ -660,14 +660,14 @@
     <div id="view-spot-check" class="view">
         <h3>Auditor&iacute;a R&aacute;pida</h3>
         <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1.5rem;">Verificaci&oacute;n en caliente. No altera stock del sistema.</p>
-        <form id="form-spot-check" onsubmit="runSpotCheck(event)" style="background:var(--bg-surface); border:1px solid var(--border); padding:1.2rem; border-radius:10px; box-shadow:var(--shadow);">
+        <form id="form-spot-check" data-on-submit="runSpotCheck(event)" style="background:var(--bg-surface); border:1px solid var(--border); padding:1.2rem; border-radius:10px; box-shadow:var(--shadow);">
             <div class="form-group">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> Ubicaci&oacute;n (Opcional)</label>
-                <div class="input-group"><input type="text" id="spot-check-loc" placeholder="Ej: RACK-A-01" autocomplete="off" onkeydown="handleScannerEnter(event, 'spot-check-sku')"></div>
+                <div class="input-group"><input type="text" id="spot-check-loc" placeholder="Ej: RACK-A-01" autocomplete="off" data-on-keydown="handleScannerEnter(event, 'spot-check-sku')"></div>
             </div>
             <div class="form-group">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="7" y1="12" x2="17" y2="12"></line></svg> SKU *</label>
-                <div class="input-group"><input type="text" id="spot-check-sku" required placeholder="Escanee SKU..." autocomplete="off" onkeydown="handleScannerEnter(event, 'spot-check-qty')"></div>
+                <div class="input-group"><input type="text" id="spot-check-sku" required placeholder="Escanee SKU..." autocomplete="off" data-on-keydown="handleScannerEnter(event, 'spot-check-qty')"></div>
             </div>
             <div class="form-group">
                 <label>Cantidad F&iacute;sica *</label>
@@ -689,24 +689,12 @@
     <div id="camera-modal" class="camera-modal">
         <div style="color:white; font-weight:800; text-transform:uppercase; margin-bottom:1rem; letter-spacing:1px;">Apunte al c&oacute;digo</div>
         <div class="camera-viewport"><video id="camera-video" playsinline autoplay></video></div>
-        <button type="button" class="btn-close-cam" onclick="stopCameraScanner()">Cerrar C&aacute;mara</button>
+        <button type="button" class="btn-close-cam" data-on-click="stopCameraScanner()">Cerrar C&aacute;mara</button>
     </div>
 
+    <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261001_1"></script>
-    <script src="js/mobile.js?v=20260930_1"></script>
-    <script>
-        function toggleTheme() {
-            const html = document.documentElement;
-            const currentTheme = html.getAttribute('data-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            html.setAttribute('data-theme', newTheme);
-            localStorage.setItem('jztech-theme', newTheme);
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const savedTheme = localStorage.getItem('jztech-theme') || 'light';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-        });
-    </script>
+    <script src="js/mobile.js?v=20261001_1"></script>
+    <script src="js/preparador-pagina.js?v=20261001_1"></script>
 </body>
 </html>

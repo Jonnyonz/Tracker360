@@ -31,11 +31,11 @@ app = FastAPI(title="Tracker360 API", version="3.0 Enterprise", lifespan=lifespa
 # "detail" (el campo que lee el frontend), nunca el texto de la excepcion.
 install_generic_error_handler(app, "tracker360", field="detail")
 
-# CSP: solo el propio sitio y el boton de Google Sign-In. 'unsafe-inline' sigue siendo necesario
-# mientras el frontend use handlers onclick en linea.
+# CSP: solo el propio sitio y el boton de Google Sign-In. Sin JavaScript inline: los handlers van en
+# atributos data-on-* que ejecuta js/acciones.js. En style-src 'unsafe-inline' sigue (atributos style).
 CONTENT_SECURITY_POLICY = "; ".join([
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/client",
+    "script-src 'self' https://accounts.google.com/gsi/client",
     "style-src 'self' 'unsafe-inline' https://accounts.google.com/gsi/style",
     "frame-src https://accounts.google.com/gsi/",
     "connect-src 'self' https://accounts.google.com/gsi/",

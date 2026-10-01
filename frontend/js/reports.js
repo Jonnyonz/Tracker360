@@ -660,7 +660,7 @@ window.generateDiffsReport = async function(e) {
                 <td style="text-align:right;">${escapeHTML(String(r.sent))}</td>
                 <td style="text-align:right;">${escapeHTML(String(r.received))}</td>
                 <td style="text-align:right; font-weight:bold;">${r.difference > 0 ? '+' : ''}${escapeHTML(String(r.difference))}</td>
-                <td><button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" onclick="verRemito(${jsArg(r.remito_id)}, ${jsArg(r.remito_number)})">Ver remito</button></td>
+                <td><button class="btn-secondary" style="padding:4px 8px; font-size:0.75rem;" data-on-click="verRemito(${jsArg(r.remito_id)}, ${jsArg(r.remito_number)})">Ver remito</button></td>
             </tr>`;
         }).join('');
     } catch (err) {
