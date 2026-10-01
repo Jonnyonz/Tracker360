@@ -10,6 +10,8 @@ __pycache__/
 # Datos de la Base de Datos PostgreSQL
 postgres_data/
 *.sql
+# Las migraciones del esquema son codigo, no dumps de la base: se versionan.
+!backend/migrations/*.sql
 
 # Logs del sistema
 *.log
