@@ -9,6 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from backend.database import get_db_connection, require_admin, require_supervisor, queue_zpl_print_job, parse_uuid
+from backend.routers.printing import zpl_etiqueta_articulo
 
 router = APIRouter(tags=["Items"])
 
@@ -257,14 +258,7 @@ async def batch_print_items_labels(req: dict, admin: dict = Depends(require_admi
             clean_desc = item_row["description"] if item_row and item_row["description"] else clean_sku
             short_desc = clean_desc[:22]
 
-            if custom_tpl:
-                zpl = custom_tpl
-                for tag in ["{{SKU}}", "{{sku}}", "{SKU}", "{sku}", "{{ SKU }}"]:
-                    zpl = zpl.replace(tag, clean_sku)
-                for tag in ["{{DESC}}", "{{desc}}", "{DESC}", "{desc}", "{{DESCRIPTION}}", "{{description}}", "{{ DESC }}"]:
-                    zpl = zpl.replace(tag, short_desc)
-            else:
-                zpl = f"^XA\n^PW304\n^LL160\n^LS0\n^FO40,25^A0N,24,24^FD{clean_sku}^FS\n^FO40,65^A0N,18,18^FD{short_desc}^FS\n^FO205,20^BQN,2,3^FDLA,{clean_sku}^FS\n^XZ"
+            zpl = zpl_etiqueta_articulo(custom_tpl, clean_sku, short_desc)
 
             await conn.execute("""
                 INSERT INTO print_jobs (id, queue_code, zpl_content, status, created_at)

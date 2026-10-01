@@ -155,6 +155,18 @@ async def ack_print_job(job_id: str, agent=Depends(verify_print_agent), conn: as
         raise HTTPException(status_code=404, detail="Trabajo de impresion inexistente o ya confirmado.")
     return {"status": "ok", "job_id": job_id}
 
+# Etiqueta de articulo: la plantilla configurada (con {{SKU}}/{{DESC}} y sus variantes) o, si no hay,
+# una etiqueta fija de 38x20 mm con SKU, descripcion y QR. La usan esta ruta y la impresion masiva de items.py.
+def zpl_etiqueta_articulo(plantilla: Optional[str], sku: str, desc: str) -> str:
+    if not plantilla:
+        return f"^XA\n^PW304\n^LL160\n^LS0\n^FO40,25^A0N,24,24^FD{sku}^FS\n^FO40,65^A0N,18,18^FD{desc}^FS\n^FO205,20^BQN,2,3^FDLA,{sku}^FS\n^XZ"
+    zpl = plantilla
+    for tag in ["{{SKU}}", "{{sku}}", "{SKU}", "{sku}", "{{ SKU }}"]:
+        zpl = zpl.replace(tag, sku)
+    for tag in ["{{DESC}}", "{{desc}}", "{DESC}", "{desc}", "{{DESCRIPTION}}", "{{description}}", "{{ DESC }}"]:
+        zpl = zpl.replace(tag, desc)
+    return zpl
+
 @router.post("/api/admin/print-jobs")
 async def create_print_job(req: PrintJobRequest, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     q_code = req.queue_code.strip().upper() if req.queue_code else "RECEPCION"
@@ -182,14 +194,7 @@ async def create_print_job(req: PrintJobRequest, admin: dict = Depends(require_a
         clean_desc = item_row["description"] if item_row and item_row["description"] else clean_sku
         short_desc = clean_desc[:22]
 
-        if custom_tpl:
-            zpl = custom_tpl
-            for tag in ["{{SKU}}", "{{sku}}", "{SKU}", "{sku}", "{{ SKU }}"]:
-                zpl = zpl.replace(tag, clean_sku)
-            for tag in ["{{DESC}}", "{{desc}}", "{DESC}", "{desc}", "{{DESCRIPTION}}", "{{description}}", "{{ DESC }}"]:
-                zpl = zpl.replace(tag, short_desc)
-        else:
-            zpl = f"^XA\n^PW304\n^LL160\n^LS0\n^FO40,25^A0N,24,24^FD{clean_sku}^FS\n^FO40,65^A0N,18,18^FD{short_desc}^FS\n^FO205,20^BQN,2,3^FDLA,{clean_sku}^FS\n^XZ"
+        zpl = zpl_etiqueta_articulo(custom_tpl, clean_sku, short_desc)
 
         await conn.execute("""
             INSERT INTO print_jobs (id, queue_code, zpl_content, status, created_at)
