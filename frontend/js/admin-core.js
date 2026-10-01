@@ -19,7 +19,7 @@ async function esSupervisor() { return (await rolUsuarioPromise) === 'SUPERVISOR
 function aplicarModoSupervisor() {
     const soloAdmin = ['section-users', 'section-settings', 'section-logs'];
     document.querySelectorAll('.nav-rail .rail-btn, .nav-rail .rail-sub-btn').forEach(b => {
-        const oc = b.getAttribute('onclick') || '';
+        const oc = b.getAttribute('data-on-click') || '';
         if (soloAdmin.some(s => oc.includes(s))) b.style.display = 'none';
     });
     // Botones de alta de cada seccion (crear pedido, articulo, etc.): el supervisor solo consulta.
@@ -153,7 +153,7 @@ function switchView(secId, btnElement = null) {
             document.getElementById('btn-acc-reports')?.classList.add('active');
         }
     } else {
-        const b = document.querySelector(`[onclick*="${secId}"]`);
+        const b = document.querySelector(`[data-on-click*="${secId}"]`);
         if(b) {
             b.classList.add('active');
             if (b.classList.contains('rail-sub-btn')) {

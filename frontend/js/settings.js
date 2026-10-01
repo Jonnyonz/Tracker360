@@ -317,7 +317,7 @@ function editZPLSettings(tabId) {
     if (typeof openModal === 'function') {
         openModal('modal-edit-zpl');
     }
-    const btn = document.querySelector(`[onclick*="${tabId}"]`);
+    const btn = document.querySelector(`[data-on-click*="${tabId}"]`);
     switchZPLTab(tabId, btn);
 }
 

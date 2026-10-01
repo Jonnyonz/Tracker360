@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.documentElement.setAttribute('data-theme', savedTheme);
 
     document.querySelectorAll('.rail-btn, .rail-sub-btn').forEach(btn => {
-        if(btn.id === 'btn-toggle-help' || btn.id === 'btn-acc-reports' || btn.getAttribute('onclick')?.includes('toggleTheme')) return;
+        if(btn.id === 'btn-toggle-help' || btn.id === 'btn-acc-reports' || btn.getAttribute('data-on-click')?.includes('toggleTheme')) return;
 
         btn.addEventListener('click', () => {
             document.querySelectorAll('.rail-btn, .rail-sub-btn').forEach(b => b.classList.remove('active'));
