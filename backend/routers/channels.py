@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel
 from typing import List, Optional
 import asyncpg, re, secrets
@@ -267,3 +267,49 @@ async def cancelar_pedido_del_canal(external_ref: str, request: Request, canal: 
     r = await cancelar_pedido(conn, doc["document_number"], None, f"canal:{canal['code']}", get_client_ip(request))
     doc = await _pedido_del_canal(conn, canal, doc["external_ref"])
     return {**await _pedido_dict(conn, doc), "devuelto": r["devuelto"]}
+
+
+async def stock_para_canal(conn: asyncpg.Connection, canal: dict, skus: Optional[List[str]] = None,
+                           despues: str = "", limite: int = 500) -> list:
+    """Stock por SKU tal como lo ve el canal. fisico = stock OPERATIVO de las sucursales del canal
+    (todas si no eligio); comprometido = lo pedido y todavia no pickeado en pedidos abiertos (PENDING o
+    IN_PROGRESS; lo pickeado ya salio del stock). disponible = fisico, o fisico - comprometido si el
+    canal trabaja con stock comprometido; nunca negativo. Con skus devuelve esos (los que existen);
+    sin skus, todos los articulos en orden de SKU desde 'despues'."""
+    if skus is not None:
+        filtro, args = "UPPER(i.sku) = ANY($1::text[])", [[s.strip().upper() for s in skus if s.strip()]]
+    else:
+        filtro, args = "UPPER(i.sku) > $1", [despues.strip().upper()]
+    args += [canal["stock_branch_ids"], limite]
+    filas = await conn.fetch(f"""
+        SELECT UPPER(i.sku) AS sku,
+               COALESCE((SELECT SUM(si.quantity) FROM stock_inventory si
+                         WHERE UPPER(si.sku) = UPPER(i.sku) AND COALESCE(si.condition, 'OPERATIVO') = 'OPERATIVO'
+                           AND ($2::uuid[] IS NULL OR si.branch_id = ANY($2::uuid[]))), 0)::float AS fisico,
+               COALESCE((SELECT SUM(dl.quantity_requested - dl.quantity_picked) FROM document_lines dl
+                         JOIN documents d ON d.id = dl.document_id
+                         WHERE UPPER(dl.sku) = UPPER(i.sku) AND d.status IN ('PENDING', 'IN_PROGRESS')
+                           AND dl.quantity_requested > dl.quantity_picked), 0)::float AS comprometido
+        FROM items i
+        WHERE {filtro}
+        ORDER BY UPPER(i.sku)
+        LIMIT $3
+    """, *args)
+    resta = canal["stock_mode"] == "DISPONIBLE_MENOS_COMPROMETIDO"
+    return [{"sku": f["sku"], "physical": f["fisico"], "committed": f["comprometido"],
+             "available": max(0.0, f["fisico"] - (f["comprometido"] if resta else 0.0))} for f in filas]
+
+
+@router.get("/api/v1/channel/stock")
+async def stock_del_canal(skus: Optional[str] = Query(None, description="SKU separados por coma"),
+                          after: str = "", limit: int = 500,
+                          canal: dict = Depends(require_sales_channel), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Stock disponible para el canal segun su configuracion. ?skus=A,B para algunos, o paginado por SKU
+    (?after=<ultimo sku>&limit=500). Un SKU que no existe en Tracker no aparece."""
+    limite = max(1, min(int(limit), 1000))
+    lista = [s for s in skus.split(",")] if skus is not None else None
+    if lista is not None and len(lista) > 1000:
+        raise HTTPException(400, "Hasta 1000 SKU por consulta.")
+    filas = await stock_para_canal(conn, canal, lista, after, limite)
+    return {"stock_mode": canal["stock_mode"], "items": filas,
+            "next_after": filas[-1]["sku"] if lista is None and len(filas) == limite else None}
