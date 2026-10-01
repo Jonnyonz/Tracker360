@@ -31,6 +31,10 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   veces al mismo tiempo: la segunda alta espera y se rechaza. (`dd67505`)
 
 ### Cambiado
+- Los números de pedidos, órdenes de compra, traspasos y devoluciones los asigna el sistema, en
+  orden correlativo, y ya no se pueden escribir a mano. Los de facturas y remitos de compra se siguen
+  cargando como hasta ahora. Para integraciones: el campo del número se sigue aceptando pero se
+  ignora; la respuesta trae el número asignado. (`3afb6b8`)
 - Si un reporte o el kardex fallan por un problema interno, ahora queda registrado con todo el
   detalle para poder revisarlo, y la pantalla muestra "Error interno del servidor". (`1f4f652`)
 - Limpieza interna del código (los módulos se importan de una sola forma y las consultas a la
