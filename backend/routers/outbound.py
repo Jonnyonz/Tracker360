@@ -233,6 +233,19 @@ async def reprint_order_label(document_number: str, admin: dict = Depends(requir
         return {"status": "success", "message": "Etiqueta re-enviada a impresión."}
     raise HTTPException(400, "Plantilla ZPL no configurada.")
 
+async def _ubicaciones_sugeridas(conn: asyncpg.Connection, sku: str):
+    """Ubicaciones con stock OPERATIVO del SKU para la pantalla de picking: texto "A-01 (5) | A-02 (3)"
+    y clave de orden (la primera ubicacion; sin stock va al final)."""
+    locs = await conn.fetch("""
+        SELECT l.location_code, si.quantity::float
+        FROM stock_inventory si
+        JOIN locations l ON si.location_id = l.id
+        WHERE UPPER(si.sku) = $1 AND si.quantity > 0 AND COALESCE(si.condition, 'OPERATIVO') = 'OPERATIVO'
+    """, sku.strip().upper())
+    if not locs:
+        return "Sin ubicación asignada o stock agotado", "ZZZZZ"
+    return " | ".join(f"{loc['location_code']} ({loc['quantity']})" for loc in locs), locs[0]["location_code"]
+
 @router.get("/api/picking/orders")
 async def get_picking_mailbox(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
@@ -277,19 +290,7 @@ async def get_picking_order_details(document_number: str, user: dict = Depends(g
     result_lines = []
     for l in lines:
         ldict = dict(l)
-        locs = await conn.fetch("""
-            SELECT l.location_code, si.quantity::float 
-            FROM stock_inventory si 
-            JOIN locations l ON si.location_id = l.id 
-            WHERE UPPER(si.sku) = $1 AND si.quantity > 0 AND COALESCE(si.condition, 'OPERATIVO') = 'OPERATIVO'
-        """, l["sku"].strip().upper())
-        
-        if locs:
-            ldict["suggested_locations"] = " | ".join([f"{loc['location_code']} ({loc['quantity']})" for loc in locs])
-            ldict["sort_key"] = locs[0]['location_code']
-        else:
-            ldict["suggested_locations"] = "Sin ubicación asignada o stock agotado"
-            ldict["sort_key"] = "ZZZZZ"
+        ldict["suggested_locations"], ldict["sort_key"] = await _ubicaciones_sugeridas(conn, l["sku"])
             
         result_lines.append(ldict)
 
@@ -402,14 +403,7 @@ async def get_wave_picking_pending(limit: int = 5, user: dict = Depends(get_curr
     result_lines = []
     for l in lines:
         ldict = dict(l)
-        locs = await conn.fetch("SELECT l.location_code, si.quantity::float FROM stock_inventory si JOIN locations l ON si.location_id = l.id WHERE UPPER(si.sku) = $1 AND si.quantity > 0 AND COALESCE(si.condition, 'OPERATIVO') = 'OPERATIVO'", l["sku"].strip().upper())
-        
-        if locs:
-            ldict["suggested_locations"] = " | ".join([f"{loc['location_code']} ({loc['quantity']})" for loc in locs])
-            ldict["sort_key"] = locs[0]["location_code"]
-        else:
-            ldict["suggested_locations"] = "Sin ubicación asignada o stock agotado"
-            ldict["sort_key"] = "ZZZZZ"
+        ldict["suggested_locations"], ldict["sort_key"] = await _ubicaciones_sugeridas(conn, l["sku"])
             
         result_lines.append(ldict)
         
