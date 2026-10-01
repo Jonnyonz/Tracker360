@@ -6,7 +6,7 @@ import logging
 
 from backend.database import (get_db_connection, require_admin, log_action, get_client_ip, hash_system_api_key, parse_uuid,
                               numero_correlativo, require_valid_quantity, emitir_stock_a_canales)
-from backend.routers.outbound import cancelar_pedido
+from backend.routers.outbound import cancelar_pedido, imprimir_etiqueta_pedido
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,13 @@ class PedidoCanal(BaseModel):
 # Envios que no pasan por el deposito de Tracker (el stock esta en el del marketplace): se resuelven
 # aparte (paso 5 de la integracion).
 ENVIOS_FUERA_DEL_DEPOSITO = {"FULFILLMENT"}
+
+
+class EtiquetaCanal(BaseModel):
+    zpl: str
+
+
+ETIQUETA_MAX_BYTES = 256 * 1024
 
 
 class CanalUpdate(BaseModel):
@@ -330,3 +337,25 @@ async def eventos_del_canal(after: int = 0, limit: int = 200, canal: dict = Depe
     """, canal["id"], max(0, int(after)), limite)
     eventos = [{"id": f["id"], "type": f["event_type"], "payload": json.loads(f["payload"]), "created_at": f["created_at"]} for f in filas]
     return {"events": eventos, "next_after": eventos[-1]["id"] if eventos else max(0, int(after))}
+
+
+@router.put("/api/v1/channel/orders/{external_ref}/label")
+async def etiqueta_del_canal(external_ref: str, data: EtiquetaCanal, request: Request, canal: dict = Depends(require_sales_channel),
+                             conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Etiqueta ZPL del canal para el pedido (por ejemplo la de envio de Mercado Libre). Se imprime al
+    empacar en lugar de la de Tracker. Si el pedido ya se despacho (la etiqueta llego tarde), se imprime
+    en el momento. Reemplaza a la anterior si la habia."""
+    zpl = (data.zpl or "").strip()
+    if not zpl or "^XA" not in zpl or "^XZ" not in zpl:
+        raise HTTPException(400, "La etiqueta tiene que ser ZPL (con ^XA y ^XZ).")
+    if len(zpl.encode("utf-8")) > ETIQUETA_MAX_BYTES:
+        raise HTTPException(400, "La etiqueta es demasiado grande (máximo 256 KB).")
+    async with conn.transaction():
+        doc = await _pedido_del_canal(conn, canal, _ref(external_ref))
+        await conn.execute("UPDATE documents SET channel_label_zpl = $2 WHERE id = $1", doc["id"], zpl)
+        impresa = False
+        if doc["status"] == "DISPATCHED":
+            fila = await conn.fetchrow("SELECT d.document_number, d.channel_label_zpl, '' AS client_name, '' AS delivery_address FROM documents d WHERE d.id = $1", doc["id"])
+            impresa = await imprimir_etiqueta_pedido(conn, fila)
+        await log_action(conn, f"canal:{canal['code']}", "CHANNEL_LABEL", f"Etiqueta del canal para el pedido {doc['document_number']}" + (" (impresa: ya estaba despachado)." if impresa else "."), get_client_ip(request))
+    return {"document_number": doc["document_number"], "printed_now": impresa}

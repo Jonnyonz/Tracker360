@@ -228,15 +228,25 @@ def _zpl_pedido(template: str, doc) -> str:
         template = template.replace(marcador, valor)
     return template
 
+async def imprimir_etiqueta_pedido(conn: asyncpg.Connection, doc) -> bool:
+    """Encola la etiqueta del pedido: la que mando el canal de venta (channel_label_zpl, por ejemplo la
+    de envio de Mercado Libre) si la tiene; si no, la plantilla zpl_order_template. False si no hay
+    ninguna. doc necesita document_number, client_name, delivery_address y channel_label_zpl."""
+    zpl = doc["channel_label_zpl"]
+    if not zpl:
+        template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_order_template'")
+        if not template:
+            return False
+        zpl = _zpl_pedido(template, doc)
+    default_queue = await conn.fetchval("SELECT print_queue_code FROM sectors WHERE uses_locations = FALSE LIMIT 1") or "PRINT-SEC-01"
+    await queue_zpl_print_job(conn, default_queue, zpl)
+    return True
+
 @router.post("/api/admin/sales-orders/{document_number}/print-label")
 async def reprint_order_label(document_number: str, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    doc = await conn.fetchrow("SELECT d.document_number, COALESCE(c.company_name, d.buyer_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, d.buyer_address, 'A coordinar') as delivery_address FROM documents d LEFT JOIN entities c ON d.customer_id = c.id LEFT JOIN entity_addresses a ON d.customer_address_id = a.id WHERE d.document_number = $1", document_number.strip().upper())
+    doc = await conn.fetchrow("SELECT d.document_number, d.channel_label_zpl, COALESCE(c.company_name, d.buyer_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, d.buyer_address, 'A coordinar') as delivery_address FROM documents d LEFT JOIN entities c ON d.customer_id = c.id LEFT JOIN entity_addresses a ON d.customer_address_id = a.id WHERE d.document_number = $1", document_number.strip().upper())
     if not doc: raise HTTPException(404, "Pedido no encontrado.")
-    template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_order_template'")
-    if template:
-        zpl = _zpl_pedido(template, doc)
-        default_queue = await conn.fetchval("SELECT print_queue_code FROM sectors WHERE uses_locations = FALSE LIMIT 1") or "PRINT-SEC-01"
-        await queue_zpl_print_job(conn, default_queue, zpl)
+    if await imprimir_etiqueta_pedido(conn, doc):
         return {"status": "success", "message": "Etiqueta re-enviada a impresión."}
     raise HTTPException(400, "Plantilla ZPL no configurada.")
 
@@ -519,7 +529,7 @@ async def get_packing_order_details(document_number: str, user: dict = Depends(g
 @router.post("/api/packing/orders/{document_number}/pack")
 async def pack_order_and_dispatch(document_number: str, data: PackOrderInput, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     async with conn.transaction():
-        doc = await conn.fetchrow("SELECT d.id, d.status, d.document_number, d.channel_origin, COALESCE(c.company_name, d.buyer_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, d.buyer_address, 'A coordinar') as delivery_address FROM documents d LEFT JOIN entities c ON d.customer_id = c.id LEFT JOIN entity_addresses a ON d.customer_address_id = a.id WHERE UPPER(d.document_number) = $1 FOR UPDATE OF d", document_number.strip().upper())
+        doc = await conn.fetchrow("SELECT d.id, d.status, d.document_number, d.channel_origin, d.channel_label_zpl, COALESCE(c.company_name, d.buyer_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, d.buyer_address, 'A coordinar') as delivery_address FROM documents d LEFT JOIN entities c ON d.customer_id = c.id LEFT JOIN entity_addresses a ON d.customer_address_id = a.id WHERE UPPER(d.document_number) = $1 FOR UPDATE OF d", document_number.strip().upper())
         if not doc: raise HTTPException(404, "Pedido no encontrado.")
         if doc["status"] == "DISPATCHED": raise HTTPException(400, "El pedido ya fue despachado.")
         if doc["status"] != "COMPLETED": raise HTTPException(400, "El pedido aún no está pickeado completamente.")
@@ -556,11 +566,7 @@ async def pack_order_and_dispatch(document_number: str, data: PackOrderInput, us
         await emitir_estado_a_canal(conn, doc["id"])
         await log_action(conn, user.get("username"), "PACKING_DISPATCH", f"Empacó y despachó {document_number} ({data.boxes} bultos)")
 
-        template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_order_template'")
-        if template:
-            zpl = _zpl_pedido(template, doc)
-            default_queue = await conn.fetchval("SELECT print_queue_code FROM sectors WHERE uses_locations = FALSE LIMIT 1") or "PRINT-SEC-01"
-            await queue_zpl_print_job(conn, default_queue, zpl)
+        await imprimir_etiqueta_pedido(conn, doc)
 
         dispatch_payload = {
             "event": "order.dispatched",
