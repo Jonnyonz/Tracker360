@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from backend.database import get_db_connection, send_webhook_sync, get_current_user, require_admin, log_action, get_client_ip, hash_system_api_key
 import asyncpg, secrets, json, uuid, asyncio, re
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -214,7 +217,7 @@ async def save_bulk_settings(request: Request, admin: dict = Depends(require_adm
         await log_action(conn, admin["username"], "SETTINGS_UPDATED", f"Configuracion modificada: {', '.join(sorted(str(k) for k in data.keys()))}", client_ip)
         return {"status": "ok", "message": "Configuración guardada exitosamente"}
     except Exception as exc:
-        print(f"[SAVE BULK SETTINGS ERROR]: {exc!r}")
+        logger.exception(f"[SAVE BULK SETTINGS ERROR]: {exc!r}")
         raise HTTPException(status_code=500, detail="Error guardando configuración.")
 
 @router.get("/api/settings/{key}")

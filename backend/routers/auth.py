@@ -3,6 +3,9 @@ from pydantic import BaseModel
 import asyncpg, json, urllib.request, urllib.parse, asyncio, secrets, os, jwt, uuid
 from datetime import datetime, timezone
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     from backend.database import (
@@ -85,7 +88,7 @@ def verify_google_token_sync(id_token: str) -> dict:
             if resp.status == 200:
                 return json.loads(resp.read().decode('utf-8'))
     except Exception as e:
-        print(f"Error verificando token de Google: {e!r}")
+        logger.warning(f"Error verificando token de Google: {e!r}")
     return {}
 
 def validate_google_claims(data: dict, client_id: str) -> Optional[str]:

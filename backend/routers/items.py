@@ -4,6 +4,9 @@ from pydantic import BaseModel
 from typing import Optional, List
 import asyncpg, csv
 from io import StringIO
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     from backend.database import get_db_connection, require_admin, require_supervisor, queue_zpl_print_job, parse_uuid
@@ -278,5 +281,5 @@ async def batch_print_items_labels(req: dict, admin: dict = Depends(require_admi
         raise he
     except Exception as e:
         # El detalle queda en el log del servidor; al cliente solo un mensaje generico.
-        print(f"[BATCH PRINT ERROR]: {e!r}")
+        logger.exception(f"[BATCH PRINT ERROR]: {e!r}")
         raise HTTPException(status_code=500, detail="No se pudieron generar las etiquetas.")

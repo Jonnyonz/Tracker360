@@ -2,6 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from datetime import datetime
 import asyncpg, uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     from backend.database import get_db_connection, require_admin, require_supervisor
@@ -78,7 +81,7 @@ async def report_stock(
         rows = await conn.fetch(query, *params)
         return [dict(r) for r in rows]
     except Exception as e:
-        print(f"Error procesando Reporte de Stock: {e}")
+        logger.exception(f"Error procesando Reporte de Stock: {e}")
         raise HTTPException(status_code=400, detail="Error al generar el reporte de stock.")
 
 # === 2. REPORTE DE PEDIDOS DE VENTA (SALIDAS) ===
@@ -155,7 +158,7 @@ async def report_orders(
         rows = await conn.fetch(query, *params)
         return [dict(r) for r in rows]
     except Exception as e:
-        print(f"Error procesando Reporte de Pedidos: {e}")
+        logger.exception(f"Error procesando Reporte de Pedidos: {e}")
         raise HTTPException(status_code=400, detail="Error al generar el reporte de pedidos.")
 
 # === 3. REPORTE DE REMITOS DE COMPRA (INGRESOS) ===
@@ -245,7 +248,7 @@ async def report_remitos(
         rows = await conn.fetch(query, *params)
         return [dict(r) for r in rows]
     except Exception as e:
-        print(f"Error procesando Reporte de Remitos: {e}")
+        logger.exception(f"Error procesando Reporte de Remitos: {e}")
         raise HTTPException(status_code=400, detail="Error al generar el reporte de remitos.")
 
 # === DIFERENCIAS DE RECEPCION (control fisico de remitos) ===
@@ -370,7 +373,7 @@ async def report_invoices(
         rows = await conn.fetch(query, *params)
         return [dict(r) for r in rows]
     except Exception as e:
-        print(f"Error procesando Reporte de Facturas: {e}")
+        logger.exception(f"Error procesando Reporte de Facturas: {e}")
         raise HTTPException(status_code=400, detail="Error al generar el reporte de facturas.")
 
 # === 5. REPORTE DE ÓRDENES DE COMPRA ===
@@ -446,5 +449,5 @@ async def report_purchase_orders(
         rows = await conn.fetch(query, *params)
         return [dict(r) for r in rows]
     except Exception as e:
-        print(f"Error procesando Reporte de Ordenes de Compra: {e}")
+        logger.exception(f"Error procesando Reporte de Ordenes de Compra: {e}")
         raise HTTPException(status_code=400, detail="Error al generar el reporte de ordenes de compra.")

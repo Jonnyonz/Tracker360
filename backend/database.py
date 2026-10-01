@@ -6,11 +6,14 @@ from jztech_core.net import real_ip
 from fastapi import HTTPException, Header, Request, Depends
 from typing import Optional, Dict, List
 from jztech_core.passwords import hash_password, needs_rehash, verify_password as _verify_password
+import logging
+
+logger = logging.getLogger(__name__)
 
 # === SEGURIDAD Y CONFIGURACIÓN ===
 SECRET_KEY = os.getenv("SECRET_KEY", "")
 if not SECRET_KEY:
-    print("[Tracker360] SECRET_KEY no esta configurada en el .env: se usa una clave temporal y las sesiones se cierran en cada reinicio.")
+    logger.warning("[Tracker360] SECRET_KEY no esta configurada en el .env: se usa una clave temporal y las sesiones se cierran en cada reinicio.")
     SECRET_KEY = secrets.token_hex(32)
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 240  # Fallback en caso de no leer la DB
@@ -168,7 +171,7 @@ async def save_idempotency(conn: asyncpg.Connection, idempotency_key: Optional[s
             idempotency_key.strip(), endpoint, json.dumps(response_data), status_code
         )
     except Exception as e:
-        print(f"[IDEMPOTENCY SAVE ERROR] {endpoint}: {e!r}")
+        logger.exception(f"[IDEMPOTENCY SAVE ERROR] {endpoint}: {e!r}")
 
 # === AUXILIARES DE NEGOCIO ===
 def build_full_address(street: Optional[str], number: Optional[str], zip_code: Optional[str], city_neighborhood: Optional[str], fallback: Optional[str] = "") -> str:
@@ -235,7 +238,7 @@ def send_webhook_sync(url: str, payload: dict, api_key: str = ""):
     try:
         assert_safe_webhook_url(url)
     except ValueError as e:
-        print(f"[WEBHOOK BLOQUEADO] {url!r}: {e}")
+        logger.warning(f"[WEBHOOK BLOQUEADO] {url!r}: {e}")
         return None, "", "Destino de webhook no permitido."
     headers = {'Content-Type': 'application/json'}
     if api_key and api_key.strip():
@@ -251,7 +254,7 @@ def send_webhook_sync(url: str, payload: dict, api_key: str = ""):
         body = e.read().decode('utf-8', errors='ignore') if e.fp else ""
         return e.code, body, f"El destino respondió HTTP {e.code}."
     except Exception as e:
-        print(f"[WEBHOOK ERROR] {url!r}: {e!r}")
+        logger.warning(f"[WEBHOOK ERROR] {url!r}: {e!r}")
         return None, "", "No se pudo conectar con el destino del webhook."
 
 async def execute_and_log_webhook(channel_id: Optional[uuid.UUID], channel_name: str, event_type: str, target_url: str, payload: dict, api_key: str = ""):
@@ -421,11 +424,11 @@ async def init_db_schema():
             )
             if DB.pool is not None: break
         except Exception as e:
-            print(f"[DB] Intento {attempt + 1}/10 de conexion a PostgreSQL fallido: {e!r}")
+            logger.warning(f"[DB] Intento {attempt + 1}/10 de conexion a PostgreSQL fallido: {e!r}")
             await asyncio.sleep(1.0)
 
     if DB.pool is None:
-        print("[DB] No se pudo conectar a PostgreSQL: la API respondera 503 hasta reiniciar el servicio.")
+        logger.error("[DB] No se pudo conectar a PostgreSQL: la API respondera 503 hasta reiniciar el servicio.")
 
     if DB.pool is not None:
         try:
@@ -610,9 +613,9 @@ async def init_db_schema():
                     try: await conn.execute(stmt)
                     except Exception as e:
                         ddl_errors += 1
-                        print(f"[DB DDL ERROR] {e!r} en: {stmt[:160]}")
+                        logger.error(f"[DB DDL ERROR] {e!r} en: {stmt[:160]}")
                 if ddl_errors:
-                    print(f"[DB] Esquema inicializado con {ddl_errors} error(es) de DDL. Revisar los mensajes anteriores.")
+                    logger.error(f"[DB] Esquema inicializado con {ddl_errors} error(es) de DDL. Revisar los mensajes anteriores.")
 
                 # El primer usuario administrador ya no se auto-crea acá: si la tabla users está vacía,
                 # el frontend muestra la pantalla de configuración inicial (POST /api/auth/setup/admin),
@@ -630,18 +633,18 @@ async def init_db_schema():
                     # Migracion: instalacion previa con la clave en claro -> se reemplaza por su hash.
                     hashed = hash_system_api_key(sys_key)
                     await conn.execute("UPDATE system_settings SET value = $1 WHERE key IN ('tracker360_api_key', 'api_key')", hashed)
-                    print("[DB] Clave API del sistema migrada a hash en reposo.")
+                    logger.info("[DB] Clave API del sistema migrada a hash en reposo.")
 
                 # Migracion de las claves por-canal en claro a hash.
                 legacy_inbound = await conn.fetch("SELECT id, api_key FROM inbound_api_keys WHERE api_key NOT LIKE $1", SYSTEM_KEY_PREFIX + "%")
                 for row in legacy_inbound:
                     await conn.execute("UPDATE inbound_api_keys SET api_key = $1 WHERE id = $2", hash_system_api_key(row["api_key"]), row["id"])
                 if legacy_inbound:
-                    print(f"[DB] {len(legacy_inbound)} clave(s) de canal migrada(s) a hash en reposo.")
+                    logger.info(f"[DB] {len(legacy_inbound)} clave(s) de canal migrada(s) a hash en reposo.")
 
                 branch_count = await conn.fetchval("SELECT COUNT(*) FROM branches")
                 if branch_count == 0:
                     default_branch_id = await conn.fetchval("INSERT INTO branches (code, name) VALUES ('SUC-01', 'Sucursal Central') RETURNING id")
                     await conn.execute("UPDATE sectors SET branch_id = $1 WHERE branch_id IS NULL", default_branch_id)
         except Exception as e:
-            print(f"[DB] Error inicializando el esquema: {e!r}")
+            logger.exception(f"[DB] Error inicializando el esquema: {e!r}")

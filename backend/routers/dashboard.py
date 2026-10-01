@@ -1,5 +1,8 @@
 from fastapi import APIRouter, Depends
 import asyncpg
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     from backend.database import get_db_connection, require_admin, require_supervisor
@@ -46,7 +49,7 @@ async def get_admin_dashboard_op(admin: dict = Depends(require_supervisor), conn
             WHERE movement_type = 'OUT_PICKING' AND DATE(created_at) = CURRENT_DATE
         """)
     except Exception as e:
-        print(f"[KPI Error] units_today falló: {e}")
+        logger.exception(f"[KPI Error] units_today falló: {e}")
 
     try:
         # Simplificamos la consulta por si la base de datos no tiene 'updated_at'
@@ -56,7 +59,7 @@ async def get_admin_dashboard_op(admin: dict = Depends(require_supervisor), conn
             WHERE status IN ('COMPLETED', 'DISPATCHED') AND updated_at IS NOT NULL
         """)
     except Exception as e:
-        print(f"[KPI Error] avg_cycle falló (Posible falta de columna updated_at): {e}")
+        logger.exception(f"[KPI Error] avg_cycle falló (Posible falta de columna updated_at): {e}")
 
     try:
         leaderboard_rows = await conn.fetch("""
@@ -69,7 +72,7 @@ async def get_admin_dashboard_op(admin: dict = Depends(require_supervisor), conn
         """)
         leaderboard = [dict(r) for r in leaderboard_rows]
     except Exception as e:
-        print(f"[KPI Error] leaderboard falló: {e}")
+        logger.exception(f"[KPI Error] leaderboard falló: {e}")
     
     return {
         "status": "ok",

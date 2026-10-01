@@ -1,5 +1,8 @@
 import os, json, urllib.request
 from fastapi import APIRouter, Depends
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     from backend.database import require_admin
@@ -43,7 +46,7 @@ async def check_for_updates(admin: dict = Depends(require_admin)):
             "published_at": data.get("published_at"),
         }
     except Exception as e:
-        print(f"[UPDATE CHECK ERROR] {GITHUB_REPO}: {e!r}")
+        logger.warning(f"[UPDATE CHECK ERROR] {GITHUB_REPO}: {e!r}")
         return {
             "current_version": CURRENT_VERSION,
             "latest_version": CURRENT_VERSION,

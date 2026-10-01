@@ -12,6 +12,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
 import jwt
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     from backend.database import init_db_schema, DB, SECRET_KEY, ALGORITHM, get_client_ip, get_request_scheme, is_private_ip, require_admin
@@ -91,7 +94,7 @@ if _allowed_origins:
         allow_headers=["*"],
     )
 else:
-    print("[Tracker360] ALLOWED_ORIGINS no esta configurada: CORS deshabilitado (solo mismo origen). "
+    logger.warning("[Tracker360] ALLOWED_ORIGINS no esta configurada: CORS deshabilitado (solo mismo origen). "
           "Definila en el .env si otro dominio necesita llamar a la API.")
 
 # === REGISTRO DE ROUTERS MODULARES ENTERPRISE ===
