@@ -16,6 +16,8 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   (con o sin lo comprometido en pedidos abiertos, y de las sucursales elegidas). (`ea87670`)
 - Los canales de venta reciben los cambios: cuándo cambia el stock de un artículo y cuándo uno de
   sus pedidos se empieza a preparar, queda listo, se despacha o se cancela. (`77caba8`)
+- Si el canal de venta manda su etiqueta de envío (por ejemplo la de Mercado Libre), al empacar se
+  imprime esa en lugar de la de Tracker. (`beeb3cd`)
 
 ### Seguridad
 - El navegador ya no ejecuta código JavaScript escrito dentro de las páginas, solo el de los archivos
