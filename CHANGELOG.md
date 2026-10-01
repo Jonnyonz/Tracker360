@@ -14,6 +14,8 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   pedido llega dos veces se registra una sola. En las listas se ve el nombre del comprador. (`3e57033`)
 - Los canales de venta pueden consultar el stock disponible de cada artículo según su configuración
   (con o sin lo comprometido en pedidos abiertos, y de las sucursales elegidas). (`ea87670`)
+- Los canales de venta reciben los cambios: cuándo cambia el stock de un artículo y cuándo uno de
+  sus pedidos se empieza a preparar, queda listo, se despacha o se cancela. (`77caba8`)
 
 ### Seguridad
 - El navegador ya no ejecuta código JavaScript escrito dentro de las páginas, solo el de los archivos
@@ -32,6 +34,7 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   tienen que volver a iniciar sesión una vez. (`b1a4bd9`)
 
 ### Corregido
+- Empacar y despachar un pedido daba "Error interno del servidor" (desde el 2 de septiembre). (`d11048e`)
 - Los avisos a otros sistemas (webhooks de stock y de despacho) salen recién cuando el cambio quedó
   guardado, y si el otro sistema no responde se reintentan solos durante una hora y media. Antes
   podían avisar un cambio que todavía no estaba guardado, o perderse si fallaban. (`ad01c51`)
