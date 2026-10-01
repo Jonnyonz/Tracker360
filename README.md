@@ -87,7 +87,8 @@ administrador.
 Tracker360/
 ├── backend/
 │   ├── main.py              # App: middlewares, rutas de vistas por rol, estáticos
-│   ├── database.py          # Seguridad, pool, esquema, movimientos de stock, webhooks
+│   ├── database.py          # Seguridad, pool, sesiones, movimientos de stock, webhooks
+│   ├── migrations/          # Esquema versionado: NNNN_descripcion.sql
 │   ├── routers/             # auth, users, entities, items, warehouse, settings, printing,
 │   │                        # inbound, outbound, internal, inventory, dashboard, reports,
 │   │                        # rfid, updater, notes
@@ -103,9 +104,12 @@ Tracker360/
 
 ### Modelo de datos
 
-El esquema se crea y actualiza solo al arrancar (`CREATE/ALTER ... IF NOT EXISTS` en
-`database.py`), junto con la configuración por defecto, la sucursal `SUC-01` y una clave API
-inicial. Grupos de tablas:
+El esquema se crea y actualiza solo al arrancar con migraciones versionadas
+(`backend/migrations/NNNN_descripcion.sql`, aplicadas por `jztech_core.migrations`): cada archivo
+corre una sola vez, en su propia transacción, y queda anotado en `schema_version`. Si una falla, la
+API no arranca y el error queda en el log. Un cambio de esquema nuevo va en un archivo nuevo con el
+número siguiente; los que ya están aplicados no se editan. Al arrancar también se crean la sucursal
+`SUC-01` y una clave API inicial si no existen. Grupos de tablas:
 
 | Área | Tablas |
 |---|---|
