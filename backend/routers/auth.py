@@ -3,6 +3,7 @@ from pydantic import BaseModel
 import asyncpg, json, urllib.request, urllib.parse, asyncio, secrets, os, jwt, uuid
 from datetime import datetime, timezone
 from typing import Optional
+from jztech_core.setup_flow import verify_setup_token
 import logging
 
 logger = logging.getLogger(__name__)
@@ -46,7 +47,7 @@ async def setup_status(conn: asyncpg.Connection = Depends(get_db_connection)):
 async def setup_admin(data: SetupAdminRequest, request: Request, response: Response, conn: asyncpg.Connection = Depends(get_db_connection)):
     client_ip = get_client_ip(request)
 
-    if not SETUP_TOKEN or not secrets.compare_digest(data.token.strip(), SETUP_TOKEN):
+    if not verify_setup_token(SETUP_TOKEN, data.token):
         raise HTTPException(status_code=403, detail="Token de instalación inválido.")
 
     count = await conn.fetchval("SELECT COUNT(*) FROM users")
