@@ -5,6 +5,9 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 ## 2026-10-01
 
 ### Seguridad
+- El bloqueo por claves mal ingresadas ahora es por usuario: si alguien se equivoca varias veces,
+  se bloquea solo esa cuenta en esa conexión y no el resto del depósito. Tampoco se puede esquivar el
+  bloqueo entrando con otra cuenta ni mandando muchos intentos a la vez. (`42c252a`)
 - Protección contra CSRF: otra página abierta en el navegador ya no puede hacer operaciones en
   Tracker360 usando tu sesión. Para el usuario no cambia nada. (`5263861`)
 - Las sesiones ahora se guardan en el servidor y se pueden cerrar de verdad. "Cerrar sesión" cierra
