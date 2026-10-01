@@ -21,6 +21,9 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   tienen que volver a iniciar sesión una vez. (`b1a4bd9`)
 
 ### Corregido
+- Los avisos a otros sistemas (webhooks de stock y de despacho) salen recién cuando el cambio quedó
+  guardado, y si el otro sistema no responde se reintentan solos durante una hora y media. Antes
+  podían avisar un cambio que todavía no estaba guardado, o perderse si fallaban. (`ad01c51`)
 - Número de pedidos, traspasos, órdenes de compra y devoluciones: si dos personas cargan un documento
   a la vez con el mismo número sugerido, el primero que lo guarda se queda con ese número y el otro
   recibe el siguiente, con un aviso que dice cuál le tocó (antes uno de los dos recibía un error).
