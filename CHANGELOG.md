@@ -18,6 +18,8 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   tienen que volver a iniciar sesión una vez. (`b1a4bd9`)
 
 ### Corregido
+- La impresión de etiquetas de artículo desde la integración (`/api/admin/print-jobs`) usa la
+  plantilla de Configuración aunque nunca se haya guardado la Configuración. (`1d0ff7b`)
 - El ajuste "duración de la sesión" de Configuración ahora se respeta (antes la sesión duraba
   siempre 4 horas). Vale para las sesiones que se abran después de cambiarlo, entre 5 minutos y 7
   días. (`5cce370`)
