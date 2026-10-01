@@ -27,7 +27,7 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   detalle para poder revisarlo, y la pantalla muestra "Error interno del servidor". (`1f4f652`)
 - Limpieza interna del código (los módulos se importan de una sola forma y las consultas a la
   base reciben todos los valores como parámetros). No cambia nada del
-  funcionamiento. (`592d1a3`, `81eb8af`, `ceb40d9`, `250cf33`)
+  funcionamiento. (`592d1a3`, `81eb8af`, `ceb40d9`, `250cf33`, `b12f5aa`)
 - La estructura de la base de datos ahora se actualiza con migraciones numeradas: cada cambio se
   aplica una sola vez y queda registrado. Si una actualización de la base falla, el sistema no
   arranca a medias y el error queda en el registro. Las instalaciones existentes se actualizan
