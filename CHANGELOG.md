@@ -12,6 +12,8 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 - Los canales de venta pueden cargar pedidos en Tracker: llegan con el número de la venta del canal,
   la cuenta y el envío, se preparan como cualquier pedido y el canal los puede cancelar. Si el mismo
   pedido llega dos veces se registra una sola. En las listas se ve el nombre del comprador. (`3e57033`)
+- Los canales de venta pueden consultar el stock disponible de cada artículo según su configuración
+  (con o sin lo comprometido en pedidos abiertos, y de las sucursales elegidas). (`ea87670`)
 
 ### Seguridad
 - El navegador ya no ejecuta código JavaScript escrito dentro de las páginas, solo el de los archivos
