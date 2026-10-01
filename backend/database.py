@@ -328,6 +328,7 @@ async def execute_and_log_webhook(channel_id: Optional[uuid.UUID], channel_name:
     if DB.pool is None: return
     status, body, err = await asyncio.to_thread(send_webhook_sync, target_url, payload, api_key)
     log_status = "SUCCESS" if (status and 200 <= status < 300) else "FAILED"
+    resultado = (log_status == "SUCCESS", err or (f"HTTP {status}" if status else None))
     try:
         async with DB.pool.acquire() as conn:
             await conn.execute("""
@@ -335,12 +336,70 @@ async def execute_and_log_webhook(channel_id: Optional[uuid.UUID], channel_name:
                 VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
             """, channel_id, channel_name, event_type, target_url, json.dumps(payload), status, body, err, log_status)
     except Exception as e: logger.exception(f"[WEBHOOK LOG ERROR] {channel_name} {event_type}: {e!r}")
+    return resultado
+
+# === OUTBOX DE WEBHOOKS (S8) ===
+# El evento se guarda en webhook_outbox dentro de la MISMA transaccion que el cambio: si la transaccion
+# se deshace, el evento tambien. procesar_outbox (en segundo plano, ver main.py) lo envia despues del
+# commit y reintenta si falla. Entrega "al menos una vez": el destino tiene que tolerar repetidos.
+WEBHOOK_REINTENTOS_SEG = (10, 30, 60, 300, 900, 3600)  # espera antes de cada reintento; despues se abandona
 
 async def dispatch_event_to_channels(conn: asyncpg.Connection, event_type: str, payload: dict):
-    channels = await conn.fetch("SELECT id, name, target_url, api_key FROM integration_channels WHERE channel_type = $1 AND is_active = TRUE", event_type)
-    for ch in channels:
-        if ch["target_url"] and ch["target_url"].startswith("http"):
-            asyncio.create_task(execute_and_log_webhook(ch["id"], ch["name"], event_type, ch["target_url"], payload, ch["api_key"] or ""))
+    await conn.execute("""
+        INSERT INTO webhook_outbox (channel_id, event_type, payload)
+        SELECT id, $1::varchar, $2::jsonb FROM integration_channels
+        WHERE channel_type = $1::varchar AND is_active = TRUE AND target_url LIKE 'http%'
+    """, event_type, json.dumps(payload))
+
+async def procesar_outbox(limite: int = 20) -> int:
+    """Envia los eventos pendientes. Devuelve cuantos intento. Los toma con SKIP LOCKED y los reserva
+    corriendo next_attempt_at, asi dos procesos no envian el mismo evento a la vez."""
+    if DB.pool is None:
+        return 0
+    async with DB.pool.acquire() as conn:
+        async with conn.transaction():
+            filas = await conn.fetch("""
+                SELECT o.id, o.channel_id, o.event_type, o.payload::text AS payload, o.attempts,
+                       c.name, c.target_url, c.api_key
+                FROM webhook_outbox o JOIN integration_channels c ON c.id = o.channel_id
+                WHERE o.delivered_at IS NULL AND o.failed_at IS NULL AND o.next_attempt_at <= now() AND c.is_active
+                ORDER BY o.id LIMIT $1
+                FOR UPDATE OF o SKIP LOCKED
+            """, limite)
+            for f in filas:
+                espera = WEBHOOK_REINTENTOS_SEG[min(f["attempts"], len(WEBHOOK_REINTENTOS_SEG) - 1)]
+                await conn.execute("UPDATE webhook_outbox SET attempts = attempts + 1, next_attempt_at = now() + make_interval(secs => $2) WHERE id = $1",
+                                   f["id"], espera)
+    for f in filas:
+        ok, error = await execute_and_log_webhook(f["channel_id"], f["name"], f["event_type"], f["target_url"],
+                                                  json.loads(f["payload"]), f["api_key"] or "")
+        async with DB.pool.acquire() as conn:
+            if ok:
+                await conn.execute("UPDATE webhook_outbox SET delivered_at = now(), last_error = NULL WHERE id = $1", f["id"])
+            elif f["attempts"] + 1 > len(WEBHOOK_REINTENTOS_SEG):
+                await conn.execute("UPDATE webhook_outbox SET failed_at = now(), last_error = $2 WHERE id = $1", f["id"], error)
+                logger.warning(f"[WEBHOOK ABANDONADO] {f['name']} {f['event_type']} tras {f['attempts'] + 1} intentos: {error}")
+            else:
+                await conn.execute("UPDATE webhook_outbox SET last_error = $2 WHERE id = $1", f["id"], error)
+    return len(filas)
+
+async def outbox_en_segundo_plano():
+    """Bucle del proceso de envio: cada 2 s (enseguida si habia trabajo). Una vez por hora borra los
+    eventos entregados o abandonados de mas de 30 dias."""
+    ultima_limpieza = 0.0
+    while True:
+        try:
+            n = await procesar_outbox()
+            if DB.pool is not None and asyncio.get_running_loop().time() - ultima_limpieza > 3600:
+                async with DB.pool.acquire() as conn:
+                    await conn.execute("DELETE FROM webhook_outbox WHERE COALESCE(delivered_at, failed_at) < now() - interval '30 days'")
+                ultima_limpieza = asyncio.get_running_loop().time()
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            logger.exception("[WEBHOOK OUTBOX] Error procesando eventos pendientes.")
+            n = 0
+        await asyncio.sleep(0.2 if n else 2)
 
 def parse_uuid(value, mensaje: str = "Identificador inválido.") -> uuid.UUID:
     # Identificadores que vienen del usuario: un valor mal formado (o faltante) es un 400, no un 500.
