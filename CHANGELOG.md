@@ -18,6 +18,10 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   tienen que volver a iniciar sesión una vez. (`b1a4bd9`)
 
 ### Corregido
+- Número de pedidos, traspasos, órdenes de compra y devoluciones: si dos personas cargan un documento
+  a la vez con el mismo número sugerido, el primero que lo guarda se queda con ese número y el otro
+  recibe el siguiente, con un aviso que dice cuál le tocó (antes uno de los dos recibía un error). Un
+  número escrito a mano que ya existe sigue sin permitirse. (`6084d38`)
 - La impresión de etiquetas de artículo desde la integración (`/api/admin/print-jobs`) usa la
   plantilla de Configuración aunque nunca se haya guardado la Configuración. (`1d0ff7b`)
 - El ajuste "duración de la sesión" de Configuración ahora se respeta (antes la sesión duraba
