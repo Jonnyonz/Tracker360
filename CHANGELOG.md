@@ -4,6 +4,12 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 
 ## 2026-10-01
 
+### Seguridad
+- Las sesiones ahora se guardan en el servidor y se pueden cerrar de verdad. "Cerrar sesión" cierra
+  solo el dispositivo donde se usa (antes cerraba todos). Cambiar la clave de un usuario,
+  desactivarlo o borrarlo cierra todas sus sesiones al instante. Al actualizar, todos los usuarios
+  tienen que volver a iniciar sesión una vez. (`b1a4bd9`)
+
 ### Corregido
 - La configuración inicial ya no puede crear dos administradores si se envía el formulario dos
   veces al mismo tiempo: la segunda alta espera y se rechaza. (`dd67505`)
