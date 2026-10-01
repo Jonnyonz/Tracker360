@@ -20,6 +20,7 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   veces al mismo tiempo: la segunda alta espera y se rechaza. (`dd67505`)
 
 ### Cambiado
+- Una dependencia menos (PyJWT), que ya no se usa. (`09f2d2f`)
 - Los avisos y errores internos del servidor (conexión a la base, webhooks, reportes, indicadores)
   quedan en el registro del servidor con su nivel de gravedad y el detalle completo, en el mismo
   formato que el resto. No cambia nada de lo que ve el usuario. (`d4b3b23`)
