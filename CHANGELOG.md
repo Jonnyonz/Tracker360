@@ -26,7 +26,7 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 - La estructura de la base de datos ahora se actualiza con migraciones numeradas: cada cambio se
   aplica una sola vez y queda registrado. Si una actualización de la base falla, el sistema no
   arranca a medias y el error queda en el registro. Las instalaciones existentes se actualizan
-  solas al reiniciar, sin perder datos. (`62d80af`)
+  solas al reiniciar, sin perder datos. (`cfe7ea3`, `a7185d3`)
 - Una dependencia menos (PyJWT), que ya no se usa. (`09f2d2f`)
 - Los avisos y errores internos del servidor (conexión a la base, webhooks, reportes, indicadores)
   quedan en el registro del servidor con su nivel de gravedad y el detalle completo, en el mismo
