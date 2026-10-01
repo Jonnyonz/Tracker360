@@ -185,8 +185,10 @@ async def create_print_job(req: PrintJobRequest, admin: dict = Depends(require_a
     if not sku_list:
         raise HTTPException(status_code=400, detail="Debe ingresar al menos un SKU para imprimir.")
 
-    template_row = await conn.fetchrow("SELECT value FROM system_settings WHERE key = 'zpl_template'")
-    custom_tpl = template_row["value"] if template_row and template_row["value"] else None
+    # La plantilla de Configuracion (zpl_item_template), igual que la impresion masiva. zpl_template es un
+    # alias viejo que solo se crea al guardar la Configuracion: queda como respaldo.
+    custom_tpl = (await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_item_template'")
+                  or await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_template'") or None)
 
     inserted = 0
     for sku in sku_list:
