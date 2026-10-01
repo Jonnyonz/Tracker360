@@ -512,7 +512,7 @@ async def get_packing_order_details(document_number: str, user: dict = Depends(g
 @router.post("/api/packing/orders/{document_number}/pack")
 async def pack_order_and_dispatch(document_number: str, data: PackOrderInput, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     async with conn.transaction():
-        doc = await conn.fetchrow("SELECT d.id, d.status, d.document_number, d.channel_origin, COALESCE(c.company_name, d.buyer_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, d.buyer_address, 'A coordinar') as delivery_address FROM documents d LEFT JOIN entities c ON d.customer_id = c.id LEFT JOIN entity_addresses a ON d.customer_address_id = a.id WHERE UPPER(d.document_number) = $1 FOR UPDATE", document_number.strip().upper())
+        doc = await conn.fetchrow("SELECT d.id, d.status, d.document_number, d.channel_origin, COALESCE(c.company_name, d.buyer_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, d.buyer_address, 'A coordinar') as delivery_address FROM documents d LEFT JOIN entities c ON d.customer_id = c.id LEFT JOIN entity_addresses a ON d.customer_address_id = a.id WHERE UPPER(d.document_number) = $1 FOR UPDATE OF d", document_number.strip().upper())
         if not doc: raise HTTPException(404, "Pedido no encontrado.")
         if doc["status"] == "DISPATCHED": raise HTTPException(400, "El pedido ya fue despachado.")
         if doc["status"] != "COMPLETED": raise HTTPException(400, "El pedido aún no está pickeado completamente.")
