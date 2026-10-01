@@ -1,12 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
 from datetime import datetime
-import asyncpg, uuid
+import asyncpg
 import logging
 
 logger = logging.getLogger(__name__)
 
-from backend.database import get_db_connection, require_admin, require_supervisor
+from backend.database import get_db_connection, require_admin, require_supervisor, parse_uuid
+
+FILTRO_ID_INVALIDO = "Filtro inválido: identificador mal formado."
+
+def _fecha(valor: str, hora: str) -> datetime:
+    """Fecha AAAA-MM-DD de un filtro, con la hora del limite del rango (00:00:00 o 23:59:59)."""
+    try:
+        return datetime.strptime(f"{valor.strip()} {hora}", "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
 
 router = APIRouter(tags=["Reports"])
 
@@ -55,22 +64,14 @@ async def report_stock(
         param_idx += 1
     
     if branch_id:
-        try:
-            b_uuid = uuid.UUID(branch_id)
-            query += f" AND si.branch_id = ${param_idx}"
-            params.append(b_uuid)
-            param_idx += 1
-        except ValueError:
-            raise HTTPException(400, "Filtro inválido: identificador mal formado.")
+        query += f" AND si.branch_id = ${param_idx}"
+        params.append(parse_uuid(branch_id, FILTRO_ID_INVALIDO))
+        param_idx += 1
             
     if sector_id:
-        try:
-            s_uuid = uuid.UUID(sector_id)
-            query += f" AND si.sector_id = ${param_idx}"
-            params.append(s_uuid)
-            param_idx += 1
-        except ValueError:
-            raise HTTPException(400, "Filtro inválido: identificador mal formado.")
+        query += f" AND si.sector_id = ${param_idx}"
+        params.append(parse_uuid(sector_id, FILTRO_ID_INVALIDO))
+        param_idx += 1
 
     query += " ORDER BY b.name ASC, sec.name ASC, si.sku ASC"
     
@@ -128,22 +129,14 @@ async def report_orders(
         param_idx += 1
 
     if date_from:
-        try:
-            dt_from = datetime.strptime(f"{date_from.strip()} 00:00:00", "%Y-%m-%d %H:%M:%S")
-            query += f" AND d.created_at >= ${param_idx}"
-            params.append(dt_from)
-            param_idx += 1
-        except ValueError:
-            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
+        query += f" AND d.created_at >= ${param_idx}"
+        params.append(_fecha(date_from, "00:00:00"))
+        param_idx += 1
 
     if date_to:
-        try:
-            dt_to = datetime.strptime(f"{date_to.strip()} 23:59:59", "%Y-%m-%d %H:%M:%S")
-            query += f" AND d.created_at <= ${param_idx}"
-            params.append(dt_to)
-            param_idx += 1
-        except ValueError:
-            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
+        query += f" AND d.created_at <= ${param_idx}"
+        params.append(_fecha(date_to, "23:59:59"))
+        param_idx += 1
 
     query += " ORDER BY d.created_at DESC"
     
@@ -186,13 +179,9 @@ async def report_remitos(
         param_idx += 1
 
     if supplier_id:
-        try:
-            sup_uuid = uuid.UUID(supplier_id)
-            query += f" AND pr.supplier_id = ${param_idx}"
-            params.append(sup_uuid)
-            param_idx += 1
-        except ValueError:
-            raise HTTPException(400, "Filtro inválido: identificador mal formado.")
+        query += f" AND pr.supplier_id = ${param_idx}"
+        params.append(parse_uuid(supplier_id, FILTRO_ID_INVALIDO))
+        param_idx += 1
 
     if status:
         query += f" AND pr.status = ${param_idx}"
@@ -200,13 +189,9 @@ async def report_remitos(
         param_idx += 1
 
     if branch_id:
-        try:
-            b_uuid = uuid.UUID(branch_id)
-            query += f" AND pr.branch_id = ${param_idx}"
-            params.append(b_uuid)
-            param_idx += 1
-        except ValueError:
-            raise HTTPException(400, "Filtro inválido: identificador mal formado.")
+        query += f" AND pr.branch_id = ${param_idx}"
+        params.append(parse_uuid(branch_id, FILTRO_ID_INVALIDO))
+        param_idx += 1
 
     if sku:
         query += f" AND EXISTS (SELECT 1 FROM purchase_remito_lines prl WHERE prl.purchase_remito_id = pr.id AND prl.sku ILIKE ${param_idx})"
@@ -214,22 +199,14 @@ async def report_remitos(
         param_idx += 1
 
     if date_from:
-        try:
-            dt_from = datetime.strptime(f"{date_from.strip()} 00:00:00", "%Y-%m-%d %H:%M:%S")
-            query += f" AND pr.created_at >= ${param_idx}"
-            params.append(dt_from)
-            param_idx += 1
-        except ValueError:
-            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
+        query += f" AND pr.created_at >= ${param_idx}"
+        params.append(_fecha(date_from, "00:00:00"))
+        param_idx += 1
 
     if date_to:
-        try:
-            dt_to = datetime.strptime(f"{date_to.strip()} 23:59:59", "%Y-%m-%d %H:%M:%S")
-            query += f" AND pr.created_at <= ${param_idx}"
-            params.append(dt_to)
-            param_idx += 1
-        except ValueError:
-            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
+        query += f" AND pr.created_at <= ${param_idx}"
+        params.append(_fecha(date_to, "23:59:59"))
+        param_idx += 1
 
     query += " ORDER BY pr.created_at DESC"
     
@@ -250,16 +227,10 @@ async def report_reception_differences(
     conn: asyncpg.Connection = Depends(get_db_connection)
 ):
     filtros, params = [], []
-    def uid(v, msg):
-        try: return uuid.UUID(v)
-        except ValueError: raise HTTPException(400, msg)
-    def fecha(v, hora):
-        try: return datetime.strptime(f"{v.strip()} {hora}", "%Y-%m-%d %H:%M:%S")
-        except ValueError: raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
-    if supplier_id: params.append(uid(supplier_id, "Proveedor inválido.")); filtros.append(f"pr.supplier_id = ${len(params)}")
-    if branch_id: params.append(uid(branch_id, "Sucursal inválida.")); filtros.append(f"pr.branch_id = ${len(params)}")
-    if date_from: params.append(fecha(date_from, "00:00:00")); filtros.append(f"pr.created_at >= ${len(params)}")
-    if date_to: params.append(fecha(date_to, "23:59:59")); filtros.append(f"pr.created_at <= ${len(params)}")
+    if supplier_id: params.append(parse_uuid(supplier_id, "Proveedor inválido.")); filtros.append(f"pr.supplier_id = ${len(params)}")
+    if branch_id: params.append(parse_uuid(branch_id, "Sucursal inválida.")); filtros.append(f"pr.branch_id = ${len(params)}")
+    if date_from: params.append(_fecha(date_from, "00:00:00")); filtros.append(f"pr.created_at >= ${len(params)}")
+    if date_to: params.append(_fecha(date_to, "23:59:59")); filtros.append(f"pr.created_at <= ${len(params)}")
     kind = (kind or "").strip().upper()
     if kind and kind not in ("FALTANTE", "SOBRANTE", "NO_ESPERADO"): raise HTTPException(400, "Tipo inválido.")
     where = (" AND " + " AND ".join(filtros)) if filtros else ""
@@ -326,13 +297,9 @@ async def report_invoices(
         param_idx += 1
 
     if supplier_id:
-        try:
-            sup_uuid = uuid.UUID(supplier_id)
-            query += f" AND pi.supplier_id = ${param_idx}"
-            params.append(sup_uuid)
-            param_idx += 1
-        except ValueError:
-            raise HTTPException(400, "Filtro inválido: identificador mal formado.")
+        query += f" AND pi.supplier_id = ${param_idx}"
+        params.append(parse_uuid(supplier_id, FILTRO_ID_INVALIDO))
+        param_idx += 1
 
     if invoice_type:
         query += f" AND pi.invoice_type = ${param_idx}"
@@ -340,22 +307,14 @@ async def report_invoices(
         param_idx += 1
 
     if date_from:
-        try:
-            dt_from = datetime.strptime(f"{date_from.strip()} 00:00:00", "%Y-%m-%d %H:%M:%S")
-            query += f" AND pi.created_at >= ${param_idx}"
-            params.append(dt_from)
-            param_idx += 1
-        except ValueError:
-            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
+        query += f" AND pi.created_at >= ${param_idx}"
+        params.append(_fecha(date_from, "00:00:00"))
+        param_idx += 1
 
     if date_to:
-        try:
-            dt_to = datetime.strptime(f"{date_to.strip()} 23:59:59", "%Y-%m-%d %H:%M:%S")
-            query += f" AND pi.created_at <= ${param_idx}"
-            params.append(dt_to)
-            param_idx += 1
-        except ValueError:
-            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
+        query += f" AND pi.created_at <= ${param_idx}"
+        params.append(_fecha(date_to, "23:59:59"))
+        param_idx += 1
 
     query += " ORDER BY pi.created_at DESC"
     
@@ -393,13 +352,9 @@ async def report_purchase_orders(
         param_idx += 1
 
     if supplier_id:
-        try:
-            sup_uuid = uuid.UUID(supplier_id)
-            query += f" AND po.supplier_id = ${param_idx}"
-            params.append(sup_uuid)
-            param_idx += 1
-        except ValueError:
-            raise HTTPException(400, "Filtro inválido: identificador mal formado.")
+        query += f" AND po.supplier_id = ${param_idx}"
+        params.append(parse_uuid(supplier_id, FILTRO_ID_INVALIDO))
+        param_idx += 1
 
     if status:
         query += f" AND po.status = ${param_idx}"
@@ -412,22 +367,14 @@ async def report_purchase_orders(
         param_idx += 1
 
     if date_from:
-        try:
-            dt_from = datetime.strptime(f"{date_from.strip()} 00:00:00", "%Y-%m-%d %H:%M:%S")
-            query += f" AND po.created_at >= ${param_idx}"
-            params.append(dt_from)
-            param_idx += 1
-        except ValueError:
-            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
+        query += f" AND po.created_at >= ${param_idx}"
+        params.append(_fecha(date_from, "00:00:00"))
+        param_idx += 1
 
     if date_to:
-        try:
-            dt_to = datetime.strptime(f"{date_to.strip()} 23:59:59", "%Y-%m-%d %H:%M:%S")
-            query += f" AND po.created_at <= ${param_idx}"
-            params.append(dt_to)
-            param_idx += 1
-        except ValueError:
-            raise HTTPException(400, "Fecha inválida (usar AAAA-MM-DD).")
+        query += f" AND po.created_at <= ${param_idx}"
+        params.append(_fecha(date_to, "23:59:59"))
+        param_idx += 1
 
     query += " ORDER BY po.created_at DESC"
     
