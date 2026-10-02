@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel
+from datetime import datetime
 from typing import List, Optional
 import asyncpg, json, re, secrets
 import logging
@@ -363,3 +364,99 @@ async def etiqueta_del_canal(external_ref: str, data: EtiquetaCanal, request: Re
             impresa = await imprimir_etiqueta_pedido(conn, fila)
         await log_action(conn, f"canal:{canal['code']}", "CHANNEL_LABEL", f"Etiqueta del canal para el pedido {doc['document_number']}" + (" (impresa: ya estaba despachado)." if impresa else "."), get_client_ip(request))
     return {"document_number": doc["document_number"], "printed_now": impresa}
+
+
+# --- Publicaciones del canal (modulo Mercado Libre del panel) ---
+class PublicacionCanal(BaseModel):
+    listing_id: str                       # id de la publicacion en el canal (en ML: MLA123...)
+    variation_id: Optional[str] = None    # variante, si tiene
+    account: Optional[str] = None
+    title: Optional[str] = None
+    sku: Optional[str] = None
+    status: Optional[str] = None          # estado en el canal (active, paused...)
+    quantity: Optional[int] = None        # stock que tiene la publicacion en el canal
+    problem: Optional[str] = None         # por que no se sincroniza (SIN_SKU, SKU_NO_EN_TRACKER, FULL, ERROR)
+    detail: Optional[str] = None
+    stock_sent_at: Optional[datetime] = None   # ultima vez que el canal le mando stock
+
+
+class PublicacionesCanal(BaseModel):
+    listings: List[PublicacionCanal]
+
+
+PUBLICACIONES_MAX = 50000
+
+
+def _corto(valor, largo):
+    valor = (valor or "").strip() if isinstance(valor, str) else valor
+    return valor[:largo] if isinstance(valor, str) and valor else None
+
+
+@router.put("/api/v1/channel/listings")
+async def publicaciones_del_canal(data: PublicacionesCanal, canal: dict = Depends(require_sales_channel),
+                                  conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Lista COMPLETA de publicaciones del canal: reemplaza la anterior. Solo informativa (el panel la
+    muestra junto con el stock de Tracker); no cambia stock ni pedidos."""
+    if len(data.listings) > PUBLICACIONES_MAX:
+        raise HTTPException(400, f"Hasta {PUBLICACIONES_MAX} publicaciones por envío.")
+    filas = {}
+    for p in data.listings:
+        lid = _corto(p.listing_id, 40)
+        if not lid:
+            raise HTTPException(400, "Hay una publicación sin listing_id.")
+        vid = _corto(p.variation_id, 40) or ""
+        filas[(lid, vid)] = (canal["id"], lid, vid, _corto(p.account, 100), _corto(p.title, 300), _corto(p.sku, 100),
+                             _corto(p.status, 40), p.quantity if p.quantity is None or p.quantity >= 0 else 0,
+                             _corto((p.problem or "").upper(), 30), _corto(p.detail, 500), p.stock_sent_at)
+    async with conn.transaction():
+        await conn.execute("DELETE FROM channel_listings WHERE sales_channel_id = $1", canal["id"])
+        if filas:
+            await conn.copy_records_to_table("channel_listings", records=list(filas.values()), columns=[
+                "sales_channel_id", "listing_id", "variation_id", "account", "title", "sku", "status", "quantity",
+                "problem", "detail", "stock_sent_at"])
+        await conn.execute("UPDATE sales_channels SET listings_synced_at = now() WHERE id = $1", canal["id"])
+    return {"count": len(filas)}
+
+
+@router.get("/api/admin/sales-channels/{channel_id}/listings")
+async def ver_publicaciones_del_canal(channel_id: str, problem: Optional[str] = None, q: str = "", limit: int = 200, offset: int = 0,
+                                      admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Publicaciones que informo el canal, con el disponible que Tracker le informa por SKU. problem: OK
+    (las que se sincronizan), SIN_SKU, SKU_NO_EN_TRACKER, FULL o ERROR. q busca en SKU, titulo y publicacion."""
+    cid = parse_uuid(channel_id, "Canal inválido.")
+    canal = await conn.fetchrow("SELECT id, code, name, stock_mode, stock_branch_ids, listings_synced_at FROM sales_channels WHERE id = $1", cid)
+    if not canal:
+        raise HTTPException(404, "Canal no encontrado.")
+    resumen = {r["p"]: r["n"] for r in await conn.fetch(
+        "SELECT COALESCE(problem, 'OK') AS p, COUNT(*) AS n FROM channel_listings WHERE sales_channel_id = $1 GROUP BY 1", cid)}
+    filtros, args = ["sales_channel_id = $1"], [cid]
+    if problem:
+        if problem.upper() == "OK":
+            filtros.append("problem IS NULL")
+        else:
+            args.append(problem.strip().upper())
+            filtros.append(f"problem = ${len(args)}")
+    if q.strip():
+        args.append(f"%{q.strip()}%")
+        filtros.append(f"(sku ILIKE ${len(args)} OR title ILIKE ${len(args)} OR listing_id ILIKE ${len(args)})")
+    where = " AND ".join(filtros)
+    total = await conn.fetchval(f"SELECT COUNT(*) FROM channel_listings WHERE {where}", *args)
+    args += [max(1, min(int(limit), 1000)), max(0, int(offset))]
+    filas = await conn.fetch(f"""
+        SELECT listing_id, variation_id, account, title, sku, status, quantity, problem, detail, stock_sent_at
+        FROM channel_listings WHERE {where}
+        ORDER BY problem NULLS FIRST, UPPER(sku), listing_id, variation_id
+        LIMIT ${len(args) - 1} OFFSET ${len(args)}
+    """, *args)
+    skus = sorted({f["sku"] for f in filas if f["sku"]})
+    disponible = {s["sku"]: s["available"] for s in await stock_para_canal(conn, dict(canal), skus)} if skus else {}
+    return {
+        "channel": {"id": str(canal["id"]), "code": canal["code"], "name": canal["name"], "stock_mode": canal["stock_mode"],
+                    "listings_synced_at": canal["listings_synced_at"]},
+        "summary": {"total": sum(resumen.values()), "ok": resumen.get("OK", 0), "sin_sku": resumen.get("SIN_SKU", 0),
+                    "sku_no_en_tracker": resumen.get("SKU_NO_EN_TRACKER", 0), "full": resumen.get("FULL", 0),
+                    "error": resumen.get("ERROR", 0)},
+        "total": total,
+        "items": [{**dict(f), "tracker_available": disponible.get((f["sku"] or "").upper())} for f in filas],
+    }
+

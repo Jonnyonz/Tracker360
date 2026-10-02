@@ -5,6 +5,12 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 ## 2026-10-02
 
 ### Agregado
+- Canales de venta desde el panel (Configuración, Canales de venta): alta, edición (nombre, stock que se
+  informa y sucursales), activar o desactivar y rotar la clave. La clave se muestra una sola vez, con un
+  botón para copiarla y la explicación de dónde cargarla en el middleware de Mercado Libre.
+- Módulo Mercado Libre en el panel: las publicaciones que informa el canal (cuenta, SKU, estado y stock en
+  Mercado Libre) junto con el disponible que Tracker les manda, con un resumen de las que se sincronizan
+  y de las que no (sin SKU, SKU que no está en Tracker, Full o con error), filtros y búsqueda.
 - Pedidos urgentes: un canal de venta puede marcar un pedido como urgente (por ejemplo las ventas Flex de
   Mercado Libre, que se entregan en el día). Los urgentes salen primero en la lista de preparación y en
   las olas de picking, y en la pantalla del preparador se ven con la marca URGENTE.

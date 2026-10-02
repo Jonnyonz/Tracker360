@@ -17,7 +17,7 @@ const rolUsuarioPromise = fetch('/api/auth/me', { credentials: 'include' })
 async function esSupervisor() { return (await rolUsuarioPromise) === 'SUPERVISOR'; }
 
 function aplicarModoSupervisor() {
-    const soloAdmin = ['section-users', 'section-settings', 'section-logs'];
+    const soloAdmin = ['section-users', 'section-settings', 'section-logs', 'section-canal-publicaciones'];
     document.querySelectorAll('.nav-rail .rail-btn, .nav-rail .rail-sub-btn').forEach(b => {
         const oc = b.getAttribute('data-on-click') || '';
         if (soloAdmin.some(s => oc.includes(s))) b.style.display = 'none';
@@ -165,6 +165,8 @@ function switchView(secId, btnElement = null) {
 
     if(secId === 'section-dashboard') loadDashboard();
     if(secId === 'section-users' && typeof loadUsers === 'function') loadUsers();
+    if(secId === 'section-canal-publicaciones' && typeof abrirPublicacionesCanal === 'function') abrirPublicacionesCanal();
+    if(secId === 'section-settings' && typeof cargarCanalesVenta === 'function') cargarCanalesVenta();
     if(secId === 'section-entities' && typeof loadEntities === 'function') loadEntities();
     if(secId === 'section-warehouse' && typeof loadWarehouseData === 'function') loadWarehouseData();
     if(secId === 'section-items' && typeof loadItems === 'function') loadItems();

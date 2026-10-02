@@ -127,6 +127,13 @@
             </button>
         </div>
         
+        <div class="rail-item">
+            <button class="rail-btn" title="Mercado Libre (publicaciones y stock)" data-on-click="switchView('section-canal-publicaciones', this)">
+                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" fill="none"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v11a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M9 21v-6h6v6"/></svg>
+                <span class="rail-label">Mercado Libre</span>
+            </button>
+        </div>
+
         <!-- ACORDEÓN DE REPORTES -->
         <div class="rail-item">
             <button class="rail-btn" id="btn-acc-reports" title="Reportes Analíticos" data-on-click="toggleReportsAccordion()">
@@ -1188,6 +1195,59 @@
         </div>
 
         <!-- CONFIGURACIÓN -->
+        <!-- MERCADO LIBRE: publicaciones que informa el canal y el stock que Tracker les manda -->
+        <div id="section-canal-publicaciones" class="view-section">
+            <div class="content-header">
+                <h2>Mercado Libre: publicaciones y stock</h2>
+                <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                    <select id="canal-pub-canal" style="min-width:200px;" data-on-change="cargarPublicacionesCanal(0)"></select>
+                    <button type="button" class="btn-secondary" data-on-click="cargarPublicacionesCanal(0)">Actualizar</button>
+                </div>
+            </div>
+            <p id="canal-pub-info" style="color:var(--text-muted); font-size:0.85rem; margin:-0.5rem 0 1rem;"></p>
+            <div id="canal-pub-resumen" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:1.2rem;"></div>
+            <div style="display:flex; gap:10px; margin-bottom:1.2rem; flex-wrap:wrap;">
+                <input type="text" id="canal-pub-buscar" placeholder="Buscar por SKU, título o publicación (Enter)" style="flex:2; min-width:200px;" data-on-keyup="buscarPublicacionesCanal(event)">
+                <select id="canal-pub-problema" style="flex:1; min-width:180px;" data-on-change="cargarPublicacionesCanal(0)">
+                    <option value="">-- Todas --</option>
+                    <option value="OK">Se sincronizan</option>
+                    <option value="SIN_SKU">Sin SKU</option>
+                    <option value="SKU_NO_EN_TRACKER">SKU que no está en Tracker</option>
+                    <option value="FULL">Full (stock de Mercado Libre)</option>
+                    <option value="ERROR">Con error</option>
+                </select>
+            </div>
+            <div class="card" data-help="Publicaciones del canal|Lo que informa el middleware de Mercado Libre: cada publicación (o variante) con su SKU, el stock que tiene en Mercado Libre y el disponible que Tracker le manda.|Las que no coinciden con un SKU de Tracker, las Full y las que dieron error no reciben stock: se corrigen en Mercado Libre o dando de alta el SKU en Tracker.">
+                <div style="overflow-x:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Publicación</th>
+                                <th>Título</th>
+                                <th>Cuenta</th>
+                                <th>SKU</th>
+                                <th>Estado</th>
+                                <th style="text-align:right;">En Mercado Libre</th>
+                                <th style="text-align:right;">Disponible en Tracker</th>
+                                <th>Situación</th>
+                                <th>Último envío</th>
+                            </tr>
+                        </thead>
+                        <tbody id="canal-pub-tabla">
+                            <tr><td colspan="9" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Elegí un canal.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem;">
+                    <small id="canal-pub-pagina" style="color:var(--text-muted);"></small>
+                    <div style="display:flex; gap:8px;">
+                        <button type="button" class="btn-secondary" id="canal-pub-anterior" data-on-click="paginaPublicacionesCanal(-1)">Anterior</button>
+                        <button type="button" class="btn-secondary" id="canal-pub-siguiente" data-on-click="paginaPublicacionesCanal(1)">Siguiente</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="section-settings" class="view-section settings-panel">
             <div class="content-header">
                 <h2>Configuración del Sistema</h2>
@@ -1406,6 +1466,35 @@
                     <button type="submit" class="btn-submit" style="width:100%; padding:1.1rem; font-size:1rem; justify-content:center;">Guardar Toda la Configuración General</button>
                 </div>
             </form>
+
+            <!-- TARJETA: CANALES DE VENTA (middleware de Mercado Libre u otra tienda) -->
+            <div class="card grid-full-width" id="card-canales-venta" style="margin-top:1.5rem;" data-help="Canales de venta|Sistemas externos que cargan pedidos en Tracker y reciben el stock (por ejemplo el middleware de Mercado Libre).|Cada canal tiene su propia clave: se muestra una sola vez al crearlo o al rotarla. Se carga en la pagina del middleware junto con la direccion de Tracker.">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <h3 class="card-title" style="margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h10l-3-3M20 17H10l3 3"/></svg> Canales de venta</h3>
+                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Sistemas externos que cargan pedidos y reciben el stock, como el middleware de Mercado Libre</span>
+                    </div>
+                    <button type="button" class="btn-submit" data-on-click="abrirCanalVenta()" style="font-size:0.8rem;">+ Nuevo canal</button>
+                </div>
+                <div style="overflow-x:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Stock que informa</th>
+                                <th>Sucursales</th>
+                                <th>Estado</th>
+                                <th>Último uso</th>
+                                <th style="text-align:right;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-canales-venta">
+                            <tr><td colspan="7" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Cargando canales...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
 
             <div class="card grid-full-width" style="margin-top:1.5rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:12px;">
@@ -1967,6 +2056,57 @@
         </div>
     </div>
 
+    <div id="modal-canal-venta" class="modal">
+        <div class="modal-content" style="max-width:560px;">
+            <span class="close-modal" data-on-click="closeModal('modal-canal-venta')">&times;</span>
+            <h3 style="color:var(--text-primary); margin-bottom:1.5rem;" id="canal-venta-titulo">Nuevo canal de venta</h3>
+            <form id="form-canal-venta" data-on-submit="guardarCanalVenta(event)">
+                <input type="hidden" id="canal-venta-id">
+                <div class="form-row">
+                    <div class="form-group" style="flex:1;"><label for="canal-venta-codigo">Código *</label><input type="text" id="canal-venta-codigo" required maxlength="30" pattern="[A-Za-z0-9_\-]{2,30}" title="2 a 30 letras, números, - o _" placeholder="ML-CLIENTE" class="font-mono"></div>
+                    <div class="form-group" style="flex:2;"><label for="canal-venta-nombre">Nombre *</label><input type="text" id="canal-venta-nombre" required maxlength="100" placeholder="Mercado Libre"></div>
+                </div>
+                <div class="form-group">
+                    <label for="canal-venta-modo">Stock que se le informa *</label>
+                    <select id="canal-venta-modo" required>
+                        <option value="DISPONIBLE_MENOS_COMPROMETIDO">Disponible menos lo comprometido en pedidos abiertos</option>
+                        <option value="DISPONIBLE">Disponible (sin descontar lo comprometido)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Sucursales cuyo stock se informa</label>
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal; margin:0.4rem 0;"><input type="checkbox" id="canal-venta-todas" checked data-on-change="alternarSucursalesCanal(this)"> Todas las sucursales</label>
+                    <div id="canal-venta-sucursales" style="display:none; padding-left:4px;"></div>
+                </div>
+                <div class="form-group" id="canal-venta-activo-fila" style="display:none;">
+                    <label style="display:flex; align-items:center; gap:8px; font-weight:normal;"><input type="checkbox" id="canal-venta-activo"> Canal activo (si se desactiva, su clave deja de funcionar)</label>
+                </div>
+                <button type="submit" class="btn-submit" style="margin-top:1rem; width:100%; justify-content:center;" id="canal-venta-guardar">Crear canal</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-canal-clave" class="modal">
+        <div class="modal-content" style="max-width:560px;">
+            <span class="close-modal" data-on-click="closeModal('modal-canal-clave')">&times;</span>
+            <h3 style="color:var(--text-primary); margin-bottom:1rem;" id="canal-clave-titulo">Clave del canal</h3>
+            <div style="background:rgba(255, 193, 7, 0.1); border:1px solid rgba(255, 193, 7, 0.3); color:var(--warning); padding:1rem; border-radius:8px; font-size:0.85rem; font-weight:500; margin-bottom:1.2rem;">
+                Copiala ahora: por seguridad no se vuelve a mostrar. Si se pierde, se rota y se carga la nueva.
+            </div>
+            <div class="form-group">
+                <label for="canal-clave-valor">Clave</label>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="canal-clave-valor" readonly style="background:var(--bg-page); color:var(--accent);" class="font-mono" data-on-click="seleccionarTexto(this)">
+                    <button type="button" class="btn-submit" data-on-click="copiarClaveCanal()" style="background:var(--success);">Copiar</button>
+                </div>
+            </div>
+            <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:1rem;" id="canal-clave-ayuda"></p>
+            <div style="display:flex; justify-content:flex-end; margin-top:1.2rem;">
+                <button type="button" class="btn-secondary" data-on-click="cerrarClaveCanal()">Ya la guardé</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-show-api-key" class="modal">
         <div class="modal-content" style="max-width:520px;">
             <span class="close-modal" data-on-click="closeModal('modal-show-api-key')">&times;</span>
@@ -2195,7 +2335,7 @@
     <!-- SCRIPTS DEL SISTEMA -->
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261001_1"></script>
-    <script src="js/admin-core.js?v=20261001_2"></script>
+    <script src="js/admin-core.js?v=20261002_1"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261001_1"></script>
     <script src="js/items.js?v=20261001_3"></script>
@@ -2203,6 +2343,7 @@
     <script src="js/operations.js?v=20261002_1"></script>
     <script src="js/reports.js?v=20261001_3"></script>
     <script src="js/settings.js?v=20261001_2"></script>
+    <script src="js/canales.js?v=20261002_3"></script>
     <script src="js/admin-init.js?v=20261001_3"></script>
     
     <script src="js/admin-pagina.js?v=20261001_2"></script>
