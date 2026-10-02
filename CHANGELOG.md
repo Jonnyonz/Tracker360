@@ -4,6 +4,11 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 
 ## 2026-10-02
 
+### Agregado
+- Pedidos urgentes: un canal de venta puede marcar un pedido como urgente (por ejemplo las ventas Flex de
+  Mercado Libre, que se entregan en el día). Los urgentes salen primero en la lista de preparación y en
+  las olas de picking, y en la pantalla del preparador se ven con la marca URGENTE.
+
 ### Cambiado
 - Las ventas Full de un canal (las que salen del depósito del marketplace, como Mercado Libre Full) ahora
   se registran en Tracker con el estado FULL, en vez de rechazarse. Se ven en la lista de pedidos y en

@@ -368,7 +368,7 @@ async function loadPicking() {
         container.innerHTML = orders.map(o => `
             <div class="list-item" data-on-click="startOrderPicking(${jsArg(o.document_number)})">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <strong>${escapeHTML(o.document_number)}</strong>
+                    <strong>${escapeHTML(o.document_number)}${o.priority > 0 ? ' <span class="badge badge-danger">URGENTE</span>' : ''}</strong>
                     <span class="badge ${o.status === 'PENDING' ? 'badge-warning' : 'badge-info'}">${escapeHTML(o.status)}</span>
                 </div>
                 <p>Cliente: ${escapeHTML(o.company_name)}</p>

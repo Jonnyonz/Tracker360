@@ -47,6 +47,7 @@ class PedidoCanal(BaseModel):
     account: Optional[str] = None       # cuenta del canal (un cliente puede tener varias)
     buyer: Optional[PedidoComprador] = None
     shipping: Optional[PedidoEnvio] = None
+    urgent: bool = False                # el canal pide prepararlo primero (en ML: Flex, se entrega en el dia)
     lines: List[PedidoLinea]
 
 
@@ -192,7 +193,7 @@ def _ref(valor: str) -> str:
 
 async def _pedido_del_canal(conn: asyncpg.Connection, canal: dict, ref: str):
     doc = await conn.fetchrow("""
-        SELECT id, document_number, status, external_ref, external_account, shipping_type, shipment_ref, created_at
+        SELECT id, document_number, status, external_ref, external_account, shipping_type, shipment_ref, priority, created_at
         FROM documents WHERE sales_channel_id = $1 AND external_ref = $2
     """, canal["id"], ref)
     if not doc:
@@ -205,7 +206,7 @@ async def _pedido_dict(conn: asyncpg.Connection, doc) -> dict:
                                  FROM document_lines WHERE document_id = $1 ORDER BY sku""", doc["id"])
     return {"document_number": doc["document_number"], "external_ref": doc["external_ref"], "account": doc["external_account"],
             "status": doc["status"], "shipping_type": doc["shipping_type"], "shipment_ref": doc["shipment_ref"],
-            "created_at": doc["created_at"],
+            "urgent": doc["priority"] > 0, "created_at": doc["created_at"],
             "lines": [{"sku": l["sku"], "quantity": l["pedido"], "picked": l["pickeado"]} for l in lineas]}
 
 
@@ -232,7 +233,7 @@ async def crear_pedido_del_canal(data: PedidoCanal, request: Request, canal: dic
     async with conn.transaction():
         # Dos altas simultaneas del mismo pedido (reintento del canal) se ordenan por este lock.
         await conn.execute("SELECT pg_advisory_xact_lock(hashtext($1))", f"tracker360_pedido_canal_{canal['id']}_{ref}")
-        existente = await conn.fetchrow("SELECT id, document_number, status, external_ref, external_account, shipping_type, shipment_ref, created_at FROM documents WHERE sales_channel_id = $1 AND external_ref = $2", canal["id"], ref)
+        existente = await conn.fetchrow("SELECT id, document_number, status, external_ref, external_account, shipping_type, shipment_ref, priority, created_at FROM documents WHERE sales_channel_id = $1 AND external_ref = $2", canal["id"], ref)
         if existente:
             return {**await _pedido_dict(conn, existente), "created": False}
         conocidos = {r["sku"] for r in await conn.fetch("SELECT UPPER(sku) AS sku FROM items WHERE UPPER(sku) = ANY($1::text[])", list(cantidades))}
@@ -246,11 +247,11 @@ async def crear_pedido_del_canal(data: PedidoCanal, request: Request, canal: dic
         numero, _ = await numero_correlativo(conn, "PEDIDO")
         doc_id = await conn.fetchval("""
             INSERT INTO documents (document_number, customer_id, status, channel_origin, sales_channel_id, external_ref, external_account,
-                                   shipping_type, shipment_ref, buyer_name, buyer_address)
-            VALUES ($1, $2, $11, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id
+                                   shipping_type, shipment_ref, buyer_name, buyer_address, priority)
+            VALUES ($1, $2, $11, $3, $4, $5, $6, $7, $8, $9, $10, $12) RETURNING id
         """, numero, cliente, canal["code"], canal["id"], ref, (data.account or "").strip() or None, tipo_envio,
              (envio.shipment_ref or "").strip() or None, (comprador.name or "").strip()[:200] or None, (comprador.address or "").strip() or None,
-             "FULL" if externo else "PENDING")
+             "FULL" if externo else "PENDING", 1 if data.urgent else 0)
         for sku, cant in cantidades.items():
             await conn.execute("INSERT INTO document_lines (document_id, sku, quantity_requested, quantity_picked, serial_numbers) VALUES ($1, $2, $3, 0, '[]'::jsonb)",
                                doc_id, sku, cant)
@@ -258,7 +259,7 @@ async def crear_pedido_del_canal(data: PedidoCanal, request: Request, canal: dic
             await emitir_stock_a_canales(conn, cantidades.keys())
         await log_action(conn, f"canal:{canal['code']}", "ORDER_CREATED", f"Pedido {numero} creado desde el canal {canal['code']} (ref {ref})"
                          + (" (Full: sale del depósito del marketplace)." if externo else "."), get_client_ip(request))
-        doc = await conn.fetchrow("SELECT id, document_number, status, external_ref, external_account, shipping_type, shipment_ref, created_at FROM documents WHERE id = $1", doc_id)
+        doc = await conn.fetchrow("SELECT id, document_number, status, external_ref, external_account, shipping_type, shipment_ref, priority, created_at FROM documents WHERE id = $1", doc_id)
         return {**await _pedido_dict(conn, doc), "created": True}
 
 

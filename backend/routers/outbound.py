@@ -267,11 +267,11 @@ async def _ubicaciones_sugeridas(conn: asyncpg.Connection, sku: str):
 @router.get("/api/picking/orders")
 async def get_picking_mailbox(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
-        SELECT d.id, d.document_number, d.status, COALESCE(c.company_name, d.buyer_name, 'Consumidor Final') as company_name
+        SELECT d.id, d.document_number, d.status, COALESCE(c.company_name, d.buyer_name, 'Consumidor Final') as company_name, d.priority, d.shipping_type
         FROM documents d 
         LEFT JOIN entities c ON d.customer_id = c.id 
         WHERE d.status IN ('PENDING', 'IN_PROGRESS') 
-        ORDER BY d.created_at ASC
+        ORDER BY d.priority DESC, d.created_at ASC
     """)
     
     result = []
@@ -402,7 +402,7 @@ async def get_wave_picking_pending(limit: int = 5, user: dict = Depends(get_curr
     enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_wave_picking'")
     if enabled != "true": raise HTTPException(400, "Picking por Olas inactivo en la Configuración Enterprise.")
         
-    orders = await conn.fetch("SELECT id, document_number FROM documents WHERE status IN ('PENDING', 'IN_PROGRESS') AND document_type = 'PICKING' ORDER BY created_at ASC LIMIT $1", limit)
+    orders = await conn.fetch("SELECT id, document_number FROM documents WHERE status IN ('PENDING', 'IN_PROGRESS') AND document_type = 'PICKING' ORDER BY priority DESC, created_at ASC LIMIT $1", limit)
     if not orders: raise HTTPException(400, "No hay pedidos pendientes para agrupar.")
         
     order_ids = [o["id"] for o in orders]
