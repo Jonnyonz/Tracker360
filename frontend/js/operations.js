@@ -504,12 +504,16 @@ function filterOrders() {
         if (o.status === 'IN_PROGRESS') badgeClass = 'badge-info';
         if (o.status === 'COMPLETED') badgeClass = 'badge-success';
         if (o.status === 'CANCELLED') badgeClass = 'badge-danger';
+        if (o.status === 'FULL') badgeClass = 'badge-info';
         
         let actionBtn = `<span style="color:var(--text-muted); font-size:0.8rem;">Sin Acción</span>`;
         if (o.status === 'COMPLETED') {
             actionBtn = `<button class="btn-submit" style="padding:4px 10px; font-size:0.75rem; background:var(--accent);" data-on-click="openPackingStation(${jsArg(o.document_number)}, ${jsArg(o.company_name)})">Empacar (Verificar)</button>`;
         } else if (o.status === 'PENDING' || o.status === 'IN_PROGRESS') {
             actionBtn = `<span style="color:var(--text-secondary); font-size:0.8rem;">En Picking</span>`;
+        } else if (o.status === 'FULL') {
+            // Venta Full del canal: sale del deposito del marketplace, aca solo se registra.
+            actionBtn = `<span style="color:var(--text-secondary); font-size:0.8rem;">Sale de Full (depósito del marketplace)</span>`;
         } else if (o.status === 'DISPATCHED') {
             actionBtn = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-on-click="reprintOrderLabel(${jsArg(o.document_number)})">Re-imprimir</button>`;
         }

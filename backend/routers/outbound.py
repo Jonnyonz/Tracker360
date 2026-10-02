@@ -200,6 +200,7 @@ async def cancelar_pedido(conn: asyncpg.Connection, document_number: str, lineas
 
         tot = await conn.fetchrow("SELECT COALESCE(SUM(quantity_requested), 0)::float AS pedido, COALESCE(SUM(quantity_picked), 0)::float AS pickeado, COUNT(*) FILTER (WHERE quantity_picked < quantity_requested) AS pendientes FROM document_lines WHERE document_id = $1", doc["id"])
         if tot["pedido"] <= 1e-9: estado = "CANCELLED"
+        elif doc["status"] == "FULL": estado = "FULL"   # Full (deposito del marketplace): nunca entra al picking
         elif tot["pendientes"] == 0: estado = "COMPLETED"
         elif tot["pickeado"] > 0: estado = "IN_PROGRESS"
         else: estado = "PENDING"

@@ -50,8 +50,9 @@ class PedidoCanal(BaseModel):
     lines: List[PedidoLinea]
 
 
-# Envios que no pasan por el deposito de Tracker (el stock esta en el del marketplace): se resuelven
-# aparte (paso 5 de la integracion).
+# Envios que no pasan por el deposito de Tracker (Full: el stock esta en el del marketplace). El pedido se
+# registra con estado FULL, solo informativo: no descuenta ni compromete stock, no entra al picking, al
+# empaque ni a devoluciones. Se puede cancelar.
 ENVIOS_FUERA_DEL_DEPOSITO = {"FULFILLMENT"}
 
 
@@ -217,8 +218,7 @@ async def crear_pedido_del_canal(data: PedidoCanal, request: Request, canal: dic
     ref = _ref(data.external_ref)
     envio = data.shipping or PedidoEnvio()
     tipo_envio = (envio.type or "").strip().upper() or None
-    if tipo_envio in ENVIOS_FUERA_DEL_DEPOSITO:
-        raise HTTPException(422, "Los envíos Full salen del depósito del marketplace: todavía no se cargan en Tracker.")
+    externo = tipo_envio in ENVIOS_FUERA_DEL_DEPOSITO
     if not data.lines:
         raise HTTPException(400, "El pedido no tiene artículos.")
     cantidades = {}
@@ -247,14 +247,17 @@ async def crear_pedido_del_canal(data: PedidoCanal, request: Request, canal: dic
         doc_id = await conn.fetchval("""
             INSERT INTO documents (document_number, customer_id, status, channel_origin, sales_channel_id, external_ref, external_account,
                                    shipping_type, shipment_ref, buyer_name, buyer_address)
-            VALUES ($1, $2, 'PENDING', $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id
+            VALUES ($1, $2, $11, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id
         """, numero, cliente, canal["code"], canal["id"], ref, (data.account or "").strip() or None, tipo_envio,
-             (envio.shipment_ref or "").strip() or None, (comprador.name or "").strip()[:200] or None, (comprador.address or "").strip() or None)
+             (envio.shipment_ref or "").strip() or None, (comprador.name or "").strip()[:200] or None, (comprador.address or "").strip() or None,
+             "FULL" if externo else "PENDING")
         for sku, cant in cantidades.items():
             await conn.execute("INSERT INTO document_lines (document_id, sku, quantity_requested, quantity_picked, serial_numbers) VALUES ($1, $2, $3, 0, '[]'::jsonb)",
                                doc_id, sku, cant)
-        await emitir_stock_a_canales(conn, cantidades.keys())
-        await log_action(conn, f"canal:{canal['code']}", "ORDER_CREATED", f"Pedido {numero} creado desde el canal {canal['code']} (ref {ref}).", get_client_ip(request))
+        if not externo:   # un pedido Full no compromete stock de Tracker
+            await emitir_stock_a_canales(conn, cantidades.keys())
+        await log_action(conn, f"canal:{canal['code']}", "ORDER_CREATED", f"Pedido {numero} creado desde el canal {canal['code']} (ref {ref})"
+                         + (" (Full: sale del depósito del marketplace)." if externo else "."), get_client_ip(request))
         doc = await conn.fetchrow("SELECT id, document_number, status, external_ref, external_account, shipping_type, shipment_ref, created_at FROM documents WHERE id = $1", doc_id)
         return {**await _pedido_dict(conn, doc), "created": True}
 

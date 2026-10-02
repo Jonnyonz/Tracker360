@@ -2,6 +2,14 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 2026-10-02
+
+### Cambiado
+- Las ventas Full de un canal (las que salen del depósito del marketplace, como Mercado Libre Full) ahora
+  se registran en Tracker con el estado FULL, en vez de rechazarse. Se ven en la lista de pedidos y en
+  los reportes del canal, pero no descuentan ni comprometen stock y no entran al picking, al empaque ni a
+  devoluciones. El canal las puede cancelar; una cancelación parcial no las manda al picking.
+
 ## 2026-10-01
 
 ### Agregado
