@@ -1,49 +1,121 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tracker360 - Politica de Privacidad</title>
-    <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background-color: #F8FAFC; color: #0F172A; line-height: 1.6; padding: 2rem; max-width: 800px; margin: 0 auto; }
-        h1, h2 { color: #1E3A8A; }
-        h1 { border-bottom: 2px solid #E2E8F0; padding-bottom: 0.5rem; }
-        .card { background: white; padding: 2rem; border-radius: 8px; border: 1px solid #E2E8F0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-top: 1.5rem; }
-        footer { margin-top: 2rem; font-size: 0.85rem; color: #64748B; text-align: center; }
-    </style>
+    <title>Política de Privacidad - Tracker360</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="stylesheet" href="css/documento.css?v=20261003_1">
+    <script src="js/documento.js?v=20261003_1"></script>
 </head>
 <body>
-    <h1>Pol&iacute;tica de Privacidad</h1>
-    <div class="card">
-        <p><strong>&Uacute;ltima actualizaci&oacute;n:</strong> Agosto de 2026</p>
-        
-        <h2>1. Informaci&oacute;n que Recolectamos</h2>
-        <p>Tracker360 procesa &uacute;nicamente la informaci&oacute;n requerida para la gesti&oacute;n de usuarios y la operativa log&iacute;stica del dep&oacute;sito:</p>
-        <ul>
-            <li><strong>Datos de Identificaci&oacute;n:</strong> Nombre completo, correo electr&oacute;nico institucional y nombre de usuario.</li>
-            <li><strong>Datos T&eacute;cnicos y de Auditor&iacute;a:</strong> Direcci&oacute;n IP, registros de inicio de sesi&oacute;n y acciones dentro de la plataforma (auditor&iacute;a de inventario, movimientos de stock y despachos).</li>
-            <li><strong>Autenticaci&oacute;n con Google:</strong> Si utiliza inicio de sesi&oacute;n mediante Google Workspace, almacenamos &uacute;nicamente su correo corporativo y nombre provistos por la API de Google.</li>
-        </ul>
+    <header class="doc-barra">
+        <a class="doc-marca" href="/" title="Ir a Tracker360">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            <div>TRACKER<span>360</span></div>
+        </a>
+        <div class="doc-acciones">
+            <a class="doc-boton" href="/terms.html">Términos</a>
+            <button type="button" class="doc-boton" id="doc-tema" title="Modo claro / oscuro">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                Tema
+            </button>
+        </div>
+    </header>
 
-        <h2>2. Uso de la Informaci&oacute;n</h2>
-        <p>Los datos recolectados se utilizan exclusivamente para:</p>
-        <ul>
-            <li>Validar el acceso y permisos de usuarios seg&uacute;n sus roles asignados.</li>
-            <li>Mantener el registro de auditor&iacute;a de movimientos de mercader&iacute;a (Kardex).</li>
-            <li>Proteger la plataforma contra intentos de acceso no autorizados (fuerza bruta).</li>
-        </ul>
+    <div class="doc-cuerpo sin-indice">
+        <main class="doc-texto">
+            <section>
+                <h1>Política de Privacidad</h1>
+                <p class="doc-sub">Última actualización: octubre de 2026.</p>
+                <p>Tracker360 es un sistema de gestión de depósito que cada organización instala en su propio servidor o en un servidor dedicado. <strong>La organización que lo usa es la responsable de los datos que se cargan en él.</strong> JZ Tech Solutions provee el software, su instalación y el soporte técnico.</p>
+            </section>
 
-        <h2>3. Almacenamiento y Propiedad de los Datos</h2>
-        <p>Tracker360 es una soluci&oacute;n desplegable en infraestructura privada (Self-Hosted) o alojada en servidores dedicados. <strong>No vendemos, alquilamos ni compartimos datos personales con terceros para fines publicitarios o comerciales.</strong></p>
+            <section>
+                <h2>1. Qué datos se procesan</h2>
+                <ul>
+                    <li><strong>Usuarios del sistema:</strong> nombre, nombre de usuario, correo electrónico, rol y sucursal o sector asignados. La contraseña nunca se guarda: se guarda solo su resumen protegido con Argon2.</li>
+                    <li><strong>Ingreso con Google</strong> (si la organización lo activa): el correo y el nombre que informa Google al iniciar sesión.</li>
+                    <li><strong>Registro de auditoría:</strong> qué acción se hizo, quién, cuándo y desde qué dirección IP (ingresos, altas, movimientos de stock, despachos, cambios de configuración).</li>
+                    <li><strong>Datos de la operación:</strong> artículos, stock, movimientos, pedidos, órdenes de compra, remitos, traspasos y los clientes y proveedores que carga la organización.</li>
+                    <li><strong>Canales de venta</strong> (por ejemplo Mercado Libre, si se conecta): de cada venta, el nombre del comprador, la dirección de envío, la cuenta del canal y los números de venta y de envío; la etiqueta de envío; y de las publicaciones, su título, SKU, estado y stock.</li>
+                </ul>
+            </section>
 
-        <h2>4. Seguridad de la Informaci&oacute;n</h2>
-        <p>Implementamos medidas de seguridad de nivel industrial, incluyendo cifrado de contrase&ntilde;as mediante algoritmos de &uacute;ltima generaci&oacute;n (Argon2), sesiones protegidas por tokens JWT cifrados y cookies seguras de solo lectura por HTTP (HttpOnly).</p>
+            <section>
+                <h2>2. Para qué se usan</h2>
+                <ul>
+                    <li>Dar acceso a cada usuario según su rol.</li>
+                    <li>Llevar el stock y la traza de cada movimiento de mercadería.</li>
+                    <li>Preparar, despachar y etiquetar los pedidos, incluidos los que llegan de los canales de venta.</li>
+                    <li>Mantener el stock de los canales de venta igual al de Tracker.</li>
+                    <li>Proteger el sistema contra accesos no autorizados y dejar registro de lo que se hizo.</li>
+                </ul>
+                <p>No se usan para publicidad ni para crear perfiles de las personas.</p>
+            </section>
 
-        <h2>5. Contacto</h2>
-        <p>Para consultas relacionadas con la privacidad o el ejercicio de derechos de acceso a datos, dir&iacute;jase al administrador de sistemas de su organizaci&oacute;n.</p>
+            <section>
+                <h2>3. Dónde se guardan y con quién se comparten</h2>
+                <p>Los datos quedan en el servidor de la organización. <strong>No se venden, no se alquilan y no se comparten con terceros con fines comerciales o publicitarios.</strong> Solo salen del servidor en estos casos, que decide la organización:</p>
+                <ul>
+                    <li><strong>Mercado Libre</strong> u otro canal de venta conectado: se le envía el stock de los artículos y se le consultan las ventas, los envíos y las publicaciones de las cuentas autorizadas.</li>
+                    <li><strong>Google</strong>, si se usa el ingreso con Google, para verificar la identidad.</li>
+                    <li><strong>Webhooks</strong> que configure un administrador, que envían datos de stock a los destinos que la organización define.</li>
+                    <li><strong>Consulta de actualizaciones:</strong> el servidor consulta las versiones públicas en GitHub, sin enviar datos de la organización.</li>
+                    <li><strong>Soporte técnico:</strong> JZ Tech Solutions puede acceder a los datos solo cuando la organización lo pide para resolver un problema.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>4. Cookies y almacenamiento en el navegador</h2>
+                <ul>
+                    <li><strong>Cookie de sesión:</strong> identifica la sesión iniciada. Es <code>HttpOnly</code>, <code>Secure</code> y <code>SameSite=Strict</code>, y vence según la configuración de la organización.</li>
+                    <li><strong>Cookie de protección CSRF:</strong> impide que otro sitio haga acciones en nombre del usuario.</li>
+                    <li><strong>Preferencia de tema</strong> (claro u oscuro), guardada en el navegador.</li>
+                </ul>
+                <p>No se usan cookies publicitarias ni de seguimiento.</p>
+            </section>
+
+            <section>
+                <h2>5. Seguridad</h2>
+                <ul>
+                    <li>Contraseñas protegidas con Argon2.</li>
+                    <li>Sesiones guardadas en el servidor, que se pueden cerrar o revocar, y protección contra CSRF.</li>
+                    <li>Conexión cifrada (HTTPS) y límite de intentos de ingreso.</li>
+                    <li>Las claves de los canales de venta y del agente de impresión se guardan solo como resumen, nunca en texto.</li>
+                    <li>Registro de auditoría de las acciones importantes.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>6. Cuánto tiempo se conservan</h2>
+                <ul>
+                    <li>Los datos de la operación y la auditoría se conservan mientras la organización los mantenga en su servidor.</li>
+                    <li>El registro de webhooks enviados se borra a los 30 días y los eventos para los canales de venta a los 14 días.</li>
+                    <li>Las sesiones vencen según el tiempo configurado y al cerrar sesión.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>7. Derechos de las personas</h2>
+                <p>Las personas cuyos datos están en el sistema pueden pedir acceder a ellos, corregirlos o eliminarlos, según la ley de protección de datos personales que corresponda (en la Argentina, la Ley 25.326). El pedido se hace a la organización que usa Tracker360, que es la responsable de los datos.</p>
+            </section>
+
+            <section>
+                <h2>8. Cambios y contacto</h2>
+                <p>Esta política puede actualizarse cuando cambie el sistema; la fecha de arriba indica la última versión. Para consultas técnicas sobre el tratamiento de los datos en Tracker360:</p>
+                <div class="contacto">
+                    <a href="mailto:jonaiker.jimenez.g@gmail.com?subject=Privacidad%20Tracker360">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>
+                        jonaiker.jimenez.g@gmail.com
+                    </a>
+                </div>
+            </section>
+        </main>
     </div>
-    <footer>
-        <p>Tracker360 WMS System - Todos los derechos reservados.</p>
+
+    <footer class="doc-pie">
+        Tracker360 &middot; <a href="/terms.html">Términos y condiciones</a> &middot; <a href="/instructivo.html">Instructivo</a> &middot; Powered by <a href="https://jz-tech.mywire.org" target="_blank" rel="noopener">JZ Tech Solutions</a>
     </footer>
 </body>
 </html>

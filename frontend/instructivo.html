@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instructivo - Tracker360</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="stylesheet" href="css/documento.css?v=20261003_1">
+    <script src="js/documento.js?v=20261003_1"></script>
+</head>
+<body>
+    <header class="doc-barra">
+        <a class="doc-marca" href="/admin.html" title="Volver al panel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            <div>TRACKER<span>360</span> &middot; Instructivo</div>
+        </a>
+        <div class="doc-acciones">
+            <a class="doc-boton" href="/admin.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                Volver al panel
+            </a>
+            <button type="button" class="doc-boton" id="doc-imprimir">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                Imprimir
+            </button>
+            <button type="button" class="doc-boton" id="doc-tema" title="Modo claro / oscuro">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                Tema
+            </button>
+        </div>
+    </header>
+
+    <div class="doc-cuerpo">
+        <nav class="doc-indice" aria-label="Índice">
+            <h2>Contenido</h2>
+            <ol>
+                <li><a href="#inicio">Qué es Tracker360</a></li>
+                <li><a href="#primeros-pasos">Primeros pasos</a></li>
+                <li><a href="#usuarios">Usuarios y permisos</a></li>
+                <li><a href="#depositos">Depósitos y ubicaciones</a></li>
+                <li><a href="#articulos">Artículos</a></li>
+                <li><a href="#clientes">Clientes y proveedores</a></li>
+                <li><a href="#compras">Compras y recepción</a></li>
+                <li><a href="#pedidos">Pedidos y despacho</a></li>
+                <li><a href="#traspasos">Traspasos</a></li>
+                <li><a href="#inventario">Conteos de inventario</a></li>
+                <li><a href="#colectora">Colectora móvil</a></li>
+                <li><a href="#reportes">Reportes y traza</a></li>
+                <li><a href="#impresion">Impresión de etiquetas</a></li>
+                <li><a href="#configuracion">Configuración</a></li>
+                <li><a href="#canales">Canales de venta</a></li>
+                <li><a href="#mercado-libre">Mercado Libre paso a paso</a></li>
+                <li><a href="#auditoria">Auditoría y tablero</a></li>
+                <li><a href="#ayuda">Modo ayuda</a></li>
+                <li><a href="#seguridad">Seguridad y buenas prácticas</a></li>
+                <li><a href="#problemas">Problemas frecuentes</a></li>
+                <li><a href="#soporte">Soporte</a></li>
+                <li><a href="#glosario">Glosario</a></li>
+            </ol>
+        </nav>
+
+        <main class="doc-texto">
+            <section id="inicio">
+                <h1>Instructivo de Tracker360</h1>
+                <p class="doc-sub">Guía completa para usar el sistema de depósito: de la carga inicial a la venta en Mercado Libre. Actualizado en octubre de 2026.</p>
+                <h2>Qué es Tracker360</h2>
+                <p>Tracker360 es un sistema de gestión de depósito (WMS). Lleva el stock de cada artículo por <strong>sucursal</strong>, <strong>sector</strong> y <strong>ubicación</strong> (estante o posición), registra cada movimiento en una traza (kardex) y ordena el trabajo diario: recibir mercadería, preparar pedidos, despacharlos, mover stock entre lugares y controlarlo con conteos.</p>
+                <p>Se usa desde dos pantallas:</p>
+                <ul>
+                    <li><strong>El panel</strong> (computadora): configuración, altas, seguimiento de pedidos, reportes.</li>
+                    <li><strong>La colectora</strong> (celular o terminal con lector): el trabajo en el depósito, escaneando artículos y ubicaciones.</li>
+                </ul>
+                <h3>Cómo se organiza el stock</h3>
+                <p><strong>Sucursal</strong> (un depósito o local) &rarr; <strong>Sector</strong> (una zona dentro de la sucursal, con su impresora) &rarr; <strong>Ubicación</strong> (el lugar exacto, por ejemplo <code>A-01-03</code>). Cada unidad de stock tiene además una <strong>condición</strong>: <span class="etiqueta ok">OPERATIVO</span> se puede vender; <span class="etiqueta aviso">CUARENTENA</span> u otras condiciones no.</p>
+            </section>
+
+            <section id="primeros-pasos">
+                <h2>Primeros pasos</h2>
+                <p>La instalación la hace JZ Tech Solutions. Al terminar, el instalador entrega un <strong>token de configuración inicial</strong>: se usa una sola vez para crear el primer administrador desde la pantalla de ingreso.</p>
+                <p>Orden recomendado para dejar todo listo:</p>
+                <ol class="pasos">
+                    <li><strong>Configuración:</strong> revisar las opciones de operación (lotes, segundo control de remitos, picking por olas) y los prefijos de numeración. Ver <a href="#configuracion">Configuración</a>.</li>
+                    <li><strong>Depósitos:</strong> cargar sucursales (con su dirección), sectores y ubicaciones. Ver <a href="#depositos">Depósitos</a>.</li>
+                    <li><strong>Artículos:</strong> cargar el maestro con el mismo SKU que se usa en los canales de venta. Ver <a href="#articulos">Artículos</a>.</li>
+                    <li><strong>Usuarios:</strong> crear a cada persona con su rol. Ver <a href="#usuarios">Usuarios</a>.</li>
+                    <li><strong>Impresión:</strong> instalar el agente de impresión en la PC conectada a la impresora de etiquetas. Ver <a href="#impresion">Impresión</a>.</li>
+                    <li><strong>Stock inicial:</strong> ingresarlo con un remito o con un conteo. Ver <a href="#compras">Compras</a> e <a href="#inventario">Inventario</a>.</li>
+                    <li><strong>Canales de venta:</strong> si se vende por Mercado Libre, seguir <a href="#mercado-libre">Mercado Libre paso a paso</a>.</li>
+                </ol>
+            </section>
+
+            <section id="usuarios">
+                <h2>Usuarios y permisos</h2>
+                <p>En <strong>Usuarios</strong> (solo administradores) se crean las cuentas. Cada usuario tiene un rol:</p>
+                <div class="tabla-scroll"><table>
+                    <thead><tr><th>Rol</th><th>Qué puede hacer</th></tr></thead>
+                    <tbody>
+                        <tr><td><span class="etiqueta info">ADMIN</span></td><td>Todo: configuración, usuarios, altas, cancelaciones, canales de venta, Mercado Libre y auditoría.</td></tr>
+                        <tr><td><span class="etiqueta">SUPERVISOR</span></td><td>Consulta todo lo operativo (artículos, stock, pedidos, reportes, depósitos), opera conteos, aprueba o rechaza mercadería en cuarentena y agrega observaciones. No modifica configuración ni usuarios.</td></tr>
+                        <tr><td><span class="etiqueta">PREPARADOR</span></td><td>Trabaja desde la colectora: picking, recepción, traspasos y conteos.</td></tr>
+                    </tbody>
+                </table></div>
+                <p>A un usuario se le puede fijar una sucursal y un sector, para que trabaje siempre en ese lugar y evitar errores al recibir o contar.</p>
+                <p>Si está activado el ingreso con Google, las personas que entran por primera vez quedan en <strong>Solicitudes</strong> hasta que un administrador las aprueba y les asigna un rol.</p>
+            </section>
+
+            <section id="depositos">
+                <h2>Depósitos y ubicaciones</h2>
+                <ol class="pasos">
+                    <li><strong>Sucursales:</strong> cada depósito o local, con su dirección (se usa como dirección de recepción en las órdenes de compra).</li>
+                    <li><strong>Sectores:</strong> zonas dentro de la sucursal. Cada sector tiene su <strong>cola de impresión</strong>: las etiquetas que se generan ahí salen por la impresora de ese sector.</li>
+                    <li><strong>Ubicaciones:</strong> los lugares físicos del sector (racks, estantes, posiciones). Se pueden imprimir sus etiquetas para escanearlas con la colectora.</li>
+                </ol>
+                <div class="nota"><p>Si un sector no usa ubicaciones, el stock queda "sin ubicación" en ese sector. Para un depósito ordenado conviene usarlas: el picking sugiere de dónde sacar y la traza muestra exactamente dónde estaba cada unidad.</p></div>
+            </section>
+
+            <section id="articulos">
+                <h2>Artículos</h2>
+                <p>En <strong>Artículos</strong> está el maestro: cada producto con su <strong>SKU</strong>, descripción y datos opcionales (series, códigos, combos).</p>
+                <div class="atencion"><p><strong>El SKU tiene que ser exactamente el mismo que en el canal de venta.</strong> Mercado Libre se conecta con Tracker por el SKU: si en ML la publicación tiene otro SKU, la venta no entra y el stock no se actualiza.</p></div>
+                <ul>
+                    <li>Se pueden imprimir etiquetas de artículo, una por una o en forma masiva, en la impresora de un sector.</li>
+                    <li>Si la empresa trabaja con <strong>lotes y vencimientos</strong> (opción de Configuración), los formularios piden lote y vencimiento, y el picking saca primero lo que vence antes (FEFO).</li>
+                </ul>
+            </section>
+
+            <section id="clientes">
+                <h2>Clientes y proveedores</h2>
+                <p>En <strong>Clientes y Proveedores</strong> se cargan las empresas con las que se trabaja. Un proveedor es necesario para emitir órdenes de compra y registrar remitos; un cliente, para los pedidos cargados a mano. Los pedidos que llegan de un canal de venta (Mercado Libre) traen el nombre y la dirección del comprador y no necesitan un cliente cargado.</p>
+            </section>
+
+            <section id="compras">
+                <h2>Compras y recepción</h2>
+                <h3>Órdenes de compra</h3>
+                <p>Desde <strong>Compras y Recepción</strong> se emite la orden de compra (OC) a un proveedor, con la sucursal donde se recibe. El número es correlativo y lo asigna el sistema (<code>OC-000001</code>): no se edita.</p>
+                <h3>Remitos de entrada</h3>
+                <ol class="pasos">
+                    <li>Elegir el proveedor.</li>
+                    <li>Completar la cabecera (número de remito del proveedor, sucursal y sector).</li>
+                    <li>Cargar los artículos en dos partes: <strong>contra órdenes de compra</strong> (las OC pendientes de ese proveedor) y <strong>artículos sueltos</strong> (sin OC). Contra una OC el tope es estricto: si se pidieron 10 y llegaron 12, van 10 contra la OC y 2 como sueltos.</li>
+                    <li>Registrar el remito. Lo recibido se descuenta de lo pendiente de cada OC.</li>
+                </ol>
+                <h3>Segundo control en el depósito (opcional)</h3>
+                <p>Con la opción <strong>"Trabaja con segundo control de stock en remitos"</strong>:</p>
+                <ul>
+                    <li><strong>Apagada:</strong> el stock entra al registrar el remito.</li>
+                    <li><strong>Encendida:</strong> el stock entra recién cuando el depósito controla físicamente con la colectora. El control es <strong>ciego</strong>: el operario no ve las cantidades esperadas, escanea lo que llegó.</li>
+                </ul>
+                <p>En el control: lo que llega de más se agrega como suelto y queda una observación; un artículo que no figura en el remito va a <span class="etiqueta aviso">CUARENTENA</span> (no se puede vender) hasta que un administrador o supervisor lo aprueba o lo rechaza desde el detalle del remito. Al cerrar el control, el remito queda como completo o "con diferencias", y las diferencias se ven en <strong>Reportes, Diferencias de Recepción</strong>.</p>
+                <div class="nota"><p>Las facturas de compra y el ingreso por devolución de clientes todavía están en preparación en el panel.</p></div>
+            </section>
+
+            <section id="pedidos">
+                <h2>Pedidos y despacho</h2>
+                <p>Los pedidos de venta llegan de dos formas: cargados a mano en el panel o desde un <strong>canal de venta</strong> (por ejemplo Mercado Libre, que los carga solos). En <strong>Pedidos (PDV)</strong> se sigue cada uno.</p>
+                <h3>Estados</h3>
+                <div class="tabla-scroll"><table>
+                    <thead><tr><th>Estado</th><th>Significado</th></tr></thead>
+                    <tbody>
+                        <tr><td><span class="etiqueta aviso">PENDING</span></td><td>Esperando preparación.</td></tr>
+                        <tr><td><span class="etiqueta info">IN_PROGRESS</span></td><td>En picking (ya se sacó una parte).</td></tr>
+                        <tr><td><span class="etiqueta ok">COMPLETED</span></td><td>Todo pickeado: listo para empacar.</td></tr>
+                        <tr><td><span class="etiqueta">DISPATCHED</span></td><td>Empacado y despachado.</td></tr>
+                        <tr><td><span class="etiqueta info">FULL</span></td><td>Venta de Mercado Libre Full: sale del depósito de Mercado Libre. Se registra para verla, pero no mueve stock ni se prepara.</td></tr>
+                        <tr><td><span class="etiqueta mal">CANCELLED</span></td><td>Cancelado.</td></tr>
+                    </tbody>
+                </table></div>
+                <h3>Preparación (picking)</h3>
+                <ul>
+                    <li>En la colectora, el operario abre el pedido, escanea la ubicación y el artículo, y carga la cantidad. No se puede sacar más de lo que falta.</li>
+                    <li>El sistema sugiere de dónde sacar (y, con lotes, lo que vence primero).</li>
+                    <li>Los pedidos <strong>urgentes</strong> (por ejemplo las ventas Flex de Mercado Libre, que se entregan en el día) aparecen primero con la marca <span class="etiqueta mal">URGENTE</span>.</li>
+                    <li>Con <strong>picking por olas</strong> activado, se preparan varios pedidos juntos y el sistema reparte lo sacado entre ellos.</li>
+                </ul>
+                <h3>Empaque y despacho</h3>
+                <p>Con el pedido completo, en el panel se toca <strong>Empacar</strong>: se indican los bultos (y, con la estación de empaque activa, se verifica cada artículo) y se despacha. Al despachar se imprime la etiqueta: la de envío de Mercado Libre si el pedido vino de ahí, o la de Tracker. Se puede reimprimir desde la lista.</p>
+                <h3>Cancelar</h3>
+                <p>Un administrador puede cancelar un pedido entero o parte de él. Lo que ya se había sacado vuelve exactamente al lugar de donde salió. Un pedido despachado no se puede cancelar. Los pedidos de Mercado Libre se cancelan solos cuando la venta se cancela allá.</p>
+                <h3>Observaciones y detalle</h3>
+                <p>En <strong>Detalle</strong> se ve quién preparó cada parte del pedido y se pueden agregar observaciones (no se editan ni se borran; también las hay automáticas del sistema).</p>
+            </section>
+
+            <section id="traspasos">
+                <h2>Traspasos</h2>
+                <p>Una orden de traspaso (ODT, <code>TR-000001</code>) mueve stock de una sucursal o sector a otro. Se crea en el panel y se ejecuta con la colectora: se escanea lo que se envía y lo que se recibe. Es estricto: no se puede mover más de lo pendiente ni más de lo que hay en el origen (salvo que la configuración permita stock negativo).</p>
+            </section>
+
+            <section id="inventario">
+                <h2>Conteos de inventario</h2>
+                <p>En <strong>Auditoría de Inventario</strong> se crean sesiones de conteo <strong>ciego</strong> (el operario no ve el stock del sistema):</p>
+                <ul>
+                    <li><strong>En caliente (HOT):</strong> se cuenta sin frenar la operación; el sistema descuenta los movimientos que ocurrieron durante el conteo.</li>
+                    <li><strong>En frío (COLD):</strong> con el depósito quieto; el stock queda igual a lo contado.</li>
+                </ul>
+                <p>Antes de aplicar, se revisan las diferencias. <strong>Lo que no se contó no se ajusta.</strong> El <strong>control puntual</strong> de la colectora sirve para verificar rápido una ubicación.</p>
+            </section>
+
+            <section id="colectora">
+                <h2>Colectora móvil</h2>
+                <p>Desde el celular o la terminal, entrar a Tracker con el usuario propio (o desde el panel: <strong>Colectora Móvil</strong>). Tiene una pantalla por tarea:</p>
+                <ul>
+                    <li><strong>Picking</strong> de pedidos (y por olas, si está activado).</li>
+                    <li><strong>Recepciones</strong>: el control de los remitos.</li>
+                    <li><strong>Traspasos</strong>: envío y recepción.</li>
+                    <li><strong>Conteos</strong> y <strong>control puntual</strong>.</li>
+                </ul>
+                <p>Se puede escanear con la cámara o con un lector. Si se corta la red, aparece un aviso: conviene esperar a que vuelva antes de seguir.</p>
+            </section>
+
+            <section id="reportes">
+                <h2>Reportes y traza</h2>
+                <ul>
+                    <li><strong>Reporte de Stock:</strong> stock consolidado por artículo, sucursal y condición.</li>
+                    <li><strong>Traza de Artículos (Kardex):</strong> cada movimiento de un artículo, con fecha, usuario, origen y documento.</li>
+                    <li><strong>Pedidos, Remitos, Órdenes de Compra:</strong> listados con filtros.</li>
+                    <li><strong>Diferencias de Recepción:</strong> faltantes, sobrantes y artículos no esperados de los controles.</li>
+                </ul>
+                <p>Todos se pueden exportar a CSV para abrir en Excel.</p>
+            </section>
+
+            <section id="impresion">
+                <h2>Impresión de etiquetas</h2>
+                <p>Tracker imprime en impresoras de etiquetas Zebra (formato ZPL) a través del <strong>agente de impresión</strong>, un programa para Windows que se instala en la PC conectada a la impresora.</p>
+                <ol class="pasos">
+                    <li>En <strong>Configuración, Impresoras</strong>, descargar el agente.</li>
+                    <li>Instalarlo y vincularlo: abre el navegador para ingresar con un usuario autorizado.</li>
+                    <li>Elegir la impresora y la cola de impresión (la del sector).</li>
+                </ol>
+                <p>Las plantillas de etiqueta (artículo, bulto/envío y ubicación) se editan en Configuración. En la etiqueta de bulto se pueden usar <code>{{ORDER_NUM}}</code> (número de pedido) y <code>{{DESTINATION}}</code> (cliente y dirección). Los pedidos de Mercado Libre usan la etiqueta de envío que manda ML.</p>
+            </section>
+
+            <section id="configuracion">
+                <h2>Configuración</h2>
+                <p>Solo administradores. Las opciones más importantes:</p>
+                <ul>
+                    <li><strong>Seguridad y sesiones:</strong> tiempo de expiración de la sesión e intentos de ingreso antes de bloquear.</li>
+                    <li><strong>Documentos y correlativos:</strong> prefijos de numeración. Los números de pedidos, órdenes de compra, traspasos y devoluciones los asigna el sistema y no se editan; las facturas y remitos de compra llevan el número del proveedor.</li>
+                    <li><strong>Operativa:</strong> lotes y vencimientos, segundo control de remitos, stock negativo, modalidad de conteo por defecto.</li>
+                    <li><strong>Módulos avanzados:</strong> picking por olas, estación de empaque y otras opciones.</li>
+                    <li><strong>Impresoras y plantillas ZPL.</strong></li>
+                    <li><strong>Canales de venta</strong> (ver la sección siguiente).</li>
+                    <li><strong>Actualizaciones:</strong> muestra si hay una versión nueva publicada.</li>
+                </ul>
+            </section>
+
+            <section id="canales">
+                <h2>Canales de venta</h2>
+                <p>Un canal de venta es un sistema externo que carga pedidos en Tracker y recibe el stock: por ejemplo el <strong>middleware de Mercado Libre</strong>. Se administran en <strong>Configuración, Canales de venta</strong>.</p>
+                <ol class="pasos">
+                    <li>Tocar <strong>+ Nuevo canal</strong>: código (por ejemplo <code>ML-EMPRESA</code>), nombre, qué stock se le informa y de qué sucursales.</li>
+                    <li>Copiar la <strong>clave</strong> que aparece: se muestra una sola vez. Se carga en el sistema externo.</li>
+                    <li>Si la clave se pierde o se filtra, <strong>Rotar clave</strong> genera una nueva; la anterior deja de funcionar en el momento.</li>
+                    <li>Un canal desactivado no puede cargar pedidos ni consultar stock.</li>
+                </ol>
+                <h3>Qué stock se informa</h3>
+                <ul>
+                    <li><strong>Disponible menos comprometido</strong> (recomendado para Mercado Libre): el stock físico menos lo que ya está pedido y todavía no se preparó. Evita vender dos veces la misma unidad.</li>
+                    <li><strong>Disponible:</strong> el stock físico, sin descontar los pedidos abiertos. Entre la venta y la preparación, el canal puede volver a mostrar la unidad vendida.</li>
+                </ul>
+            </section>
+
+            <section id="mercado-libre">
+                <h2>Mercado Libre paso a paso</h2>
+                <p>La conexión con Mercado Libre la hace un servicio aparte, el <strong>middleware JZ Middle ML-Tracker</strong>, que JZ Tech instala en el mismo servidor que Tracker con una dirección propia (por ejemplo <code>https://ml.suempresa.com</code>). Tracker sigue siendo el dueño del stock.</p>
+                <h3>1. Crear el canal en Tracker</h3>
+                <p>En <strong>Configuración, Canales de venta</strong>, crear el canal (modo recomendado: disponible menos comprometido) y copiar la clave.</p>
+                <h3>2. Conectar el middleware con Tracker</h3>
+                <p>En la página del middleware, sección <strong>Conexión con Tracker360</strong>: cargar la dirección interna de Tracker en el servidor (el instalador la muestra al terminar, por ejemplo <code>http://127.0.0.1:8001</code>) y la clave, y tocar <strong>Probar conexión</strong>. Tiene que decir "Conexión correcta con el canal ...".</p>
+                <h3>3. Crear la aplicación en Mercado Libre</h3>
+                <ol class="pasos">
+                    <li>Entrar a <strong>developers.mercadolibre.com.ar</strong> con la cuenta de la empresa y crear una aplicación.</li>
+                    <li>Cargar las dos direcciones que muestra la página del middleware: la <strong>dirección de retorno</strong> y la de <strong>notificaciones</strong>.</li>
+                    <li>Activar los temas <code>orders_v2</code>, <code>shipments</code> e <code>items</code>, y el permiso <code>offline_access</code> (sin él, la conexión se corta a las 6 horas).</li>
+                    <li>Copiar el <strong>Client ID</strong> y el <strong>Client Secret</strong> en la sección <strong>Aplicación de Mercado Libre</strong> del middleware.</li>
+                </ol>
+                <h3>4. Conectar las cuentas</h3>
+                <p>En el middleware, <strong>Conectar cuenta</strong> lleva a Mercado Libre para autorizar. Se pueden conectar varias cuentas: Mercado Libre autoriza la que tenga la sesión abierta en el navegador, así que para conectar otra hay que cerrar la sesión de ML antes (o usar una ventana privada).</p>
+                <h3>5. Qué pasa desde ese momento</h3>
+                <ul>
+                    <li><strong>Ventas:</strong> cuando se acredita el pago, la venta entra a Tracker como pedido, con comprador, dirección y cuenta. Un carrito (varios productos comprados juntos) es un solo pedido. Las ventas <strong>Flex</strong> entran como urgentes. Las <strong>Full</strong> entran como informativas (estado FULL).</li>
+                    <li><strong>Etiqueta:</strong> la de envío de Mercado Libre llega sola y se imprime al empacar.</li>
+                    <li><strong>Cancelaciones:</strong> si la venta se cancela en ML, el pedido se cancela en Tracker. Si ya se había despachado, queda marcado en el middleware para revisarlo a mano.</li>
+                    <li><strong>Stock:</strong> Tracker manda su stock a todas las publicaciones activas (y a las pausadas por falta de stock) con el mismo SKU, incluidas las variantes. Si alguien cambia el stock a mano en ML, se corrige solo. Con stock cero, ML pausa la publicación y la reactiva cuando vuelve a haber.</li>
+                </ul>
+                <h3>6. El módulo Mercado Libre de Tracker</h3>
+                <p>En el menú lateral, <strong>Mercado Libre</strong> muestra cada publicación con su SKU, el stock que tiene en ML y el disponible que manda Tracker. La columna <strong>Situación</strong> indica:</p>
+                <div class="tabla-scroll"><table>
+                    <thead><tr><th>Situación</th><th>Qué significa y qué hacer</th></tr></thead>
+                    <tbody>
+                        <tr><td><span class="etiqueta ok">Sincronizada</span></td><td>Todo bien: ML tiene el stock de Tracker.</td></tr>
+                        <tr><td><span class="etiqueta aviso">Por actualizar</span></td><td>El stock cambió y se va a mandar en instantes.</td></tr>
+                        <tr><td><span class="etiqueta aviso">Sin SKU</span></td><td>La publicación no tiene SKU en Mercado Libre: cargarle el mismo SKU que en Tracker.</td></tr>
+                        <tr><td><span class="etiqueta aviso">SKU que no está en Tracker</span></td><td>El SKU de ML no existe en Tracker: darlo de alta en Artículos (o corregirlo en ML).</td></tr>
+                        <tr><td><span class="etiqueta info">Full</span></td><td>El stock lo maneja Mercado Libre en su depósito: no se toca.</td></tr>
+                        <tr><td><span class="etiqueta mal">Error</span></td><td>Mercado Libre rechazó el cambio: el detalle dice por qué.</td></tr>
+                    </tbody>
+                </table></div>
+                <div class="nota"><p>Las publicaciones pausadas a mano por el vendedor no reciben stock y no aparecen en el módulo.</p></div>
+            </section>
+
+            <section id="auditoria">
+                <h2>Auditoría y tablero</h2>
+                <p>El <strong>Inicio</strong> muestra el resumen de la operación: pedidos pendientes, traspasos activos, carga de mercadería y productividad. <strong>Auditoría General</strong> registra las acciones importantes (ingresos, altas, cambios de configuración, cancelaciones) con usuario, fecha e IP.</p>
+            </section>
+
+            <section id="ayuda">
+                <h2>Modo ayuda</h2>
+                <p>El botón <strong>Modo Ayuda</strong> del menú lateral (el signo de pregunta) activa la ayuda en pantalla:</p>
+                <ul>
+                    <li>Aparece un recuadro con lo esencial de la pantalla en la que se está y un enlace a la parte de este instructivo que la explica.</li>
+                    <li>Los elementos con ayuda se marcan con un borde punteado: pasando el mouse por encima (o tocándolos, en pantallas táctiles) se ve la explicación.</li>
+                    <li>Se desactiva con el mismo botón o con la tecla <kbd>Esc</kbd>.</li>
+                </ul>
+            </section>
+
+            <section id="seguridad">
+                <h2>Seguridad y buenas prácticas</h2>
+                <ul>
+                    <li>Cada persona usa su propio usuario: la auditoría registra quién hizo cada cosa.</li>
+                    <li>No compartir contraseñas. Al terminar el turno en una PC compartida, <strong>Cerrar sesión</strong>.</li>
+                    <li>La clave de un canal de venta es como una contraseña: si se filtra, rotarla.</li>
+                    <li>Mantener Tracker y el middleware actualizados (Configuración muestra si hay versión nueva).</li>
+                </ul>
+            </section>
+
+            <section id="problemas">
+                <h2>Problemas frecuentes</h2>
+                <h3>Una venta de Mercado Libre no entró como pedido</h3>
+                <p>Revisar en la página del middleware, <strong>Avisos de Mercado Libre</strong>: si dice "SKU inexistente", dar de alta el artículo en Tracker y tocar <strong>Reintentar los que fallaron</strong>. Si dice "Esperando el pago", entra sola cuando se acredita.</p>
+                <h3>El stock de una publicación no se actualiza</h3>
+                <p>Buscarla en el módulo <strong>Mercado Libre</strong> y ver su situación. Si está sincronizada pero el número parece mal, revisar el modo de stock del canal y las sucursales que informa.</p>
+                <h3>No sale la etiqueta</h3>
+                <p>Verificar que el agente de impresión esté abierto en la PC de la impresora y vinculado a la cola del sector.</p>
+                <h3>La colectora no muestra un pedido</h3>
+                <p>Solo se preparan los pedidos pendientes o en curso: los FULL, cancelados, completos o despachados no aparecen en el picking.</p>
+            </section>
+
+            <section id="soporte">
+                <h2>Soporte</h2>
+                <p>Para consultas, problemas o pedidos de mejora, escribir a JZ Tech Solutions:</p>
+                <div class="contacto">
+                    <a href="mailto:jonaiker.jimenez.g@gmail.com?subject=Soporte%20Tracker360">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>
+                        jonaiker.jimenez.g@gmail.com
+                    </a>
+                    <a href="https://jz-tech.mywire.org" target="_blank" rel="noopener">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
+                        jz-tech.mywire.org
+                    </a>
+                </div>
+                <p>Para resolverlo más rápido, incluir en el mensaje:</p>
+                <ul>
+                    <li>Qué se quería hacer y qué pasó (el mensaje de error tal cual, si apareció).</li>
+                    <li>La pantalla, el número de pedido, remito o SKU involucrado.</li>
+                    <li>Una captura de pantalla.</li>
+                    <li>La versión instalada (Configuración, Actualizaciones).</li>
+                </ul>
+                <div class="atencion"><p>Nunca enviar contraseñas ni claves de canal por correo.</p></div>
+            </section>
+
+            <section id="glosario">
+                <h2>Glosario</h2>
+                <div class="tabla-scroll"><table>
+                    <tbody>
+                        <tr><td><strong>SKU</strong></td><td>Código único de cada artículo. Tiene que coincidir con el del canal de venta.</td></tr>
+                        <tr><td><strong>Picking</strong></td><td>Sacar del depósito los artículos de un pedido.</td></tr>
+                        <tr><td><strong>Ola</strong></td><td>Grupo de pedidos que se preparan juntos.</td></tr>
+                        <tr><td><strong>Kardex</strong></td><td>Historial de movimientos de un artículo.</td></tr>
+                        <tr><td><strong>FEFO</strong></td><td>"Lo que vence primero sale primero".</td></tr>
+                        <tr><td><strong>Cuarentena</strong></td><td>Stock recibido que no se puede vender hasta que se aprueba.</td></tr>
+                        <tr><td><strong>Stock comprometido</strong></td><td>Lo pedido que todavía no se preparó.</td></tr>
+                        <tr><td><strong>Canal de venta</strong></td><td>Sistema externo que carga pedidos y recibe el stock (por ejemplo Mercado Libre).</td></tr>
+                        <tr><td><strong>Middleware</strong></td><td>El servicio que conecta Mercado Libre con Tracker.</td></tr>
+                        <tr><td><strong>Full / Flex</strong></td><td>Tipos de envío de Mercado Libre: Full sale del depósito de ML; Flex lo entrega el vendedor en el día.</td></tr>
+                        <tr><td><strong>ZPL</strong></td><td>Lenguaje de las impresoras de etiquetas Zebra.</td></tr>
+                    </tbody>
+                </table></div>
+            </section>
+        </main>
+    </div>
+
+    <footer class="doc-pie">
+        Tracker360 &middot; <a href="/privacy.html">Privacidad</a> &middot; <a href="/terms.html">Términos</a> &middot; Powered by <a href="https://jz-tech.mywire.org" target="_blank" rel="noopener">JZ Tech Solutions</a>
+    </footer>
+</body>
+</html>

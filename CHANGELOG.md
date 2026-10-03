@@ -2,6 +2,18 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 2026-10-03
+
+### Agregado
+- Instructivo completo (`/instructivo.html`): guía de todo el sistema, de los primeros pasos a Mercado Libre paso
+  a paso, con índice, problemas frecuentes, glosario, modo oscuro y versión para imprimir.
+
+### Cambiado
+- Política de privacidad y términos actualizados y con el mismo estilo del panel (tema claro y oscuro). Ahora
+  describen cómo funciona hoy el sistema: sesiones del lado del servidor (ya no JWT), protección CSRF, datos
+  que llegan de los canales de venta (comprador y envío de Mercado Libre), cuánto se guarda cada cosa y el
+  contacto de soporte. Los términos indican la licencia correcta, GNU AGPLv3 (decían GPLv3).
+
 ## 2026-10-02
 
 ### Agregado
