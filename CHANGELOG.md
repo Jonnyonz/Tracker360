@@ -28,6 +28,14 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   instructivo. Funciona tocando en pantallas táctiles y se cierra con Esc.
 
 ### Cambiado
+- Compras y Recepción: en el menú se despliega como Reportes, con un módulo por tipo (Órdenes de Compra,
+  Remitos de Entrada, Facturas, Traspasos y Devoluciones). Cada historial no lista nada hasta buscar y tiene
+  sus propios filtros (número, proveedor o cliente, sucursal o sector, OC, estado y fechas); el botón "Nuevo"
+  del encabezado abre el formulario de alta (el supervisor no lo ve). Facturas y Devoluciones por ahora solo
+  se consultan: su carga desde el panel sigue en preparación. Los atajos del tablero y "Crear ODT" de
+  reabastecimiento abren el módulo correspondiente. API: los historiales (`purchase-orders`,
+  `purchase-remitos`, `purchase-invoices`, `transfer-orders`, `returns`) aceptan filtros opcionales por campo
+  y fechas (`date_from`, `date_to`); `search` sigue igual y `limit` va de 1 a 500.
 - Artículos: la pantalla ya no lista todo al entrar. Se busca por SKU, descripción, categoría, ubicación
   asignada, tipo (simple o combo) y stock (con stock, sin stock o negativo); con los campos vacíos, Buscar
   muestra el catálogo por páginas de 25. API: `GET /api/admin/items` acepta `category`, `location`, `combo`

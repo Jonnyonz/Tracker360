@@ -8,6 +8,17 @@ function toggleSidebar() {
     }
 }
 
+// Acordeon del menu lateral (acc-<nombre>, icon-acc-<nombre>, btn-acc-<nombre>).
+function alternarAcordeon(nombre) {
+    const acc = document.getElementById(`acc-${nombre}`);
+    if (!acc) return;
+    const abrir = !acc.classList.contains('open');
+    acc.classList.toggle('open', abrir);
+    const icon = document.getElementById(`icon-acc-${nombre}`);
+    if (icon) icon.textContent = abrir ? '▲' : '▼';
+    document.getElementById(`btn-acc-${nombre}`)?.classList.toggle('active', abrir);
+}
+
 function toggleReportsAccordion() {
     const acc = document.getElementById('acc-reports');
     const icon = document.getElementById('icon-acc-reports');

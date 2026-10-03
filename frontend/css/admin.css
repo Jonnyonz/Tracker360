@@ -718,3 +718,9 @@ td.busqueda-vacia { text-align: center; padding: 2rem 1rem; color: var(--text-mu
 .ubicaciones-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 320px; overflow-y: auto; }
 .ubicacion-chip { padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-page);
     color: var(--accent); font-size: 0.8rem; }
+
+/* Compras y recepcion: un modulo por tipo; el alta se abre con "Nuevo" */
+.compras-modulo { display: flex; flex-direction: column; gap: 1.5rem; }
+.compras-alta[hidden] { display: none !important; }
+.compras-aviso { margin: 0; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg-page); color: var(--text-secondary); font-size: 0.85rem; }

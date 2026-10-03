@@ -150,13 +150,15 @@ async function savePO(event) {
     finally { btn.disabled = false; }
 }
 
-async function loadPOData(search, limit = 50) {
+async function loadPOData() {
     const tbody = document.getElementById('table-po-body');
     if (!tbody) return;
-    const q = search !== undefined ? search : (document.getElementById('search-po-text')?.value || '');
+    const url = urlBusquedaCompras('po', '/api/admin/purchase-orders', 'table-po-body', 4);   // compras.js
+    if (!url) return;
     try {
-        const rows = await fetchAPI(`/api/admin/purchase-orders?search=${encodeURIComponent(q)}&limit=${limit}`);
-        if (!rows || !rows.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:1rem;">Sin órdenes de compra.</td></tr>'; return; }
+        const rows = await fetchAPI(url);
+        resumenCompras('po', (rows || []).length);
+        if (!rows || !rows.length) { tbody.innerHTML = '<tr><td colspan="4" class="busqueda-vacia">No hay órdenes de compra que coincidan con la búsqueda.</td></tr>'; return; }
         tbody.innerHTML = rows.map(o => `<tr>
             <td style="color:var(--accent); font-weight:bold;">${escapeHTML(o.order_number)}</td>
             <td>${escapeHTML(o.supplier_name)}</td>
@@ -302,13 +304,15 @@ async function saveRemito(event) {
     finally { btn.disabled = false; }
 }
 
-async function loadRemitoData(search, limit = 50) {
+async function loadRemitoData() {
     const tbody = document.getElementById('table-remito-body');
     if (!tbody) return;
-    const q = search !== undefined ? search : (document.getElementById('search-rem-text')?.value || '');
+    const url = urlBusquedaCompras('remito', '/api/admin/purchase-remitos', 'table-remito-body', 5);   // compras.js
+    if (!url) return;
     try {
-        const rows = await fetchAPI(`/api/admin/purchase-remitos?search=${encodeURIComponent(q)}&limit=${limit}`);
-        if (!rows || !rows.length) { tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:1rem;">Sin remitos registrados.</td></tr>'; return; }
+        const rows = await fetchAPI(url);
+        resumenCompras('remito', (rows || []).length);
+        if (!rows || !rows.length) { tbody.innerHTML = '<tr><td colspan="5" class="busqueda-vacia">No hay remitos que coincidan con la búsqueda.</td></tr>'; return; }
         tbody.innerHTML = rows.map(r => `<tr>
             <td style="color:var(--accent); font-weight:bold;">${escapeHTML(r.remito_number)}</td>
             <td>${escapeHTML(r.supplier_name)}</td>
@@ -887,8 +891,7 @@ async function loadReplenishmentSuggestions() {
 }
 
 async function createReplenishmentTransfer(sku, origLoc, destLoc, availableQty) {
-    if (typeof switchView === 'function') switchView('section-purchases');
-    switchPurchaseTab('tab-transfer');
+    await abrirCompras('tab-transfer', null, true);
     document.getElementById('form-transfer').reset();
     await loadNextTransferNumber();
     
@@ -1293,14 +1296,19 @@ async function saveTransfer(event) {
     }
 }
 
-async function loadTransferData(search = "", limit = 50) {
+const TR_STATUS_LABEL = { PENDING: 'Pendiente', PENDING_CONTROL: 'Pendiente', IN_PROGRESS: 'En curso', COMPLETED: 'Completado' };
+
+async function loadTransferData() {
     const tbody = document.getElementById('table-transfers-body');
     if (!tbody) return;
+    const url = urlBusquedaCompras('transfer', '/api/admin/transfer-orders', 'table-transfers-body', 5);   // compras.js
+    if (!url) return;
 
     try {
-        const rows = await fetchAPI(`/api/admin/transfer-orders?search=${encodeURIComponent(search)}&limit=${limit}`);
+        const rows = await fetchAPI(url);
+        resumenCompras('transfer', (rows || []).length);
         if (!rows || rows.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:1rem;">Sin traspasos registrados.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="busqueda-vacia">No hay traspasos que coincidan con la búsqueda.</td></tr>';
             return;
         }
 
@@ -1309,7 +1317,7 @@ async function loadTransferData(search = "", limit = 50) {
                 <td style="color:var(--accent); font-weight:bold;">${escapeHTML(r.transfer_number)}</td>
                 <td><small>${escapeHTML(r.origin_branch)} (${escapeHTML(r.origin_sector)})</small></td>
                 <td><small>${escapeHTML(r.destination_branch)} (${escapeHTML(r.destination_sector)})</small></td>
-                <td><span class="badge badge-warning">${escapeHTML(r.status)}</span></td>
+                <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(TR_STATUS_LABEL[r.status] || r.status)}</span></td>
                 <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-on-click="verTraspaso(${jsArg(r.transfer_number)})">Detalle</button></td>
             </tr>
         `).join('');

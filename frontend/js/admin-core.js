@@ -152,15 +152,16 @@ function switchView(secId, btnElement = null) {
     if (btnElement) {
         btnElement.classList.add('active');
         if (btnElement.classList.contains('rail-sub-btn')) {
-            document.getElementById('btn-acc-reports')?.classList.add('active');
+            btnElement.closest('.rail-item')?.querySelector('.rail-btn')?.classList.add('active');
         }
     } else {
         const b = document.querySelector(`[data-on-click*="${secId}"]`);
         if(b) {
             b.classList.add('active');
             if (b.classList.contains('rail-sub-btn')) {
-                document.getElementById('btn-acc-reports')?.classList.add('active');
-                document.getElementById('acc-reports')?.classList.add('open');
+                const item = b.closest('.rail-item');
+                item?.querySelector('.rail-btn')?.classList.add('active');
+                item?.querySelector('.rail-accordion')?.classList.add('open');
             }
         }
     }

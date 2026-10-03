@@ -7,7 +7,7 @@
     <title id="html-title">Tracker360 - JZTech Suite</title>
     
     <!-- CSS Separado y Limpio -->
-    <link rel="stylesheet" href="css/admin.css?v=20261003_8">
+    <link rel="stylesheet" href="css/admin.css?v=20261003_9">
 </head>
 <body>
     <div class="top-accent-bar"></div>
@@ -108,11 +108,20 @@
                 <span class="rail-label">Artículos</span>
             </button>
         </div>
+        <!-- ACORDEÓN DE COMPRAS Y RECEPCIÓN: un módulo por tipo -->
         <div class="rail-item">
-            <button class="rail-btn" title="Compras y Recepción" data-on-click="switchView('section-purchases', this)">
+            <button class="rail-btn" id="btn-acc-compras" title="Compras y Recepción" data-on-click="alternarAcordeon('compras')">
                 <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" fill="none"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
                 <span class="rail-label">Compras y Recepción</span>
+                <span class="rail-arrow" id="icon-acc-compras">▼</span>
             </button>
+            <div id="acc-compras" class="rail-accordion">
+                <button class="rail-sub-btn" data-on-click="abrirCompras('tab-po', this)">Órdenes de Compra</button>
+                <button class="rail-sub-btn" data-on-click="abrirCompras('tab-remito', this)">Remitos de Entrada</button>
+                <button class="rail-sub-btn" data-on-click="abrirCompras('tab-invoice', this)">Facturas</button>
+                <button class="rail-sub-btn" data-on-click="abrirCompras('tab-transfer', this)">Traspasos</button>
+                <button class="rail-sub-btn" data-on-click="abrirCompras('tab-return', this)">Devoluciones</button>
+            </div>
         </div>
         <div class="rail-item">
             <button class="rail-btn" title="Pedidos (PDV)" data-on-click="switchView('section-orders', this)">
@@ -244,7 +253,7 @@
                         2. Traspasos Activos
                     </h3>
                     <table><thead><tr><th>Nº Traspaso</th><th>Origen</th><th>Destino</th></tr></thead><tbody id="dash-transfers-body"></tbody></table>
-                    <button class="btn-secondary" style="width: 100%; margin-top: 1.5rem;" data-on-click="switchPurchaseTab('tab-transfer'); switchView('section-purchases')">Ver Todos los Traspasos</button>
+                    <button class="btn-secondary" style="width: 100%; margin-top: 1.5rem;" data-on-click="abrirCompras('tab-transfer')">Ver Todos los Traspasos</button>
                 </div>
 
                 <div class="card" data-help="Carga de Mercadería|Accesos directos para la carga de comprobantes de ingreso, devoluciones y traspasos.|Garantiza que la mercadería ingrese asignada a la sucursal y sector del operador logístico.">
@@ -253,11 +262,11 @@
                         3. Ingresos y Movimientos
                     </h3>
                     <div style="display:flex; flex-direction:column; gap:0.6rem; margin-top:0.5rem;">
-                        <div class="dash-action-item"><span>Ingreso por Devolución</span><button class="btn-secondary" data-on-click="switchPurchaseTab('tab-return'); switchView('section-purchases')">Cargar</button></div>
-                        <div class="dash-action-item"><span>Crear Orden de Traspaso (ODT)</span><button class="btn-secondary" data-on-click="switchPurchaseTab('tab-transfer'); switchView('section-purchases')">Crear</button></div>
-                        <div class="dash-action-item"><span>Crear Remito de Compra</span><button class="btn-secondary" data-on-click="switchPurchaseTab('tab-remito'); switchView('section-purchases')">Crear</button></div>
-                        <div class="dash-action-item"><span>Crear Factura de Compra</span><button class="btn-secondary" data-on-click="switchPurchaseTab('tab-invoice'); switchView('section-purchases')">Crear</button></div>
-                        <div class="dash-action-item"><span>Crear Orden de Compra</span><button class="btn-secondary" data-on-click="switchPurchaseTab('tab-po'); switchView('section-purchases')">Crear</button></div>
+                        <div class="dash-action-item"><span>Devoluciones de clientes</span><button class="btn-secondary" data-on-click="abrirCompras('tab-return')">Ver</button></div>
+                        <div class="dash-action-item"><span>Crear Orden de Traspaso (ODT)</span><button class="btn-secondary" data-on-click="abrirCompras('tab-transfer', null, true)">Crear</button></div>
+                        <div class="dash-action-item"><span>Crear Remito de Compra</span><button class="btn-secondary" data-on-click="abrirCompras('tab-remito', null, true)">Crear</button></div>
+                        <div class="dash-action-item"><span>Facturas de Compra</span><button class="btn-secondary" data-on-click="abrirCompras('tab-invoice')">Ver</button></div>
+                        <div class="dash-action-item"><span>Crear Orden de Compra</span><button class="btn-secondary" data-on-click="abrirCompras('tab-po', null, true)">Crear</button></div>
                     </div>
                 </div>
             </div>
@@ -441,19 +450,13 @@
         <!-- 6. COMPRAS Y RECEPCIÓN -->
         <div id="section-purchases" class="view-section">
             <div class="content-header">
-                <h2>Ingreso y Movimientos de Mercadería</h2>
-            </div>
-            <div style="display:flex; gap:10px; margin-bottom:1.5rem; flex-wrap:wrap;">
-                <button class="purchase-subtab-btn active" data-on-click="switchPurchaseTab('tab-po', this)">Órdenes de Compra</button>
-                <button class="purchase-subtab-btn" data-on-click="switchPurchaseTab('tab-remito', this)">Remitos de Entrada</button>
-                <button class="purchase-subtab-btn" data-on-click="switchPurchaseTab('tab-invoice', this)">Facturas</button>
-                <button class="purchase-subtab-btn" data-on-click="switchPurchaseTab('tab-transfer', this)">Traspasos</button>
-                <button class="purchase-subtab-btn" data-on-click="switchPurchaseTab('tab-return', this)">Devoluciones</button>
+                <h2 id="compras-titulo">Órdenes de compra</h2>
+                <button type="button" class="btn-submit" id="btn-compras-nuevo" data-on-click="alternarAltaCompras()">+ Nueva orden de compra</button>
             </div>
 
             <div id="tab-po" class="purchase-tab" style="display:block;">
-                <div class="masonry-grid">
-                    <div class="card" data-help="Emisión de Órdenes de Compra|Solicitud formal de mercadería a un proveedor.|Sirve como plantilla para controlar las cantidades al recibir el remito físico.">
+                <div class="compras-modulo">
+                    <div class="card compras-alta" hidden data-help="Emisión de Órdenes de Compra|Solicitud formal de mercadería a un proveedor.|Sirve como plantilla para controlar las cantidades al recibir el remito físico.">
                         <h3>Emitir Orden de Compra</h3>
                         <form id="form-po" data-on-submit="savePO(event)">
                             <div class="grid-layout" style="margin-bottom:0;">
@@ -477,21 +480,30 @@
 
                     <div class="card">
                         <h3>Historial de Órdenes</h3>
-                        <div style="display:flex; gap:8px; margin-bottom:1rem;">
-                            <input type="text" id="search-po-text" placeholder="Buscar..." data-on-keyup="loadPOData()">
-                            <button class="btn-secondary" data-on-click="loadPOData('', 50)">Ver Todos</button>
-                        </div>
+                        <form id="filtros-po" class="busqueda-filtros" style="margin-bottom:1rem;" data-on-submit="buscarCompras(event, 'po')">
+                            <div class="form-group"><label for="f-po-numero">Nº de orden</label><input type="text" id="f-po-numero" name="number" placeholder="OC-000001" autocomplete="off"></div>
+                            <div class="form-group"><label for="f-po-proveedor">Proveedor</label><input type="text" id="f-po-proveedor" name="supplier" autocomplete="off"></div>
+                            <div class="form-group"><label for="f-po-sucursal">Sucursal de recepción</label><input type="text" id="f-po-sucursal" name="branch" autocomplete="off"></div>
+                            <div class="form-group"><label for="f-po-estado">Estado</label><select id="f-po-estado" name="status"><option value="">Todos</option><option value="PENDING">Pendiente</option><option value="IN_PROGRESS">Parcial</option><option value="COMPLETED">Completada</option></select></div>
+                            <div class="form-group"><label for="f-po-desde">Desde</label><input type="date" id="f-po-desde" name="date_from"></div>
+                            <div class="form-group"><label for="f-po-hasta">Hasta</label><input type="date" id="f-po-hasta" name="date_to"></div>
+                            <div class="busqueda-acciones">
+                                <button type="submit" class="btn-submit">Buscar</button>
+                                <button type="button" class="btn-secondary" data-on-click="limpiarCompras('po')">Limpiar</button>
+                            </div>
+                        </form>
+                        <p id="resumen-po" class="busqueda-resumen" hidden style="margin:0 0 0.8rem;"></p>
                         <table>
                             <thead><tr><th>Nº Orden</th><th>Proveedor</th><th>Estado</th><th>Acciones</th></tr></thead>
-                            <tbody id="table-po-body"></tbody>
+                            <tbody id="table-po-body"><tr><td colspan="6" class="busqueda-vacia">Completá los filtros y tocá Buscar.</td></tr></tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
             <div id="tab-remito" class="purchase-tab" style="display:none;">
-                <div class="masonry-grid">
-                    <div class="card" data-help="Remitos de Entrada|Ingreso físico de mercadería del proveedor al inventario.|Incrementa el stock de la sucursal y sector seleccionados.">
+                <div class="compras-modulo">
+                    <div class="card compras-alta" hidden data-help="Remitos de Entrada|Ingreso físico de mercadería del proveedor al inventario.|Incrementa el stock de la sucursal y sector seleccionados.">
                         <h3>Registrar Remito</h3>
                         <form id="form-remito" data-on-submit="saveRemito(event)">
                             <div class="grid-layout" style="margin-bottom:0;">
@@ -521,21 +533,32 @@
 
                     <div class="card">
                         <h3>Historial de Remitos</h3>
-                        <div style="display:flex; gap:8px; margin-bottom:1rem;">
-                            <input type="text" id="search-rem-text" placeholder="Buscar..." data-on-keyup="loadRemitoData()">
-                            <button class="btn-secondary" data-on-click="loadRemitoData('', 50)">Ver Todos</button>
-                        </div>
+                        <form id="filtros-remito" class="busqueda-filtros" style="margin-bottom:1rem;" data-on-submit="buscarCompras(event, 'remito')">
+                            <div class="form-group"><label for="f-remito-numero">Nº de remito</label><input type="text" id="f-remito-numero" name="number" autocomplete="off"></div>
+                            <div class="form-group"><label for="f-remito-proveedor">Proveedor</label><input type="text" id="f-remito-proveedor" name="supplier" autocomplete="off"></div>
+                            <div class="form-group"><label for="f-remito-oc">Orden de compra</label><input type="text" id="f-remito-oc" name="purchase_order" placeholder="OC-000001" autocomplete="off"></div>
+                            <div class="form-group"><label for="f-remito-destino">Sucursal o sector</label><input type="text" id="f-remito-destino" name="branch" autocomplete="off"></div>
+                            <div class="form-group"><label for="f-remito-estado">Estado</label><select id="f-remito-estado" name="status"><option value="">Todos</option><option value="PENDING_CONTROL">Pendiente de control</option><option value="PENDING">Pendiente</option><option value="IN_PROGRESS">En control</option><option value="COMPLETED">Ingresado</option><option value="COMPLETED_DIFF">Con diferencias</option></select></div>
+                            <div class="form-group"><label for="f-remito-desde">Desde</label><input type="date" id="f-remito-desde" name="date_from"></div>
+                            <div class="form-group"><label for="f-remito-hasta">Hasta</label><input type="date" id="f-remito-hasta" name="date_to"></div>
+                            <div class="busqueda-acciones">
+                                <button type="submit" class="btn-submit">Buscar</button>
+                                <button type="button" class="btn-secondary" data-on-click="limpiarCompras('remito')">Limpiar</button>
+                            </div>
+                        </form>
+                        <p id="resumen-remito" class="busqueda-resumen" hidden style="margin:0 0 0.8rem;"></p>
                         <table>
                             <thead><tr><th>Nº Remito</th><th>Proveedor</th><th>Destino</th><th>Estado</th><th>Acciones</th></tr></thead>
-                            <tbody id="table-remito-body"></tbody>
+                            <tbody id="table-remito-body"><tr><td colspan="6" class="busqueda-vacia">Completá los filtros y tocá Buscar.</td></tr></tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
             <div id="tab-invoice" class="purchase-tab" style="display:none;">
-                <div class="masonry-grid">
-                    <div class="card" data-help="Facturas de Compra|Comprobante administrativo contable enviado por el proveedor.|Permite asociar remitos ya ingresados o hacer un ingreso directo por compra.">
+                <div class="compras-modulo">
+                    <p class="compras-aviso">La carga de facturas desde el panel está en preparación: acá se consultan las ya registradas.</p>
+                    <div class="card compras-alta" hidden data-help="Facturas de Compra|Comprobante administrativo contable enviado por el proveedor.|Permite asociar remitos ya ingresados o hacer un ingreso directo por compra.">
                         <h3>Cargar Factura</h3>
                         <form id="form-invoice" data-on-submit="saveInvoice(event)">
                             <div class="grid-layout" style="margin-bottom:0;">
@@ -573,21 +596,29 @@
 
                     <div class="card">
                         <h3>Historial de Facturas</h3>
-                        <div style="display:flex; gap:8px; margin-bottom:1rem;">
-                            <input type="text" id="search-inv-text" placeholder="Buscar..." data-on-keyup="loadInvoiceData()">
-                            <button class="btn-secondary" data-on-click="loadInvoiceData('', 50)">Ver Todos</button>
-                        </div>
+                        <form id="filtros-invoice" class="busqueda-filtros" style="margin-bottom:1rem;" data-on-submit="buscarCompras(event, 'invoice')">
+                            <div class="form-group"><label for="f-invoice-numero">Nº de factura</label><input type="text" id="f-invoice-numero" name="number" autocomplete="off"></div>
+                            <div class="form-group"><label for="f-invoice-proveedor">Proveedor</label><input type="text" id="f-invoice-proveedor" name="supplier" autocomplete="off"></div>
+                            <div class="form-group"><label for="f-invoice-tipo">Tipo</label><select id="f-invoice-tipo" name="invoice_type"><option value="">Todos</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="M">M</option></select></div>
+                            <div class="form-group"><label for="f-invoice-desde">Desde</label><input type="date" id="f-invoice-desde" name="date_from"></div>
+                            <div class="form-group"><label for="f-invoice-hasta">Hasta</label><input type="date" id="f-invoice-hasta" name="date_to"></div>
+                            <div class="busqueda-acciones">
+                                <button type="submit" class="btn-submit">Buscar</button>
+                                <button type="button" class="btn-secondary" data-on-click="limpiarCompras('invoice')">Limpiar</button>
+                            </div>
+                        </form>
+                        <p id="resumen-invoice" class="busqueda-resumen" hidden style="margin:0 0 0.8rem;"></p>
                         <table>
                             <thead><tr><th>Nº Factura</th><th>Tipo</th><th>Proveedor</th><th>Fecha</th></tr></thead>
-                            <tbody id="table-invoice-body"></tbody>
+                            <tbody id="table-invoice-body"><tr><td colspan="6" class="busqueda-vacia">Completá los filtros y tocá Buscar.</td></tr></tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
             <div id="tab-transfer" class="purchase-tab" style="display:none;">
-                <div class="masonry-grid">
-                    <div class="card" data-help="Órdenes de Traspaso (ODT)|Movimientos entre sucursales y sectores.|Descuenta el stock de origen y genera una tarea de control en la colectora móvil del sector destino.">
+                <div class="compras-modulo">
+                    <div class="card compras-alta" hidden data-help="Órdenes de Traspaso (ODT)|Movimientos entre sucursales y sectores.|Descuenta el stock de origen y genera una tarea de control en la colectora móvil del sector destino.">
                         <h3>Generar Orden de Traspaso (ODT)</h3>
                         <form id="form-transfer" data-on-submit="saveTransfer(event)">
                             <div class="form-group">
@@ -620,21 +651,31 @@
 
                     <div class="card">
                         <h3>Historial de Traspasos</h3>
-                        <div style="display:flex; gap:8px; margin-bottom:1rem;">
-                            <input type="text" id="search-tr-text" placeholder="Buscar Traspaso..." data-on-keyup="loadTransferData()">
-                            <button class="btn-secondary" data-on-click="loadTransferData('', 50)">Ver Todos</button>
-                        </div>
+                        <form id="filtros-transfer" class="busqueda-filtros" style="margin-bottom:1rem;" data-on-submit="buscarCompras(event, 'transfer')">
+                            <div class="form-group"><label for="f-transfer-numero">Nº de traspaso</label><input type="text" id="f-transfer-numero" name="number" placeholder="TR-000001" autocomplete="off"></div>
+                            <div class="form-group"><label for="f-transfer-origen">Origen</label><input type="text" id="f-transfer-origen" name="origin" placeholder="Sucursal o sector" autocomplete="off"></div>
+                            <div class="form-group"><label for="f-transfer-destino">Destino</label><input type="text" id="f-transfer-destino" name="destination" placeholder="Sucursal o sector" autocomplete="off"></div>
+                            <div class="form-group"><label for="f-transfer-estado">Estado</label><select id="f-transfer-estado" name="status"><option value="">Todos</option><option value="PENDING_CONTROL">Pendiente</option><option value="PENDING">Pendiente (anterior)</option><option value="IN_PROGRESS">En curso</option><option value="COMPLETED">Completado</option></select></div>
+                            <div class="form-group"><label for="f-transfer-desde">Desde</label><input type="date" id="f-transfer-desde" name="date_from"></div>
+                            <div class="form-group"><label for="f-transfer-hasta">Hasta</label><input type="date" id="f-transfer-hasta" name="date_to"></div>
+                            <div class="busqueda-acciones">
+                                <button type="submit" class="btn-submit">Buscar</button>
+                                <button type="button" class="btn-secondary" data-on-click="limpiarCompras('transfer')">Limpiar</button>
+                            </div>
+                        </form>
+                        <p id="resumen-transfer" class="busqueda-resumen" hidden style="margin:0 0 0.8rem;"></p>
                         <table>
                             <thead><tr><th>Nº Traspaso</th><th>Origen</th><th>Destino</th><th>Estado</th><th>Acciones</th></tr></thead>
-                            <tbody id="table-transfers-body"></tbody>
+                            <tbody id="table-transfers-body"><tr><td colspan="6" class="busqueda-vacia">Completá los filtros y tocá Buscar.</td></tr></tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
             <div id="tab-return" class="purchase-tab" style="display:none;">
-                <div class="masonry-grid">
-                    <div class="card" data-help="Ingreso por Devolución|Recepción de paquetes devueltos por clientes vinculados a un pedido entregado.|Asigna la sucursal/sector del usuario activo y califica la mercadería como Operativo, Outlet o Dañado.">
+                <div class="compras-modulo">
+                    <p class="compras-aviso">La carga de devoluciones desde el panel está en preparación: acá se consultan las ya registradas.</p>
+                    <div class="card compras-alta" hidden data-help="Ingreso por Devolución|Recepción de paquetes devueltos por clientes vinculados a un pedido entregado.|Asigna la sucursal/sector del usuario activo y califica la mercadería como Operativo, Outlet o Dañado.">
                         <h3>Registrar Devolución de Cliente</h3>
                         <form id="form-return" data-on-submit="saveCustomerReturn(event)">
                             <div class="form-group">
@@ -667,13 +708,21 @@
 
                     <div class="card">
                         <h3>Historial de Devoluciones</h3>
-                        <div style="display:flex; gap:8px; margin-bottom:1rem;">
-                            <input type="text" id="search-rma-text" placeholder="Buscar devolución..." data-on-keyup="loadReturnData()">
-                            <button class="btn-secondary" data-on-click="loadReturnData('', 50)">Ver Todos</button>
-                        </div>
+                        <form id="filtros-return" class="busqueda-filtros" style="margin-bottom:1rem;" data-on-submit="buscarCompras(event, 'return')">
+                            <div class="form-group"><label for="f-return-numero">Nº de devolución</label><input type="text" id="f-return-numero" name="number" autocomplete="off"></div>
+                            <div class="form-group"><label for="f-return-cliente">Cliente</label><input type="text" id="f-return-cliente" name="customer" autocomplete="off"></div>
+                            <div class="form-group"><label for="f-return-pedido">Pedido</label><input type="text" id="f-return-pedido" name="order" autocomplete="off"></div>
+                            <div class="form-group"><label for="f-return-desde">Desde</label><input type="date" id="f-return-desde" name="date_from"></div>
+                            <div class="form-group"><label for="f-return-hasta">Hasta</label><input type="date" id="f-return-hasta" name="date_to"></div>
+                            <div class="busqueda-acciones">
+                                <button type="submit" class="btn-submit">Buscar</button>
+                                <button type="button" class="btn-secondary" data-on-click="limpiarCompras('return')">Limpiar</button>
+                            </div>
+                        </form>
+                        <p id="resumen-return" class="busqueda-resumen" hidden style="margin:0 0 0.8rem;"></p>
                         <table>
                             <thead><tr><th>Nº Devolución</th><th>Cliente</th><th>Pedido</th><th>Fecha</th><th>Usuario</th></tr></thead>
-                            <tbody id="table-returns-body"></tbody>
+                            <tbody id="table-returns-body"><tr><td colspan="6" class="busqueda-vacia">Completá los filtros y tocá Buscar.</td></tr></tbody>
                         </table>
                     </div>
                 </div>
@@ -2479,18 +2528,19 @@
     <!-- SCRIPTS DEL SISTEMA -->
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261001_1"></script>
-    <script src="js/admin-core.js?v=20261003_2"></script>
-    <script src="js/ayuda.js?v=20261003_6"></script>
+    <script src="js/admin-core.js?v=20261003_3"></script>
+    <script src="js/ayuda.js?v=20261003_7"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261003_1"></script>
     <script src="js/items.js?v=20261003_1"></script>
     <script src="js/warehouse.js?v=20261003_2"></script>
-    <script src="js/operations.js?v=20261002_1"></script>
+    <script src="js/operations.js?v=20261003_2"></script>
+    <script src="js/compras.js?v=20261003_2"></script>
     <script src="js/reports.js?v=20261001_3"></script>
     <script src="js/settings.js?v=20261001_2"></script>
     <script src="js/canales.js?v=20261003_2"></script>
     <script src="js/admin-init.js?v=20261001_3"></script>
     
-    <script src="js/admin-pagina.js?v=20261001_2"></script>
+    <script src="js/admin-pagina.js?v=20261003_1"></script>
 </body>
 </html>

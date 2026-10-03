@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import asyncpg, uuid, json
 
+from backend.filtros import Filtros
 from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, parse_uuid, numero_correlativo, siguiente_numero
 
 router = APIRouter(tags=["Internal Movements"])
@@ -55,8 +56,20 @@ async def get_next_transfer_number(admin: dict = Depends(require_admin), conn: a
     return {"next_number": await siguiente_numero(conn, "TRASPASO")}
 
 @router.get("/api/admin/transfer-orders")
-async def list_admin_transfer_orders(search: str = "", limit: int = 50, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("SELECT t.id::text as id, t.transfer_number, t.status, t.created_at, COALESCE(ob.name, 'N/A') as origin_branch, COALESCE(db.name, 'N/A') as destination_branch, COALESCE(os.name, 'N/A') as origin_sector, COALESCE(ds.name, 'N/A') as destination_sector FROM transfer_orders t LEFT JOIN branches ob ON t.origin_branch_id = ob.id LEFT JOIN branches db ON t.destination_branch_id = db.id LEFT JOIN sectors os ON t.origin_sector_id = os.id LEFT JOIN sectors ds ON t.destination_sector_id = ds.id WHERE t.transfer_number ILIKE $1 ORDER BY t.created_at DESC LIMIT $2", f"%{search}%", limit)
+async def list_admin_transfer_orders(search: str = "", number: str = "", origin: str = "", destination: str = "", status: str = "",
+                                     date_from: str = "", date_to: str = "", limit: int = 50,
+                                     admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Historial de traspasos. Filtros opcionales: search/number, origin y destination (sucursal o sector), status, fechas."""
+    f = (Filtros().texto(search, "t.transfer_number").texto(number, "t.transfer_number").texto(origin, "ob.name", "os.name")
+         .texto(destination, "db.name", "ds.name").igual(status, "t.status", ("PENDING", "PENDING_CONTROL", "IN_PROGRESS", "COMPLETED"))
+         .fechas(date_from, date_to, "t.created_at"))
+    tope = f.limite(limit)
+    rows = await conn.fetch(f"""
+        SELECT t.id::text as id, t.transfer_number, t.status, t.created_at, COALESCE(ob.name, 'N/A') as origin_branch,
+               COALESCE(db.name, 'N/A') as destination_branch, COALESCE(os.name, 'N/A') as origin_sector, COALESCE(ds.name, 'N/A') as destination_sector
+        FROM transfer_orders t LEFT JOIN branches ob ON t.origin_branch_id = ob.id LEFT JOIN branches db ON t.destination_branch_id = db.id
+        LEFT JOIN sectors os ON t.origin_sector_id = os.id LEFT JOIN sectors ds ON t.destination_sector_id = ds.id
+        WHERE {f.where()} ORDER BY t.created_at DESC LIMIT {tope}""", *f.args)
     return [dict(r) for r in rows]
 
 @router.post("/api/admin/transfer-orders")

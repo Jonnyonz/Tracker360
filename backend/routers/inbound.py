@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import asyncpg, uuid, re, json
 
+from backend.filtros import Filtros
 from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, record_stock_movement, log_action, check_idempotency, save_idempotency, require_valid_quantity, build_full_address, add_system_note, parse_uuid, numero_correlativo, siguiente_numero
 
 router = APIRouter(tags=["Inbound & Receptions"])
@@ -66,8 +67,19 @@ class CustomerReturnCreateInput(BaseModel):
     lines: List[CustomerReturnLineInput]
 
 @router.get("/api/admin/purchase-orders")
-async def list_admin_purchase_orders(search: str = "", limit: int = 50, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("SELECT po.id::text as id, po.order_number, po.status, po.created_at, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name FROM purchase_orders po LEFT JOIN entities e ON po.supplier_id = e.id WHERE po.order_number ILIKE $1 ORDER BY po.created_at DESC LIMIT $2", f"%{search}%", limit)
+async def list_admin_purchase_orders(search: str = "", number: str = "", supplier: str = "", status: str = "", branch: str = "",
+                                     date_from: str = "", date_to: str = "", limit: int = 50,
+                                     admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Historial de OC. Filtros opcionales: search/number (numero), supplier, status, branch (sucursal de recepcion), fechas."""
+    f = (Filtros().texto(search, "po.order_number").texto(number, "po.order_number").texto(supplier, "e.company_name")
+         .igual(status, "po.status", ("PENDING", "IN_PROGRESS", "COMPLETED")).texto(branch, "b.name", "b.code")
+         .fechas(date_from, date_to, "po.created_at"))
+    tope = f.limite(limit)
+    rows = await conn.fetch(f"""
+        SELECT po.id::text as id, po.order_number, po.status, po.created_at, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name,
+               b.name as branch_name
+        FROM purchase_orders po LEFT JOIN entities e ON po.supplier_id = e.id LEFT JOIN branches b ON po.branch_id = b.id
+        WHERE {f.where()} ORDER BY po.created_at DESC LIMIT {tope}""", *f.args)
     return [dict(r) for r in rows]
 
 def _parse_uuid(value: str, message: str) -> uuid.UUID:
@@ -161,8 +173,22 @@ async def get_purchase_order(order_number: str, admin: dict = Depends(require_su
     return {"order": header, "lines": [dict(l) for l in lines]}
 
 @router.get("/api/admin/purchase-remitos")
-async def list_admin_purchase_remitos(search: str = "", limit: int = 50, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("SELECT pr.id::text as id, pr.remito_number, pr.status, pr.created_at, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name, b.name as branch_name, sec.name as sector_name FROM purchase_remitos pr LEFT JOIN entities e ON pr.supplier_id = e.id LEFT JOIN branches b ON pr.branch_id = b.id LEFT JOIN sectors sec ON pr.sector_id = sec.id WHERE pr.remito_number ILIKE $1 ORDER BY pr.created_at DESC LIMIT $2", f"%{search}%", limit)
+async def list_admin_purchase_remitos(search: str = "", number: str = "", supplier: str = "", status: str = "", branch: str = "",
+                                      purchase_order: str = "", date_from: str = "", date_to: str = "", limit: int = 50,
+                                      admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Historial de remitos. Filtros opcionales: search/number, supplier, status, branch (sucursal o sector),
+    purchase_order (numero de la OC), fechas."""
+    f = (Filtros().texto(search, "pr.remito_number").texto(number, "pr.remito_number").texto(supplier, "e.company_name")
+         .igual(status, "pr.status", ("PENDING", "PENDING_CONTROL", "IN_PROGRESS", "COMPLETED", "COMPLETED_DIFF"))
+         .texto(branch, "b.name", "b.code", "sec.name").texto(purchase_order, "po.order_number")
+         .fechas(date_from, date_to, "pr.created_at"))
+    tope = f.limite(limit)
+    rows = await conn.fetch(f"""
+        SELECT pr.id::text as id, pr.remito_number, pr.status, pr.created_at, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name,
+               b.name as branch_name, sec.name as sector_name, po.order_number as purchase_order_number
+        FROM purchase_remitos pr LEFT JOIN entities e ON pr.supplier_id = e.id LEFT JOIN branches b ON pr.branch_id = b.id
+        LEFT JOIN sectors sec ON pr.sector_id = sec.id LEFT JOIN purchase_orders po ON pr.purchase_order_id = po.id
+        WHERE {f.where()} ORDER BY pr.created_at DESC LIMIT {tope}""", *f.args)
     return [dict(r) for r in rows]
 
 # Un remito se identifica por su id interno. El numero solo alcanza si no se repite entre proveedores.
@@ -291,8 +317,17 @@ async def get_purchase_remito(remito_number: str, admin: dict = Depends(require_
     return {"remito": header, "lines": [dict(l) for l in lines], "exceptions": [dict(x) for x in exceptions]}
 
 @router.get("/api/admin/purchase-invoices")
-async def list_admin_purchase_invoices(search: str = "", limit: int = 50, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("SELECT pi.id::text as id, pi.invoice_number, pi.invoice_type, pi.created_at, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name FROM purchase_invoices pi LEFT JOIN entities e ON pi.supplier_id = e.id WHERE pi.invoice_number ILIKE $1 ORDER BY pi.created_at DESC LIMIT $2", f"%{search}%", limit)
+async def list_admin_purchase_invoices(search: str = "", number: str = "", supplier: str = "", invoice_type: str = "",
+                                       date_from: str = "", date_to: str = "", limit: int = 50,
+                                       admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Historial de facturas de compra. Filtros opcionales: search/number, supplier, invoice_type, fechas."""
+    f = (Filtros().texto(search, "pi.invoice_number").texto(number, "pi.invoice_number").texto(supplier, "e.company_name")
+         .texto(invoice_type, "pi.invoice_type").fechas(date_from, date_to, "pi.created_at"))
+    tope = f.limite(limit)
+    rows = await conn.fetch(f"""
+        SELECT pi.id::text as id, pi.invoice_number, pi.invoice_type, pi.created_at, COALESCE(e.company_name, 'Sin Proveedor') as supplier_name
+        FROM purchase_invoices pi LEFT JOIN entities e ON pi.supplier_id = e.id
+        WHERE {f.where()} ORDER BY pi.created_at DESC LIMIT {tope}""", *f.args)
     return [dict(r) for r in rows]
 
 @router.get("/api/reception/remitos")
@@ -599,8 +634,15 @@ async def create_customer_return(
         return res_data
 
 @router.get("/api/admin/returns")
-async def list_customer_returns(search: str = "", limit: int = 50, user: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("""
+async def list_customer_returns(search: str = "", number: str = "", customer: str = "", order: str = "",
+                                date_from: str = "", date_to: str = "", limit: int = 50,
+                                user: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Historial de devoluciones. search busca en numero, cliente y pedido; number, customer y order filtran
+    cada uno por separado; fechas opcionales."""
+    f = (Filtros().texto(search, "cr.return_number", "e.company_name", "d.document_number").texto(number, "cr.return_number")
+         .texto(customer, "e.company_name").texto(order, "d.document_number").fechas(date_from, date_to, "cr.created_at"))
+    tope = f.limite(limit)
+    rows = await conn.fetch(f"""
         SELECT cr.id::text as id, cr.return_number, cr.created_at, cr.created_by,
                COALESCE(e.company_name, 'Cliente') as customer_name,
                COALESCE(d.document_number, 'N/A') as document_number,
@@ -610,7 +652,7 @@ async def list_customer_returns(search: str = "", limit: int = 50, user: dict = 
         LEFT JOIN documents d ON cr.document_id = d.id
         LEFT JOIN branches b ON cr.branch_id = b.id
         LEFT JOIN sectors sec ON cr.sector_id = sec.id
-        WHERE cr.return_number ILIKE $1 OR e.company_name ILIKE $1 OR d.document_number ILIKE $1
-        ORDER BY cr.created_at DESC LIMIT $2
-    """, f"%{search}%", limit)
+        WHERE {f.where()}
+        ORDER BY cr.created_at DESC LIMIT {tope}
+    """, *f.args)
     return [dict(r) for r in rows]
