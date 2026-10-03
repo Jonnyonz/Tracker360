@@ -52,7 +52,7 @@ const AYUDA_SECCIONES = {
     'section-inventory': {
         titulo: 'Conteos de inventario',
         resumen: 'Sesiones de conteo ciego, en caliente o en frío, con revisión antes de aplicar.',
-        pasos: ['Creá la sesión de conteo.', 'Contá con la colectora.', 'Revisá las diferencias y aplicá. Lo no contado no se ajusta.'],
+        pasos: ['Al entrar se ven las sesiones de hoy; con los filtros (fechas, sucursal, sector, estado, modalidad, operador) se buscan otras.', 'Creá la sesión de conteo.', 'Contá con la colectora.', 'Revisá las diferencias y aplicá. Lo no contado no se ajusta.'],
         ancla: 'inventario',
     },
     'section-kardex': {

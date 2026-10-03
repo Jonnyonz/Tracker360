@@ -28,6 +28,10 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   instructivo. Funciona tocando en pantallas táctiles y se cierra con Esc.
 
 ### Cambiado
+- Auditoría de Inventario: al entrar muestra solo las sesiones de conteo de hoy. Para ver otras se busca por
+  fechas, sucursal, sector, estado (abierta, en revisión, cerrada), modalidad (HOT o COLD) y operador; el
+  botón "Hoy" vuelve a las del día. API: `GET /api/inventory/sessions` acepta esos filtros (opcionales) y
+  `limit`; sin filtros devuelve todas, como antes (las usa la colectora).
 - Pedidos: la pantalla ya no lista los últimos 100 al entrar. Se busca con los atajos "Para empacar", "De hoy"
   y "Urgentes", o por número de pedido o de venta del canal, cliente o comprador, SKU, estado, canal, cuenta,
   tipo de envío, urgente y fechas. Cada pedido muestra la fecha, URGENTE y, si vino de un canal, el canal, la

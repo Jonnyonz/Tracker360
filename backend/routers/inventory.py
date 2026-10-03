@@ -4,6 +4,7 @@ from typing import Optional
 from datetime import datetime
 import asyncpg, uuid
 
+from backend.filtros import Filtros
 from backend.database import get_db_connection, get_current_user, require_admin, require_supervisor, log_action, record_stock_movement, require_valid_quantity, parse_uuid
 
 router = APIRouter(tags=["Inventory Control"])
@@ -148,15 +149,25 @@ async def list_admin_stock_kardex(
     return [dict(r) for r in rows]
 
 @router.get("/api/inventory/sessions")
-async def list_inventory_sessions(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("""
+async def list_inventory_sessions(date_from: str = "", date_to: str = "", branch: str = "", sector: str = "", status: str = "",
+                                  count_type: str = "", operator: str = "", limit: Optional[int] = None,
+                                  user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Sesiones de conteo, de la mas nueva a la mas vieja. Sin filtros, todas (las usa la colectora). Filtros
+    opcionales: fechas AAAA-MM-DD, branch y sector (nombre), status OPEN | REVIEW | CLOSED, count_type HOT | COLD,
+    operator (asignado o quien la abrio), limit de 1 a 500."""
+    f = (Filtros().fechas(date_from, date_to, "s.created_at").texto(branch, "b.name", "b.code").texto(sector, "sec.name")
+         .igual(status, "s.status", ("OPEN", "REVIEW", "CLOSED")).igual(count_type, "s.count_type", ("HOT", "COLD"))
+         .texto(operator, "s.assigned_operator", "s.created_by"))
+    tope = f"LIMIT {f.limite(limit)}" if limit is not None else ""
+    rows = await conn.fetch(f"""
         SELECT s.id::text, b.name as branch_name, sec.name as sector_name, 
                s.count_type, s.status, s.created_at, s.created_by, s.assigned_operator 
         FROM inventory_sessions s 
         JOIN branches b ON s.branch_id = b.id 
         JOIN sectors sec ON s.sector_id = sec.id 
-        ORDER BY s.created_at DESC
-    """)
+        WHERE {f.where()}
+        ORDER BY s.created_at DESC {tope}
+    """, *f.args)
     return [dict(r) for r in rows]
 
 @router.post("/api/inventory/sessions")

@@ -998,18 +998,52 @@ async function runSpotCheck(e) {
     }
 }
 
+// Sesiones de conteo: al entrar se ven las de hoy; los filtros buscan otras. La busqueda se repite al
+// crear, revisar o cerrar una sesion (loadInventorySessions).
+const SESIONES_POR_BUSQUEDA = 200;
+let busquedaInventario = null;
+
+function buscarInventario(event) {
+    if (event) event.preventDefault();
+    const params = new URLSearchParams({ limit: SESIONES_POR_BUSQUEDA });
+    document.querySelectorAll('#filtros-inventario [name]').forEach(el => {
+        const valor = (el.value || '').trim();
+        if (valor) params.set(el.name, valor);
+    });
+    busquedaInventario = params;
+    loadInventorySessions();
+}
+
+function limpiarInventario() {
+    document.getElementById('filtros-inventario')?.reset();
+    busquedaInventario = null;
+    loadInventorySessions();
+}
+
 async function loadInventorySessions() {
     const tbody = document.getElementById('table-inventory-sessions-body');
     if(!tbody) return;
+    if (!busquedaInventario) {
+        // Sin busqueda propia: las de hoy.
+        const hoy = fechaLocalHoy();
+        ['f-inv-desde', 'f-inv-hasta'].forEach(id => { const el = document.getElementById(id); if (el) el.value = hoy; });
+        busquedaInventario = new URLSearchParams({ limit: SESIONES_POR_BUSQUEDA, date_from: hoy, date_to: hoy });
+    }
     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">Cargando sesiones...</td></tr>';
-    
+    const resumen = document.getElementById('inventario-resumen');
+
     try {
-        const data = await fetchAPI('/api/inventory/sessions');
+        const data = await fetchAPI('/api/inventory/sessions?' + busquedaInventario.toString());
+        if (resumen) {
+            const n = (data || []).length;
+            resumen.textContent = n >= SESIONES_POR_BUSQUEDA ? `Se muestran las ${SESIONES_POR_BUSQUEDA} más recientes: afiná la búsqueda.` : `${n} sesi${n === 1 ? 'ón' : 'ones'}.`;
+            resumen.hidden = false;
+        }
         if(!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">No hay sesiones de conteo registradas.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="busqueda-vacia">No hay sesiones de conteo en esas fechas o con esos filtros.</td></tr>';
             return;
         }
-        
+
         tbody.innerHTML = data.map(s => {
             let btn = '';
             let badge = '';

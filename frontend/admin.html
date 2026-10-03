@@ -789,8 +789,21 @@
                 </div>
             </div>
             
-            <div style="margin-bottom:1.5rem;">
-                <button class="btn-secondary" data-on-click="loadInventorySessions()">Actualizar Panel</button>
+            <div class="card" style="margin-bottom:1.5rem;" data-help="Buscar sesiones de conteo|Al entrar se ven las sesiones de hoy.|Para ver otras, cambiá las fechas o usá los demás filtros; Hoy vuelve a las del día.">
+                <form id="filtros-inventario" class="busqueda-filtros" data-on-submit="buscarInventario(event)">
+                    <div class="form-group"><label for="f-inv-desde">Desde</label><input type="date" id="f-inv-desde" name="date_from"></div>
+                    <div class="form-group"><label for="f-inv-hasta">Hasta</label><input type="date" id="f-inv-hasta" name="date_to"></div>
+                    <div class="form-group"><label for="f-inv-sucursal">Sucursal</label><input type="text" id="f-inv-sucursal" name="branch" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-inv-sector">Sector</label><input type="text" id="f-inv-sector" name="sector" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-inv-estado">Estado</label><select id="f-inv-estado" name="status"><option value="">Todos</option><option value="OPEN">Abierta (escaneo)</option><option value="REVIEW">En revisión</option><option value="CLOSED">Cerrada</option></select></div>
+                    <div class="form-group"><label for="f-inv-tipo">Modalidad</label><select id="f-inv-tipo" name="count_type"><option value="">Todas</option><option value="HOT">En caliente (HOT)</option><option value="COLD">En frío (COLD)</option></select></div>
+                    <div class="form-group"><label for="f-inv-operador">Operador</label><input type="text" id="f-inv-operador" name="operator" placeholder="Asignado o quien la abrió" autocomplete="off"></div>
+                    <div class="busqueda-acciones">
+                        <button type="submit" class="btn-submit">Buscar</button>
+                        <button type="button" class="btn-secondary" data-on-click="limpiarInventario()">Hoy</button>
+                    </div>
+                </form>
+                <p id="inventario-resumen" class="busqueda-resumen" hidden></p>
             </div>
 
             <div class="card grid-full-width" data-help="Sesiones de Conteo Ciego|Apertura de foto congelada (Snapshot) del inventario para auditoría.|HOT: Permite seguir operando. COLD: Congela el sector para máxima precisión.">
@@ -2542,12 +2555,12 @@
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261001_1"></script>
     <script src="js/admin-core.js?v=20261003_3"></script>
-    <script src="js/ayuda.js?v=20261003_8"></script>
+    <script src="js/ayuda.js?v=20261003_9"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261003_1"></script>
     <script src="js/items.js?v=20261003_1"></script>
     <script src="js/warehouse.js?v=20261003_2"></script>
-    <script src="js/operations.js?v=20261003_3"></script>
+    <script src="js/operations.js?v=20261003_4"></script>
     <script src="js/compras.js?v=20261003_2"></script>
     <script src="js/reports.js?v=20261001_3"></script>
     <script src="js/settings.js?v=20261001_2"></script>
