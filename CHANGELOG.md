@@ -25,6 +25,10 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   instructivo. Funciona tocando en pantallas táctiles y se cierra con Esc.
 
 ### Cambiado
+- Depósitos: la pantalla lista solo las sucursales, con cuántos sectores y ubicaciones tiene cada una. Cada
+  sucursal tiene "Configuración" (editar sus datos; solo administrador) y "Sectores", que muestra sus sectores
+  y, en cada uno, sus ubicaciones con un buscador. Desde ahí se crean sectores y ubicaciones con la sucursal o
+  el sector ya elegidos. Antes se veían juntas las tablas completas de sectores y ubicaciones.
 - Clientes y Proveedores: la pantalla ya no lista todo al entrar. Se busca por CUIT/CUIL (con o sin guiones,
   también una parte), razón social, rol y dirección (calle, localidad, código postal o etiqueta); con los campos
   vacíos, Buscar muestra los primeros 200. Al crear o editar se repite la última búsqueda. API:

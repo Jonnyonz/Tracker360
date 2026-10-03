@@ -712,3 +712,9 @@ body.help-mode-active [data-help] { outline: 2px dashed var(--accent); outline-o
 .busqueda-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
 .busqueda-resumen { margin: 0.8rem 0 0; font-size: 0.85rem; color: var(--text-muted); }
 td.busqueda-vacia { text-align: center; padding: 2rem 1rem; color: var(--text-muted); }
+
+/* Depositos: ubicaciones de un sector (dentro del detalle de la sucursal) */
+.sector-ubicaciones { margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.ubicaciones-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 320px; overflow-y: auto; }
+.ubicacion-chip { padding: 3px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-page);
+    color: var(--accent); font-size: 0.8rem; }

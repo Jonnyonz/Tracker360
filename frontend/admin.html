@@ -7,7 +7,7 @@
     <title id="html-title">Tracker360 - JZTech Suite</title>
     
     <!-- CSS Separado y Limpio -->
-    <link rel="stylesheet" href="css/admin.css?v=20261003_7">
+    <link rel="stylesheet" href="css/admin.css?v=20261003_8">
 </head>
 <body>
     <div class="top-accent-bar"></div>
@@ -353,38 +353,12 @@
                 </div>
             </div>
 
-            <div class="masonry-grid">
-                <div class="card" data-help="Sucursales|Puntos físicos de almacenamiento o tiendas de la empresa.|Define los almacenes independientes entre los cuales se pueden realizar traspasos ODT.">
-                    <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> 1. Sucursales Registradas</h3>
-                    <table>
-                        <thead><tr><th>Código</th><th>Nombre Sucursal</th><th>Dirección</th><th>Estado</th><th></th></tr></thead>
-                        <tbody id="table-branches-body"></tbody>
-                    </table>
+            <!-- SUCURSALES: cada una abre su configuracion o sus sectores (y, en cada sector, sus ubicaciones) -->
+            <div class="card grid-full-width" data-help="Sucursales|Cada depósito o local de la empresa, con sus sectores y ubicaciones.|Configuración edita la sucursal; Sectores muestra sus sectores y, en cada uno, sus ubicaciones.">
+                <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> Sucursales</h3>
+                <div id="sucursales-lista" class="canales-lista">
+                    <p class="canales-vacio">Cargando sucursales...</p>
                 </div>
-
-                <div class="card" data-help="Sectors de Depósito|Divisiones lógicas dentro de una sucursal (ej: Picking, Pulmón, Recepción).|Cada sector posee su propia cola de impresión predeterminada para etiquetas.">
-                    <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> 2. Sectores por Sucursal</h3>
-                    <table>
-                        <thead><tr><th>Sucursal</th><th>Nombre Sector</th><th>Cola Impresión</th><th>Ubicaciones</th></tr></thead>
-                        <tbody id="table-sectors-body"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <div class="card grid-full-width" data-help="Ubicaciones Físicas (Racks)|Nomenclatura de estantes y posiciones (ej: RACK-A-01-02).|Garantiza la ruta de armado óptima durante el picking guiado por cámara.">
-                <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> 3. Maestro de Ubicaciones Físicas</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Sucursal</th>
-                            <th>Sector</th>
-                            <th>Código Ubicación</th>
-                            <th>Descripción / Detalle</th>
-                            <th>Estado</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-locations-body"></tbody>
-                </table>
             </div>
 
             <!-- TARJETA: ALERTAS Y SUGERENCIAS DE REABASTECIMIENTO (REPLENISHMENT - FASE 2) -->
@@ -1782,6 +1756,33 @@
 
     <!-- MODALES DE CREACIÓN Y EDICIÓN -->
     <!-- MODAL SUCURSAL -->
+    <!-- MODAL: SECTORES DE UNA SUCURSAL (y ubicaciones de cada sector). Va antes de los modales de alta para que estos se abran encima. -->
+    <div id="modal-sucursal-sectores" class="modal">
+        <div class="modal-content" style="max-width:900px;">
+            <span class="close-modal" data-on-click="cerrarSectoresSucursal()">&times;</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:12px; padding-right:2rem;">
+                <h3 style="color:var(--text-primary); margin:0;" id="sucursal-sectores-titulo">Sectores</h3>
+                <button type="button" class="btn-submit" id="sucursal-sectores-nuevo" data-on-click="nuevoSectorEnSucursal()" style="font-size:0.8rem;">+ Nuevo sector</button>
+            </div>
+            <div style="overflow-x:auto;">
+                <table>
+                    <thead><tr><th>Sector</th><th>Cola de impresión</th><th>Usa ubicaciones</th><th style="text-align:right;">Ubicaciones</th></tr></thead>
+                    <tbody id="sucursal-sectores-body"></tbody>
+                </table>
+            </div>
+            <div id="sector-ubicaciones" class="sector-ubicaciones" hidden>
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:0.6rem;">
+                    <h4 style="color:var(--text-primary); margin:0;" id="sector-ubicaciones-titulo">Ubicaciones</h4>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <input type="text" id="sector-ubicaciones-filtro" placeholder="Buscar código o detalle" autocomplete="off" data-on-input="pintarUbicacionesSector()" style="width:220px;">
+                        <button type="button" class="btn-secondary" id="sector-ubicaciones-nueva" data-on-click="nuevaUbicacionEnSector()" style="font-size:0.8rem;">+ Nueva ubicación</button>
+                    </div>
+                </div>
+                <div id="sector-ubicaciones-lista" class="ubicaciones-chips"></div>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-branch" class="modal">
         <div class="modal-content" style="max-width:500px;">
             <span class="close-modal" data-on-click="closeModal('modal-branch')">&times;</span>
@@ -2468,11 +2469,11 @@
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261001_1"></script>
     <script src="js/admin-core.js?v=20261003_2"></script>
-    <script src="js/ayuda.js?v=20261003_4"></script>
+    <script src="js/ayuda.js?v=20261003_5"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261003_1"></script>
     <script src="js/items.js?v=20261001_3"></script>
-    <script src="js/warehouse.js?v=20261001_3"></script>
+    <script src="js/warehouse.js?v=20261003_2"></script>
     <script src="js/operations.js?v=20261002_1"></script>
     <script src="js/reports.js?v=20261001_3"></script>
     <script src="js/settings.js?v=20261001_2"></script>
