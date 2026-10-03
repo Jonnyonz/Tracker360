@@ -10,4 +10,13 @@ function toggleTheme() {
 document.addEventListener('DOMContentLoaded', () => {
     const savedTheme = localStorage.getItem('jztech-theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
+
+    // Administrador y supervisor pueden volver al panel de escritorio; el preparador no tiene panel.
+    fetch('/api/auth/me', { credentials: 'include' })
+        .then(r => r.ok ? r.json() : null)
+        .then(u => {
+            const btn = document.getElementById('btn-switch-desktop');
+            if (btn && u && (u.role === 'ADMIN' || u.role === 'SUPERVISOR')) btn.style.display = '';
+        })
+        .catch(() => { /* sin sesion: queda oculto */ });
 });
