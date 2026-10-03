@@ -28,6 +28,12 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   instructivo. Funciona tocando en pantallas táctiles y se cierra con Esc.
 
 ### Cambiado
+- Pedidos: la pantalla ya no lista los últimos 100 al entrar. Se busca con los atajos "Para empacar", "De hoy"
+  y "Urgentes", o por número de pedido o de venta del canal, cliente o comprador, SKU, estado, canal, cuenta,
+  tipo de envío, urgente y fechas. Cada pedido muestra la fecha, URGENTE y, si vino de un canal, el canal, la
+  venta y el tipo de envío; los estados se ven en castellano. API: `GET /api/admin/documents` acepta esos
+  filtros (opcionales) y `limit`, y suma `created_at`, `external_ref`, `external_account`, `shipping_type`,
+  `urgent` y `channel_code`; sin filtros responde igual que antes.
 - Compras y Recepción: en el menú se despliega como Reportes, con un módulo por tipo (Órdenes de Compra,
   Remitos de Entrada, Facturas, Traspasos y Devoluciones). Cada historial no lista nada hasta buscar y tiene
   sus propios filtros (número, proveedor o cliente, sucursal o sector, OC, estado y fechas); el botón "Nuevo"

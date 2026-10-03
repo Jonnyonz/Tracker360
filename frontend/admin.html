@@ -7,7 +7,7 @@
     <title id="html-title">Tracker360 - JZTech Suite</title>
     
     <!-- CSS Separado y Limpio -->
-    <link rel="stylesheet" href="css/admin.css?v=20261003_9">
+    <link rel="stylesheet" href="css/admin.css?v=20261003_10">
 </head>
 <body>
     <div class="top-accent-bar"></div>
@@ -740,24 +740,37 @@
                 </button>
             </div>
             
-            <div style="display:flex; gap:10px; margin-bottom:1.5rem; flex-wrap:wrap;">
-                <input type="text" id="search-order-text" placeholder="Buscar por Nº de Pedido o Cliente..." style="flex:2; min-width: 200px;" data-on-keyup="filterOrders()">
-                <select id="search-order-status" style="flex:1; min-width: 150px;" data-on-change="filterOrders()">
-                    <option value="ALL">-- Todos los Estados --</option>
-                    <option value="PENDING">PENDIENTES</option>
-                    <option value="IN_PROGRESS">EN PROGRESO</option>
-                    <option value="COMPLETED">COMPLETADOS (Listos p/ Empaque)</option>
-                    <option value="DISPATCHED">DESPACHADOS</option>
-                    <option value="CANCELLED">CANCELADOS</option>
-                </select>
-                <button class="btn-secondary" data-on-click="loadOrders()">Actualizar</button>
+            <div class="card" style="margin-bottom:1.5rem;" data-help="Buscar pedidos|No se lista nada hasta buscar o tocar un atajo.|Para empacar, De hoy y Urgentes son búsquedas listas; los campos se pueden combinar.">
+                <div class="busqueda-atajos">
+                    <span>Atajos:</span>
+                    <button type="button" class="btn-secondary" data-on-click="atajoPedidos('empacar')">Para empacar</button>
+                    <button type="button" class="btn-secondary" data-on-click="atajoPedidos('hoy')">De hoy</button>
+                    <button type="button" class="btn-secondary" data-on-click="atajoPedidos('urgentes')">Urgentes</button>
+                </div>
+                <form id="filtros-pedidos" class="busqueda-filtros" data-on-submit="buscarPedidos(event)">
+                    <div class="form-group"><label for="f-ped-numero">Nº de pedido o venta</label><input type="text" id="f-ped-numero" name="number" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-ped-cliente">Cliente o comprador</label><input type="text" id="f-ped-cliente" name="customer" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-ped-sku">SKU</label><input type="text" id="f-ped-sku" name="sku" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-ped-estado">Estado</label><select id="f-ped-estado" name="status"><option value="">Todos</option><option value="PENDING">Pendiente</option><option value="IN_PROGRESS">En preparación</option><option value="COMPLETED">Para empacar</option><option value="DISPATCHED">Despachado</option><option value="CANCELLED">Cancelado</option><option value="FULL">Full (informativo)</option></select></div>
+                    <div class="form-group"><label for="f-ped-canal">Canal</label><input type="text" id="f-ped-canal" name="channel" placeholder="Código o nombre" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-ped-cuenta">Cuenta del canal</label><input type="text" id="f-ped-cuenta" name="account" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-ped-envio">Envío</label><select id="f-ped-envio" name="shipping"><option value="">Todos</option><option value="cross_docking">Colecta</option><option value="self_service">Flex</option><option value="fulfillment">Full</option><option value="drop_off">Correo</option></select></div>
+                    <div class="form-group"><label for="f-ped-urgente">Urgente</label><select id="f-ped-urgente" name="urgent"><option value="">Todos</option><option value="SI">Solo urgentes</option></select></div>
+                    <div class="form-group"><label for="f-ped-desde">Desde</label><input type="date" id="f-ped-desde" name="date_from"></div>
+                    <div class="form-group"><label for="f-ped-hasta">Hasta</label><input type="date" id="f-ped-hasta" name="date_to"></div>
+                    <div class="busqueda-acciones">
+                        <button type="submit" class="btn-submit">Buscar</button>
+                        <button type="button" class="btn-secondary" data-on-click="limpiarPedidos()">Limpiar</button>
+                    </div>
+                </form>
+                <p id="pedidos-resumen" class="busqueda-resumen" hidden></p>
             </div>
 
             <div class="card grid-full-width" data-help="Monitoreo de Pedidos|Panel de control de avance del armado de pedidos.|Muestra la barra de porcentaje (%) en tiempo real a medida que los preparadores escanean en la colectora.">
                 <table>
-                    <thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th><th>Progreso</th><th>Acción</th></tr></thead>
+                    <thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th><th>Progreso</th><th>Fecha</th><th>Acción</th></tr></thead>
                     <tbody id="table-orders-body">
-                        <tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Cargando pedidos...</td></tr>
+                        <tr><td colspan="6" class="busqueda-vacia">Buscá un pedido o tocá un atajo.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -2529,12 +2542,12 @@
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261001_1"></script>
     <script src="js/admin-core.js?v=20261003_3"></script>
-    <script src="js/ayuda.js?v=20261003_7"></script>
+    <script src="js/ayuda.js?v=20261003_8"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261003_1"></script>
     <script src="js/items.js?v=20261003_1"></script>
     <script src="js/warehouse.js?v=20261003_2"></script>
-    <script src="js/operations.js?v=20261003_2"></script>
+    <script src="js/operations.js?v=20261003_3"></script>
     <script src="js/compras.js?v=20261003_2"></script>
     <script src="js/reports.js?v=20261001_3"></script>
     <script src="js/settings.js?v=20261001_2"></script>

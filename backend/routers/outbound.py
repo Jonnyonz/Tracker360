@@ -4,6 +4,7 @@ from typing import Optional, List
 from datetime import datetime, timezone
 import asyncpg, uuid, json, math
 
+from backend.filtros import Filtros
 from backend.database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, numero_correlativo, siguiente_numero, check_idempotency, save_idempotency, require_valid_quantity, emitir_stock_a_canales, emitir_estado_a_canal
 
 router = APIRouter(tags=["Outbound & Dispatch"])
@@ -43,16 +44,34 @@ class ManualOrderInput(BaseModel):
     lines: List[ManualOrderLine]
 
 @router.get("/api/admin/documents")
-async def list_admin_documents(admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("""
-        SELECT d.document_number, COALESCE(e.company_name, d.buyer_name, 'Consumidor Final') as company_name, 
-               d.status, 
-               COALESCE((SELECT SUM(quantity_picked) * 100.0 / NULLIF(SUM(quantity_requested), 0) 
-                         FROM document_lines WHERE document_id = d.id), 0)::int as progress_pct
-        FROM documents d 
-        LEFT JOIN entities e ON d.customer_id = e.id 
-        ORDER BY d.created_at DESC LIMIT 100
-    """)
+async def list_admin_documents(number: str = "", customer: str = "", sku: str = "", status: str = "", channel: str = "",
+                               account: str = "", shipping: str = "", urgent: str = "", date_from: str = "", date_to: str = "",
+                               limit: int = 100, admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Pedidos, del mas nuevo al mas viejo (sin filtros, los ultimos 100). Filtros opcionales: number (pedido o
+    venta del canal), customer (cliente o comprador), sku, status, channel (codigo o nombre), account (cuenta del
+    canal), shipping (tipo de envio), urgent SI, fechas AAAA-MM-DD. limit de 1 a 500."""
+    f = (Filtros().texto(number, "d.document_number", "d.external_ref").texto(customer, "e.company_name", "d.buyer_name")
+         .igual(status, "d.status", ("PENDING", "IN_PROGRESS", "COMPLETED", "DISPATCHED", "CANCELLED", "FULL"))
+         .texto(channel, "sc.code", "sc.name").texto(account, "d.external_account").texto(shipping, "d.shipping_type")
+         .fechas(date_from, date_to, "d.created_at"))
+    if sku.strip():
+        f.condiciones.append(f"EXISTS (SELECT 1 FROM document_lines dl WHERE dl.document_id = d.id AND dl.sku ILIKE {f._param('%' + sku.strip() + '%')})")
+    if urgent.strip().upper() == "SI":
+        f.condiciones.append("COALESCE(d.priority, 0) > 0")
+    tope = f.limite(limit)
+    rows = await conn.fetch(f"""
+        SELECT d.document_number, COALESCE(e.company_name, d.buyer_name, 'Consumidor Final') as company_name,
+               d.status,
+               COALESCE((SELECT SUM(quantity_picked) * 100.0 / NULLIF(SUM(quantity_requested), 0)
+                         FROM document_lines WHERE document_id = d.id), 0)::int as progress_pct,
+               d.created_at, d.external_ref, d.external_account, d.shipping_type, COALESCE(d.priority, 0) > 0 as urgent,
+               sc.code as channel_code
+        FROM documents d
+        LEFT JOIN entities e ON d.customer_id = e.id
+        LEFT JOIN sales_channels sc ON d.sales_channel_id = sc.id
+        WHERE {f.where()}
+        ORDER BY d.created_at DESC LIMIT {tope}
+    """, *f.args)
     return [dict(r) for r in rows]
 
 @router.get("/api/admin/documents/{document_number}/participants")

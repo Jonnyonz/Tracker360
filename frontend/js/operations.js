@@ -464,41 +464,83 @@ async function verParticipantes(documentNumber) {
     }
 }
 
+// Pedidos: no se lista nada hasta buscar (o tocar un atajo). La ultima busqueda se repite al crear,
+// empacar o cancelar (loadOrders).
+const PEDIDOS_POR_BUSQUEDA = 200;
+let busquedaPedidos = null;
+const ESTADO_PEDIDO_LABEL = { PENDING: 'Pendiente', IN_PROGRESS: 'En preparación', COMPLETED: 'Para empacar',
+    DISPATCHED: 'Despachado', CANCELLED: 'Cancelado', FULL: 'Full (informativo)' };
+const ENVIO_PEDIDO_LABEL = { CROSS_DOCKING: 'Colecta', SELF_SERVICE: 'Flex', FULFILLMENT: 'Full', DROP_OFF: 'Correo' };
+
+function fechaLocalHoy() {
+    const d = new Date();
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+function buscarPedidos(event) {
+    if (event) event.preventDefault();
+    const params = new URLSearchParams({ limit: PEDIDOS_POR_BUSQUEDA });
+    document.querySelectorAll('#filtros-pedidos [name]').forEach(el => {
+        const valor = (el.value || '').trim();
+        if (valor) params.set(el.name, valor);
+    });
+    busquedaPedidos = params;
+    loadOrders();
+}
+
+function atajoPedidos(tipo) {
+    document.getElementById('filtros-pedidos')?.reset();
+    const poner = (id, valor) => { const el = document.getElementById(id); if (el) el.value = valor; };
+    if (tipo === 'empacar') poner('f-ped-estado', 'COMPLETED');
+    if (tipo === 'hoy') { poner('f-ped-desde', fechaLocalHoy()); poner('f-ped-hasta', fechaLocalHoy()); }
+    if (tipo === 'urgentes') poner('f-ped-urgente', 'SI');
+    buscarPedidos();
+}
+
+function limpiarPedidos() {
+    document.getElementById('filtros-pedidos')?.reset();
+    busquedaPedidos = null;
+    loadOrders();
+}
+
+function resumenPedidos(texto) {
+    const p = document.getElementById('pedidos-resumen');
+    if (!p) return;
+    p.textContent = texto;
+    p.hidden = !texto;
+}
+
 async function loadOrders() {
     const tbody = document.getElementById('table-orders-body');
     if(!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted);">Cargando pedidos...</td></tr>';
-    
+    if (!busquedaPedidos) {
+        opsOrdersCache = [];
+        resumenPedidos('');
+        tbody.innerHTML = '<tr><td colspan="6" class="busqueda-vacia">Buscá un pedido o tocá un atajo.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = '<tr><td colspan="6" class="busqueda-vacia">Buscando...</td></tr>';
+
     try {
-        const res = await fetchAPI('/api/admin/documents');
-        if(!res || res.length === 0) {
-            opsOrdersCache = [];
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No hay pedidos registrados.</td></tr>';
-            return;
-        }
-        opsOrdersCache = res;
+        const res = await fetchAPI('/api/admin/documents?' + busquedaPedidos.toString());
+        opsOrdersCache = res || [];
+        resumenPedidos(opsOrdersCache.length >= PEDIDOS_POR_BUSQUEDA
+            ? `Se muestran los ${PEDIDOS_POR_BUSQUEDA} más recientes: afiná la búsqueda para ver el resto.`
+            : `${opsOrdersCache.length} pedido${opsOrdersCache.length === 1 ? '' : 's'}.`);
         filterOrders();
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--danger);">Error: ${escapeHTML(e.message)}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--danger);">Error: ${escapeHTML(e.message)}</td></tr>`;
     }
 }
 
+// Pinta el resultado de la ultima busqueda (el filtrado lo hace el servidor).
 function filterOrders() {
     const tbody = document.getElementById('table-orders-body');
     if(!tbody) return;
-    
-    const searchText = (document.getElementById('search-order-text')?.value || '').toLowerCase();
-    const statusFilter = document.getElementById('search-order-status')?.value || 'ALL';
-
-    const filtered = opsOrdersCache.filter(o => {
-        const matchText = o.document_number.toLowerCase().includes(searchText) || 
-                          (o.company_name && o.company_name.toLowerCase().includes(searchText));
-        const matchStatus = statusFilter === 'ALL' || o.status === statusFilter;
-        return matchText && matchStatus;
-    });
+    const filtered = opsOrdersCache;
 
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted);">No hay pedidos que coincidan con la búsqueda.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="busqueda-vacia">No hay pedidos que coincidan con la búsqueda.</td></tr>';
         return;
     }
 
@@ -529,16 +571,21 @@ function filterOrders() {
             : '';
         actionBtn = (window.ROL_ACTUAL === 'SUPERVISOR') ? btnPart : actionBtn + btnPart + btnCancel;
 
+        const envio = ENVIO_PEDIDO_LABEL[String(o.shipping_type || '').toUpperCase()] || o.shipping_type || '';
+        const origen = o.channel_code
+            ? `<small class="pedido-origen">${escapeHTML(o.channel_code)}${o.external_ref ? ' · venta ' + escapeHTML(o.external_ref) : ''}${envio ? ' · ' + escapeHTML(envio) : ''}</small>`
+            : '';
         return `<tr>
-            <td style="font-weight:bold; color:var(--accent); font-family:monospace;">${escapeHTML(o.document_number)}</td>
+            <td style="font-weight:bold; color:var(--accent); font-family:monospace;">${escapeHTML(o.document_number)}${o.urgent ? ' <span class="badge badge-danger">URGENTE</span>' : ''}${origen}</td>
             <td>${escapeHTML(o.company_name)}</td>
-            <td><span class="badge ${badgeClass}">${escapeHTML(o.status)}</span></td>
+            <td><span class="badge ${badgeClass}">${escapeHTML(ESTADO_PEDIDO_LABEL[o.status] || o.status)}</span></td>
             <td>
                 <div style="width:100%; background:var(--border); border-radius:4px; height:8px; overflow:hidden;">
                     <div style="width:${escapeHTML(o.progress_pct)}%; background:${o.progress_pct === 100 ? 'var(--success)' : 'var(--accent)'}; height:100%;"></div>
                 </div>
                 <small style="display:block; text-align:right; margin-top:2px; font-weight:bold; color:var(--text-secondary);">${escapeHTML(o.progress_pct)}%</small>
             </td>
+            <td><small>${o.created_at ? escapeHTML(new Date(o.created_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' })) : '-'}</small></td>
             <td style="text-align:right;">${actionBtn}</td>
         </tr>`;
     }).join('');

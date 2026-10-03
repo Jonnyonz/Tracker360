@@ -46,7 +46,7 @@ const AYUDA_SECCIONES = {
     'section-orders': {
         titulo: 'Pedidos',
         resumen: 'Seguimiento de los pedidos de venta: pendientes, en picking, completos, despachados, Full y cancelados.',
-        pasos: ['Los urgentes (Flex) se preparan primero.', 'Con el pedido completo, tocá "Empacar" para despachar e imprimir la etiqueta.', '"Detalle" muestra quién preparó cada parte y las observaciones.'],
+        pasos: ['No se lista nada hasta buscar: usá los atajos (Para empacar, De hoy, Urgentes) o los filtros.', 'Los urgentes (Flex) se preparan primero.', 'Con el pedido completo, tocá "Empacar" para despachar e imprimir la etiqueta.', '"Detalle" muestra quién preparó cada parte y las observaciones.'],
         ancla: 'pedidos',
     },
     'section-inventory': {
