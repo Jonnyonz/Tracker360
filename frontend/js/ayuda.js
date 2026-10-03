@@ -40,7 +40,7 @@ const AYUDA_SECCIONES = {
     'section-purchases': {
         titulo: 'Compras y recepción',
         resumen: 'Órdenes de compra, remitos de entrada y traspasos.',
-        pasos: ['En el menú, Compras y Recepción se abre en Órdenes de compra, Remitos, Facturas, Traspasos y Devoluciones.', 'Cada uno muestra su historial al buscar, con filtros propios; Nuevo abre el formulario de alta.', 'Emití la orden de compra al proveedor y, al llegar la mercadería, registrá el remito contra la OC.', 'Con el segundo control activado, el depósito controla a ciegas con la colectora.'],
+        pasos: ['En el menú, Compras y Recepción se abre en Órdenes de compra, Remitos, Facturas, Traspasos y Devoluciones.', 'Cada uno muestra su historial al buscar, con filtros propios; Nuevo abre el formulario de alta.', 'Devoluciones: Nueva devolución, buscá el pedido y cargá cuánto vuelve de cada artículo (operativo o en cuarentena).', 'Emití la orden de compra al proveedor y, al llegar la mercadería, registrá el remito contra la OC.', 'Con el segundo control activado, el depósito controla a ciegas con la colectora.'],
         ancla: 'compras',
     },
     'section-orders': {

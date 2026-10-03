@@ -134,7 +134,7 @@
 
             <section id="compras">
                 <h2>Compras y recepción</h2>
-                <p>En el menú, <strong>Compras y Recepción</strong> se despliega como Reportes: <strong>Órdenes de Compra</strong>, <strong>Remitos de Entrada</strong>, <strong>Facturas</strong>, <strong>Traspasos</strong> y <strong>Devoluciones</strong>. Cada uno muestra su historial recién al buscar, con filtros propios (número, proveedor o cliente, sucursal, estado y fechas); el botón <strong>Nuevo</strong> abre el formulario de alta. Facturas y devoluciones por ahora solo se consultan.</p>
+                <p>En el menú, <strong>Compras y Recepción</strong> se despliega como Reportes: <strong>Órdenes de Compra</strong>, <strong>Remitos de Entrada</strong>, <strong>Facturas</strong>, <strong>Traspasos</strong> y <strong>Devoluciones</strong>. Cada uno muestra su historial recién al buscar, con filtros propios (número, proveedor o cliente, sucursal, estado y fechas); el botón <strong>Nuevo</strong> abre el formulario de alta. Las facturas por ahora solo se consultan.</p>
 <h3>Órdenes de compra</h3>
                 <p>Desde <strong>Compras y Recepción</strong> se emite la orden de compra (OC) a un proveedor, con la sucursal donde se recibe. El número es correlativo y lo asigna el sistema (<code>OC-000001</code>): no se edita.</p>
                 <h3>Remitos de entrada</h3>
@@ -152,6 +152,8 @@
                 </ul>
                 <p>En el control: lo que llega de más se agrega como suelto y queda una observación; un artículo que no figura en el remito va a <span class="etiqueta aviso">CUARENTENA</span> (no se puede vender) hasta que un administrador o supervisor lo aprueba o lo rechaza desde el detalle del remito. Al cerrar el control, el remito queda como completo o "con diferencias", y las diferencias se ven en <strong>Reportes, Diferencias de Recepción</strong>.</p>
                 <div class="nota"><p>Las facturas de compra y el ingreso por devolución de clientes todavía están en preparación en el panel.</p></div>
+                <h3>Devoluciones de clientes</h3>
+                <p>En <strong>Devoluciones</strong>, <strong>Nueva devolución</strong>: se busca el pedido por número, venta del canal, cliente o comprador (solo aparecen los completos o despachados, también los de Mercado Libre), se elige la sucursal y el sector donde entra la mercadería y se carga cuánto vuelve de cada artículo y en qué estado: <strong>operativo</strong> (vuelve a la venta) o <strong>cuarentena</strong> (queda apartado para revisar). No se puede devolver más de lo preparado; si el pedido ya se devolvió en parte, la pantalla muestra lo ya devuelto. El número de devolución lo asigna el sistema.</p>
             </section>
 
             <section id="pedidos">

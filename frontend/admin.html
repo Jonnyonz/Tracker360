@@ -674,35 +674,31 @@
 
             <div id="tab-return" class="purchase-tab" style="display:none;">
                 <div class="compras-modulo">
-                    <p class="compras-aviso">La carga de devoluciones desde el panel está en preparación: acá se consultan las ya registradas.</p>
                     <div class="card compras-alta" hidden data-help="Ingreso por Devolución|Recepción de paquetes devueltos por clientes vinculados a un pedido entregado.|Asigna la sucursal/sector del usuario activo y califica la mercadería como Operativo, Outlet o Dañado.">
-                        <h3>Registrar Devolución de Cliente</h3>
-                        <form id="form-return" data-on-submit="saveCustomerReturn(event)">
-                            <div class="form-group">
-                                <label>Nº de Comprobante Devolución</label>
-                                <input type="text" id="rma-num" readonly placeholder="Cargando..." required>
+                        <h3>Registrar devolución de cliente</h3>
+                        <p class="busqueda-resumen" style="margin:0 0 1rem;">Buscá el pedido (completo o despachado), elegí dónde entra la mercadería y cargá cuánto vuelve de cada artículo. No se puede devolver más de lo preparado.</p>
+                        <div class="form-group">
+                            <label for="rma-buscar">1. Pedido</label>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <input type="text" id="rma-buscar" placeholder="Nº de pedido o de venta, cliente o comprador" autocomplete="off" style="flex:1; min-width:220px;" data-on-keydown="siEnter(event, buscarPedidoDevolucion)">
+                                <button type="button" class="btn-secondary" data-on-click="buscarPedidoDevolucion()">Buscar pedido</button>
                             </div>
+                        </div>
+                        <div id="rma-resultados" class="canales-lista" style="margin-bottom:1rem;"></div>
+                        <div id="rma-pedido" class="compras-aviso" hidden style="margin-bottom:1rem;"></div>
+                        <form id="form-return" data-on-submit="saveCustomerReturn(event)" hidden>
                             <div class="grid-layout" style="margin-bottom:0;">
-                                <div class="form-group">
-                                    <label>1. Cliente Origen *</label>
-                                    <select id="rma-customer" data-on-change="onRMACustomerChange()" required>
-                                        <option value="">-- Seleccionar Cliente --</option>
-                                    </select>
-                                </div>
-                                <div class="form-group">
-                                    <label>2. Pedido de Venta Relacionado *</label>
-                                    <select id="rma-order" data-on-change="onRMAOrderChange()" required disabled>
-                                        <option value="">-- Seleccione un Cliente --</option>
-                                    </select>
-                                </div>
+                                <div class="form-group"><label for="rma-branch">2. Sucursal donde entra</label><select id="rma-branch" data-on-change="pintarSectoresDevolucion()" required></select></div>
+                                <div class="form-group"><label for="rma-sector">Sector</label><select id="rma-sector" required></select></div>
                             </div>
-
-                            <label style="margin-bottom:8px;">3. Artículos a Devolver (Indique cantidad recibida y estado físico):</label>
-                            <div id="rma-items-container" style="border:1px solid var(--border); border-radius:8px; padding:1rem; background:var(--bg-page); margin-bottom:1.2rem; min-height:100px;">
-                                <p style="text-align:center; color:var(--text-muted);">Seleccione un Pedido para visualizar sus artículos.</p>
+                            <label style="margin-bottom:8px; display:block;">3. Artículos que vuelven</label>
+                            <div style="overflow-x:auto; margin-bottom:1.2rem;">
+                                <table>
+                                    <thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:right;">Preparado</th><th style="text-align:right;">Ya devuelto</th><th>Vuelven</th><th>Estado</th><th>Ubicación (opcional)</th></tr></thead>
+                                    <tbody id="rma-items-body"></tbody>
+                                </table>
                             </div>
-
-                            <button type="submit" class="btn-submit" style="margin-top:0.5rem;">Confirmar Ingreso por Devolución</button>
+                            <button type="submit" class="btn-submit" id="rma-guardar">Registrar devolución</button>
                         </form>
                     </div>
 
@@ -2565,13 +2561,13 @@
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261001_1"></script>
     <script src="js/admin-core.js?v=20261003_3"></script>
-    <script src="js/ayuda.js?v=20261003_10"></script>
+    <script src="js/ayuda.js?v=20261003_11"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261003_1"></script>
     <script src="js/items.js?v=20261003_1"></script>
     <script src="js/warehouse.js?v=20261003_2"></script>
     <script src="js/operations.js?v=20261003_4"></script>
-    <script src="js/compras.js?v=20261003_2"></script>
+    <script src="js/compras.js?v=20261003_4"></script>
     <script src="js/reports.js?v=20261001_3"></script>
     <script src="js/settings.js?v=20261001_2"></script>
     <script src="js/canales.js?v=20261003_3"></script>

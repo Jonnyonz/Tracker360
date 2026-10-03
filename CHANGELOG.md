@@ -4,6 +4,14 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 
 ## 2026-10-03
 
+### Agregado (devoluciones)
+- Pantalla de alta de devoluciones (Compras y Recepción → Devoluciones → "+ Nueva devolución"; antes el
+  formulario no funcionaba). Se busca el pedido por número, venta del canal, cliente o comprador (solo los
+  completos o despachados, también los de Mercado Libre), se elige la sucursal y el sector donde entra la
+  mercadería y se carga cuánto vuelve de cada artículo y en qué estado: operativo (vuelve a la venta) o
+  cuarentena (apartado para revisar). Muestra lo preparado y lo ya devuelto y no deja pasarse; al guardar
+  aparece en el historial.
+
 ### Arreglado (devoluciones)
 - El alta de devoluciones no controlaba nada del pedido: se podía devolver un pedido sin preparar, un artículo
   que no estaba en el pedido o más unidades de las preparadas (también devolviendo el mismo pedido varias
