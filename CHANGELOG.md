@@ -13,6 +13,8 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   instructivo en el menú lateral y enlaces a instructivo, privacidad, términos y soporte en la pantalla de ingreso.
 
 ### Arreglado
+- Colectora: el botón "Modo Escritorio" para volver al panel no aparecía nunca. Ahora se ve para
+  administradores y supervisores (el preparador no tiene panel, así que no lo ve).
 - En el instructivo, el índice ahora marca el Glosario (la última sección) al llegar al final de la página.
 - El modo ayuda no se veía: le faltaban los estilos, así que la explicación aparecía fuera de la pantalla y no
   se marcaba qué tenía ayuda. Ahora marca los elementos con ayuda, muestra la explicación junto al elemento y
