@@ -60,7 +60,7 @@ class CustomerReturnLineInput(BaseModel):
 
 class CustomerReturnCreateInput(BaseModel):
     return_number: Optional[str] = None  # se ignora: el numero lo asigna el sistema
-    customer_id: str
+    customer_id: Optional[str] = None    # opcional: se toma del pedido; si viene, tiene que ser el del pedido
     document_id: str
     branch_id: Optional[str] = None
     sector_id: Optional[str] = None
@@ -528,6 +528,20 @@ async def get_return_customers(user: dict = Depends(require_admin), conn: asyncp
     """)
     return [dict(r) for r in rows]
 
+@router.get("/api/admin/returns/orders")
+async def search_returnable_orders(q: str = "", limit: int = 20, user: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Pedidos que se pueden devolver (completos o despachados), por numero de pedido, venta del canal,
+    cliente o comprador. Incluye los pedidos de canales de venta, que no tienen cliente cargado."""
+    f = Filtros().texto(q, "d.document_number", "d.external_ref", "e.company_name", "e.tax_id", "d.buyer_name")
+    f.condiciones.append("d.status IN ('COMPLETED', 'DISPATCHED')")
+    tope = f.limite(limit, 50)
+    rows = await conn.fetch(f"""
+        SELECT d.id::text, d.document_number, d.external_ref, d.status, d.created_at,
+               COALESCE(e.company_name, d.buyer_name, 'Consumidor Final') as customer_name, sc.code as channel_code
+        FROM documents d LEFT JOIN entities e ON d.customer_id = e.id LEFT JOIN sales_channels sc ON d.sales_channel_id = sc.id
+        WHERE {f.where()} ORDER BY d.created_at DESC LIMIT {tope}""", *f.args)
+    return [dict(r) for r in rows]
+
 @router.get("/api/admin/returns/orders-by-customer/{customer_id}")
 async def get_return_orders_by_customer(customer_id: str, user: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     rows = await conn.fetch("""
@@ -540,7 +554,10 @@ async def get_return_orders_by_customer(customer_id: str, user: dict = Depends(r
 
 @router.get("/api/admin/returns/order-details/{document_id}")
 async def get_return_order_details(document_id: str, user: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    doc = await conn.fetchrow("SELECT id, document_number, customer_id FROM documents WHERE id = $1", parse_uuid(document_id))
+    doc = await conn.fetchrow("""
+        SELECT d.id, d.document_number, d.customer_id, d.status, d.external_ref,
+               COALESCE(e.company_name, d.buyer_name, 'Consumidor Final') as customer_name
+        FROM documents d LEFT JOIN entities e ON d.customer_id = e.id WHERE d.id = $1""", parse_uuid(document_id))
     if not doc: raise HTTPException(404, "Pedido no encontrado")
     
     lines = await conn.fetch("""
@@ -551,7 +568,17 @@ async def get_return_order_details(document_id: str, user: dict = Depends(requir
         WHERE dl.document_id = $1
         ORDER BY dl.sku ASC
     """, doc["id"])
-    return {"document": dict(doc), "lines": [dict(l) for l in lines]}
+    devuelto = await _devuelto_por_sku(conn, doc["id"])
+    return {"document": dict(doc), "lines": [dict(l) for l in lines], "returned": devuelto}
+
+
+async def _devuelto_por_sku(conn: asyncpg.Connection, document_id) -> dict:
+    """Unidades ya devueltas de un pedido, por SKU (en mayusculas)."""
+    filas = await conn.fetch("""
+        SELECT UPPER(crl.sku) AS sku, SUM(crl.quantity)::float AS q
+        FROM customer_return_lines crl JOIN customer_returns cr ON cr.id = crl.return_id
+        WHERE cr.document_id = $1 GROUP BY 1""", document_id)
+    return {f["sku"]: f["q"] for f in filas}
 
 @router.post("/api/admin/returns")
 async def create_customer_return(
@@ -565,6 +592,35 @@ async def create_customer_return(
         return cached_resp[0]
 
     async with conn.transaction():
+        # FOR UPDATE: dos devoluciones del mismo pedido al mismo tiempo no pueden pasarse del total.
+        doc = await conn.fetchrow("SELECT id, document_number, customer_id, status FROM documents WHERE id = $1 FOR UPDATE",
+                                  _parse_uuid(data.document_id, "Pedido inválido."))
+        if not doc:
+            raise HTTPException(404, "Pedido no encontrado.")
+        if doc["status"] not in ("COMPLETED", "DISPATCHED"):
+            raise HTTPException(400, f"Solo se devuelven pedidos completos o despachados (el {doc['document_number']} está {doc['status']}).")
+        cliente = doc["customer_id"]
+        if data.customer_id:
+            pedido_por = _parse_uuid(data.customer_id, "Cliente inválido.")
+            if cliente and pedido_por != cliente:
+                raise HTTPException(400, f"El pedido {doc['document_number']} no es de ese cliente.")
+            cliente = cliente or pedido_por
+        preparado = {f["sku"]: f["q"] for f in await conn.fetch(
+            "SELECT UPPER(sku) AS sku, SUM(quantity_picked)::float AS q FROM document_lines WHERE document_id = $1 GROUP BY 1", doc["id"])}
+        devuelto = await _devuelto_por_sku(conn, doc["id"])
+        pedido = {}
+        for line in data.lines:
+            require_valid_quantity(line.quantity, allow_zero=True)
+            if line.quantity > 0:
+                sku = line.sku.strip().upper()
+                pedido[sku] = pedido.get(sku, 0) + line.quantity
+        for sku, cantidad in pedido.items():
+            if sku not in preparado:
+                raise HTTPException(400, f"El artículo {sku} no está en el pedido {doc['document_number']}.")
+            maximo = preparado[sku] - devuelto.get(sku, 0)
+            if cantidad > maximo + 1e-9:
+                raise HTTPException(400, f"Del artículo {sku} se pueden devolver como mucho {maximo:g} (preparado {preparado[sku]:g}, ya devuelto {devuelto.get(sku, 0):g}).")
+
         ret_num, aviso = await numero_correlativo(conn, "DEVOLUCION", data.return_number)
         ret_num = ret_num.upper()
 
@@ -596,7 +652,7 @@ async def create_customer_return(
             INSERT INTO customer_returns (return_number, customer_id, document_id, branch_id, sector_id, created_by)
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id
-        """, ret_num, parse_uuid(data.customer_id), parse_uuid(data.document_id), target_branch_id, target_sector_id, user["username"])
+        """, ret_num, cliente, doc["id"], target_branch_id, target_sector_id, user["username"])
 
         items_processed = 0
         for line in data.lines:
@@ -626,7 +682,7 @@ async def create_customer_return(
         if items_processed == 0:
             raise HTTPException(400, "Debe ingresar una cantidad mayor a 0 para al menos un artículo devuelto.")
 
-        await log_action(conn, user["username"], "RETURN_CREATED", f"Devolución {ret_num} procesada para el pedido {data.document_id}.")
+        await log_action(conn, user["username"], "RETURN_CREATED", f"Devolución {ret_num} procesada para el pedido {doc['document_number']}.")
         res_data = {"status": "success", "message": f"Devolución {ret_num} registrada exitosamente." + (f" {aviso}" if aviso else ""),
                     "return_number": ret_num}
         
@@ -639,12 +695,12 @@ async def list_customer_returns(search: str = "", number: str = "", customer: st
                                 user: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
     """Historial de devoluciones. search busca en numero, cliente y pedido; number, customer y order filtran
     cada uno por separado; fechas opcionales."""
-    f = (Filtros().texto(search, "cr.return_number", "e.company_name", "d.document_number").texto(number, "cr.return_number")
-         .texto(customer, "e.company_name").texto(order, "d.document_number").fechas(date_from, date_to, "cr.created_at"))
+    f = (Filtros().texto(search, "cr.return_number", "e.company_name", "d.buyer_name", "d.document_number").texto(number, "cr.return_number")
+         .texto(customer, "e.company_name", "d.buyer_name").texto(order, "d.document_number", "d.external_ref").fechas(date_from, date_to, "cr.created_at"))
     tope = f.limite(limit)
     rows = await conn.fetch(f"""
         SELECT cr.id::text as id, cr.return_number, cr.created_at, cr.created_by,
-               COALESCE(e.company_name, 'Cliente') as customer_name,
+               COALESCE(e.company_name, d.buyer_name, 'Cliente') as customer_name,
                COALESCE(d.document_number, 'N/A') as document_number,
                b.name as branch_name, sec.name as sector_name
         FROM customer_returns cr

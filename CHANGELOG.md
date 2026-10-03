@@ -4,6 +4,18 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 
 ## 2026-10-03
 
+### Arreglado (devoluciones)
+- El alta de devoluciones no controlaba nada del pedido: se podía devolver un pedido sin preparar, un artículo
+  que no estaba en el pedido o más unidades de las preparadas (también devolviendo el mismo pedido varias
+  veces). Cada devolución suma stock, así que eso inflaba el inventario. Ahora solo se devuelven pedidos
+  completos o despachados, solo sus artículos y como mucho lo preparado menos lo ya devuelto (dos devoluciones
+  simultáneas del mismo pedido no pueden pasarse del total).
+- El cliente de la devolución se toma del pedido. Antes era obligatorio y no se controlaba: se podía cargar un
+  cliente que no era el del pedido, y los pedidos de canales de venta (Mercado Libre, sin cliente cargado) no se
+  podían devolver. API: en `POST /api/admin/returns` el `customer_id` pasa a ser opcional; si viene, tiene que
+  ser el del pedido. Ruta nueva `GET /api/admin/returns/orders?q=` (pedidos que se pueden devolver, por número,
+  venta, cliente o comprador) y el detalle del pedido suma `returned` (lo ya devuelto por SKU).
+
 ### Agregado
 - Instructivo completo (`/instructivo.html`): guía de todo el sistema, de los primeros pasos a Mercado Libre paso
   a paso, con índice, problemas frecuentes, glosario, modo oscuro y versión para imprimir.
