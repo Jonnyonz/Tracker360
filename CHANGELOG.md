@@ -20,7 +20,7 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   instructivo. Funciona tocando en pantallas táctiles y se cierra con Esc.
 
 ### Cambiado
-- El acceso a Mercado Libre del menú lateral usa el ícono de Mercado Libre.
+- El acceso a Mercado Libre del menú lateral usa el isotipo de Mercado Libre (el oficial, en sus colores).
 - Política de privacidad y términos actualizados y con el mismo estilo del panel (tema claro y oscuro). Ahora
   describen cómo funciona hoy el sistema: sesiones del lado del servidor (ya no JWT), protección CSRF, datos
   que llegan de los canales de venta (comprador y envío de Mercado Libre), cuánto se guarda cada cosa y el

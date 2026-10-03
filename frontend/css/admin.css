@@ -171,6 +171,8 @@ input[id*="sku"], input[id*="-num"], input[id*="-code"], input[id*="taxid"],
     height: 20px;
     flex-shrink: 0;
 }
+/* Isotipo de Mercado Libre (150x104): un poco mas ancho que los otros iconos, sin correr la etiqueta. */
+.rail-btn svg.icono-ml { width: 24px; height: 20px; margin: 0 -2px; }
 
 .rail-label {
     font-size: 0.88rem;
