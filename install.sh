@@ -22,9 +22,35 @@ fi
 #    (se puede apuntar a un fork propio con TRACKER360_REPO_URL=...)
 REPO_URL="${TRACKER360_REPO_URL:-https://github.com/Jonnyonz/Tracker360.git}"
 if [ ! -f "docker-compose.yml" ]; then
-    echo "Descargando codigo fuente desde ${REPO_URL}..."
-    git clone "${REPO_URL}" tracker360
-    cd tracker360
+    if [ -f "tracker360/docker-compose.yml" ]; then
+        # Instalado antes con "curl ... | bash" desde esta carpeta: se actualiza esa instalacion.
+        cd tracker360
+    else
+        echo "Descargando codigo fuente desde ${REPO_URL}..."
+        git clone "${REPO_URL}" tracker360
+        cd tracker360
+    fi
+fi
+
+# 2b. Actualizar: si ya es un repositorio, traer la version publicada antes de reconstruir (antes volver a
+#     correr el instalador reconstruia la misma version). Solo avanza (--ff-only): con cambios locales o sin
+#     conexion se detiene sin tocar nada. TRACKER360_NO_UPDATE=1 reconstruye la version que ya esta.
+#     safe.directory: el repo suele ser de root (instalado con sudo) y git rechaza usarlo desde otro usuario.
+if [ -d .git ] && [ "${TRACKER360_NO_UPDATE:-}" != "1" ]; then
+    GIT="git -c safe.directory=$PWD"
+    ANTES=$($GIT rev-parse --short HEAD)
+    echo "Buscando actualizaciones..."
+    if ! $GIT pull --ff-only --quiet; then
+        echo "ERROR: no se pudo traer la version nueva (cambios locales en $PWD o sin conexion)."
+        echo "No se toco nada: la version instalada sigue funcionando ($ANTES)."
+        exit 1
+    fi
+    DESPUES=$($GIT rev-parse --short HEAD)
+    if [ "$ANTES" = "$DESPUES" ]; then
+        echo "Ya esta en la ultima version ($DESPUES)."
+    else
+        echo "Codigo actualizado: $ANTES -> $DESPUES (los cambios estan en CHANGELOG.md)."
+    fi
 fi
 
 # 3. Generar archivo .env si no existe
@@ -81,7 +107,20 @@ else
     echo "Se detecto un archivo .env existente. Manteniendo configuracion."
 fi
 
-# 4. Construir y levantar contenedores con Docker Compose
+# 4. Copia de la base antes de reconstruir (al arrancar, la API aplica las migraciones nuevas).
+if docker compose ps --status running --services 2>/dev/null | grep -qx db; then
+    mkdir -p backups
+    COPIA="backups/antes_de_actualizar_$(date +%Y-%m-%d_%H%M%S).sql"
+    if docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > "$COPIA"; then
+        echo "Copia de la base de datos: $PWD/$COPIA"
+    else
+        rm -f "$COPIA"
+        echo "ERROR: no se pudo copiar la base de datos; no se actualizo nada."
+        exit 1
+    fi
+fi
+
+# 5. Construir y levantar contenedores con Docker Compose
 echo "Desplegando servicios con Docker Compose..."
 docker compose up -d --build
 

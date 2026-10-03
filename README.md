@@ -168,7 +168,12 @@ El instalador genera el `.env` con clave de base, `SECRET_KEY` y `SETUP_TOKEN` a
 pregunta el dominio (para `ALLOWED_ORIGINS`), levanta los contenedores y muestra la URL y el
 `SETUP_TOKEN`.
 
-Se puede volver a correr para actualizar: si ya hay un `.env`, lo respeta. Si no hay `.env`
+Para **actualizar** se vuelve a correr (`sudo ./install.sh` en la carpeta de la instalación, o el mismo
+`curl ... | bash` desde la carpeta donde se instaló): trae la última versión publicada (`git pull --ff-only`;
+con cambios locales o sin conexión se detiene sin tocar nada), guarda una copia de la base en `backups/`,
+reconstruye y la API aplica sola las migraciones. Si ya hay un `.env`, lo respeta.
+Las instalaciones anteriores a octubre de 2026 tienen un instalador que no actualizaba: la primera vez hay que
+usar el `curl ... | bash` (o hacer `git pull` a mano en la carpeta). Si no hay `.env`
 pero sí quedó la base de una instalación anterior, **se detiene sin borrar nada** y explica las
 opciones: restaurar el `.env` anterior, o empezar de cero borrando esos datos con
 `TRACKER360_RESET_DB=1 ./install.sh`.
@@ -319,9 +324,8 @@ Los agentes autorizados se ven y se revocan desde el panel. El código fuente es
 docker compose ps
 docker compose logs -f api
 
-# Actualizar (el esquema se actualiza solo al arrancar)
-git pull
-docker compose up -d --build
+# Actualizar: copia de la base, ultima version y reconstruccion (el esquema se actualiza solo al arrancar)
+sudo ./install.sh
 
 # Backup y restauración
 docker compose exec -T db pg_dump -U tracker_admin tracker360_db > backup_$(date +%F).sql

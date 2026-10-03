@@ -4,6 +4,18 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 
 ## 2026-10-03
 
+### Arreglado (instalador y actualización)
+- Volver a correr `install.sh` para actualizar no actualizaba: reconstruía la misma versión que ya estaba
+  instalada. Ahora trae la última versión publicada (`git pull --ff-only`; con cambios locales o sin conexión
+  se detiene sin tocar nada), guarda antes una copia de la base en `backups/` y recién ahí reconstruye.
+  `TRACKER360_NO_UPDATE=1` reconstruye sin actualizar.
+- Corrido desde la carpeta donde se instaló con `curl ... | bash`, intentaba clonar otra vez y fallaba
+  porque `tracker360/` ya existía: ahora actualiza esa instalación.
+- `install.sh` no tenía permiso de ejecución en el repositorio: `./install.sh` (como dice el README) daba
+  "Permiso denegado".
+- Instalaciones anteriores: la primera vez hay que actualizar con el `curl ... | bash` o con `git pull` a mano,
+  porque su instalador es el viejo.
+
 ### Agregado (devoluciones)
 - Pantalla de alta de devoluciones (Compras y Recepción → Devoluciones → "+ Nueva devolución"; antes el
   formulario no funcionaba). Se busca el pedido por número, venta del canal, cliente o comprador (solo los
