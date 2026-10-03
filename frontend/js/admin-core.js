@@ -76,13 +76,15 @@ function toggleHelpMode() {
     if (isHelpModeActive) {
         document.body.classList.add('help-mode-active');
         if (badge) { badge.textContent = 'ON'; badge.className = 'badge badge-success'; }
-        showToast('Modo Ayuda ACTIVADO. Pase el cursor sobre los elementos resaltados.', 'info');
     } else {
         document.body.classList.remove('help-mode-active');
         if (badge) { badge.textContent = 'OFF'; badge.className = 'badge badge-neutral'; }
         if (popover) popover.style.display = 'none';
-        showToast('Modo Ayuda DESACTIVADO.', 'neutral');
     }
+    const boton = document.getElementById('btn-toggle-help');
+    if (boton) { boton.classList.toggle('ayuda-activa', isHelpModeActive); boton.setAttribute('aria-pressed', String(isHelpModeActive)); }
+    // Panel "Ayuda de esta pantalla" (js/ayuda.js).
+    if (typeof actualizarPanelAyuda === 'function') actualizarPanelAyuda();
 }
 
 function initHelpModeListeners() {
@@ -163,6 +165,7 @@ function switchView(secId, btnElement = null) {
         }
     }
 
+    if (typeof actualizarPanelAyuda === 'function') actualizarPanelAyuda();
     if(secId === 'section-dashboard') loadDashboard();
     if(secId === 'section-users' && typeof loadUsers === 'function') loadUsers();
     if(secId === 'section-canal-publicaciones' && typeof abrirPublicacionesCanal === 'function') abrirPublicacionesCanal();

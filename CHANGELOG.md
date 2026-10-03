@@ -8,7 +8,18 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 - Instructivo completo (`/instructivo.html`): guía de todo el sistema, de los primeros pasos a Mercado Libre paso
   a paso, con índice, problemas frecuentes, glosario, modo oscuro y versión para imprimir.
 
+- Sección Soporte en el panel (para administradores y supervisores): contacto de JZ Tech Solutions, qué incluir
+  al reportar un problema y acceso al instructivo, al modo ayuda y a las condiciones de uso. Acceso al
+  instructivo en el menú lateral y enlaces a instructivo, privacidad, términos y soporte en la pantalla de ingreso.
+
+### Arreglado
+- El modo ayuda no se veía: le faltaban los estilos, así que la explicación aparecía fuera de la pantalla y no
+  se marcaba qué tenía ayuda. Ahora marca los elementos con ayuda, muestra la explicación junto al elemento y
+  suma un recuadro "Ayuda de esta pantalla" con los pasos principales y un enlace a esa parte del
+  instructivo. Funciona tocando en pantallas táctiles y se cierra con Esc.
+
 ### Cambiado
+- El acceso a Mercado Libre del menú lateral usa el ícono de Mercado Libre.
 - Política de privacidad y términos actualizados y con el mismo estilo del panel (tema claro y oscuro). Ahora
   describen cómo funciona hoy el sistema: sesiones del lado del servidor (ya no JWT), protección CSRF, datos
   que llegan de los canales de venta (comprador y envío de Mercado Libre), cuánto se guarda cada cosa y el

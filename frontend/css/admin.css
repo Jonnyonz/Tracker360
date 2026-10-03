@@ -609,3 +609,76 @@ tbody tr:hover { background-color: rgba(0,0,0,0.015); }
 /* Lotes: ocultos salvo que la empresa trabaje con lotes (body.con-lotes, ver aplicarAjusteLotes) */
 .lot-input { display: none !important; }
 body.con-lotes .lot-input { display: revert !important; }
+
+/* === MODO AYUDA (js/ayuda.js + admin-core.js) === */
+body.help-mode-active [data-help] { outline: 2px dashed var(--accent); outline-offset: 3px; cursor: help; }
+.help-popover {
+    display: none;
+    position: fixed;
+    z-index: 3000;
+    max-width: 340px;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    box-shadow: var(--shadow), 0 8px 24px rgba(0, 0, 0, 0.15);
+    padding: 12px 14px;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    pointer-events: none;
+}
+.help-popover-title { font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+.help-popover-body { color: var(--text-secondary); }
+.help-popover-rule { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--text-primary); }
+.ayuda-panel {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 2500;
+    width: 350px;
+    max-width: calc(100vw - 40px);
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
+    border-radius: 12px;
+    box-shadow: var(--shadow), 0 10px 30px rgba(0, 0, 0, 0.18);
+    padding: 14px 16px;
+    font-size: 0.88rem;
+}
+.ayuda-panel[hidden] { display: none; }
+.ayuda-panel-cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 4px; }
+.ayuda-panel-cabecera small { color: var(--text-muted); text-transform: uppercase; font-size: 0.68rem; letter-spacing: 0.05em; }
+.ayuda-panel h4 { margin: 2px 0 0; font-size: 1.05rem; color: var(--text-primary); }
+.ayuda-panel p { color: var(--text-secondary); margin: 6px 0; line-height: 1.45; }
+.ayuda-panel ol { margin: 8px 0 8px 20px; color: var(--text-primary); line-height: 1.45; }
+.ayuda-panel ol li { margin: 4px 0; }
+.ayuda-panel ol[hidden], .ayuda-panel-nota:empty { display: none; }
+.ayuda-panel-nota { font-size: 0.8rem; color: var(--text-muted) !important; }
+.ayuda-panel-acciones { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.ayuda-panel-acciones .btn-submit, .ayuda-panel-acciones .btn-secondary { font-size: 0.8rem; padding: 6px 12px; text-decoration: none; }
+.ayuda-cerrar { background: none; border: none; color: var(--text-muted); font-size: 1.4rem; line-height: 1; cursor: pointer; padding: 0 2px; }
+.ayuda-cerrar:hover { color: var(--text-primary); }
+#btn-toggle-help.ayuda-activa { color: var(--accent); background: rgba(41, 98, 255, 0.12); }
+
+/* === SOPORTE === */
+.soporte-contacto { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.soporte-contacto a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-primary);
+    text-decoration: none;
+    background: var(--bg-page);
+    font-size: 0.9rem;
+}
+.soporte-contacto a:hover { border-color: var(--accent); color: var(--accent); }
+.soporte-contacto svg { width: 18px; height: 18px; color: var(--accent); }
+.soporte-lista { margin: 8px 0 0 20px; color: var(--text-secondary); line-height: 1.7; font-size: 0.9rem; }
+.soporte-aviso { margin-top: 12px; font-size: 0.82rem; color: var(--warning); font-weight: 600; }
+.soporte-recursos { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
+.soporte-recursos .btn-secondary { text-decoration: none; font-family: inherit; font-size: 0.85rem; font-weight: 600; }
