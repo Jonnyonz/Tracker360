@@ -76,7 +76,7 @@ const AYUDA_SECCIONES = {
     'section-settings': {
         titulo: 'Configuración',
         resumen: 'Opciones del sistema: seguridad, numeración, operativa, impresoras, canales de venta y actualizaciones.',
-        pasos: ['Guardá los cambios con el botón de abajo del formulario.', 'Los canales de venta (Mercado Libre) se crean en su tarjeta, más abajo.'],
+        pasos: ['Guardá los cambios con el botón de abajo del formulario.', 'Canales de venta: la tarjeta muestra los más activos; "Ver canales" abre todos.', 'Cada canal tiene "Configuración" y "Eventos" (sus últimos pedidos y avisos).'],
         ancla: 'configuracion',
     },
     'section-soporte': {

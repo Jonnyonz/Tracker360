@@ -29,32 +29,133 @@ function nombresSucursalesCanal(ids) {
     return ids.map(id => (sucursalesCanalCache.find(b => String(b.id) === String(id)) || {}).name || id).join(', ');
 }
 
-async function cargarCanalesVenta() {
+// Cuantos canales muestra la tarjeta de Configuracion; el resto se ve con "Ver canales".
+const CANALES_DESTACADOS = 4;
+
+// Mas activos primero: los activos, con mas pedidos en 7 dias y usados mas recientemente.
+function canalesPorActividad(canales) {
+    const uso = c => (c.last_used_at ? new Date(c.last_used_at).getTime() : 0);
+    return [...canales].sort((a, b) => (b.is_active - a.is_active) || ((b.orders_7d || 0) - (a.orders_7d || 0)) || (uso(b) - uso(a)));
+}
+
+function botonesCanal(c, conClave) {
+    const estilo = 'padding:3px 8px; font-size:0.75rem;';
+    return `<button type="button" class="btn-secondary" style="${estilo}" data-on-click="abrirCanalVenta(${jsArg(c.id)})">Configuración</button>`
+        + `<button type="button" class="btn-secondary" style="${estilo} margin-left:6px;" data-on-click="abrirEventosCanal(${jsArg(c.id)})">Eventos</button>`
+        + (conClave ? `<button type="button" class="btn-secondary" style="${estilo} margin-left:6px;" data-on-click="rotarClaveCanal(${jsArg(c.id)})">Rotar clave</button>` : '');
+}
+
+function pintarCanalesDestacados() {
+    const caja = document.getElementById('canales-venta-destacados');
+    const ver = document.getElementById('btn-ver-canales');
+    if (ver) ver.textContent = canalesVentaCache.length ? `Ver canales (${canalesVentaCache.length})` : 'Ver canales';
+    if (!caja) return;
+    if (canalesVentaCache.length === 0) {
+        caja.innerHTML = '<p class="canales-vacio">Todavía no hay canales. Creá uno para conectar el middleware de Mercado Libre.</p>';
+        return;
+    }
+    caja.innerHTML = canalesPorActividad(canalesVentaCache).slice(0, CANALES_DESTACADOS).map(c => `
+        <div class="canal-linea">
+            <div class="canal-linea-datos">
+                <div><strong>${escapeHTML(c.name)}</strong> <span class="font-mono canal-linea-codigo">${escapeHTML(c.code)}</span>
+                    <span class="badge ${c.is_active ? 'badge-success' : 'badge-danger'}">${c.is_active ? 'ACTIVO' : 'INACTIVO'}</span></div>
+                <small>${c.orders_7d || 0} pedido${c.orders_7d === 1 ? '' : 's'} en 7 días · último uso: ${escapeHTML(fechaCanal(c.last_used_at))}</small>
+            </div>
+            <div class="canal-linea-botones">${botonesCanal(c, false)}</div>
+        </div>`).join('');
+}
+
+function pintarTodosCanales() {
     const tbody = document.getElementById('tabla-canales-venta');
     if (!tbody) return;
+    if (canalesVentaCache.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Todavía no hay canales. Creá uno para conectar el middleware de Mercado Libre.</td></tr>';
+        return;
+    }
+    tbody.innerHTML = canalesPorActividad(canalesVentaCache).map(c => `
+        <tr>
+            <td style="font-weight:bold; color:var(--accent);" class="font-mono">${escapeHTML(c.code)}</td>
+            <td>${escapeHTML(c.name)}</td>
+            <td><small>${escapeHTML(NOMBRE_MODO_CANAL[c.stock_mode] || c.stock_mode)}</small></td>
+            <td><small>${escapeHTML(nombresSucursalesCanal(c.stock_branch_ids))}</small></td>
+            <td><span class="badge ${c.is_active ? 'badge-success' : 'badge-danger'}">${c.is_active ? 'ACTIVO' : 'INACTIVO'}</span></td>
+            <td>${Number(c.orders_7d) || 0}</td>
+            <td><small>${escapeHTML(fechaCanal(c.last_used_at))}</small></td>
+            <td style="text-align:right; white-space:nowrap;">${botonesCanal(c, true)}</td>
+        </tr>
+    `).join('');
+}
+
+async function cargarCanalesVenta() {
+    const caja = document.getElementById('canales-venta-destacados');
     try {
         const [canales] = await Promise.all([fetchAPI('/api/admin/sales-channels'), cargarSucursalesCanal()]);
         canalesVentaCache = canales || [];
-        if (canalesVentaCache.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Todavía no hay canales. Creá uno para conectar el middleware de Mercado Libre.</td></tr>';
-            return;
-        }
-        tbody.innerHTML = canalesVentaCache.map(c => `
-            <tr>
-                <td style="font-weight:bold; color:var(--accent);" class="font-mono">${escapeHTML(c.code)}</td>
-                <td>${escapeHTML(c.name)}</td>
-                <td><small>${escapeHTML(NOMBRE_MODO_CANAL[c.stock_mode] || c.stock_mode)}</small></td>
-                <td><small>${escapeHTML(nombresSucursalesCanal(c.stock_branch_ids))}</small></td>
-                <td><span class="badge ${c.is_active ? 'badge-success' : 'badge-danger'}">${c.is_active ? 'ACTIVO' : 'INACTIVO'}</span></td>
-                <td><small>${escapeHTML(fechaCanal(c.last_used_at))}</small></td>
-                <td style="text-align:right; white-space:nowrap;">
-                    <button type="button" class="btn-secondary" style="padding:3px 8px; font-size:0.75rem;" data-on-click="abrirCanalVenta(${jsArg(c.id)})">Editar</button>
-                    <button type="button" class="btn-secondary" style="padding:3px 8px; font-size:0.75rem; margin-left:6px;" data-on-click="rotarClaveCanal(${jsArg(c.id)})">Rotar clave</button>
-                </td>
-            </tr>
-        `).join('');
+        pintarCanalesDestacados();
+        pintarTodosCanales();
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:1.5rem; color:var(--danger);">Error al cargar los canales: ${escapeHTML(e.message)}</td></tr>`;
+        if (caja) caja.innerHTML = `<p class="canales-vacio" style="color:var(--danger);">Error al cargar los canales: ${escapeHTML(e.message)}</p>`;
+    }
+}
+
+function abrirTodosCanales() {
+    pintarTodosCanales();
+    openModal('modal-canales-todos');
+}
+
+const ESTADO_PEDIDO_CANAL = {
+    PENDING: 'Pendiente', IN_PROGRESS: 'En preparación', COMPLETED: 'Para empacar', DISPATCHED: 'Despachado',
+    CANCELLED: 'Cancelado', FULL: 'Full (informativo)',
+};
+const ENVIO_CANAL = { fulfillment: 'Full', self_service: 'Flex', cross_docking: 'Colecta', drop_off: 'Correo' };
+
+function claseEstadoPedidoCanal(estado) {
+    if (estado === 'CANCELLED') return 'badge-danger';
+    if (estado === 'FULL') return 'badge-info';
+    return (estado === 'DISPATCHED' || estado === 'COMPLETED') ? 'badge-success' : 'badge-warning';
+}
+
+function textoAvisoCanal(ev) {
+    const p = ev.payload || {};
+    if (ev.type === 'stock.changed') return `Cambió el stock de <span class="font-mono">${escapeHTML(p.sku)}</span>`;
+    if (ev.type === 'order.status') {
+        return `Pedido <span class="font-mono">${escapeHTML(p.document_number)}</span> (venta ${escapeHTML(p.external_ref)}) pasó a `
+            + `<span class="badge ${claseEstadoPedidoCanal(p.status)}">${escapeHTML(ESTADO_PEDIDO_CANAL[p.status] || p.status)}</span>`;
+    }
+    return escapeHTML(ev.type);
+}
+
+async function abrirEventosCanal(id) {
+    const pedidos = document.getElementById('canal-eventos-pedidos');
+    const avisos = document.getElementById('canal-eventos-avisos');
+    const canal = canalesVentaCache.find(c => String(c.id) === String(id)) || {};
+    document.getElementById('canal-eventos-titulo').textContent = `Eventos de ${canal.name || 'el canal'}`;
+    document.getElementById('canal-eventos-resumen').textContent = '';
+    const cargando = c => `<tr><td colspan="${c}" style="text-align:center; padding:1rem; color:var(--text-muted);">Cargando...</td></tr>`;
+    pedidos.innerHTML = cargando(6);
+    avisos.innerHTML = cargando(2);
+    openModal('modal-canal-eventos');
+    try {
+        const d = await fetchAPI(`/api/admin/sales-channels/${encodeURIComponent(id)}/events?limit=30`);
+        document.getElementById('canal-eventos-resumen').textContent =
+            `Código ${d.channel.code} · ${d.channel.is_active ? 'activo' : 'inactivo'} · último uso: ${fechaCanal(d.channel.last_used_at)}`;
+        pedidos.innerHTML = d.orders.length === 0
+            ? '<tr><td colspan="6" style="text-align:center; padding:1rem; color:var(--text-muted);">El canal todavía no cargó pedidos.</td></tr>'
+            : d.orders.map(o => `
+                <tr>
+                    <td class="font-mono" style="color:var(--accent);">${escapeHTML(o.document_number)}${o.priority > 0 ? ' <span class="badge badge-danger">URGENTE</span>' : ''}</td>
+                    <td class="font-mono">${escapeHTML(o.external_ref)}</td>
+                    <td>${escapeHTML(o.external_account || '-')}</td>
+                    <td>${escapeHTML(ENVIO_CANAL[String(o.shipping_type || '').toLowerCase()] || o.shipping_type || '-')}</td>
+                    <td><span class="badge ${claseEstadoPedidoCanal(o.status)}">${escapeHTML(ESTADO_PEDIDO_CANAL[o.status] || o.status)}</span></td>
+                    <td><small>${escapeHTML(fechaCanal(o.created_at))}</small></td>
+                </tr>`).join('');
+        avisos.innerHTML = d.events.length === 0
+            ? '<tr><td colspan="2" style="text-align:center; padding:1rem; color:var(--text-muted);">Sin avisos en los últimos 14 días.</td></tr>'
+            : d.events.map(ev => `<tr><td style="white-space:nowrap;"><small>${escapeHTML(fechaCanal(ev.created_at))}</small></td><td>${textoAvisoCanal(ev)}</td></tr>`).join('');
+    } catch (e) {
+        pedidos.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:1rem; color:var(--danger);">Error: ${escapeHTML(e.message)}</td></tr>`;
+        avisos.innerHTML = '';
     }
 }
 

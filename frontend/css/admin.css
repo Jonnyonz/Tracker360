@@ -684,3 +684,14 @@ body.help-mode-active [data-help] { outline: 2px dashed var(--accent); outline-o
 .soporte-aviso { margin-top: 12px; font-size: 0.82rem; color: var(--warning); font-weight: 600; }
 .soporte-recursos { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
 .soporte-recursos .btn-secondary { text-decoration: none; font-family: inherit; font-size: 0.85rem; font-weight: 600; }
+
+/* Configuracion: canales de venta mas activos (tarjeta compacta) */
+.canales-lista { display: flex; flex-direction: column; gap: 0.6rem; }
+.canales-vacio { margin: 0; padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+.canal-linea { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-page); }
+.canal-linea-datos { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.canal-linea-datos strong { color: var(--text-primary); }
+.canal-linea-datos small { color: var(--text-muted); }
+.canal-linea-codigo { color: var(--accent); font-size: 0.8rem; margin: 0 6px; }
+.canal-linea-botones { white-space: nowrap; }

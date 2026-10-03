@@ -122,8 +122,36 @@ async def require_sales_channel(request: Request, authorization: Optional[str] =
 # --- Administracion (panel) ---
 @router.get("/api/admin/sales-channels")
 async def listar_canales(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    filas = await conn.fetch("SELECT * FROM sales_channels ORDER BY created_at")
-    return [_canal_dict(r) for r in filas]
+    # orders_7d: pedidos que cargo el canal en los ultimos 7 dias (el panel muestra primero los mas activos).
+    filas = await conn.fetch("""
+        SELECT c.*, (SELECT COUNT(*) FROM documents d WHERE d.sales_channel_id = c.id
+                     AND d.created_at > now() - interval '7 days') AS orders_7d
+        FROM sales_channels c ORDER BY c.created_at
+    """)
+    return [{**_canal_dict(r), "orders_7d": r["orders_7d"]} for r in filas]
+
+
+@router.get("/api/admin/sales-channels/{channel_id}/events")
+async def ver_eventos_del_canal(channel_id: str, limit: int = 30, admin: dict = Depends(require_admin),
+                                conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Para el panel: los ultimos pedidos que cargo el canal y los ultimos eventos que Tracker le dejo
+    (stock.changed y order.status), del mas nuevo al mas viejo."""
+    cid = parse_uuid(channel_id, "Canal inválido.")
+    canal = await conn.fetchrow("SELECT * FROM sales_channels WHERE id = $1", cid)
+    if not canal:
+        raise HTTPException(404, "Canal no encontrado.")
+    limite = max(1, min(int(limit), 200))
+    pedidos = await conn.fetch("""
+        SELECT document_number, external_ref, external_account, status, shipping_type, priority, created_at
+        FROM documents WHERE sales_channel_id = $1 ORDER BY created_at DESC LIMIT $2
+    """, cid, limite)
+    eventos = await conn.fetch("""
+        SELECT id, event_type, payload::text AS payload, created_at FROM channel_events
+        WHERE sales_channel_id = $1 ORDER BY id DESC LIMIT $2
+    """, cid, limite)
+    return {"channel": _canal_dict(canal), "orders": [dict(p) for p in pedidos],
+            "events": [{"id": e["id"], "type": e["event_type"], "payload": json.loads(e["payload"]),
+                        "created_at": e["created_at"]} for e in eventos]}
 
 
 @router.post("/api/admin/sales-channels")

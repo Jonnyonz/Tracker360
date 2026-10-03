@@ -25,6 +25,11 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   instructivo. Funciona tocando en pantallas táctiles y se cierra con Esc.
 
 ### Cambiado
+- Configuración, Canales de venta: la tarjeta ya no lista todos los canales. Muestra los cuatro más activos
+  (más pedidos en los últimos 7 días) y el botón "Ver canales" abre la lista completa. Cada canal tiene los
+  botones "Configuración" y "Eventos"; Eventos muestra sus últimos pedidos (venta, cuenta, tipo de envío y
+  estado) y los avisos de stock y de estado que Tracker le dejó. API: la lista de canales suma `orders_7d` y
+  hay una ruta nueva, `GET /api/admin/sales-channels/{id}/events` (solo administrador).
 - El acceso a Mercado Libre del menú lateral usa el isotipo de Mercado Libre (el oficial, en sus colores).
 - Política de privacidad y términos actualizados y con el mismo estilo del panel (tema claro y oscuro). Ahora
   describen cómo funciona hoy el sistema: sesiones del lado del servidor (ya no JWT), protección CSRF, datos

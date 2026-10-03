@@ -7,7 +7,7 @@
     <title id="html-title">Tracker360 - JZTech Suite</title>
     
     <!-- CSS Separado y Limpio -->
-    <link rel="stylesheet" href="css/admin.css?v=20261003_3">
+    <link rel="stylesheet" href="css/admin.css?v=20261003_4">
 </head>
 <body>
     <div class="top-accent-bar"></div>
@@ -1513,32 +1513,20 @@
                 </div>
             </form>
 
-            <!-- TARJETA: CANALES DE VENTA (middleware de Mercado Libre u otra tienda) -->
+            <!-- TARJETA: CANALES DE VENTA (middleware de Mercado Libre u otra tienda): los mas activos -->
             <div class="card grid-full-width" id="card-canales-venta" style="margin-top:1.5rem;" data-help="Canales de venta|Sistemas externos que cargan pedidos en Tracker y reciben el stock (por ejemplo el middleware de Mercado Libre).|Cada canal tiene su propia clave: se muestra una sola vez al crearlo o al rotarla. Se carga en la pagina del middleware junto con la direccion de Tracker.">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem; flex-wrap:wrap; gap:12px;">
                     <div>
                         <h3 class="card-title" style="margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h10l-3-3M20 17H10l3 3"/></svg> Canales de venta</h3>
-                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Sistemas externos que cargan pedidos y reciben el stock, como el middleware de Mercado Libre</span>
+                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Los más activos de los últimos 7 días. Sistemas externos que cargan pedidos y reciben el stock, como el middleware de Mercado Libre</span>
                     </div>
-                    <button type="button" class="btn-submit" data-on-click="abrirCanalVenta()" style="font-size:0.8rem;">+ Nuevo canal</button>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                        <button type="button" class="btn-secondary" id="btn-ver-canales" data-on-click="abrirTodosCanales()" style="font-size:0.8rem;">Ver canales</button>
+                        <button type="button" class="btn-submit" data-on-click="abrirCanalVenta()" style="font-size:0.8rem;">+ Nuevo canal</button>
+                    </div>
                 </div>
-                <div style="overflow-x:auto;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Código</th>
-                                <th>Nombre</th>
-                                <th>Stock que informa</th>
-                                <th>Sucursales</th>
-                                <th>Estado</th>
-                                <th>Último uso</th>
-                                <th style="text-align:right;">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabla-canales-venta">
-                            <tr><td colspan="7" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Cargando canales...</td></tr>
-                        </tbody>
-                    </table>
+                <div id="canales-venta-destacados" class="canales-lista">
+                    <p class="canales-vacio">Cargando canales...</p>
                 </div>
             </div>
 
@@ -2116,6 +2104,36 @@
         </div>
     </div>
 
+    <!-- MODAL: TODOS LOS CANALES DE VENTA -->
+    <div id="modal-canales-todos" class="modal">
+        <div class="modal-content" style="max-width:1100px;">
+            <span class="close-modal" data-on-click="closeModal('modal-canales-todos')">&times;</span>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:12px;">
+                <h3 style="color:var(--text-primary); margin:0;">Canales de venta</h3>
+                <button type="button" class="btn-submit" data-on-click="abrirCanalVenta()" style="font-size:0.8rem;">+ Nuevo canal</button>
+            </div>
+            <div style="overflow-x:auto;">
+                <table>
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Stock que informa</th>
+                                <th>Sucursales</th>
+                                <th>Estado</th>
+                                <th>Pedidos 7 días</th>
+                                <th>Último uso</th>
+                                <th style="text-align:right;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabla-canales-venta">
+                            <tr><td colspan="8" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Cargando canales...</td></tr>
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-canal-venta" class="modal">
         <div class="modal-content" style="max-width:560px;">
             <span class="close-modal" data-on-click="closeModal('modal-canal-venta')">&times;</span>
@@ -2163,6 +2181,30 @@
             <p style="font-size:0.85rem; color:var(--text-secondary); margin-top:1rem;" id="canal-clave-ayuda"></p>
             <div style="display:flex; justify-content:flex-end; margin-top:1.2rem;">
                 <button type="button" class="btn-secondary" data-on-click="cerrarClaveCanal()">Ya la guardé</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EVENTOS DE UN CANAL (pedidos que cargo y avisos que Tracker le dejo) -->
+    <div id="modal-canal-eventos" class="modal">
+        <div class="modal-content" style="max-width:980px;">
+            <span class="close-modal" data-on-click="closeModal('modal-canal-eventos')">&times;</span>
+            <h3 style="color:var(--text-primary); margin-bottom:0.3rem;" id="canal-eventos-titulo">Eventos del canal</h3>
+            <p style="font-size:0.85rem; color:var(--text-secondary); margin:0 0 1.2rem;" id="canal-eventos-resumen"></p>
+            <h4 style="color:var(--text-primary); margin:0 0 0.5rem;">Pedidos recientes del canal</h4>
+            <div style="overflow-x:auto; margin-bottom:1.5rem;">
+                <table>
+                    <thead><tr><th>Pedido</th><th>Venta</th><th>Cuenta</th><th>Envío</th><th>Estado</th><th>Recibido</th></tr></thead>
+                    <tbody id="canal-eventos-pedidos"></tbody>
+                </table>
+            </div>
+            <h4 style="color:var(--text-primary); margin:0 0 0.25rem;">Avisos que Tracker le dejó al canal</h4>
+            <p style="font-size:0.8rem; color:var(--text-muted); margin:0 0 0.5rem;">Cambios de stock y de estado de sus pedidos, que el canal lee para actualizarse. Se guardan 14 días.</p>
+            <div style="overflow-x:auto;">
+                <table>
+                    <thead><tr><th>Fecha</th><th>Aviso</th></tr></thead>
+                    <tbody id="canal-eventos-avisos"></tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -2396,7 +2438,7 @@
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261001_1"></script>
     <script src="js/admin-core.js?v=20261003_1"></script>
-    <script src="js/ayuda.js?v=20261003_1"></script>
+    <script src="js/ayuda.js?v=20261003_2"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261001_1"></script>
     <script src="js/items.js?v=20261001_3"></script>
@@ -2404,7 +2446,7 @@
     <script src="js/operations.js?v=20261002_1"></script>
     <script src="js/reports.js?v=20261001_3"></script>
     <script src="js/settings.js?v=20261001_2"></script>
-    <script src="js/canales.js?v=20261002_3"></script>
+    <script src="js/canales.js?v=20261003_2"></script>
     <script src="js/admin-init.js?v=20261001_3"></script>
     
     <script src="js/admin-pagina.js?v=20261001_2"></script>
