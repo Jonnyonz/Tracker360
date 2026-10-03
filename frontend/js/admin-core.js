@@ -169,7 +169,7 @@ function switchView(secId, btnElement = null) {
     if(secId === 'section-dashboard') loadDashboard();
     if(secId === 'section-users' && typeof loadUsers === 'function') loadUsers();
     if(secId === 'section-canal-publicaciones' && typeof abrirPublicacionesCanal === 'function') abrirPublicacionesCanal();
-    if(secId === 'section-settings' && typeof cargarCanalesVenta === 'function') cargarCanalesVenta();
+    if(secId === 'section-settings') { if (typeof cargarCanalesVenta === 'function') cargarCanalesVenta(); cargarEventosSistema(); }
     if(secId === 'section-entities' && typeof loadEntities === 'function') loadEntities();
     if(secId === 'section-warehouse' && typeof loadWarehouseData === 'function') loadWarehouseData();
     if(secId === 'section-items' && typeof loadItems === 'function') loadItems();
@@ -245,10 +245,33 @@ function filterLogs() {
         return `<tr>
             <td><small class="text-muted" style="font-weight:600;">${new Date(l.created_at).toLocaleString()}</small></td>
             <td style="font-weight:bold; color:var(--accent);">${escapeHTML(l.username)}</td>
-            <td><span class="badge badge-neutral">${escapeHTML(l.action)}</span></td>
+            <td><span class="badge ${l.result === 'ERROR' ? 'badge-danger' : 'badge-neutral'}">${escapeHTML(l.action)}</span></td>
             <td><small>${escapeHTML(l.details || '-')}</small></td>
         </tr>`;
     }).join('');
+}
+
+// Configuracion: tarjeta "Eventos del sistema" con los ultimos registros de la auditoria y su resultado.
+async function cargarEventosSistema() {
+    const caja = document.getElementById('eventos-sistema-lista');
+    if (!caja) return;
+    try {
+        const logs = await fetchAPI('/api/admin/logs?limit=6');
+        if (!logs) throw new Error('sin respuesta del servidor');
+        caja.innerHTML = logs.length === 0
+            ? '<p class="canales-vacio">Todavía no hay eventos registrados.</p>'
+            : logs.map(l => `
+                <div class="evento-linea">
+                    <span class="badge ${l.result === 'ERROR' ? 'badge-danger' : 'badge-success'}">${l.result === 'ERROR' ? 'ERROR' : 'APROBADO'}</span>
+                    <div class="evento-linea-datos">
+                        <div><strong>${escapeHTML(l.action)}</strong> <small>por ${escapeHTML(l.username)}</small></div>
+                        <small>${escapeHTML(l.details || '-')}</small>
+                    </div>
+                    <small class="evento-linea-fecha">${escapeHTML(new Date(l.created_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }))}</small>
+                </div>`).join('');
+    } catch (e) {
+        caja.innerHTML = `<p class="canales-vacio" style="color:var(--danger);">Error al cargar los eventos: ${escapeHTML(e.message)}</p>`;
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

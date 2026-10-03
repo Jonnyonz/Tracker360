@@ -64,7 +64,7 @@ const AYUDA_SECCIONES = {
     'section-logs': {
         titulo: 'Auditoría general',
         resumen: 'Registro de las acciones importantes con usuario, fecha e IP.',
-        pasos: ['Filtrá por usuario o acción para encontrar un cambio.'],
+        pasos: ['Filtrá por usuario o acción para encontrar un cambio.', 'Las acciones en rojo son errores o intentos rechazados.'],
         ancla: 'auditoria',
     },
     'section-canal-publicaciones': {
@@ -76,7 +76,7 @@ const AYUDA_SECCIONES = {
     'section-settings': {
         titulo: 'Configuración',
         resumen: 'Opciones del sistema: seguridad, numeración, operativa, impresoras, canales de venta y actualizaciones.',
-        pasos: ['Guardá los cambios con el botón de abajo del formulario.', 'Canales de venta: la tarjeta muestra los más activos; "Ver canales" abre todos.', 'Cada canal tiene "Configuración" y "Eventos" (sus últimos pedidos y avisos).'],
+        pasos: ['Guardá los cambios con el botón de abajo del formulario.', 'Canales de venta: la tarjeta muestra los más activos; "Ver canales" abre todos.', 'Cada canal tiene "Configuración" y "Eventos" (sus últimos pedidos y avisos).', 'Eventos del sistema: los últimos 6 registros de la auditoría, con ERROR o APROBADO.'],
         ancla: 'configuracion',
     },
     'section-soporte': {

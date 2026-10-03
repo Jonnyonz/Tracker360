@@ -7,7 +7,7 @@
     <title id="html-title">Tracker360 - JZTech Suite</title>
     
     <!-- CSS Separado y Limpio -->
-    <link rel="stylesheet" href="css/admin.css?v=20261003_4">
+    <link rel="stylesheet" href="css/admin.css?v=20261003_6">
 </head>
 <body>
     <div class="top-accent-bar"></div>
@@ -1530,6 +1530,23 @@
                 </div>
             </div>
 
+            <!-- TARJETA: EVENTOS DEL SISTEMA (ultimos registros de la auditoria general) -->
+            <div class="card grid-full-width" id="card-eventos-sistema" style="margin-top:1.5rem;" data-help="Eventos del sistema|Los últimos 6 registros de la auditoría general, con su resultado.|ERROR marca ingresos fallidos, accesos no autorizados y alertas de seguridad. El registro completo está en Auditoría.">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem; flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <h3 class="card-title" style="margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Eventos del sistema</h3>
+                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Los últimos 6 registros de la auditoría, con su resultado</span>
+                    </div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                        <button type="button" class="btn-secondary" data-on-click="cargarEventosSistema()" style="font-size:0.8rem;">Actualizar</button>
+                        <button type="button" class="btn-secondary" data-on-click="switchView('section-logs')" style="font-size:0.8rem;">Ver auditoría completa</button>
+                    </div>
+                </div>
+                <div id="eventos-sistema-lista" class="canales-lista">
+                    <p class="canales-vacio">Cargando eventos...</p>
+                </div>
+            </div>
+
             <div class="card grid-full-width" style="margin-top:1.5rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:12px;">
                     <div>
@@ -2437,8 +2454,8 @@
     <!-- SCRIPTS DEL SISTEMA -->
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261001_1"></script>
-    <script src="js/admin-core.js?v=20261003_1"></script>
-    <script src="js/ayuda.js?v=20261003_2"></script>
+    <script src="js/admin-core.js?v=20261003_2"></script>
+    <script src="js/ayuda.js?v=20261003_3"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261001_1"></script>
     <script src="js/items.js?v=20261001_3"></script>

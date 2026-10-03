@@ -92,7 +92,13 @@ async def get_admin_integrations_op(admin: dict = Depends(require_admin), conn: 
     """)
     return [dict(r) for r in rows]
 
+# Acciones de auditoria que son un error o un intento rechazado; el resto salio bien.
+ACCIONES_CON_ERROR = {"LOGIN_FAILED", "CHANNEL_AUTH_FAILED", "GOOGLE_LOGIN_BLOCKED", "UNAUTHORIZED_ACCESS",
+                      "API_INTRUSION", "SECURITY_ALERT"}
+
 @router.get("/api/admin/logs")
-async def list_admin_logs(admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("SELECT created_at, username, action, details FROM audit_logs ORDER BY created_at DESC LIMIT 100")
-    return [dict(r) for r in rows]
+async def list_admin_logs(limit: int = 100, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Ultimos registros de auditoria. result: ERROR (fallo o intento rechazado) u OK."""
+    rows = await conn.fetch("SELECT created_at, username, action, details FROM audit_logs ORDER BY created_at DESC LIMIT $1",
+                            max(1, min(int(limit), 500)))
+    return [{**dict(r), "result": "ERROR" if r["action"] in ACCIONES_CON_ERROR else "OK"} for r in rows]

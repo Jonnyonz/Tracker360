@@ -25,6 +25,10 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   instructivo. Funciona tocando en pantallas táctiles y se cierra con Esc.
 
 ### Cambiado
+- Configuración: tarjeta nueva "Eventos del sistema" con los últimos 6 registros de la auditoría, marcados
+  APROBADO o ERROR (ingresos fallidos, accesos no autorizados, claves de canal inválidas, alertas), y acceso a
+  la auditoría completa. En Auditoría General esas acciones se ven en rojo. API: `GET /api/admin/logs` acepta
+  `limit` (por defecto 100, máximo 500) y cada registro trae `result` (`OK` o `ERROR`).
 - Configuración, Canales de venta: la tarjeta ya no lista todos los canales. Muestra los cuatro más activos
   (más pedidos en los últimos 7 días) y el botón "Ver canales" abre la lista completa. Cada canal tiene los
   botones "Configuración" y "Eventos"; Eventos muestra sus últimos pedidos (venta, cuenta, tipo de envío y
