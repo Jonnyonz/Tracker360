@@ -7,36 +7,74 @@ function escapeHTML(str) {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+// No se lista nada hasta buscar. La busqueda se repite al paginar, ordenar, guardar o importar.
+const ARTICULOS_POR_PAGINA = 25;
+let busquedaArticulos = null;
+let itemsTotalPages = 1;
+let itemsOrden = { col: 'sku', dir: 'ASC' };
+
+function buscarArticulos(event) {
+    if (event) event.preventDefault();
+    const valor = id => (document.getElementById(id)?.value || '').trim();
+    busquedaArticulos = {
+        sku: valor('search-sku'), description: valor('search-desc'), category: valor('f-art-categoria'),
+        location: valor('f-art-ubicacion'), combo: valor('f-art-combo'), stock: valor('f-art-stock'),
+    };
+    handleSearchItems(1);
+}
+
+function limpiarBusquedaArticulos() {
+    document.getElementById('form-buscar-articulos')?.reset();
+    busquedaArticulos = null;
+    handleSearchItems(1);
+}
+
+function prevItemPage() { if (busquedaArticulos && itemsCurrentPage > 1) handleSearchItems(itemsCurrentPage - 1); }
+function nextItemPage() { if (busquedaArticulos && itemsCurrentPage < itemsTotalPages) handleSearchItems(itemsCurrentPage + 1); }
+
+function sortItems(col) {
+    itemsOrden = { col, dir: itemsOrden.col === col && itemsOrden.dir === 'ASC' ? 'DESC' : 'ASC' };
+    ['sku', 'description', 'total_stock'].forEach(c => {
+        const marca = document.getElementById(`sort-${c}`);
+        if (marca) marca.textContent = c === itemsOrden.col ? (itemsOrden.dir === 'ASC' ? '↑' : '↓') : '';
+    });
+    if (busquedaArticulos) handleSearchItems(1);
+}
+
+function resumenArticulos(texto) {
+    const p = document.getElementById('articulos-resumen');
+    if (!p) return;
+    p.textContent = texto;
+    p.hidden = !texto;
+}
+
 async function handleSearchItems(page = 1) {
     itemsCurrentPage = page;
     const tbody = document.getElementById('table-items-body');
     if (!tbody) return;
-
-    const theadTr = document.querySelector('#section-items table thead tr');
-    if (theadTr && theadTr.children.length === 4) {
-        const stockTh = document.createElement('th');
-        stockTh.textContent = 'Stock Total';
-        theadTr.insertBefore(stockTh, theadTr.children[3]);
+    const info = document.getElementById('items-page-info');
+    if (!busquedaArticulos) {
+        tbody.innerHTML = '<tr><td colspan="5" class="busqueda-vacia">Buscá por SKU, descripción, categoría, ubicación, tipo o stock.</td></tr>';
+        if (info) info.textContent = '';
+        resumenArticulos('');
+        return;
     }
 
-    const skuInput = document.getElementById('search-sku');
-    const descInput = document.getElementById('search-desc');
-
-    const sku = skuInput ? skuInput.value.trim() : '';
-    const desc = descInput ? descInput.value.trim() : '';
-
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1.5rem; color:#6c757d;">Cargando artículos...</td></tr>';
-
-    let url = `/api/admin/items?page=${page}&limit=15`;
-    if (sku) url += `&sku=${encodeURIComponent(sku)}`;
-    if (desc) url += `&description=${encodeURIComponent(desc)}`;
+    tbody.innerHTML = '<tr><td colspan="5" class="busqueda-vacia">Buscando...</td></tr>';
+    const params = new URLSearchParams({ page, limit: ARTICULOS_POR_PAGINA, sort_by: itemsOrden.col, sort_order: itemsOrden.dir });
+    Object.entries(busquedaArticulos).forEach(([k, v]) => { if (v) params.set(k, v); });
+    const url = `/api/admin/items?${params.toString()}`;
 
     try {
         const data = await fetchAPI(url);
         const items = Array.isArray(data) ? data : (data.items || data.rows || data.data || []);
+        itemsTotalPages = (data && data.total_pages) || 1;
+        if (info) info.textContent = `Página ${(data && data.page) || page} de ${itemsTotalPages}`;
+        const total = (data && data.total_count) || 0;
+        resumenArticulos(`${total} artículo${total === 1 ? '' : 's'}.`);
 
         if (!items || items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1.5rem; color:#6c757d;">No se encontraron artículos registrados.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="busqueda-vacia">No hay artículos que coincidan con la búsqueda.</td></tr>';
             return;
         }
 
@@ -535,6 +573,11 @@ document.addEventListener('DOMContentLoaded', () => {
 // Exponer funciones globales
 window.handleSearchItems = handleSearchItems;
 window.loadItems = handleSearchItems;
+window.buscarArticulos = buscarArticulos;
+window.limpiarBusquedaArticulos = limpiarBusquedaArticulos;
+window.prevItemPage = prevItemPage;
+window.nextItemPage = nextItemPage;
+window.sortItems = sortItems;
 window.openBatchPrintModal = openBatchPrintModal;
 window.openEditItemModal = openEditItemModal;
 window.sendBatchPrintJobs = sendBatchPrintJobs;

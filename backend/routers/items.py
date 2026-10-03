@@ -45,24 +45,51 @@ class ItemLocationInput(BaseModel):
     location_code: str
 
 @router.get("/api/admin/items")
-async def list_items(sku: str = "", description: str = "", page: int = 1, limit: int = 50, sort_by: str = "sku", sort_order: str = "ASC", admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+async def list_items(sku: str = "", description: str = "", category: str = "", location: str = "", combo: str = "", stock: str = "",
+                     page: int = 1, limit: int = 50, sort_by: str = "sku", sort_order: str = "ASC", admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Filtros opcionales: sku, description, category y location (codigo de ubicacion asignada) por texto;
+    combo SI | NO; stock CON (> 0) | SIN (= 0) | NEGATIVO (< 0). page desde 1, limit de 1 a 200."""
+    page = max(1, int(page))
+    limit = max(1, min(int(limit), 200))
     offset = (page - 1) * limit
     allowed_cols = {"sku": "i.sku", "description": "i.description", "category": "i.category", "total_stock": "total_stock"}
     col = allowed_cols.get(sort_by, "i.sku")
     order = "DESC" if sort_order.upper() == "DESC" else "ASC"
-    
-    total_count = await conn.fetchval("SELECT COUNT(*) FROM items WHERE sku ILIKE $1 AND description ILIKE $2", f"%{sku}%", f"%{description}%")
-    
+
+    stock_sql = "COALESCE((SELECT SUM(si.quantity) FROM stock_inventory si WHERE si.sku = i.sku), 0)"
+    filtros, args = ["i.sku ILIKE $1", "i.description ILIKE $2"], [f"%{sku}%", f"%{description}%"]
+    if category.strip():
+        args.append(f"%{category.strip()}%")
+        filtros.append(f"COALESCE(i.category, '') ILIKE ${len(args)}")
+    if location.strip():
+        args.append(f"%{location.strip()}%")
+        filtros.append(f"""EXISTS (SELECT 1 FROM item_locations il2 JOIN locations l2 ON il2.location_id = l2.id
+                           WHERE il2.item_sku = i.sku AND l2.location_code ILIKE ${len(args)})""")
+    tipo = combo.strip().upper()
+    if tipo:
+        if tipo not in ("SI", "NO"):
+            raise HTTPException(status_code=400, detail="combo inválido: SI o NO.")
+        filtros.append("COALESCE(i.is_combo, FALSE)" if tipo == "SI" else "NOT COALESCE(i.is_combo, FALSE)")
+    con_stock = stock.strip().upper()
+    if con_stock:
+        condicion = {"CON": "> 0", "SIN": "= 0", "NEGATIVO": "< 0"}.get(con_stock)
+        if not condicion:
+            raise HTTPException(status_code=400, detail="stock inválido: CON, SIN o NEGATIVO.")
+        filtros.append(f"{stock_sql} {condicion}")
+    where = " AND ".join(filtros)
+
+    total_count = await conn.fetchval(f"SELECT COUNT(*) FROM items i WHERE {where}", *args)
+
     q = f"""
         SELECT i.sku, i.description, i.category, i.length, i.width, i.height, i.weight, i.volume, COALESCE(i.is_combo, FALSE) as is_combo,
                COALESCE((SELECT string_agg(l.location_code, ', ') FROM item_locations il JOIN locations l ON il.location_id = l.id WHERE il.item_sku = i.sku), 'Sin asignación') as locations_summary,
-               COALESCE((SELECT SUM(si.quantity) FROM stock_inventory si WHERE si.sku = i.sku), 0)::float as total_stock
-        FROM items i 
-        WHERE i.sku ILIKE $1 AND i.description ILIKE $2 
-        ORDER BY {col} {order} 
-        LIMIT $3 OFFSET $4
+               {stock_sql}::float as total_stock
+        FROM items i
+        WHERE {where}
+        ORDER BY {col} {order}
+        LIMIT ${len(args) + 1} OFFSET ${len(args) + 2}
     """
-    rows = await conn.fetch(q, f"%{sku}%", f"%{description}%", limit, offset)
+    rows = await conn.fetch(q, *args, limit, offset)
     total_pages = (total_count + limit - 1) // limit if total_count > 0 else 1
     return {
         "items": [dict(r) for r in rows],

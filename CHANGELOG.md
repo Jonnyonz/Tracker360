@@ -13,6 +13,9 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   instructivo en el menú lateral y enlaces a instructivo, privacidad, términos y soporte en la pantalla de ingreso.
 
 ### Arreglado
+- Artículos: los botones Anterior/Siguiente y el orden por columna no hacían nada (las funciones no
+  existían). Ahora paginan y ordenan por SKU, descripción o stock. `GET /api/admin/items` con `page=0` daba
+  error 500 y `limit` no tenía tope: ahora page empieza en 1 y limit va de 1 a 200.
 - Seguridad, colectora: "Cerrar sesión" no cerraba la sesión (borraba una cookie vieja de antes de las
   sesiones del servidor y recargaba la misma pantalla con la sesión abierta). Ahora la cierra en el servidor y
   vuelve a la pantalla de ingreso, igual que el panel.
@@ -25,6 +28,10 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   instructivo. Funciona tocando en pantallas táctiles y se cierra con Esc.
 
 ### Cambiado
+- Artículos: la pantalla ya no lista todo al entrar. Se busca por SKU, descripción, categoría, ubicación
+  asignada, tipo (simple o combo) y stock (con stock, sin stock o negativo); con los campos vacíos, Buscar
+  muestra el catálogo por páginas de 25. API: `GET /api/admin/items` acepta `category`, `location`, `combo`
+  (SI/NO) y `stock` (CON/SIN/NEGATIVO), todos opcionales.
 - Depósitos: la pantalla lista solo las sucursales, con cuántos sectores y ubicaciones tiene cada una. Cada
   sucursal tiene "Configuración" (editar sus datos; solo administrador) y "Sectores", que muestra sus sectores
   y, en cada uno, sus ubicaciones con un buscador. Desde ahí se crean sectores y ubicaciones con la sucursal o

@@ -401,27 +401,38 @@
                 </div>
             </div>
             
-            <div style="display:flex; gap:10px; margin-bottom:1.5rem; flex-wrap:wrap; align-items:center;">
-                <input type="text" id="search-sku" placeholder="SKU..." style="width:140px; flex:1;" data-on-keydown="siEnter(event, handleSearchItems)">
-                <input type="text" id="search-desc" placeholder="Descripción..." style="width:200px; flex:2;" data-on-keydown="siEnter(event, handleSearchItems)">
-                <button id="btn-search-items" data-on-click="handleSearchItems()" class="btn-submit">Buscar</button>
+            <div class="card" style="margin-bottom:1.5rem;" data-help="Buscar artículos|No se lista nada hasta buscar.|Completá uno o más campos; con todos vacíos, Buscar muestra todo el catálogo por páginas.">
+                <form id="form-buscar-articulos" class="busqueda-filtros" data-on-submit="buscarArticulos(event)">
+                    <div class="form-group"><label for="search-sku">SKU</label><input type="text" id="search-sku" autocomplete="off"></div>
+                    <div class="form-group"><label for="search-desc">Descripción</label><input type="text" id="search-desc" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-art-categoria">Categoría</label><input type="text" id="f-art-categoria" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-art-ubicacion">Ubicación asignada</label><input type="text" id="f-art-ubicacion" placeholder="Código" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-art-combo">Tipo</label><select id="f-art-combo"><option value="">Todos</option><option value="NO">Simple</option><option value="SI">Combo</option></select></div>
+                    <div class="form-group"><label for="f-art-stock">Stock</label><select id="f-art-stock"><option value="">Todos</option><option value="CON">Con stock</option><option value="SIN">Sin stock</option><option value="NEGATIVO">Negativo</option></select></div>
+                    <div class="busqueda-acciones">
+                        <button type="submit" id="btn-search-items" class="btn-submit">Buscar</button>
+                        <button type="button" class="btn-secondary" data-on-click="limpiarBusquedaArticulos()">Limpiar</button>
+                    </div>
+                </form>
+                <p id="articulos-resumen" class="busqueda-resumen" hidden></p>
             </div>
 
             <div class="card" data-help="Catálogo de Productos|Listado maestro de productos con soporte para Artículos Combo (Kit/BOM).|Permite definir dimensiones, pesos y ubicaciones fijas de extracción.">
                 <table>
                     <thead>
                         <tr>
-                            <th data-on-click="sortItems('sku')" style="cursor:pointer;">SKU <span id="sort-sku">↑</span></th>
-                            <th data-on-click="sortItems('description')" style="cursor:pointer;">Descripción</th>
+                            <th data-on-click="sortItems('sku')" style="cursor:pointer;">SKU <span id="sort-sku" class="orden-marca">↑</span></th>
+                            <th data-on-click="sortItems('description')" style="cursor:pointer;">Descripción <span id="sort-description" class="orden-marca"></span></th>
                             <th>Ubicaciones Asignadas</th>
+                            <th data-on-click="sortItems('total_stock')" style="cursor:pointer;">Stock Total <span id="sort-total_stock" class="orden-marca"></span></th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
-                    <tbody id="table-items-body"></tbody>
+                    <tbody id="table-items-body"><tr><td colspan="5" class="busqueda-vacia">Buscá por SKU, descripción, categoría, ubicación, tipo o stock.</td></tr></tbody>
                 </table>
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem;">
                     <button class="btn-secondary" data-on-click="prevItemPage()">« Anterior</button>
-                    <span id="items-page-info" style="font-size:0.85rem; font-weight:600;">Página 1 de 1</span>
+                    <span id="items-page-info" style="font-size:0.85rem; font-weight:600;"></span>
                     <button class="btn-secondary" data-on-click="nextItemPage()">Siguiente »</button>
                 </div>
             </div>
@@ -2469,10 +2480,10 @@
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261001_1"></script>
     <script src="js/admin-core.js?v=20261003_2"></script>
-    <script src="js/ayuda.js?v=20261003_5"></script>
+    <script src="js/ayuda.js?v=20261003_6"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261003_1"></script>
-    <script src="js/items.js?v=20261001_3"></script>
+    <script src="js/items.js?v=20261003_1"></script>
     <script src="js/warehouse.js?v=20261003_2"></script>
     <script src="js/operations.js?v=20261002_1"></script>
     <script src="js/reports.js?v=20261001_3"></script>
