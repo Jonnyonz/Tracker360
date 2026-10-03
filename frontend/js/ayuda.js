@@ -22,7 +22,7 @@ const AYUDA_SECCIONES = {
     'section-entities': {
         titulo: 'Clientes y proveedores',
         resumen: 'Empresas con las que se trabaja: los proveedores se usan en compras y remitos; los clientes, en los pedidos manuales.',
-        pasos: ['Cargá los proveedores antes de emitir órdenes de compra.', 'Los pedidos de Mercado Libre no necesitan un cliente cargado.'],
+        pasos: ['No se lista nada hasta buscar: completá CUIT/CUIL, razón social, rol o dirección y tocá Buscar.', 'Cargá los proveedores antes de emitir órdenes de compra.', 'Los pedidos de Mercado Libre no necesitan un cliente cargado.'],
         ancla: 'clientes',
     },
     'section-warehouse': {

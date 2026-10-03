@@ -705,3 +705,10 @@ body.help-mode-active [data-help] { outline: 2px dashed var(--accent); outline-o
 .evento-linea-datos small { color: var(--text-muted); overflow-wrap: anywhere; }
 .evento-linea-fecha { flex: 0 0 auto; color: var(--text-muted); white-space: nowrap; }
 @media (max-width: 640px) { .evento-linea { flex-wrap: wrap; } .evento-linea-fecha { width: 100%; } }
+
+/* Busquedas por campo (Clientes y otras secciones): no se lista nada hasta buscar */
+.busqueda-filtros { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem 1rem; align-items: end; }
+.busqueda-filtros .form-group { margin-bottom: 0; }
+.busqueda-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+.busqueda-resumen { margin: 0.8rem 0 0; font-size: 0.85rem; color: var(--text-muted); }
+td.busqueda-vacia { text-align: center; padding: 2rem 1rem; color: var(--text-muted); }

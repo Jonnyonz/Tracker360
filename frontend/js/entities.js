@@ -1,15 +1,50 @@
 // === MÓDULO DE CLIENTES, PROVEEDORES Y DIRECCIONES (SOBERANO) ===
 
+// No se lista nada hasta buscar. La ultima busqueda se repite al crear o editar (loadEntities).
+const ENTIDADES_POR_BUSQUEDA = 200;
+let busquedaEntidades = null;
+
+function buscarEntidades(event) {
+    if (event) event.preventDefault();
+    const valor = id => (document.getElementById(id)?.value || '').trim();
+    busquedaEntidades = { tax_id: valor('f-ent-cuit'), name: valor('f-ent-nombre'), role: valor('f-ent-rol'), address: valor('f-ent-direccion') };
+    loadEntities();
+}
+
+function limpiarBusquedaEntidades() {
+    document.getElementById('form-buscar-entidades')?.reset();
+    busquedaEntidades = null;
+    loadEntities();
+}
+
+function resumenEntidades(texto) {
+    const p = document.getElementById('entidades-resumen');
+    if (!p) return;
+    p.textContent = texto;
+    p.hidden = !texto;
+}
+
 async function loadEntities() {
-    const ents = await fetchAPI('/api/admin/entities'); 
-    if(!ents) return; 
+    const body = document.getElementById('table-entities-body');
+    if(!body) return;
+    if (!busquedaEntidades) {
+        body.innerHTML = '<tr><td colspan="6" class="busqueda-vacia">Buscá por CUIT/CUIL, razón social, rol o dirección.</td></tr>';
+        resumenEntidades('');
+        return;
+    }
+    const params = new URLSearchParams({ limit: ENTIDADES_POR_BUSQUEDA });
+    Object.entries(busquedaEntidades).forEach(([k, v]) => { if (v) params.set(k, v); });
+    body.innerHTML = '<tr><td colspan="6" class="busqueda-vacia">Buscando...</td></tr>';
+    const ents = await fetchAPI('/api/admin/entities?' + params.toString());
+    if(!ents) return;
     cachedEntities = ents;
-    const body = document.getElementById('table-entities-body'); 
-    if(!body) return; 
     body.innerHTML = '';
-    
+    resumenEntidades(ents.length >= ENTIDADES_POR_BUSQUEDA
+        ? `Se muestran los primeros ${ENTIDADES_POR_BUSQUEDA}: afiná la búsqueda para ver el resto.`
+        : `${ents.length} resultado${ents.length === 1 ? '' : 's'}.`);
+
     if(ents.length === 0) {
-        body.innerHTML = '<tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:1.5rem;">No hay clientes ni proveedores registrados.</td></tr>';
+        body.innerHTML = '<tr><td colspan="6" class="busqueda-vacia">No hay clientes ni proveedores que coincidan con la búsqueda.</td></tr>';
         return;
     }
 

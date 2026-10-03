@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
-import asyncpg, uuid
+import asyncpg, re, uuid
 
 from backend.database import get_db_connection, require_admin, require_supervisor, build_full_address, parse_uuid
 
@@ -41,8 +41,35 @@ class EntityAddressInput(BaseModel):
     is_default: Optional[bool] = False
 
 @router.get("/api/admin/entities")
-async def list_entities(admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
-    rows = await conn.fetch("""
+async def list_entities(tax_id: str = "", name: str = "", role: str = "", address: str = "", limit: Optional[int] = None,
+                        admin: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Sin filtros devuelve todas (los selectores del panel). Con filtros (busqueda de Clientes): tax_id ignora
+    guiones y espacios, role CLIENTE o PROVEEDOR, address busca en etiqueta, direccion, calle, localidad y CP.
+    Con filtros o limit, devuelve como mucho limit (por defecto 200, maximo 500)."""
+    filtros, args = [], []
+    cuit = re.sub(r"[^0-9A-Za-z]", "", tax_id or "")
+    if cuit:
+        args.append(f"%{cuit}%")
+        filtros.append(f"regexp_replace(e.tax_id, '[^0-9A-Za-z]', '', 'g') ILIKE ${len(args)}")
+    if name.strip():
+        args.append(f"%{name.strip()}%")
+        filtros.append(f"e.company_name ILIKE ${len(args)}")
+    rol = role.strip().upper()
+    if rol:
+        if rol not in ("CLIENTE", "PROVEEDOR"):
+            raise HTTPException(status_code=400, detail="Rol inválido: CLIENTE o PROVEEDOR.")
+        filtros.append("e.is_customer" if rol == "CLIENTE" else "e.is_supplier")
+    if address.strip():
+        args.append(f"%{address.strip()}%")
+        n = len(args)
+        filtros.append(f"""EXISTS (SELECT 1 FROM entity_addresses x WHERE x.entity_id = e.id AND (x.address_label ILIKE ${n}
+                           OR x.full_address ILIKE ${n} OR x.street ILIKE ${n} OR x.city_neighborhood ILIKE ${n} OR x.zip_code ILIKE ${n}))""")
+    tope = ""
+    if filtros or limit is not None:
+        args.append(max(1, min(int(limit or 200), 500)))
+        tope = f"LIMIT ${len(args)}"
+    where = ("WHERE " + " AND ".join(filtros)) if filtros else ""
+    rows = await conn.fetch(f"""
         SELECT e.id, e.tax_id, e.company_name, e.is_customer, e.is_supplier, e.is_active,
                COALESCE(json_agg(json_build_object(
                    'id', a.id,
@@ -58,9 +85,11 @@ async def list_entities(admin: dict = Depends(require_supervisor), conn: asyncpg
                )) FILTER (WHERE a.id IS NOT NULL), '[]'::json) as addresses
         FROM entities e
         LEFT JOIN entity_addresses a ON e.id = a.entity_id
+        {where}
         GROUP BY e.id
         ORDER BY e.company_name ASC
-    """)
+        {tope}
+    """, *args)
     return [dict(r) for r in rows]
 
 @router.post("/api/admin/entities")

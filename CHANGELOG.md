@@ -25,6 +25,11 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   instructivo. Funciona tocando en pantallas táctiles y se cierra con Esc.
 
 ### Cambiado
+- Clientes y Proveedores: la pantalla ya no lista todo al entrar. Se busca por CUIT/CUIL (con o sin guiones,
+  también una parte), razón social, rol y dirección (calle, localidad, código postal o etiqueta); con los campos
+  vacíos, Buscar muestra los primeros 200. Al crear o editar se repite la última búsqueda. API:
+  `GET /api/admin/entities` acepta los filtros opcionales `tax_id`, `name`, `role`, `address` y `limit`; sin
+  filtros responde igual que antes (lo usan los selectores de otras pantallas).
 - Configuración: tarjeta nueva "Eventos del sistema" con los últimos 6 registros de la auditoría, marcados
   APROBADO o ERROR (ingresos fallidos, accesos no autorizados, claves de canal inválidas, alertas), y acceso a
   la auditoría completa. En Auditoría General esas acciones se ven en rojo. API: `GET /api/admin/logs` acepta

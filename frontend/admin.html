@@ -7,7 +7,7 @@
     <title id="html-title">Tracker360 - JZTech Suite</title>
     
     <!-- CSS Separado y Limpio -->
-    <link rel="stylesheet" href="css/admin.css?v=20261003_6">
+    <link rel="stylesheet" href="css/admin.css?v=20261003_7">
 </head>
 <body>
     <div class="top-accent-bar"></div>
@@ -323,8 +323,21 @@
                     Crear Entidad
                 </button>
             </div>
+            <div class="card" style="margin-bottom:1.5rem;" data-help="Buscar clientes y proveedores|No se lista nada hasta buscar.|Completá uno o más campos; con todos vacíos, Buscar muestra los primeros 200.">
+                <form id="form-buscar-entidades" class="busqueda-filtros" data-on-submit="buscarEntidades(event)">
+                    <div class="form-group"><label for="f-ent-cuit">CUIT / CUIL</label><input type="text" id="f-ent-cuit" placeholder="Con o sin guiones" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-ent-nombre">Razón social</label><input type="text" id="f-ent-nombre" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-ent-rol">Rol</label><select id="f-ent-rol"><option value="">Todos</option><option value="CLIENTE">Cliente</option><option value="PROVEEDOR">Proveedor</option></select></div>
+                    <div class="form-group"><label for="f-ent-direccion">Dirección</label><input type="text" id="f-ent-direccion" placeholder="Calle, localidad, CP o etiqueta" autocomplete="off"></div>
+                    <div class="busqueda-acciones">
+                        <button type="submit" class="btn-submit">Buscar</button>
+                        <button type="button" class="btn-secondary" data-on-click="limpiarBusquedaEntidades()">Limpiar</button>
+                    </div>
+                </form>
+                <p id="entidades-resumen" class="busqueda-resumen" hidden></p>
+            </div>
             <div class="card" data-help="Clientes y Proveedores|Registro de CUIT/RUT y direcciones fiscales/entrega de la empresa.|Permite asociar múltiples direcciones de entrega por cliente para remitos y etiquetas ZPL.">
-                <table><thead><tr><th>CUIT / RUT</th><th>Razón Social</th><th>Rol</th><th>Direcciones Asignadas</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="table-entities-body"></tbody></table>
+                <table><thead><tr><th>CUIT / RUT</th><th>Razón Social</th><th>Rol</th><th>Direcciones Asignadas</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="table-entities-body"><tr><td colspan="6" class="busqueda-vacia">Buscá por CUIT/CUIL, razón social, rol o dirección.</td></tr></tbody></table>
             </div>
         </div>
 
@@ -2455,9 +2468,9 @@
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261001_1"></script>
     <script src="js/admin-core.js?v=20261003_2"></script>
-    <script src="js/ayuda.js?v=20261003_3"></script>
+    <script src="js/ayuda.js?v=20261003_4"></script>
     <script src="js/users.js?v=20261001_3"></script>
-    <script src="js/entities.js?v=20261001_1"></script>
+    <script src="js/entities.js?v=20261003_1"></script>
     <script src="js/items.js?v=20261001_3"></script>
     <script src="js/warehouse.js?v=20261001_3"></script>
     <script src="js/operations.js?v=20261002_1"></script>
