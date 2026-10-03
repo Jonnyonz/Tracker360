@@ -25,14 +25,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (enlaces.length === 0 || !('IntersectionObserver' in window)) return;
     const porId = new Map(enlaces.map(a => [a.getAttribute('href').slice(1), a]));
     const visibles = new Set();
+    const secciones = Array.from(document.querySelectorAll('.doc-texto > section[id]'));
     const marcar = () => {
-        const primera = Array.from(document.querySelectorAll('.doc-texto > section[id]')).find(s => visibles.has(s.id));
+        // Al final de la pagina las ultimas secciones (cortas) no llegan arriba: se marca la ultima.
+        const alFinal = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+        const actual = alFinal ? secciones[secciones.length - 1] : secciones.find(s => visibles.has(s.id));
         enlaces.forEach(a => a.classList.remove('actual'));
-        if (primera && porId.has(primera.id)) porId.get(primera.id).classList.add('actual');
+        if (actual && porId.has(actual.id)) porId.get(actual.id).classList.add('actual');
     };
+    window.addEventListener('scroll', marcar, { passive: true });
     const observador = new IntersectionObserver(entradas => {
         entradas.forEach(e => { if (e.isIntersecting) visibles.add(e.target.id); else visibles.delete(e.target.id); });
         marcar();
     }, { rootMargin: '-80px 0px -55% 0px' });
-    document.querySelectorAll('.doc-texto > section[id]').forEach(s => observador.observe(s));
+    secciones.forEach(s => observador.observe(s));
 });
