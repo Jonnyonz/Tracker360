@@ -70,7 +70,7 @@ const AYUDA_SECCIONES = {
     'section-canal-publicaciones': {
         titulo: 'Mercado Libre',
         resumen: 'Publicaciones que informa el middleware, con el stock que tienen en Mercado Libre y el disponible que manda Tracker.',
-        pasos: ['Elegí el canal arriba.', 'Tocá un resumen (por ejemplo "Sin SKU") para filtrar.', 'Corregí lo que no se sincroniza: SKU en ML o alta del artículo en Tracker.'],
+        pasos: ['Elegí el canal arriba.', 'Buscá por dato: publicación (MLA), SKU, título, cuenta, estado o situación.', 'Tocá un resumen (por ejemplo "Sin SKU") para filtrar.', 'Corregí lo que no se sincroniza: SKU en ML o alta del artículo en Tracker.'],
         ancla: 'mercado-libre',
     },
     'section-settings': {

@@ -447,10 +447,12 @@ async def publicaciones_del_canal(data: PublicacionesCanal, canal: dict = Depend
 
 
 @router.get("/api/admin/sales-channels/{channel_id}/listings")
-async def ver_publicaciones_del_canal(channel_id: str, problem: Optional[str] = None, q: str = "", limit: int = 200, offset: int = 0,
+async def ver_publicaciones_del_canal(channel_id: str, problem: Optional[str] = None, q: str = "", sku: str = "", listing: str = "",
+                                      title: str = "", account: str = "", status: str = "", limit: int = 200, offset: int = 0,
                                       admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     """Publicaciones que informo el canal, con el disponible que Tracker le informa por SKU. problem: OK
-    (las que se sincronizan), SIN_SKU, SKU_NO_EN_TRACKER, FULL o ERROR. q busca en SKU, titulo y publicacion."""
+    (las que se sincronizan), SIN_SKU, SKU_NO_EN_TRACKER, FULL o ERROR. q busca en SKU, titulo y publicacion;
+    sku, listing (MLA), title, account y status filtran cada dato por separado (coincidencia parcial)."""
     cid = parse_uuid(channel_id, "Canal inválido.")
     canal = await conn.fetchrow("SELECT id, code, name, stock_mode, stock_branch_ids, listings_synced_at FROM sales_channels WHERE id = $1", cid)
     if not canal:
@@ -467,6 +469,10 @@ async def ver_publicaciones_del_canal(channel_id: str, problem: Optional[str] = 
     if q.strip():
         args.append(f"%{q.strip()}%")
         filtros.append(f"(sku ILIKE ${len(args)} OR title ILIKE ${len(args)} OR listing_id ILIKE ${len(args)})")
+    for columna, valor in (("sku", sku), ("listing_id", listing), ("title", title), ("account", account), ("status", status)):
+        if valor.strip():
+            args.append(f"%{valor.strip()}%")
+            filtros.append(f"COALESCE({columna}, '') ILIKE ${len(args)}")
     where = " AND ".join(filtros)
     total = await conn.fetchval(f"SELECT COUNT(*) FROM channel_listings WHERE {where}", *args)
     args += [max(1, min(int(limit), 1000)), max(0, int(offset))]

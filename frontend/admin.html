@@ -1289,18 +1289,28 @@
             </div>
             <p id="canal-pub-info" style="color:var(--text-muted); font-size:0.85rem; margin:-0.5rem 0 1rem;"></p>
             <div id="canal-pub-resumen" style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:1.2rem;"></div>
-            <div style="display:flex; gap:10px; margin-bottom:1.2rem; flex-wrap:wrap;">
-                <input type="text" id="canal-pub-buscar" placeholder="Buscar por SKU, título o publicación (Enter)" style="flex:2; min-width:200px;" data-on-keyup="buscarPublicacionesCanal(event)">
-                <select id="canal-pub-problema" style="flex:1; min-width:180px;" data-on-change="cargarPublicacionesCanal(0)">
-                    <option value="">-- Todas --</option>
-                    <option value="OK">Se sincronizan</option>
-                    <option value="SIN_SKU">Sin SKU</option>
-                    <option value="SKU_NO_EN_TRACKER">SKU que no está en Tracker</option>
-                    <option value="FULL">Full (stock de Mercado Libre)</option>
-                    <option value="ERROR">Con error</option>
-                </select>
+            <div class="card" style="margin-bottom:1.2rem;" data-help="Buscar publicaciones|Un campo por dato: publicación (MLA), SKU, título, cuenta, estado y situación.|Se pueden combinar; las coincidencias pueden ser parciales (por ejemplo una parte del título).">
+                <form id="filtros-publicaciones" class="busqueda-filtros" data-on-submit="buscarPublicacionesCanal(event)">
+                    <div class="form-group"><label for="f-pub-mla">Publicación (MLA)</label><input type="text" id="f-pub-mla" name="listing" placeholder="MLA123456" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-pub-sku">SKU</label><input type="text" id="f-pub-sku" name="sku" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-pub-titulo">Título</label><input type="text" id="f-pub-titulo" name="title" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-pub-cuenta">Cuenta</label><input type="text" id="f-pub-cuenta" name="account" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-pub-estado">Estado en ML</label><select id="f-pub-estado" name="status"><option value="">Todos</option><option value="active">Activa</option><option value="paused">Pausada (sin stock)</option><option value="under_review">En revisión</option></select></div>
+                    <div class="form-group"><label for="canal-pub-problema">Situación</label><select id="canal-pub-problema" name="problem">
+                        <option value="">Todas</option>
+                        <option value="OK">Se sincronizan</option>
+                        <option value="SIN_SKU">Sin SKU</option>
+                        <option value="SKU_NO_EN_TRACKER">SKU que no está en Tracker</option>
+                        <option value="FULL">Full (stock de Mercado Libre)</option>
+                        <option value="ERROR">Con error</option>
+                    </select></div>
+                    <div class="busqueda-acciones">
+                        <button type="submit" class="btn-submit">Buscar</button>
+                        <button type="button" class="btn-secondary" data-on-click="limpiarPublicacionesCanal()">Limpiar</button>
+                    </div>
+                </form>
             </div>
-            <div class="card" data-help="Publicaciones del canal|Lo que informa el middleware de Mercado Libre: cada publicación (o variante) con su SKU, el stock que tiene en Mercado Libre y el disponible que Tracker le manda.|Las que no coinciden con un SKU de Tracker, las Full y las que dieron error no reciben stock: se corrigen en Mercado Libre o dando de alta el SKU en Tracker.">
+<div class="card" data-help="Publicaciones del canal|Lo que informa el middleware de Mercado Libre: cada publicación (o variante) con su SKU, el stock que tiene en Mercado Libre y el disponible que Tracker le manda.|Las que no coinciden con un SKU de Tracker, las Full y las que dieron error no reciben stock: se corrigen en Mercado Libre o dando de alta el SKU en Tracker.">
                 <div style="overflow-x:auto;">
                     <table>
                         <thead>
@@ -2555,7 +2565,7 @@
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261001_1"></script>
     <script src="js/admin-core.js?v=20261003_3"></script>
-    <script src="js/ayuda.js?v=20261003_9"></script>
+    <script src="js/ayuda.js?v=20261003_10"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261003_1"></script>
     <script src="js/items.js?v=20261003_1"></script>
@@ -2564,7 +2574,7 @@
     <script src="js/compras.js?v=20261003_2"></script>
     <script src="js/reports.js?v=20261001_3"></script>
     <script src="js/settings.js?v=20261001_2"></script>
-    <script src="js/canales.js?v=20261003_2"></script>
+    <script src="js/canales.js?v=20261003_3"></script>
     <script src="js/admin-init.js?v=20261001_3"></script>
     
     <script src="js/admin-pagina.js?v=20261003_1"></script>

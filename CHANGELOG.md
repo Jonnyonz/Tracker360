@@ -28,6 +28,10 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   instructivo. Funciona tocando en pantallas táctiles y se cierra con Esc.
 
 ### Cambiado
+- Mercado Libre: la búsqueda de publicaciones tiene un campo por dato (publicación MLA, SKU, título, cuenta,
+  estado en ML y situación) en lugar de un solo buscador; se pueden combinar y alcanza con una parte. API:
+  `GET /api/admin/sales-channels/{id}/listings` acepta `sku`, `listing`, `title`, `account` y `status`
+  (opcionales); `q` y `problem` siguen igual.
 - Auditoría de Inventario: al entrar muestra solo las sesiones de conteo de hoy. Para ver otras se busca por
   fechas, sucursal, sector, estado (abierta, en revisión, cerrada), modalidad (HOT o COLD) y operador; el
   botón "Hoy" vuelve a las del día. API: `GET /api/inventory/sessions` acepta esos filtros (opcionales) y

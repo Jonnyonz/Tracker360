@@ -298,6 +298,12 @@ async function abrirPublicacionesCanal() {
 
 function buscarPublicacionesCanal(event) {
     if (event && event.key && event.key !== 'Enter') return;
+    if (event && event.type === 'submit') event.preventDefault();
+    cargarPublicacionesCanal(0);
+}
+
+function limpiarPublicacionesCanal() {
+    document.getElementById('filtros-publicaciones')?.reset();
     cargarPublicacionesCanal(0);
 }
 
@@ -336,10 +342,11 @@ async function cargarPublicacionesCanal(desde) {
     if (!id) return;
     publicacionesCanalDesde = desde || 0;
     const params = new URLSearchParams({ limit: PUBLICACIONES_POR_PAGINA, offset: publicacionesCanalDesde });
-    const problema = document.getElementById('canal-pub-problema').value;
-    const q = document.getElementById('canal-pub-buscar').value.trim();
-    if (problema) params.set('problem', problema);
-    if (q) params.set('q', q);
+    // Un filtro por dato (publicacion, SKU, titulo, cuenta, estado, situacion).
+    document.querySelectorAll('#filtros-publicaciones [name]').forEach(el => {
+        const valor = (el.value || '').trim();
+        if (valor) params.set(el.name, valor);
+    });
     try {
         const r = await fetchAPI(`/api/admin/sales-channels/${encodeURIComponent(id)}/listings?${params}`);
         publicacionesCanalTotal = r.total;
