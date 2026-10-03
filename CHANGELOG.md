@@ -4,6 +4,11 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 
 ## 2026-10-03
 
+### Arreglado (ubicaciones)
+- Crear una ubicación sin descripción (desde Depósitos, dejando el campo vacío) daba "Error interno del
+  servidor": la descripción es opcional y el panel la manda vacía. Encontrado al configurar una instalación
+  nueva en la VM de pruebas.
+
 ### Arreglado (instalador y actualización)
 - Volver a correr `install.sh` para actualizar no actualizaba: reconstruía la misma versión que ya estaba
   instalada. Ahora trae la última versión publicada (`git pull --ff-only`; con cambios locales o sin conexión

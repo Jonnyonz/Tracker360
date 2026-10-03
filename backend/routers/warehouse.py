@@ -79,7 +79,7 @@ async def list_all_locations(admin: dict = Depends(require_supervisor), conn: as
 
 @router.post("/api/admin/locations")
 async def create_location_direct(data: LocationCreate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    await conn.execute("INSERT INTO locations (sector_id, location_code, description) VALUES ($1, $2, $3)", parse_uuid(data.sector_id), data.location_code.strip().upper(), data.description.strip())
+    await conn.execute("INSERT INTO locations (sector_id, location_code, description) VALUES ($1, $2, $3)", parse_uuid(data.sector_id), data.location_code.strip().upper(), (data.description or "").strip())
     return {"status": "success"}
 
 @router.post("/api/admin/sectors/{sector_id}/locations/import")
