@@ -13,6 +13,8 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   porque `tracker360/` ya existía: ahora actualiza esa instalación.
 - `install.sh` no tenía permiso de ejecución en el repositorio: `./install.sh` (como dice el README) daba
   "Permiso denegado".
+- Con `curl ... | bash`, la copia de la base (`docker compose exec`) leía la entrada estándar y se comía el
+  resto del instalador, que terminaba sin reconstruir; ahora la copia no lee la entrada.
 - Instalaciones anteriores: la primera vez hay que actualizar con el `curl ... | bash` o con `git pull` a mano,
   porque su instalador es el viejo.
 

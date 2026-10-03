@@ -111,7 +111,8 @@ fi
 if docker compose ps --status running --services 2>/dev/null | grep -qx db; then
     mkdir -p backups
     COPIA="backups/antes_de_actualizar_$(date +%Y-%m-%d_%H%M%S).sql"
-    if docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' > "$COPIA"; then
+    # < /dev/null: con "curl ... | bash" el script llega por stdin y exec se comeria el resto del script.
+    if docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' < /dev/null > "$COPIA"; then
         echo "Copia de la base de datos: $PWD/$COPIA"
     else
         rm -f "$COPIA"
