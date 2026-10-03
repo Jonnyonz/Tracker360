@@ -13,6 +13,9 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   instructivo en el menú lateral y enlaces a instructivo, privacidad, términos y soporte en la pantalla de ingreso.
 
 ### Arreglado
+- Seguridad, colectora: "Cerrar sesión" no cerraba la sesión (borraba una cookie vieja de antes de las
+  sesiones del servidor y recargaba la misma pantalla con la sesión abierta). Ahora la cierra en el servidor y
+  vuelve a la pantalla de ingreso, igual que el panel.
 - Colectora: el botón "Modo Escritorio" para volver al panel no aparecía nunca. Ahora se ve para
   administradores y supervisores (el preparador no tiene panel, así que no lo ve).
 - En el instructivo, el índice ahora marca el Glosario (la última sección) al llegar al final de la página.

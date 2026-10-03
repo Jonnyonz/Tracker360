@@ -54,9 +54,9 @@ function handleScannerEnter(event, nextFieldId, formId) {
     }
 }
 
+// La sesion vive en el servidor (cookie HttpOnly): hay que cerrarla ahi, como en el panel.
 function logout() {
-    document.cookie = "access_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    window.location.href = "/";
+    logoutUser();
 }
 
 function playNativeBeep(freq = 880, type = 'sine', duration = 0.15) {
