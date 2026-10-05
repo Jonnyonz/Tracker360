@@ -4,6 +4,17 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 
 ## Sin versión todavía (2026-10-05)
 
+### Cambiado (páginas legales)
+- Política de privacidad revisada según la Ley 25.326 de Protección de los Datos Personales: quién es el
+  responsable de los datos (la organización) y el papel de JZ Tech Solutions como prestador de servicios de
+  tratamiento (art. 25), base del tratamiento, datos sensibles, transferencias internacionales (Google,
+  webhooks), plazos para ejercer los derechos (acceso en 10 días corridos, rectificación o supresión en 5 días
+  hábiles), la leyenda obligatoria de la Agencia de Acceso a la Información Pública y lo que le corresponde a la
+  organización (informar e inscribir sus bases de datos).
+- Términos y condiciones: ley aplicable y jurisdicción argentinas, propiedad intelectual (Ley 11.723), aclaración
+  de que los documentos de Tracker360 no reemplazan a los comprobantes fiscales de ARCA, y la limitación de
+  responsabilidad ajustada al Código Civil y Comercial (art. 1743) y a la Ley 24.240 de Defensa del Consumidor.
+
 ### Corregido
 - Alta manual de pedidos: con un CUIT que no corresponde a un cliente activo da el error "Cliente no encontrado"
   (antes creaba el pedido sin cliente y sin avisar). Un CUIT de solo proveedor o de un cliente dado de baja

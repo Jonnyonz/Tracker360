@@ -28,18 +28,23 @@
             <section>
                 <h1>Política de Privacidad</h1>
                 <p class="doc-sub">Última actualización: octubre de 2026.</p>
-                <p>Tracker360 es un sistema de gestión de depósito que cada organización instala en su propio servidor o en un servidor dedicado. <strong>La organización que lo usa es la responsable de los datos que se cargan en él.</strong> JZ Tech Solutions provee el software, su instalación y el soporte técnico.</p>
+                <p>Tracker360 es un sistema de gestión de depósito que cada organización instala en su propio servidor o en un servidor dedicado. Esta política explica qué datos personales se tratan en el sistema, para qué y qué derechos tienen las personas, conforme a la <strong>Ley 25.326 de Protección de los Datos Personales</strong>, su Decreto reglamentario 1558/2001 y las normas de la Agencia de Acceso a la Información Pública (AAIP).</p>
+                <ul>
+                    <li><strong>Responsable de los datos:</strong> la organización que usa Tracker360. Es la que decide qué datos se cargan, para qué y por cuánto tiempo, y ante quien se ejercen los derechos.</li>
+                    <li><strong>JZ Tech Solutions</strong> provee el software, su instalación y el soporte técnico. Cuando accede a los datos para dar soporte o administra el servidor por cuenta de la organización, actúa como <strong>prestador de servicios de tratamiento</strong> (art. 25 de la Ley 25.326): los usa solo para esa tarea, los mantiene en reserva, no los cede a terceros y, al terminar el servicio, no conserva copias.</li>
+                </ul>
             </section>
 
             <section>
-                <h2>1. Qué datos se procesan</h2>
+                <h2>1. Qué datos se tratan</h2>
                 <ul>
                     <li><strong>Usuarios del sistema:</strong> nombre, nombre de usuario, correo electrónico, rol y sucursal o sector asignados. La contraseña nunca se guarda: se guarda solo su resumen protegido con Argon2.</li>
                     <li><strong>Ingreso con Google</strong> (si la organización lo activa): el correo y el nombre que informa Google al iniciar sesión.</li>
                     <li><strong>Registro de auditoría:</strong> qué acción se hizo, quién, cuándo y desde qué dirección IP (ingresos, altas, movimientos de stock, despachos, cambios de configuración).</li>
-                    <li><strong>Datos de la operación:</strong> artículos, stock, movimientos, pedidos, órdenes de compra, remitos, traspasos y los clientes y proveedores que carga la organización.</li>
+                    <li><strong>Datos de la operación:</strong> artículos, stock, movimientos, pedidos, órdenes de compra, remitos, traspasos, devoluciones y los clientes y proveedores que carga la organización (razón social o nombre, CUIT y direcciones).</li>
                     <li><strong>Canales de venta</strong> (por ejemplo Mercado Libre, si se conecta): de cada venta, el nombre del comprador, la dirección de envío, la cuenta del canal y los números de venta y de envío; la etiqueta de envío; y de las publicaciones, su título, SKU, estado y stock.</li>
                 </ul>
+                <p>Tracker360 <strong>no pide ni está pensado para guardar datos sensibles</strong> (origen racial o étnico, opiniones políticas, convicciones religiosas, afiliación sindical, salud o vida sexual, art. 2 de la Ley 25.326). La organización no debe cargarlos en campos de texto libre como observaciones.</p>
             </section>
 
             <section>
@@ -51,59 +56,83 @@
                     <li>Mantener el stock de los canales de venta igual al de Tracker.</li>
                     <li>Proteger el sistema contra accesos no autorizados y dejar registro de lo que se hizo.</li>
                 </ul>
-                <p>No se usan para publicidad ni para crear perfiles de las personas.</p>
+                <p>Los datos no se usan para fines distintos de estos (art. 4 de la Ley 25.326): <strong>ni para publicidad ni para crear perfiles de las personas</strong>.</p>
             </section>
 
             <section>
-                <h2>3. Dónde se guardan y con quién se comparten</h2>
-                <p>Los datos quedan en el servidor de la organización. <strong>No se venden, no se alquilan y no se comparten con terceros con fines comerciales o publicitarios.</strong> Solo salen del servidor en estos casos, que decide la organización:</p>
+                <h2>3. Base del tratamiento</h2>
+                <p>Los datos de los usuarios se tratan porque son necesarios para la relación laboral o contractual que tienen con la organización; los de clientes, proveedores y compradores, porque son necesarios para cumplir la venta, la compra o el envío. En esos casos la ley no exige un consentimiento aparte (art. 5, inc. 2, de la Ley 25.326). El ingreso con Google es optativo: quien no quiera usarlo puede ingresar con usuario y contraseña.</p>
+            </section>
+
+            <section>
+                <h2>4. Dónde se guardan y con quién se comparten</h2>
+                <p>Los datos quedan en el servidor de la organización. <strong>No se venden, no se alquilan y no se ceden a terceros con fines comerciales o publicitarios.</strong> Solo salen del servidor en estos casos, que decide la organización:</p>
                 <ul>
                     <li><strong>Mercado Libre</strong> u otro canal de venta conectado: se le envía el stock de los artículos y se le consultan las ventas, los envíos y las publicaciones de las cuentas autorizadas.</li>
-                    <li><strong>Google</strong>, si se usa el ingreso con Google, para verificar la identidad.</li>
-                    <li><strong>Webhooks</strong> que configure un administrador, que envían datos de stock a los destinos que la organización define.</li>
-                    <li><strong>Consulta de actualizaciones:</strong> el servidor consulta las versiones públicas en GitHub, sin enviar datos de la organización.</li>
-                    <li><strong>Soporte técnico:</strong> JZ Tech Solutions puede acceder a los datos solo cuando la organización lo pide para resolver un problema.</li>
+                    <li><strong>Google</strong>, si se usa el ingreso con Google, para verificar la identidad. Google puede tratar esos datos fuera de la Argentina, según sus propias políticas.</li>
+                    <li><strong>Webhooks</strong> que configure un administrador, que envían datos de stock a los destinos que la organización define. Si un destino está fuera del país, la organización debe verificar que cumpla las reglas de transferencia internacional (art. 12 de la Ley 25.326).</li>
+                    <li><strong>Consulta de actualizaciones:</strong> el servidor consulta las versiones públicas en GitHub, <strong>sin enviar datos</strong> de la organización.</li>
+                    <li><strong>Soporte técnico:</strong> JZ Tech Solutions puede acceder a los datos solo cuando la organización lo pide para resolver un problema, en las condiciones del art. 25 indicadas arriba.</li>
+                    <li><strong>Autoridades:</strong> cuando lo ordene un juez o lo exija una ley.</li>
                 </ul>
             </section>
 
             <section>
-                <h2>4. Cookies y almacenamiento en el navegador</h2>
+                <h2>5. Cookies y almacenamiento en el navegador</h2>
                 <ul>
                     <li><strong>Cookie de sesión:</strong> identifica la sesión iniciada. Es <code>HttpOnly</code>, <code>Secure</code> y <code>SameSite=Strict</code>, y vence según la configuración de la organización.</li>
                     <li><strong>Cookie de protección CSRF:</strong> impide que otro sitio haga acciones en nombre del usuario.</li>
                     <li><strong>Preferencia de tema</strong> (claro u oscuro), guardada en el navegador.</li>
                 </ul>
-                <p>No se usan cookies publicitarias ni de seguimiento.</p>
+                <p>Son cookies técnicas, necesarias para que el sistema funcione. <strong>No se usan cookies publicitarias, de análisis ni de seguimiento.</strong></p>
             </section>
 
             <section>
-                <h2>5. Seguridad</h2>
+                <h2>6. Seguridad y confidencialidad</h2>
+                <p>Tracker360 incluye estas medidas técnicas para proteger los datos (arts. 9 y 10 de la Ley 25.326):</p>
                 <ul>
                     <li>Contraseñas protegidas con Argon2.</li>
                     <li>Sesiones guardadas en el servidor, que se pueden cerrar o revocar, y protección contra CSRF.</li>
                     <li>Conexión cifrada (HTTPS) y límite de intentos de ingreso.</li>
                     <li>Las claves de los canales de venta y del agente de impresión se guardan solo como resumen, nunca en texto.</li>
-                    <li>Registro de auditoría de las acciones importantes.</li>
+                    <li>Acceso según el rol de cada usuario y registro de auditoría de las acciones importantes.</li>
+                    <li>Copia de la base de datos antes de cada actualización.</li>
                 </ul>
+                <p>La seguridad del servidor (accesos, copias de respaldo, actualizaciones del sistema operativo y de Tracker360) está a cargo de la organización o de quien ella designe. Como guía se recomiendan las medidas de la Resolución AAIP 47/2018. Quienes acceden a los datos deben guardar secreto sobre ellos, aun después de terminada su relación con la organización (art. 10).</p>
             </section>
 
             <section>
-                <h2>6. Cuánto tiempo se conservan</h2>
+                <h2>7. Cuánto tiempo se conservan</h2>
                 <ul>
-                    <li>Los datos de la operación y la auditoría se conservan mientras la organización los mantenga en su servidor.</li>
+                    <li>Los datos se conservan solo mientras sean necesarios para la finalidad por la que se cargaron (art. 4, inc. 7, de la Ley 25.326) o mientras lo exija otra norma, por ejemplo la fiscal o la comercial. La organización define esos plazos y puede dar de baja usuarios, clientes y proveedores.</li>
                     <li>El registro de webhooks enviados se borra a los 30 días y los eventos para los canales de venta a los 14 días.</li>
                     <li>Las sesiones vencen según el tiempo configurado y al cerrar sesión.</li>
                 </ul>
             </section>
 
             <section>
-                <h2>7. Derechos de las personas</h2>
-                <p>Las personas cuyos datos están en el sistema pueden pedir acceder a ellos, corregirlos o eliminarlos, según la ley de protección de datos personales que corresponda (en la Argentina, la Ley 25.326). El pedido se hace a la organización que usa Tracker360, que es la responsable de los datos.</p>
+                <h2>8. Derechos de las personas</h2>
+                <p>Toda persona cuyos datos estén en el sistema puede pedirle a la organización que usa Tracker360:</p>
+                <ul>
+                    <li><strong>Acceso:</strong> saber qué datos suyos hay y para qué se usan. Es gratuito si se pide a intervalos no menores a seis meses, y la respuesta debe darse dentro de los diez días corridos (art. 14).</li>
+                    <li><strong>Rectificación, actualización o supresión</strong> de los datos que sean inexactos, estén incompletos o ya no sean necesarios. La organización debe resolverlo dentro de los cinco días hábiles (art. 16), salvo que una norma la obligue a conservarlos.</li>
+                </ul>
+                <p class="nota"><strong>El titular de los datos personales tiene la facultad de ejercer el derecho de acceso a los mismos en forma gratuita a intervalos no inferiores a seis meses, salvo que se acredite un interés legítimo al efecto conforme lo establecido en el artículo 14, inciso 3 de la Ley Nº 25.326. La AGENCIA DE ACCESO A LA INFORMACIÓN PÚBLICA, en su carácter de Órgano de Control de la Ley Nº 25.326, tiene la atribución de atender las denuncias y reclamos que interpongan quienes resulten afectados en sus derechos por incumplimiento de las normas vigentes en materia de protección de datos personales.</strong> (<a href="https://www.argentina.gob.ar/aaip" target="_blank" rel="noopener">www.argentina.gob.ar/aaip</a>)</p>
             </section>
 
             <section>
-                <h2>8. Cambios y contacto</h2>
-                <p>Esta política puede actualizarse cuando cambie el sistema; la fecha de arriba indica la última versión. Para consultas técnicas sobre el tratamiento de los datos en Tracker360:</p>
+                <h2>9. Qué le corresponde a la organización</h2>
+                <ul>
+                    <li>Informar a sus empleados, clientes y proveedores que sus datos se cargan en el sistema y para qué (art. 6).</li>
+                    <li>Inscribir sus bases de datos en el Registro Nacional de Bases de Datos de la AAIP cuando corresponda (art. 21).</li>
+                    <li>Atender los pedidos de acceso, rectificación y supresión en los plazos de la ley.</li>
+                    <li>Cargar solo los datos necesarios y mantener el servidor seguro y actualizado.</li>
+                </ul>
+            </section>
+
+            <section>
+                <h2>10. Cambios y contacto</h2>
+                <p>Esta política puede actualizarse cuando cambie el sistema o la normativa; la fecha de arriba indica la última versión. Para consultas técnicas sobre el tratamiento de los datos en Tracker360 (los pedidos sobre datos personales se dirigen a la organización que lo usa):</p>
                 <div class="contacto">
                     <a href="mailto:jonaiker.jimenez.g@gmail.com?subject=Privacidad%20Tracker360">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>
