@@ -115,10 +115,13 @@ async def create_manual_sales_order(
         return cached_resp[0]
 
     async with conn.transaction():
+        # El cliente se busca antes de tomar el numero: un pedido rechazado no gasta numeracion.
+        cuit = (data.customer_tax_id or "").strip()
+        ent_id = await conn.fetchval("SELECT id FROM entities WHERE tax_id = $1 AND is_customer AND is_active", cuit)
+        if not ent_id:
+            raise HTTPException(status_code=404, detail=f"Cliente no encontrado: no hay un cliente activo con el CUIT {cuit}. Darlo de alta en Clientes y Proveedores.")
         numero, aviso = await numero_correlativo(conn, "PEDIDO", data.document_number)
-        ent = await conn.fetchrow("SELECT id FROM entities WHERE tax_id = $1", data.customer_tax_id)
-        ent_id = ent["id"] if ent else None
-        
+
         doc_id = await conn.fetchval(
             "INSERT INTO documents (document_number, customer_id, status, channel_origin) VALUES ($1, $2, 'PENDING', 'MANUAL') RETURNING id",
             numero, ent_id
