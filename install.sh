@@ -120,6 +120,7 @@ fi
 leer() { grep -E "^$1=" .env 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '\r'; }
 poner() { if grep -qE "^$1=" .env; then sed -i "s#^$1=.*#$1=$2#" .env; else printf '%s=%s\n' "$1" "$2" >> .env; fi; }
 HTTPS="${TRACKER360_HTTPS:-$(leer TRACKER360_HTTPS)}"; HTTPS="${HTTPS:-si}"
+NO_SE_PUDO=0
 CADDY_CORRIENDO=0
 if docker compose ps --status running --services 2>/dev/null | grep -qx caddy; then CADDY_CORRIENDO=1; fi
 if [ "$HTTPS" = "si" ]; then
@@ -140,7 +141,7 @@ if [ "$HTTPS" = "si" ]; then
     fi
     if [ -z "$DOMAIN" ] && ! [[ "$IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
         echo "AVISO: no se pudo saber la IP del servidor; no se configura HTTPS (indicarla con TRACKER360_IP=192.168.1.10)."
-        HTTPS="no"
+        HTTPS="no"; NO_SE_PUDO=1
     fi
 fi
 if [ "$HTTPS" = "si" ]; then
@@ -155,7 +156,7 @@ if [ "$HTTPS" = "si" ]; then
     fi
     if ocupado "$PUERTO_HTTPS"; then
         echo "AVISO: el puerto $PUERTO_HTTPS ya esta en uso; no se configura HTTPS (elegir otro con TRACKER360_HTTPS_PORT=...)."
-        HTTPS="no"
+        HTTPS="no"; NO_SE_PUDO=1
     fi
 fi
 if [ "$HTTPS" = "si" ]; then
@@ -200,7 +201,8 @@ if [ "$HTTPS" = "si" ]; then
     # Instalacion nueva: la API solo en el propio servidor (se entra por Caddy). Las existentes no se cambian.
     if [ "$NUEVA" = "1" ]; then poner API_BIND 127.0.0.1; fi
 else
-    poner TRACKER360_HTTPS no
+    # "no" queda guardado solo si lo eligio el usuario; si no se pudo (puertos o IP), se reintenta la proxima vez.
+    if [ "${NO_SE_PUDO:-0}" != "1" ]; then poner TRACKER360_HTTPS no; fi
     poner COMPOSE_PROFILES ""
     if [ "$CADDY_CORRIENDO" = "1" ]; then docker compose --profile https stop caddy > /dev/null 2>&1 || true; fi
 fi

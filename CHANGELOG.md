@@ -16,6 +16,8 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 - Al actualizar, `install.sh` sigue con la versión recién bajada de sí mismo (antes terminaba con la anterior y
   los cambios del instalador recién se aplicaban en la corrida siguiente). Por eso, en instalaciones de antes de
   este cambio, la primera corrida actualiza y hace falta una segunda para que quede el HTTPS.
+- Si HTTPS no se puede configurar (todos los puertos ocupados o sin IP), ya no queda guardado como desactivado:
+  la próxima corrida lo vuelve a intentar. Solo `TRACKER360_HTTPS=no` lo desactiva de forma permanente.
 
 ### Cambiado (páginas legales)
 - Política de privacidad revisada según la Ley 25.326 de Protección de los Datos Personales: quién es el
