@@ -50,6 +50,9 @@ if [ -d .git ] && [ "${TRACKER360_NO_UPDATE:-}" != "1" ]; then
         echo "Ya esta en la ultima version ($DESPUES)."
     else
         echo "Codigo actualizado: $ANTES -> $DESPUES (los cambios estan en CHANGELOG.md)."
+        # bash sigue leyendo el install.sh que arranco: se relanza el recien bajado para que el resto de la
+        # instalacion sea el de la version nueva.
+        exec env TRACKER360_NO_UPDATE=1 bash ./install.sh "$@"
     fi
 fi
 
@@ -112,7 +115,7 @@ fi
 
 # 3b. HTTPS con Caddy (servicio "caddy" del compose, perfil https). La sesion usa una cookie Secure: sin HTTPS no
 #     se puede ingresar desde otra PC. Con dominio, Caddy saca el certificado solo; sin dominio usa la IP del
-#     servidor con su CA local. Si el 443 ya esta en uso (otra app en este servidor), usa el 8443. Se desactiva
+#     servidor con su CA local. Si el 443 ya esta en uso (otra app en este servidor), usa el 8443, 9443 o 10443. Se desactiva
 #     con TRACKER360_HTTPS=no (queda como antes: http en el puerto de la API).
 leer() { grep -E "^$1=" .env 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '\r'; }
 poner() { if grep -qE "^$1=" .env; then sed -i "s#^$1=.*#$1=$2#" .env; else printf '%s=%s\n' "$1" "$2" >> .env; fi; }
@@ -145,8 +148,10 @@ if [ "$HTTPS" = "si" ]; then
     ocupado() { [ "$CADDY_CORRIENDO" = "0" ] && command -v ss > /dev/null && [ -n "$(ss -ltnH "( sport = :$1 )" 2>/dev/null)" ]; }
     PUERTO_HTTPS="${TRACKER360_HTTPS_PORT:-$(leer CADDY_HTTPS_PORT)}"
     if [ -z "$PUERTO_HTTPS" ]; then
-        PUERTO_HTTPS=443
-        if ocupado 443; then PUERTO_HTTPS=8443; fi
+        for P in 443 8443 9443 10443; do
+            PUERTO_HTTPS="$P"
+            if ! ocupado "$P"; then break; fi
+        done
     fi
     if ocupado "$PUERTO_HTTPS"; then
         echo "AVISO: el puerto $PUERTO_HTTPS ya esta en uso; no se configura HTTPS (elegir otro con TRACKER360_HTTPS_PORT=...)."
