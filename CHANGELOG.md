@@ -2,6 +2,14 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 2026-10-05
+
+### Cambiado (dependencias)
+- Versiones de las dependencias alineadas con JZ Middle ML-Tracker y JZPass: FastAPI 0.141.1 (Starlette 1.7),
+  uvicorn 0.54, pydantic 2.13.5, asyncpg 0.31, Pillow 12.3 y python-multipart 0.0.32. Las anteriores no tenían
+  paquetes binarios para Python 3.13 (el de Debian 13), así que no se podían instalar sin compilar fuera de
+  Docker. Sin cambios para el usuario; la imagen de Docker sigue en Python 3.11.
+
 ## 2026-10-03
 
 ### Arreglado (ubicaciones)
