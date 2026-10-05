@@ -2,6 +2,13 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## Sin versión todavía (2026-10-05)
+
+### Corregido
+- Alta manual de pedidos: con un CUIT que no corresponde a un cliente activo da el error "Cliente no encontrado"
+  (antes creaba el pedido sin cliente y sin avisar). Un CUIT de solo proveedor o de un cliente dado de baja
+  tampoco sirve. El rechazo no gasta un número de pedido, y el CUIT se reconoce aunque se pegue con espacios.
+
 ## 1.0.0 — 2026-10-05
 
 Primer release estable (tag `v1.0.0`, publicado en GitHub Releases). No cambia código: marca como versión
