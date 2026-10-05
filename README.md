@@ -165,8 +165,15 @@ cd Tracker360
 clona el repo en `./tracker360`.)
 
 El instalador genera el `.env` con clave de base, `SECRET_KEY` y `SETUP_TOKEN` aleatorios,
-pregunta el dominio (para `ALLOWED_ORIGINS`), levanta los contenedores y muestra la URL y el
-`SETUP_TOKEN`.
+pregunta el dominio, levanta los contenedores y muestra la URL y el `SETUP_TOKEN`.
+
+**HTTPS incluido:** levanta también un contenedor de Caddy (`tracker360_caddy`) delante de la API. Con dominio
+(`TRACKER360_DOMAIN=wms.suempresa.com ./install.sh`, o contestando la pregunta) saca el certificado solo; sin
+dominio usa la IP del servidor con la CA local de Caddy y deja su certificado raíz en `caddy/ca-local.crt` para
+instalarlo en las PCs y celulares. Si el puerto 443 ya lo usa otro programa (por ejemplo otra app de la suite en
+el mismo servidor), HTTPS queda en el 8443 (o en el que se indique con `TRACKER360_HTTPS_PORT`). Al terminar
+muestra un **aviso de HTTPS** con la dirección y lo que hay que hacer con el certificado. Para no usarlo:
+`TRACKER360_HTTPS=no ./install.sh` (queda solo http en el puerto de la API, y no se puede ingresar desde otra PC).
 
 Para **actualizar** se vuelve a correr (`sudo ./install.sh` en la carpeta de la instalación, o el mismo
 `curl ... | bash` desde la carpeta donde se instaló): trae la última versión publicada (`git pull --ff-only`;
@@ -191,7 +198,7 @@ docker compose up -d --build
 
 ### Primer ingreso
 
-1. Abrir `http://localhost:8001` en el propio servidor (o la URL HTTPS si ya hay proxy).
+1. Abrir la dirección que muestra el instalador (`https://...`), o `http://localhost:8001` en el propio servidor.
 2. La pantalla detecta que no hay usuarios y pide el `SETUP_TOKEN`.
 3. Crear el administrador (clave de al menos 8 caracteres). El token deja de servir después.
 4. En el panel: cargar sucursales, sectores, ubicaciones, artículos (se pueden importar por
@@ -273,7 +280,8 @@ cierran.
 Desde otras PCs, colectoras o celulares hace falta HTTPS: la cookie de sesión es `Secure`
 (por `http://` el navegador la descarta fuera de `localhost`), la cámara del celular solo se
 habilita en sitios seguros, y la app rechaza conexiones sin HTTPS que no vengan de la red local.
-Con [Caddy](https://caddyserver.com/) en el mismo servidor:
+`install.sh` (Docker) e `install-native.sh` ya lo configuran con Caddy. Para un proxy propio, por ejemplo
+[Caddy](https://caddyserver.com/) instalado en el mismo servidor:
 
 ```
 # /etc/caddy/Caddyfile

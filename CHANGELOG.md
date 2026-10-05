@@ -4,6 +4,15 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 
 ## Sin versión todavía (2026-10-05)
 
+### Agregado (HTTPS en la instalación con Docker)
+- `install.sh` configura HTTPS: levanta un contenedor de Caddy (`tracker360_caddy`, perfil `https` del compose)
+  delante de la API. Con dominio saca el certificado solo; sin dominio usa la IP del servidor con la CA local de
+  Caddy y deja el certificado raíz en `caddy/ca-local.crt`. Si el 443 ya está en uso, queda en el 8443. Así se
+  puede ingresar desde otras PCs, colectoras y celulares también con Docker (antes, sin dominio, quedaba por
+  http y la sesión no se guardaba). Al terminar muestra un aviso con la dirección y qué hacer con el
+  certificado. Las instalaciones existentes lo reciben al volver a correr el instalador. Para no usarlo:
+  `TRACKER360_HTTPS=no ./install.sh`.
+
 ### Cambiado (páginas legales)
 - Política de privacidad revisada según la Ley 25.326 de Protección de los Datos Personales: quién es el
   responsable de los datos (la organización) y el papel de JZ Tech Solutions como prestador de servicios de
