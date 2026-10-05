@@ -2,6 +2,12 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.0.0 — 2026-10-05
+
+Primer release estable (tag `v1.0.0`, publicado en GitHub Releases). No cambia código: marca como versión
+1.0.0 todo lo que está abajo. Verificado con la suite de tests de la Fase 1 (485 en verde) y el instalador
+nativo en Debian 12/13 y Ubuntu 24.04. Desde acá, cada release se numera (1.x).
+
 ## 2026-10-05
 
 ### Agregado (instalación sin Docker)
