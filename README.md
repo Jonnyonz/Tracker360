@@ -10,7 +10,7 @@ común.
 - [Funcionalidades](#funcionalidades)
 - [Detalle técnico](#detalle-técnico)
 - [Instalación rápida con Docker](#instalación-rápida-con-docker)
-- [Instalación local (sin Docker)](#instalación-local-sin-docker)
+- [Instalación en el servidor (sin Docker)](#instalación-en-el-servidor-sin-docker)
 - [Acceso desde la red (HTTPS)](#acceso-desde-la-red-https)
 - [Configuración](#configuración)
 - [Agente de impresión](#agente-de-impresión)
@@ -199,9 +199,47 @@ docker compose up -d --build
 
 ---
 
-## Instalación local (sin Docker)
+## Instalación en el servidor (sin Docker)
 
-Para desarrollo o servidores sin Docker. Probado en Debian 12 (Python 3.11, PostgreSQL 15).
+Para servidores sin Docker: Debian 12/13 o Ubuntu 24.04. El instalador deja Tracker360 como servicio del
+sistema, con PostgreSQL del servidor y **Caddy con HTTPS** delante (la sesión usa cookies `Secure`: sin HTTPS no
+se puede ingresar desde otra PC, colectora o celular).
+
+```bash
+git clone https://github.com/Jonnyonz/Tracker360.git
+cd Tracker360
+sudo ./install-native.sh                                   # red interna: HTTPS por la IP del servidor
+sudo TRACKER360_DOMAIN=wms.suempresa.com ./install-native.sh   # con dominio: certificado automatico
+```
+
+Al terminar muestra la dirección (`https://<IP>` o `https://<dominio>`) y el `SETUP_TOKEN` para crear el
+administrador. Sin dominio, el certificado lo firma la CA local de Caddy: el navegador avisa "la conexión no
+es privada" hasta que se instala en cada equipo el certificado raíz que indica el instalador
+(`/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt`).
+
+Queda así: código y su venv en `/opt/tracker360/releases/<versión>` (la versión es el commit), enlace
+`/opt/tracker360/current` a la que está en uso, configuración en `/etc/tracker360/tracker360.env`
+(`root:tracker360`, 0640), servicio `tracker360` (uvicorn en `127.0.0.1:8001`, usuario de sistema sin login,
+código de solo lectura) y base `tracker360_db` con su propio rol. Las dependencias se instalan sin compilador,
+verificando los hashes. Se puede volver a correr: no pisa los secretos ni lo agregado a mano al `.env`.
+Si el puerto 80 lo usa otro programa (por ejemplo Apache), Caddy atiende solo el 443. Opciones:
+`TRACKER360_IP`, `TRACKER360_PORT`, `TRACKER360_CADDY=0` (si ya hay otro proxy HTTPS) y `TRACKER360_REPO_URL`.
+Es independiente de la instalación con Docker: no se pueden usar las dos en el mismo puerto.
+
+**Actualizar:**
+
+```bash
+sudo tracker360-actualizar            # trae la ultima version, respalda la base y cambia
+sudo tracker360-actualizar --buscar   # solo dice si hay una version nueva
+sudo tracker360-actualizar --volver   # vuelve a la version anterior (y a la base de antes, si cambio)
+```
+
+Arma la versión nueva aparte (si algo falla ahí, no se cambia nada), respalda la base en
+`/var/backups/tracker360/`, cambia y verifica que responda. Si la versión nueva no responde, vuelve sola a la
+anterior y, si el esquema de la base cambió, la restaura como estaba.
+
+### Para desarrollo (a mano)
+
 La app se ejecuta desde la **raíz** del repo (`backend.main:app`).
 
 ```bash

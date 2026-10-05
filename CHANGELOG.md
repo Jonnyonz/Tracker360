@@ -4,6 +4,18 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 
 ## 2026-10-05
 
+### Agregado (instalación sin Docker)
+- Instalador para servidores sin Docker: `sudo ./install-native.sh` (Debian 12/13, Ubuntu 24.04). Deja Tracker360
+  como servicio del sistema (`tracker360`, usuario propio sin login, código de solo lectura), con su base y rol
+  en el PostgreSQL del servidor y Caddy con HTTPS delante: con `TRACKER360_DOMAIN` saca el certificado solo; sin
+  dominio usa la IP del servidor con la CA local de Caddy. Así se puede ingresar desde otras PCs (antes, sin
+  dominio, la instalación quedaba por http y la sesión no se guardaba). Instala las dependencias sin compilar,
+  verificando los hashes, y se puede volver a correr sin pisar secretos ni configuración agregada a mano.
+- Actualizador `sudo tracker360-actualizar` (`--buscar`, `--volver`): arma la versión nueva aparte, respalda la
+  base, cambia y verifica que responda; si no responde, vuelve solo a la versión anterior y, si el esquema cambió,
+  restaura la base como estaba.
+- `.gitattributes`: los scripts de Linux siempre con finales de línea LF.
+
 ### Cambiado (dependencias)
 - Versiones de las dependencias alineadas con JZ Middle ML-Tracker y JZPass: FastAPI 0.141.1 (Starlette 1.7),
   uvicorn 0.54, pydantic 2.13.5, asyncpg 0.31, Pillow 12.3 y python-multipart 0.0.32. Las anteriores no tenían
