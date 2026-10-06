@@ -2,7 +2,9 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
-## Sin versión todavía (2026-10-06)
+## 1.2.0 — 2026-10-06
+
+Tag `v1.2.0`, publicado en GitHub Releases: tiendas online.
 
 ### Agregado (tiendas online)
 - Configuración tiene la tarjeta **Tiendas online**, con un interruptor "Trabaja con ..." por tienda: Mercado
