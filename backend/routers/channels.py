@@ -5,7 +5,7 @@ from typing import List, Optional
 import asyncpg, json, re, secrets
 import logging
 
-from backend.database import (get_db_connection, require_admin, log_action, get_client_ip, hash_system_api_key, parse_uuid,
+from backend.database import (get_db_connection, require_admin, get_current_user, log_action, get_client_ip, hash_system_api_key, parse_uuid,
                               numero_correlativo, require_valid_quantity, emitir_stock_a_canales)
 from backend.routers.outbound import cancelar_pedido, imprimir_etiqueta_pedido
 
@@ -19,10 +19,34 @@ router = APIRouter(tags=["Sales Channels"])
 MODOS_STOCK = ("DISPONIBLE", "DISPONIBLE_MENOS_COMPROMETIDO")
 CLAVE_PREFIJO = "tch_"
 
+# Tiendas online con las que puede trabajar la organizacion. Cada una se activa en Configuracion
+# (system_settings store_<tienda>_enabled, desactivadas por defecto) y recien ahi aparece su modulo en el
+# menu. La conexion la instala JZ Tech Solutions: hoy solo Mercado Libre tiene middleware.
+TIENDAS = {
+    "MERCADOLIBRE": "Mercado Libre",
+    "TIENDANUBE": "Tiendanube",
+    "WOOCOMMERCE": "WooCommerce",
+    "SHOPIFY": "Shopify",
+    "PRESTASHOP": "PrestaShop",
+    "EMPRETIENDA": "Empretienda",
+}
+
+
+def _clave_tienda(tienda: str) -> str:
+    return f"store_{tienda.lower()}_enabled"
+
+
+def _tienda(valor: str) -> str:
+    tienda = (valor or "").strip().upper()
+    if tienda not in TIENDAS:
+        raise HTTPException(400, "Tienda inválida.")
+    return tienda
+
 
 class CanalInput(BaseModel):
     code: str
     name: str
+    platform: str = "MERCADOLIBRE"
     stock_mode: str = "DISPONIBLE"
     stock_branch_ids: Optional[List[str]] = None
 
@@ -67,6 +91,7 @@ ETIQUETA_MAX_BYTES = 256 * 1024
 
 class CanalUpdate(BaseModel):
     name: Optional[str] = None
+    platform: Optional[str] = None
     stock_mode: Optional[str] = None
     stock_branch_ids: Optional[List[str]] = None
     todas_las_sucursales: bool = False
@@ -94,7 +119,7 @@ async def _sucursales(conn: asyncpg.Connection, ids: Optional[List[str]]):
 
 
 def _canal_dict(r) -> dict:
-    return {"id": str(r["id"]), "code": r["code"], "name": r["name"], "stock_mode": r["stock_mode"],
+    return {"id": str(r["id"]), "code": r["code"], "name": r["name"], "platform": r["platform"], "stock_mode": r["stock_mode"],
             "stock_branch_ids": [str(x) for x in (r["stock_branch_ids"] or [])] or None,
             "is_active": r["is_active"], "created_at": r["created_at"], "last_used_at": r["last_used_at"]}
 
@@ -111,7 +136,7 @@ async def require_sales_channel(request: Request, authorization: Optional[str] =
         raise HTTPException(401, "Clave de canal requerida.")
     canal = await conn.fetchrow("""
         UPDATE sales_channels SET last_used_at = now() WHERE api_key_hash = $1 AND is_active
-        RETURNING id, code, name, stock_mode, stock_branch_ids, is_active, created_at, last_used_at
+        RETURNING id, code, name, platform, stock_mode, stock_branch_ids, is_active, created_at, last_used_at
     """, hash_system_api_key(clave))
     if not canal:
         await log_action(conn, "SYSTEM", "CHANNEL_AUTH_FAILED", "Clave de canal inválida o inactiva", get_client_ip(request))
@@ -165,9 +190,10 @@ async def crear_canal(data: CanalInput, request: Request, admin: dict = Depends(
         raise HTTPException(409, "Ya existe un canal con ese código.")
     clave = _nueva_clave()
     fila = await conn.fetchrow("""
-        INSERT INTO sales_channels (code, name, api_key_hash, stock_mode, stock_branch_ids)
-        VALUES ($1, $2, $3, $4, $5) RETURNING *
-    """, code, data.name.strip(), hash_system_api_key(clave), _modo(data.stock_mode), await _sucursales(conn, data.stock_branch_ids))
+        INSERT INTO sales_channels (code, name, api_key_hash, stock_mode, stock_branch_ids, platform)
+        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
+    """, code, data.name.strip(), hash_system_api_key(clave), _modo(data.stock_mode), await _sucursales(conn, data.stock_branch_ids),
+        _tienda(data.platform))
     await log_action(conn, admin["username"], "SALES_CHANNEL_CREATED", f"Canal de venta {code} creado.", get_client_ip(request))
     return {**_canal_dict(fila), "api_key": clave, "message": "Guardá la clave ahora: no se vuelve a mostrar."}
 
@@ -189,9 +215,11 @@ async def editar_canal(channel_id: str, data: CanalUpdate, request: Request, adm
     else:
         sucursales = actual["stock_branch_ids"]
     activo = data.is_active if data.is_active is not None else actual["is_active"]
+    tienda = _tienda(data.platform) if data.platform is not None else actual["platform"]
     fila = await conn.fetchrow("""
-        UPDATE sales_channels SET name = $2, stock_mode = $3, stock_branch_ids = $4, is_active = $5 WHERE id = $1 RETURNING *
-    """, cid, nombre, modo, sucursales, activo)
+        UPDATE sales_channels SET name = $2, stock_mode = $3, stock_branch_ids = $4, is_active = $5, platform = $6
+        WHERE id = $1 RETURNING *
+    """, cid, nombre, modo, sucursales, activo, tienda)
     await log_action(conn, admin["username"], "SALES_CHANNEL_UPDATED", f"Canal de venta {fila['code']} actualizado.", get_client_ip(request))
     return _canal_dict(fila)
 
@@ -205,6 +233,41 @@ async def rotar_clave(channel_id: str, request: Request, admin: dict = Depends(r
         raise HTTPException(404, "Canal no encontrado.")
     await log_action(conn, admin["username"], "SALES_CHANNEL_KEY_ROTATED", f"Clave del canal {code} rotada.", get_client_ip(request))
     return {"api_key": clave, "message": "La clave anterior dejó de valer. Guardá la nueva: no se vuelve a mostrar."}
+
+
+# --- Tiendas online (Configuracion y menu) ---
+class TiendaActivacion(BaseModel):
+    enabled: bool
+
+
+async def _tiendas(conn: asyncpg.Connection) -> list:
+    activas = {r["key"] for r in await conn.fetch(
+        "SELECT key FROM system_settings WHERE key = ANY($1::text[]) AND value = 'true'",
+        [_clave_tienda(t) for t in TIENDAS])}
+    conectadas = {r["platform"]: r["n"] for r in await conn.fetch(
+        "SELECT platform, COUNT(*) AS n FROM sales_channels WHERE is_active GROUP BY platform")}
+    return [{"code": code, "name": nombre, "enabled": _clave_tienda(code) in activas,
+             "channels": conectadas.get(code, 0)} for code, nombre in TIENDAS.items()]
+
+
+@router.get("/api/online-stores")
+async def listar_tiendas(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Las tiendas, si estan activadas y cuantos canales activos tienen. La usa el menu de cualquier
+    usuario (los modulos de las tiendas igual son solo del admin)."""
+    return await _tiendas(conn)
+
+
+@router.put("/api/admin/online-stores/{store}")
+async def activar_tienda(store: str, data: TiendaActivacion, request: Request, admin: dict = Depends(require_admin),
+                         conn: asyncpg.Connection = Depends(get_db_connection)):
+    tienda = _tienda(store)
+    await conn.execute("""
+        INSERT INTO system_settings (key, value) VALUES ($1, $2)
+        ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+    """, _clave_tienda(tienda), "true" if data.enabled else "false")
+    await log_action(conn, admin["username"], "ONLINE_STORE_ENABLED" if data.enabled else "ONLINE_STORE_DISABLED",
+                     f"Tienda {TIENDAS[tienda]} {'activada' if data.enabled else 'desactivada'}.", get_client_ip(request))
+    return next(t for t in await _tiendas(conn) if t["code"] == tienda)
 
 
 # --- API del canal ---
@@ -454,7 +517,7 @@ async def ver_publicaciones_del_canal(channel_id: str, problem: Optional[str] = 
     (las que se sincronizan), SIN_SKU, SKU_NO_EN_TRACKER, FULL o ERROR. q busca en SKU, titulo y publicacion;
     sku, listing (MLA), title, account y status filtran cada dato por separado (coincidencia parcial)."""
     cid = parse_uuid(channel_id, "Canal inválido.")
-    canal = await conn.fetchrow("SELECT id, code, name, stock_mode, stock_branch_ids, listings_synced_at FROM sales_channels WHERE id = $1", cid)
+    canal = await conn.fetchrow("SELECT id, code, name, platform, stock_mode, stock_branch_ids, listings_synced_at FROM sales_channels WHERE id = $1", cid)
     if not canal:
         raise HTTPException(404, "Canal no encontrado.")
     resumen = {r["p"]: r["n"] for r in await conn.fetch(
@@ -485,7 +548,7 @@ async def ver_publicaciones_del_canal(channel_id: str, problem: Optional[str] = 
     skus = sorted({f["sku"] for f in filas if f["sku"]})
     disponible = {s["sku"]: s["available"] for s in await stock_para_canal(conn, dict(canal), skus)} if skus else {}
     return {
-        "channel": {"id": str(canal["id"]), "code": canal["code"], "name": canal["name"], "stock_mode": canal["stock_mode"],
+        "channel": {"id": str(canal["id"]), "code": canal["code"], "name": canal["name"], "platform": canal["platform"], "stock_mode": canal["stock_mode"],
                     "listings_synced_at": canal["listings_synced_at"]},
         "summary": {"total": sum(resumen.values()), "ok": resumen.get("OK", 0), "sin_sku": resumen.get("SIN_SKU", 0),
                     "sku_no_en_tracker": resumen.get("SKU_NO_EN_TRACKER", 0), "full": resumen.get("FULL", 0),

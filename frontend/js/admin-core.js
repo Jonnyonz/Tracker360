@@ -170,7 +170,7 @@ function switchView(secId, btnElement = null) {
     if(secId === 'section-dashboard') loadDashboard();
     if(secId === 'section-users' && typeof loadUsers === 'function') loadUsers();
     if(secId === 'section-canal-publicaciones' && typeof abrirPublicacionesCanal === 'function') abrirPublicacionesCanal();
-    if(secId === 'section-settings') { if (typeof cargarCanalesVenta === 'function') cargarCanalesVenta(); cargarEventosSistema(); }
+    if(secId === 'section-settings') { if (typeof cargarCanalesVenta === 'function') cargarCanalesVenta(); if (typeof cargarTiendas === 'function') cargarTiendas(); cargarEventosSistema(); }
     if(secId === 'section-entities' && typeof loadEntities === 'function') loadEntities();
     if(secId === 'section-warehouse' && typeof loadWarehouseData === 'function') loadWarehouseData();
     if(secId === 'section-items' && typeof loadItems === 'function') loadItems();

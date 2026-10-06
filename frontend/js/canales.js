@@ -51,13 +51,13 @@ function pintarCanalesDestacados() {
     if (ver) ver.textContent = canalesVentaCache.length ? `Ver canales (${canalesVentaCache.length})` : 'Ver canales';
     if (!caja) return;
     if (canalesVentaCache.length === 0) {
-        caja.innerHTML = '<p class="canales-vacio">Todavía no hay canales. Creá uno para conectar el middleware de Mercado Libre.</p>';
+        caja.innerHTML = '<p class="canales-vacio">Todavía no hay canales. Se crean cuando JZ Tech Solutions instala la conexión con una tienda (por ejemplo el middleware de Mercado Libre).</p>';
         return;
     }
     caja.innerHTML = canalesPorActividad(canalesVentaCache).slice(0, CANALES_DESTACADOS).map(c => `
         <div class="canal-linea">
             <div class="canal-linea-datos">
-                <div><strong>${escapeHTML(c.name)}</strong> <span class="font-mono canal-linea-codigo">${escapeHTML(c.code)}</span>
+                <div><span class="tienda-logo-chico" title="${escapeHTML(nombreTienda(c.platform))}">${logoTienda(c.platform)}</span><strong>${escapeHTML(c.name)}</strong> <span class="font-mono canal-linea-codigo">${escapeHTML(c.code)}</span>
                     <span class="badge ${c.is_active ? 'badge-success' : 'badge-danger'}">${c.is_active ? 'ACTIVO' : 'INACTIVO'}</span></div>
                 <small>${c.orders_7d || 0} pedido${c.orders_7d === 1 ? '' : 's'} en 7 días · último uso: ${escapeHTML(fechaCanal(c.last_used_at))}</small>
             </div>
@@ -69,12 +69,12 @@ function pintarTodosCanales() {
     const tbody = document.getElementById('tabla-canales-venta');
     if (!tbody) return;
     if (canalesVentaCache.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Todavía no hay canales. Creá uno para conectar el middleware de Mercado Libre.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Todavía no hay canales. Se crean cuando JZ Tech Solutions instala la conexión con una tienda (por ejemplo el middleware de Mercado Libre).</td></tr>';
         return;
     }
     tbody.innerHTML = canalesPorActividad(canalesVentaCache).map(c => `
         <tr>
-            <td style="font-weight:bold; color:var(--accent);" class="font-mono">${escapeHTML(c.code)}</td>
+            <td style="font-weight:bold; color:var(--accent); white-space:nowrap;" class="font-mono"><span class="tienda-logo-chico" title="${escapeHTML(nombreTienda(c.platform))}">${logoTienda(c.platform)}</span>${escapeHTML(c.code)}</td>
             <td>${escapeHTML(c.name)}</td>
             <td><small>${escapeHTML(NOMBRE_MODO_CANAL[c.stock_mode] || c.stock_mode)}</small></td>
             <td><small>${escapeHTML(nombresSucursalesCanal(c.stock_branch_ids))}</small></td>
@@ -185,6 +185,9 @@ async function abrirCanalVenta(id) {
     codigo.value = canal ? canal.code : '';
     codigo.readOnly = !!canal;   // el codigo identifica al canal: no se cambia
     document.getElementById('canal-venta-nombre').value = canal ? canal.name : '';
+    // Canal nuevo: la tienda del modulo abierto o la primera activada.
+    const tiendaPorDefecto = tiendaActual || (tiendasCache.find(t => t.enabled) || {}).code || 'MERCADOLIBRE';
+    document.getElementById('canal-venta-tienda').value = canal ? canal.platform : tiendaPorDefecto;
     document.getElementById('canal-venta-modo').value = canal ? canal.stock_mode : 'DISPONIBLE_MENOS_COMPROMETIDO';
     const elegidas = canal && canal.stock_branch_ids ? canal.stock_branch_ids.map(String) : [];
     const todas = document.getElementById('canal-venta-todas');
@@ -207,6 +210,7 @@ async function guardarCanalVenta(event) {
     }
     const datos = {
         name: document.getElementById('canal-venta-nombre').value.trim(),
+        platform: document.getElementById('canal-venta-tienda').value,
         stock_mode: document.getElementById('canal-venta-modo').value,
     };
     try {
@@ -221,9 +225,10 @@ async function guardarCanalVenta(event) {
                                    stock_branch_ids: todas ? null : sucursales });
             const r = await fetchAPI('/api/admin/sales-channels', { method: 'POST', body: datos });
             closeModal('modal-canal-venta');
-            mostrarClaveCanal(r.api_key, `Canal ${r.code} creado`);
+            mostrarClaveCanal(r.api_key, `Canal ${r.code} creado`, r.platform);
         }
         await cargarCanalesVenta();
+        cargarTiendas();   // los canales conectados de cada tienda cambian el aviso y el menu
     } catch (e) {
         showToast(e.message, 'error');
     }
@@ -235,18 +240,20 @@ async function rotarClaveCanal(id) {
     if (!confirm(`¿Rotar la clave del canal ${canal.code}? La clave actual deja de funcionar en el momento: hay que cargar la nueva en el sistema que usa el canal.`)) return;
     try {
         const r = await fetchAPI(`/api/admin/sales-channels/${encodeURIComponent(id)}/rotate-key`, { method: 'POST' });
-        mostrarClaveCanal(r.api_key, `Nueva clave del canal ${canal.code}`);
+        mostrarClaveCanal(r.api_key, `Nueva clave del canal ${canal.code}`, canal.platform);
     } catch (e) {
         showToast(e.message, 'error');
     }
 }
 
-function mostrarClaveCanal(clave, titulo) {
+function mostrarClaveCanal(clave, titulo, tienda) {
     document.getElementById('canal-clave-titulo').textContent = titulo;
     document.getElementById('canal-clave-valor').value = clave;
-    document.getElementById('canal-clave-ayuda').textContent =
-        'Para el middleware de Mercado Libre: en su página, "Conexión con Tracker360", cargá la dirección interna de ' +
-        'Tracker en este servidor (por ejemplo http://127.0.0.1:8001) y esta clave, y tocá "Probar conexión".';
+    document.getElementById('canal-clave-ayuda').textContent = tienda === 'MERCADOLIBRE'
+        ? 'Para el middleware de Mercado Libre: en su página, "Conexión con Tracker360", cargá la dirección interna de ' +
+          'Tracker en este servidor (por ejemplo http://127.0.0.1:8001) y esta clave, y tocá "Probar conexión".'
+        : `Se carga en la conexión con ${nombreTienda(tienda)} junto con la dirección interna de Tracker en este servidor ` +
+          '(por ejemplo http://127.0.0.1:8001).';
     openModal('modal-canal-clave');
 }
 
@@ -266,7 +273,8 @@ function cerrarClaveCanal() {
     closeModal('modal-canal-clave');
 }
 
-// === MERCADO LIBRE: publicaciones que informa el canal (/api/admin/sales-channels/{id}/listings) ===
+// === TIENDA ONLINE: publicaciones que informa el canal (/api/admin/sales-channels/{id}/listings) ===
+// Un modulo por tienda activada (tiendas.js): muestra solo los canales de esa tienda (tiendaActual).
 const PUBLICACIONES_POR_PAGINA = 100;
 let publicacionesCanalDesde = 0;
 let publicacionesCanalTotal = 0;
@@ -278,14 +286,50 @@ const SITUACION_PUBLICACION = {
     ERROR: ['Error', 'badge-danger'],
 };
 
+// Textos del modulo segun la tienda: lo propio de Mercado Libre (MLA, Full) solo en la suya.
+function prepararModuloTienda(tienda) {
+    const nombre = nombreTienda(tienda);
+    const esML = tienda === 'MERCADOLIBRE';
+    document.getElementById('canal-pub-titulo').textContent = `${nombre}: publicaciones y stock`;
+    document.getElementById('canal-pub-th-tienda').textContent = `En ${nombre}`;
+    document.getElementById('canal-pub-label-publicacion').textContent = esML ? 'Publicación (MLA)' : 'Publicación';
+    document.getElementById('f-pub-mla').placeholder = esML ? 'MLA123456' : '';
+    document.getElementById('canal-pub-label-estado').textContent = `Estado en ${esML ? 'ML' : nombre}`;
+    document.getElementById('canal-pub-opcion-full').hidden = !esML;
+}
+
+function mostrarSinConexionTienda(tienda, sinConexion) {
+    document.getElementById('canal-pub-sin-conexion').hidden = !sinConexion;
+    document.getElementById('canal-pub-contenido').hidden = sinConexion;
+    document.getElementById('canal-pub-controles').hidden = sinConexion;
+    if (!sinConexion) return;
+    const nombre = nombreTienda(tienda);
+    document.getElementById('canal-pub-sin-conexion-logo').innerHTML = logoTienda(tienda);
+    document.getElementById('canal-pub-sin-conexion-titulo').textContent = `Todavía no hay una conexión con ${nombre}`;
+    document.getElementById('canal-pub-sin-conexion-texto').textContent =
+        `Para que Tracker360 reciba las ventas de ${nombre} y le mande el stock hace falta instalar la conexión con tu tienda. ` +
+        'Contactá a JZ Tech Solutions y la dejamos funcionando. Si ya la instalaron, su canal se da de alta en Configuración, ' +
+        `Canales de venta, eligiendo ${nombre} como tienda.`;
+    document.getElementById('canal-pub-sin-conexion-mail').href = mailContactoTienda(tienda);
+}
+
 async function abrirPublicacionesCanal() {
     const select = document.getElementById('canal-pub-canal');
+    if (!tiendaActual) tiendaActual = (tiendasCache.find(t => t.enabled) || {}).code || 'MERCADOLIBRE';
+    const tienda = tiendaActual;
+    prepararModuloTienda(tienda);
+    if (select.dataset.tienda !== tienda) {   // otra tienda: se arranca sin filtros
+        document.getElementById('filtros-publicaciones')?.reset();
+        select.value = '';
+    }
+    select.dataset.tienda = tienda;
     try {
-        const canales = await fetchAPI('/api/admin/sales-channels');
+        const canales = (await fetchAPI('/api/admin/sales-channels') || []).filter(c => c.platform === tienda);
+        if (tienda !== tiendaActual) return;   // se cambio de tienda mientras cargaba
         const previo = select.value;
-        if (!canales || canales.length === 0) {
+        mostrarSinConexionTienda(tienda, canales.length === 0);
+        if (canales.length === 0) {
             select.innerHTML = '<option value="">Sin canales</option>';
-            document.getElementById('canal-pub-tabla').innerHTML = '<tr><td colspan="9" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Todavía no hay canales de venta: se crean en Configuración, Canales de venta.</td></tr>';
             return;
         }
         select.innerHTML = canales.map(c => `<option value="${escapeHTML(c.id)}">${escapeHTML(c.code)} - ${escapeHTML(c.name)}</option>`).join('');
@@ -351,15 +395,16 @@ async function cargarPublicacionesCanal(desde) {
         const r = await fetchAPI(`/api/admin/sales-channels/${encodeURIComponent(id)}/listings?${params}`);
         publicacionesCanalTotal = r.total;
         const s = r.summary;
+        const nombre = nombreTienda(r.channel.platform);
         document.getElementById('canal-pub-info').textContent = r.channel.listings_synced_at
             ? `Último informe del canal: ${fechaCanal(r.channel.listings_synced_at)} · Stock que Tracker le manda: ${NOMBRE_MODO_CANAL[r.channel.stock_mode] || r.channel.stock_mode}.`
-            : 'El canal todavía no informó publicaciones (el middleware las manda después de repasarlas en Mercado Libre).';
+            : `El canal todavía no informó publicaciones (la conexión las manda después de repasarlas en ${nombre}).`;
         document.getElementById('canal-pub-resumen').innerHTML = [
             chipResumenCanal('Todas', s.total, '', 'badge-neutral'),
             chipResumenCanal('Se sincronizan', s.ok, 'OK', 'badge-success'),
             chipResumenCanal('Sin SKU', s.sin_sku, 'SIN_SKU', 'badge-warning'),
             chipResumenCanal('SKU que no está en Tracker', s.sku_no_en_tracker, 'SKU_NO_EN_TRACKER', 'badge-warning'),
-            chipResumenCanal('Full', s.full, 'FULL', 'badge-info'),
+            r.channel.platform === 'MERCADOLIBRE' ? chipResumenCanal('Full', s.full, 'FULL', 'badge-info') : '',
             chipResumenCanal('Con error', s.error, 'ERROR', 'badge-danger'),
         ].join('');
         if (r.items.length === 0) {

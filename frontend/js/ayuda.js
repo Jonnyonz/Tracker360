@@ -68,15 +68,15 @@ const AYUDA_SECCIONES = {
         ancla: 'auditoria',
     },
     'section-canal-publicaciones': {
-        titulo: 'Mercado Libre',
-        resumen: 'Publicaciones que informa el middleware, con el stock que tienen en Mercado Libre y el disponible que manda Tracker.',
-        pasos: ['Elegí el canal arriba.', 'Buscá por dato: publicación (MLA), SKU, título, cuenta, estado o situación.', 'Tocá un resumen (por ejemplo "Sin SKU") para filtrar.', 'Corregí lo que no se sincroniza: SKU en ML o alta del artículo en Tracker.'],
+        titulo: 'Tienda online',
+        resumen: 'Publicaciones que informa la conexión con la tienda (en Mercado Libre, el middleware), con el stock que tienen en la tienda y el disponible que manda Tracker.',
+        pasos: ['Hay un módulo por cada tienda activada en Configuración, Tiendas online.', 'Sin conexión instalada, el módulo indica cómo pedirla a JZ Tech Solutions.', 'Elegí el canal arriba y buscá por dato: publicación, SKU, título, cuenta, estado o situación.', 'Tocá un resumen (por ejemplo "Sin SKU") para filtrar.', 'Corregí lo que no se sincroniza: SKU en la tienda o alta del artículo en Tracker.'],
         ancla: 'mercado-libre',
     },
     'section-settings': {
         titulo: 'Configuración',
-        resumen: 'Opciones del sistema: seguridad, numeración, operativa, impresoras, canales de venta y actualizaciones.',
-        pasos: ['Guardá los cambios con el botón de abajo del formulario.', 'Canales de venta: la tarjeta muestra los más activos; "Ver canales" abre todos.', 'Cada canal tiene "Configuración" y "Eventos" (sus últimos pedidos y avisos).', 'Eventos del sistema: los últimos 6 registros de la auditoría, con ERROR o APROBADO.'],
+        resumen: 'Opciones del sistema: seguridad, numeración, operativa, impresoras, tiendas online, canales de venta y actualizaciones.',
+        pasos: ['Guardá los cambios con el botón de abajo del formulario.', 'Tiendas online: activá solo las tiendas con las que trabajás; cada una suma su módulo al menú (se guarda al tocar el interruptor).','Canales de venta: la tarjeta muestra los más activos; "Ver canales" abre todos.', 'Cada canal tiene "Configuración" y "Eventos" (sus últimos pedidos y avisos).', 'Eventos del sistema: los últimos 6 registros de la auditoría, con ERROR o APROBADO.'],
         ancla: 'configuracion',
     },
     'section-soporte': {

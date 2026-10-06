@@ -2,6 +2,27 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## Sin versión todavía (2026-10-06)
+
+### Agregado (tiendas online)
+- Configuración tiene la tarjeta **Tiendas online**, con un interruptor "Trabaja con ..." por tienda: Mercado
+  Libre, Tiendanube, WooCommerce, Shopify, PrestaShop y Empretienda. Vienen desactivadas y no aparecen en el
+  menú; al activar una, su módulo se suma al menú lateral con su logo. Se guarda al tocar el interruptor y queda
+  en la auditoría (`ONLINE_STORE_ENABLED` / `ONLINE_STORE_DISABLED`). Solo el administrador las cambia.
+- Al activar una tienda que todavía no tiene conexión, un aviso explica que la instala JZ Tech Solutions, con
+  el correo (asunto ya cargado) y la web. El módulo de esa tienda muestra lo mismo hasta que tenga un canal.
+- Cada canal de venta es de una tienda (campo **Tienda** al crearlo o editarlo; `platform` en la API, por
+  defecto Mercado Libre, así el middleware y los scripts de antes siguen igual). El módulo de cada tienda
+  muestra solo sus canales; lo propio de Mercado Libre (MLA, Full) se ve solo en el suyo. Los canales
+  muestran el logo de su tienda en Configuración.
+- API: `GET /api/online-stores` (cualquier usuario: arma el menú; el módulo sigue siendo solo del admin) y
+  `PUT /api/admin/online-stores/{tienda}` con `{"enabled": true|false}`.
+
+### Cambiado
+- El módulo fijo "Mercado Libre" del menú pasa a ser el de la tienda activada. Al actualizar, una instalación
+  que ya tenía canales queda con Mercado Libre activada (migración 0007), así el módulo no desaparece; las demás
+  tiendas arrancan desactivadas.
+
 ## 1.1.0 — 2026-10-06
 
 Tag `v1.1.0`, publicado en GitHub Releases. Junta los cambios posteriores a 1.0.0.
