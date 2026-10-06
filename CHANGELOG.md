@@ -2,7 +2,9 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
-## Sin versión todavía (2026-10-05)
+## 1.1.0 — 2026-10-06
+
+Tag `v1.1.0`, publicado en GitHub Releases. Junta los cambios posteriores a 1.0.0.
 
 ### Agregado (HTTPS en la instalación con Docker)
 - `install.sh` configura HTTPS: levanta un contenedor de Caddy (`tracker360_caddy`, perfil `https` del compose)
@@ -20,6 +22,8 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   la próxima corrida lo vuelve a intentar. Solo `TRACKER360_HTTPS=no` lo desactiva de forma permanente.
 
 ### Cambiado (páginas legales)
+- Términos y política de privacidad identifican al prestador: JZ Tech Solutions es el nombre de fantasía
+  (JZTech-Solutions) de Jonaiker Jimenez, CUIT 20-95803618-4, Responsable Monotributo.
 - Política de privacidad revisada según la Ley 25.326 de Protección de los Datos Personales: quién es el
   responsable de los datos (la organización) y el papel de JZ Tech Solutions como prestador de servicios de
   tratamiento (art. 25), base del tratamiento, datos sensibles, transferencias internacionales (Google,
