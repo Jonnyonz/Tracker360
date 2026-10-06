@@ -175,6 +175,12 @@ el mismo servidor), HTTPS queda en el 8443 (o en el que se indique con `TRACKER3
 muestra un **aviso de HTTPS** con la dirección y lo que hay que hacer con el certificado. Para no usarlo:
 `TRACKER360_HTTPS=no ./install.sh` (queda solo http en el puerto de la API, y no se puede ingresar desde otra PC).
 
+**Detrás de un proxy que ya tiene el 443** (Nginx Proxy Manager, Traefik...):
+`TRACKER360_HTTPS=proxy TRACKER360_DOMAIN=wms.suempresa.com ./install.sh`. No levanta Caddy: la API escucha en
+el puerto de la API (8001) en todas las interfaces y en el proxy se carga el dominio hacia
+`http://<IP del servidor>:8001`, con certificado SSL y Force SSL. Si el proxy está en otro equipo, sumar
+`TRACKER360_PROXY_IP=<su IP>` (para confiar en su `X-Forwarded-For`). Las corridas siguientes lo recuerdan.
+
 Para **actualizar** se vuelve a correr (`sudo ./install.sh` en la carpeta de la instalación, o el mismo
 `curl ... | bash` desde la carpeta donde se instaló): trae la última versión publicada (`git pull --ff-only`;
 con cambios locales o sin conexión se detiene sin tocar nada), guarda una copia de la base en `backups/`,

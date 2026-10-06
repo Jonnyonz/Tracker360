@@ -2,6 +2,16 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## Sin versión todavía (2026-10-06)
+
+### Agregado (instalación detrás de un proxy)
+- `install.sh` (Docker) con `TRACKER360_HTTPS=proxy TRACKER360_DOMAIN=wms.suempresa.com`: para servidores que ya
+  tienen un proxy con el 443 (Nginx Proxy Manager, Traefik...). No levanta Caddy: la API escucha en todas las
+  interfaces (`API_BIND=0.0.0.0`, o `TRACKER360_BIND`) para que el proxy llegue, agrega `https://<dominio>` a
+  `ALLOWED_ORIGINS` y al final explica qué cargar en el proxy (dominio → `http://<IP del servidor>:<API_PORT>`,
+  con certificado y Force SSL). Si el proxy está en otro equipo, `TRACKER360_PROXY_IP=<IP>` la suma a
+  `TRUSTED_PROXIES`. La elección queda guardada para las próximas corridas.
+
 ## 1.2.0 — 2026-10-06
 
 Tag `v1.2.0`, publicado en GitHub Releases: tiendas online.

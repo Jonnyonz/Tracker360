@@ -116,13 +116,28 @@ fi
 # 3b. HTTPS con Caddy (servicio "caddy" del compose, perfil https). La sesion usa una cookie Secure: sin HTTPS no
 #     se puede ingresar desde otra PC. Con dominio, Caddy saca el certificado solo; sin dominio usa la IP del
 #     servidor con su CA local. Si el 443 ya esta en uso (otra app en este servidor), usa el 8443, 9443 o 10443. Se desactiva
-#     con TRACKER360_HTTPS=no (queda como antes: http en el puerto de la API).
+#     con TRACKER360_HTTPS=no (queda como antes: http en el puerto de la API). Detras de un proxy que ya tiene el 443
+#     (Nginx Proxy Manager, Traefik...): TRACKER360_HTTPS=proxy TRACKER360_DOMAIN=wms.suempresa.com, sin Caddy
+#     propio; el proxy da el HTTPS y reenvia a http://<este servidor>:API_PORT (TRACKER360_BIND cambia donde
+#     escucha, 0.0.0.0 por defecto; TRACKER360_PROXY_IP, la IP del proxy si esta en otro equipo).
 leer() { grep -E "^$1=" .env 2>/dev/null | tail -n1 | cut -d= -f2- | tr -d '\r'; }
 poner() { if grep -qE "^$1=" .env; then sed -i "s#^$1=.*#$1=$2#" .env; else printf '%s=%s\n' "$1" "$2" >> .env; fi; }
 HTTPS="${TRACKER360_HTTPS:-$(leer TRACKER360_HTTPS)}"; HTTPS="${HTTPS:-si}"
 NO_SE_PUDO=0
 CADDY_CORRIENDO=0
 if docker compose ps --status running --services 2>/dev/null | grep -qx caddy; then CADDY_CORRIENDO=1; fi
+if [ "$HTTPS" = "proxy" ]; then
+    DOMAIN="${DOMAIN:-${TRACKER360_DOMAIN:-$(leer TRACKER360_DOMAIN)}}"
+    if [ -z "$DOMAIN" ]; then
+        PREVIO="$(leer ALLOWED_ORIGINS | cut -d, -f1)"
+        if [[ "$PREVIO" == https://* ]]; then DOMAIN="$(echo "$PREVIO" | sed -e 's#^https://##' -e 's#[:/].*$##')"; fi
+    fi
+    if [ -z "$DOMAIN" ]; then
+        echo "ERROR: detras de un proxy hace falta el dominio publico de Tracker360:"
+        echo "  TRACKER360_HTTPS=proxy TRACKER360_DOMAIN=wms.suempresa.com ./install.sh"
+        exit 1
+    fi
+fi
 if [ "$HTTPS" = "si" ]; then
     DOMAIN="${DOMAIN:-${TRACKER360_DOMAIN:-$(leer TRACKER360_DOMAIN)}}"
     if [ -z "$DOMAIN" ] && ! grep -qE '^TRACKER360_DOMAIN=' .env; then
@@ -200,6 +215,22 @@ if [ "$HTTPS" = "si" ]; then
     case ",$ORIGENES," in *",$SITIO,"*) ;; *) poner ALLOWED_ORIGINS "${ORIGENES:+$ORIGENES,}$SITIO";; esac
     # Instalacion nueva: la API solo en el propio servidor (se entra por Caddy). Las existentes no se cambian.
     if [ "$NUEVA" = "1" ]; then poner API_BIND 127.0.0.1; fi
+elif [ "$HTTPS" = "proxy" ]; then
+    # Detras de un proxy que ya tiene el 443: sin Caddy propio. La API escucha en todas las interfaces para que el
+    # proxy llegue (aunque sea un contenedor) y el navegador entra por https://DOMAIN (la cookie Secure funciona).
+    SITIO="https://$DOMAIN"
+    if [ -n "${TRACKER360_BIND:-}" ]; then poner API_BIND "$TRACKER360_BIND"
+    elif [ "$(leer TRACKER360_HTTPS)" != "proxy" ]; then poner API_BIND 0.0.0.0; fi
+    if [ -n "${TRACKER360_PROXY_IP:-}" ]; then
+        CONFIABLES="$(leer TRUSTED_PROXIES)"; CONFIABLES="${CONFIABLES:-127.0.0.1/32,::1/128,172.16.0.0/12}"
+        case ",$CONFIABLES," in *",$TRACKER360_PROXY_IP,"*) ;; *) poner TRUSTED_PROXIES "$CONFIABLES,$TRACKER360_PROXY_IP";; esac
+    fi
+    poner TRACKER360_HTTPS proxy
+    poner TRACKER360_DOMAIN "$DOMAIN"
+    poner COMPOSE_PROFILES ""
+    ORIGENES="$(leer ALLOWED_ORIGINS)"
+    case ",$ORIGENES," in *",$SITIO,"*) ;; *) poner ALLOWED_ORIGINS "${ORIGENES:+$ORIGENES,}$SITIO";; esac
+    if [ "$CADDY_CORRIENDO" = "1" ]; then docker compose --profile https stop caddy > /dev/null 2>&1 || true; fi
 else
     # "no" queda guardado solo si lo eligio el usuario; si no se pudo (puertos o IP), se reintenta la proxima vez.
     if [ "${NO_SE_PUDO:-0}" != "1" ]; then poner TRACKER360_HTTPS no; fi
@@ -239,6 +270,15 @@ if [ "$HTTPS" = "si" ] && command -v curl > /dev/null; then
         docker compose cp caddy:/data/caddy/pki/authorities/local/root.crt caddy/ca-local.crt > /dev/null 2>&1 || true
     fi
 fi
+# Detras de un proxy: esperar a que la API responda en su puerto (es lo que va a consultar el proxy).
+PROXY_OK=0
+if [ "$HTTPS" = "proxy" ] && command -v curl > /dev/null; then
+    PUERTO_API="$(leer API_PORT)"; PUERTO_API="${PUERTO_API:-8001}"
+    for _ in $(seq 1 45); do
+        if curl -fsS --max-time 5 "http://127.0.0.1:$PUERTO_API/api/auth/setup/status" > /dev/null 2>&1; then PROXY_OK=1; break; fi
+        sleep 2
+    done
+fi
 
 echo ""
 echo "=================================================="
@@ -246,7 +286,7 @@ echo "Tracker360 se instalo e inicio correctamente"
 echo "=================================================="
 echo "Puedes acceder desde tu navegador en:"
 API_PORT_SHOWN=$(grep -E '^API_PORT=' .env 2>/dev/null | cut -d= -f2)
-if [ "$HTTPS" = "si" ]; then
+if [ "$HTTPS" = "si" ] || [ "$HTTPS" = "proxy" ]; then
     echo "$SITIO"
 else
     echo "http://localhost:${API_PORT_SHOWN:-8001} o http://$(hostname -I | awk '{print $1}'):${API_PORT_SHOWN:-8001}"
@@ -277,6 +317,15 @@ if [ "$HTTPS" = "si" ]; then
         echo "- El puerto 443 lo usa otro programa de este servidor: HTTPS quedo en el $PUERTO_HTTPS."
     fi
     echo "- Para no usar HTTPS (solo http en el puerto ${API_PORT_SHOWN:-8001}): TRACKER360_HTTPS=no ./install.sh"
+elif [ "$HTTPS" = "proxy" ]; then
+    IP_LOCAL="$(hostname -I 2>/dev/null | awk '{print $1}')"
+    if [ -z "$IP_LOCAL" ]; then IP_LOCAL="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1)}')"; fi
+    echo "Sin Caddy propio: el HTTPS lo da el proxy de este servidor (por ejemplo Nginx Proxy Manager)."
+    if [ "$PROXY_OK" != "1" ]; then echo "ATENCION: la API todavia no responde en el puerto ${API_PORT_SHOWN:-8001}. Ver: docker compose logs api"; fi
+    echo "- En el proxy: $DOMAIN -> http://${IP_LOCAL:-<IP de este servidor>}:${API_PORT_SHOWN:-8001} (esquema http),"
+    echo "  con certificado SSL (Let's Encrypt), Force SSL y soporte de WebSockets."
+    echo "- El puerto ${API_PORT_SHOWN:-8001} queda abierto por http en la red local: conviene que el firewall solo"
+    echo "  deje entrar al proxy. Si el proxy esta en OTRO equipo: TRACKER360_PROXY_IP=<su IP> ./install.sh"
 else
     echo "HTTPS desactivado: se entra por http en el puerto ${API_PORT_SHOWN:-8001}."
     echo "Desde otra PC no se puede iniciar sesion por http (la cookie de sesion es Secure)."
