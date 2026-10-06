@@ -65,7 +65,7 @@ async def security_middleware(request: Request, call_next):
     response = await call_next(request)
     # X-Frame-Options, X-Content-Type-Options, Referrer-Policy y Permissions-Policy los pone
     # jztech_core (SecurityHeadersMiddleware, abajo). HSTS y CSP quedan aca: HSTS se manda siempre
-    # (detras de Caddy la peticion llega por http) y la CSP excluye /docs y /redoc.
+    # (detras del proxy del servidor la peticion llega por http) y la CSP excluye /docs y /redoc.
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     # /docs y /redoc cargan Swagger/ReDoc desde un CDN: se excluyen de la CSP.
     if request.url.path not in DOCS_PATHS:

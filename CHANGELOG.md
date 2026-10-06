@@ -4,13 +4,18 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
 
 ## Sin versión todavía (2026-10-06)
 
-### Agregado (instalación detrás de un proxy)
-- `install.sh` (Docker) con `TRACKER360_HTTPS=proxy TRACKER360_DOMAIN=wms.suempresa.com`: para servidores que ya
-  tienen un proxy con el 443 (Nginx Proxy Manager, Traefik...). No levanta Caddy: la API escucha en todas las
-  interfaces (`API_BIND=0.0.0.0`, o `TRACKER360_BIND`) para que el proxy llegue, agrega `https://<dominio>` a
-  `ALLOWED_ORIGINS` y al final explica qué cargar en el proxy (dominio → `http://<IP del servidor>:<API_PORT>`,
-  con certificado y Force SSL). Si el proxy está en otro equipo, `TRACKER360_PROXY_IP=<IP>` la suma a
-  `TRUSTED_PROXIES`. La elección queda guardada para las próximas corridas.
+### Cambiado (instaladores sin Caddy)
+- `install.sh` (Docker) e `install-native.sh` ya no levantan ni instalan Caddy: instalan Tracker360 y lo dejan
+  escuchando por http en su puerto (8001) de todas las interfaces (`TRACKER360_BIND` lo cambia). El HTTPS lo pone
+  el proxy del servidor. Al terminar muestran dónde quedó escuchando, la dirección pública (`TRACKER360_DOMAIN`,
+  que queda en `ALLOWED_ORIGINS`) y el token inicial. `TRACKER360_PROXY_IP=<IP>` suma a `TRUSTED_PROXIES` la IP de
+  un proxy que esté en otro equipo. Se saca el servicio `caddy` y su perfil `https` del compose, y los modos
+  `TRACKER360_HTTPS=si|no|proxy` (se ignoran con un aviso).
+- Instalaciones existentes: al volver a correr el instalador con Docker se saca el contenedor `tracker360_caddy`,
+  la carpeta `caddy/` y las claves que ya no se usan del `.env`, y la API pasa a escuchar en todas las interfaces;
+  los volúmenes de certificados de Caddy no se borran solos (el instalador muestra el comando). Sin Docker, un
+  Caddy configurado por una versión anterior no se desinstala (puede usarlo otra app): el instalador avisa cómo
+  sacarlo.
 
 ## 1.2.0 — 2026-10-06
 

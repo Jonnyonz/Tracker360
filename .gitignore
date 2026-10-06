@@ -20,5 +20,3 @@ postgres_data/
 .DS_Store
 .vscode/
 .idea/
-# HTTPS de la instalacion con Docker: lo genera install.sh en cada corrida (Caddyfile y CA local copiada)
-caddy/

@@ -5,18 +5,20 @@
 # Para Debian 12/13 y Ubuntu 24.04 (apt, Python 3.11 o mas nuevo). Correr como root desde la raiz de un
 # clon del repositorio:
 #
-#   sudo ./install-native.sh                                   red interna: HTTPS por la IP del servidor
-#   sudo TRACKER360_DOMAIN=wms.cliente.com ./install-native.sh   dominio publico: certificado automatico
+#   sudo ./install-native.sh                                     (pregunta el dominio la primera vez)
+#   sudo TRACKER360_DOMAIN=wms.cliente.com ./install-native.sh   con el dominio publico del cliente
 #
 # Queda asi:
 #   /opt/tracker360/src/                 clon de git del que se actualiza (lo usa tracker360-actualizar)
 #   /opt/tracker360/releases/<version>/  codigo + su propio venv (una carpeta por version; version = commit)
 #   /opt/tracker360/current              enlace a la version en uso (el actualizador lo cambia)
 #   /etc/tracker360/tracker360.env       configuracion y secretos (root:tracker360, 0640)
-#   servicio systemd "tracker360"        uvicorn en 127.0.0.1:8001, un worker
+#   servicio systemd "tracker360"        uvicorn en 0.0.0.0:8001 (http), un worker
 #   base "tracker360_db" y rol "tracker360" propios en el PostgreSQL del servidor
-#   Caddy delante con HTTPS (la sesion usa cookies Secure: sin HTTPS no se puede ingresar desde otra PC)
 #   /usr/local/sbin/tracker360-actualizar  actualizador (respaldo, chequeo y vuelta atras)
+#
+# El HTTPS lo da Nginx Proxy Manager (ya instalado en el servidor, con el 80/443): un Proxy Host del dominio
+# hacia http://<IP del servidor>:8001. La sesion usa cookies Secure: sin HTTPS no se puede ingresar desde otra PC.
 #
 # Idempotente: se puede volver a correr. Los secretos ya generados no se pisan. Sin compilador: las
 # dependencias se instalan solo con paquetes binarios (wheels) verificando los hashes de requirements.txt;
@@ -25,10 +27,10 @@
 # Es independiente de la instalacion con Docker (install.sh): no se pueden usar las dos en el mismo puerto.
 #
 # Variables opcionales:
-#   TRACKER360_DOMAIN=wms.cliente.com  dominio publico (Caddy saca el certificado solo; tiene que apuntar aca)
-#   TRACKER360_IP=192.168.1.10         sin dominio: IP para el certificado local (por defecto, la primera IP)
-#   TRACKER360_CADDY=0                 no instalar ni tocar Caddy (si el servidor ya usa otro proxy HTTPS)
-#   TRACKER360_PORT=8001               puerto local del servicio
+#   TRACKER360_DOMAIN=wms.cliente.com  dominio publico (el del Proxy Host; queda en ALLOWED_ORIGINS)
+#   TRACKER360_PORT=8001               puerto del servicio (al que reenvia Nginx Proxy Manager)
+#   TRACKER360_BIND=0.0.0.0            interfaz donde escucha (0.0.0.0: llega NPM aunque sea un contenedor)
+#   TRACKER360_PROXY_IP=192.168.1.20   IP de Nginx Proxy Manager si esta en otro equipo (TRUSTED_PROXIES)
 #   TRACKER360_REPO_URL=...            repositorio del que se actualiza (por defecto, el origin de este clon)
 # ==============================================================================
 
@@ -44,10 +46,7 @@ ENV_FILE="$ENV_DIR/$APP_NAME.env"
 SERVICE="$APP_NAME"
 DB_NAME="tracker360_db"
 DB_USER="tracker360"
-APP_BIND="127.0.0.1"
-CADDY="${TRACKER360_CADDY:-1}"
 ACTUALIZADOR="/usr/local/sbin/tracker360-actualizar"
-CA_LOCAL="/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd /   # psql como postgres no puede entrar a la carpeta desde la que se corre (por ejemplo /root)
@@ -75,7 +74,12 @@ fi
 # Configuracion: lo pedido, lo de la instalacion anterior o el valor por defecto.
 APP_PORT="${TRACKER360_PORT:-$(valor_env APP_PORT)}"; APP_PORT="${APP_PORT:-8001}"
 DOMAIN="${TRACKER360_DOMAIN:-$(valor_env TRACKER360_DOMAIN)}"
-IP="${TRACKER360_IP:-$(valor_env TRACKER360_IP)}"
+if [ -z "$DOMAIN" ] && [ ! -f "$ENV_FILE" ] && [ -r /dev/tty ]; then
+  read -r -p "Dominio publico de este servidor (ej. wms.suempresa.com, Enter para omitir): " DOMAIN < /dev/tty || DOMAIN=""
+fi
+DOMAIN="${DOMAIN#http://}"; DOMAIN="${DOMAIN#https://}"; DOMAIN="${DOMAIN%%/*}"
+# Antes escuchaba solo en 127.0.0.1 (se entraba por Caddy): ahora en todas las interfaces para que llegue NPM.
+APP_BIND="${TRACKER360_BIND:-$(valor_env TRACKER360_BIND)}"; APP_BIND="${APP_BIND:-0.0.0.0}"
 if [ -n "$DOMAIN" ] && ! [[ "$DOMAIN" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]]; then
   echo "Error: dominio invalido: $DOMAIN" >&2
   exit 1
@@ -84,25 +88,34 @@ if ! [[ "$APP_PORT" =~ ^[0-9]+$ ]]; then
   echo "Error: puerto invalido: $APP_PORT" >&2
   exit 1
 fi
+# Proxies de confianza: loopback y redes de Docker (NPM en un contenedor de este servidor), mas la IP de NPM si
+# esta en otro equipo. Las instalaciones de antes tenian solo loopback (Caddy en el mismo servidor).
+CONFIABLES="$(valor_env TRUSTED_PROXIES)"
+if [ -z "$CONFIABLES" ] || [ "$CONFIABLES" = "127.0.0.1/32,::1/128" ]; then CONFIABLES="127.0.0.1/32,::1/128,172.16.0.0/12"; fi
+if [ -n "${TRACKER360_PROXY_IP:-}" ]; then
+  case ",$CONFIABLES," in *",$TRACKER360_PROXY_IP,"*) ;; *) CONFIABLES="$CONFIABLES,$TRACKER360_PROXY_IP" ;; esac
+fi
+if [ -n "$DOMAIN" ]; then ORIGENES="https://$DOMAIN"; else ORIGENES=""; fi
+case "$APP_BIND" in 0.0.0.0|127.0.0.1) LOCAL=127.0.0.1 ;; *) LOCAL="$APP_BIND" ;; esac
 
 # 2. Paquetes del sistema (sin compilador ni cabeceras de Python)
 echo "Instalando paquetes del sistema..."
 apt-get update -qq
 apt-get install -y -qq python3 python3-venv postgresql postgresql-client openssl curl rsync git ca-certificates \
-  gnupg iproute2 > /dev/null
+  iproute2 > /dev/null
 if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)'; then
   echo "Error: hace falta Python 3.11 o mas nuevo (este sistema tiene $(python3 --version 2>&1))." >&2
   echo "Sistemas soportados: Debian 12, Debian 13, Ubuntu 24.04." >&2
   exit 1
 fi
-if [ -z "$DOMAIN" ] && [ -z "$IP" ]; then
+# IP del servidor para el Proxy Host de Nginx Proxy Manager (o la interfaz elegida con TRACKER360_BIND).
+if [ "$LOCAL" != "127.0.0.1" ]; then
+  IP="$LOCAL"
+else
   IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  if [ -z "$IP" ]; then IP="$(ip -4 route get 1.1.1.1 2>/dev/null | awk '{for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1)}')"; fi
+  IP="${IP:-<IP de este servidor>}"
 fi
-if [ -z "$DOMAIN" ] && ! [[ "$IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "Error: no se pudo saber la IP del servidor. Indicarla con TRACKER360_IP=192.168.1.10 (o usar TRACKER360_DOMAIN)." >&2
-  exit 1
-fi
-if [ -n "$DOMAIN" ]; then SITIO="https://$DOMAIN"; else SITIO="https://$IP"; fi
 
 # El puerto local tiene que estar libre (por ejemplo, ocupado por la instalacion con Docker).
 OCUPANTE="$(ss -ltnpH "( sport = :$APP_PORT )" 2>/dev/null || true)"
@@ -203,7 +216,7 @@ mkdir -p "$ENV_DIR"
 ADICIONALES=""
 if [ -f "$ENV_FILE" ]; then
   # Lo que el administrador agrego a mano (por ejemplo AGENT_DOWNLOAD_URL) se conserva.
-  ADICIONALES="$(grep -Ev '^(#|$|POSTGRES_|SETUP_TOKEN=|SECRET_KEY=|TRUSTED_PROXIES=|ALLOWED_ORIGINS=|APP_PORT=|TRACKER360_(DOMAIN|IP|INSTALACION|REPO_URL)=|PYTHONDONTWRITEBYTECODE=|TZ=)' "$ENV_FILE" || true)"
+  ADICIONALES="$(grep -Ev '^(#|$|POSTGRES_|SETUP_TOKEN=|SECRET_KEY=|TRUSTED_PROXIES=|ALLOWED_ORIGINS=|APP_PORT=|TRACKER360_(DOMAIN|BIND|IP|INSTALACION|REPO_URL)=|PYTHONDONTWRITEBYTECODE=|TZ=)' "$ENV_FILE" || true)"
 fi
 ZONA="$(valor_env TZ)"; ZONA="${ZONA:-${TZ:-America/Argentina/Buenos_Aires}}"
 TMP_ENV="$(mktemp "$ENV_DIR/.env.XXXXXX")"
@@ -217,11 +230,11 @@ POSTGRES_USER=$DB_USER
 POSTGRES_PASSWORD=$DB_PASSWORD
 SECRET_KEY=$SECRET_KEY
 SETUP_TOKEN=$SETUP_TOKEN
-TRUSTED_PROXIES=127.0.0.1/32,::1/128
-ALLOWED_ORIGINS=$SITIO
+TRUSTED_PROXIES=$CONFIABLES
+ALLOWED_ORIGINS=$ORIGENES
 APP_PORT=$APP_PORT
 TRACKER360_DOMAIN=$DOMAIN
-TRACKER360_IP=$IP
+TRACKER360_BIND=$APP_BIND
 TRACKER360_INSTALACION=nativa
 TRACKER360_REPO_URL=$REPO_URL
 TZ=$ZONA
@@ -282,14 +295,14 @@ systemctl restart "$SERVICE"
 echo "Esperando que el servicio responda..."
 OK=0
 for _ in $(seq 1 45); do
-  if curl -fsS --max-time 5 "http://$APP_BIND:$APP_PORT/api/auth/setup/status" > /dev/null 2>&1; then
+  if curl -fsS --max-time 5 "http://$LOCAL:$APP_PORT/api/auth/setup/status" > /dev/null 2>&1; then
     OK=1
     break
   fi
   sleep 2
 done
 if [ "$OK" != "1" ]; then
-  echo "Error: el servicio no responde en http://$APP_BIND:$APP_PORT." >&2
+  echo "Error: el servicio no responde en http://$LOCAL:$APP_PORT." >&2
   echo "Ver el detalle con: journalctl -u $SERVICE -n 50 --no-pager" >&2
   exit 1
 fi
@@ -298,84 +311,9 @@ echo "Servicio en marcha (version $VERSION)."
 # 9. Actualizador
 install -m 0755 "$DEST/tools/tracker360-actualizar" "$ACTUALIZADOR"
 
-# 10. Proxy HTTPS (Caddy). Si el 443 lo usa otro programa, no se toca nada. Si el 80 lo usa otro programa
-#     (por ejemplo Apache), Caddy se configura igual solo en el 443, sin redireccion desde http.
-if [ -n "$DOMAIN" ]; then
-  BLOQUE="$DOMAIN {
-    reverse_proxy $APP_BIND:$APP_PORT
-}"
-else
-  BLOQUE="https://$IP {
-    tls internal
-    reverse_proxy $APP_BIND:$APP_PORT
-}"
-fi
-SIN_REDIRECCION=0
-if [ "$CADDY" = "1" ]; then
-  EN_443="$(ss -ltnpH '( sport = :443 )' 2>/dev/null | grep -v '"caddy"' || true)"
-  EN_80="$(ss -ltnpH '( sport = :80 )' 2>/dev/null | grep -v '"caddy"' || true)"
-  if [ -n "$EN_443" ]; then
-    echo "Aviso: el puerto 443 lo usa otro programa; no se configura Caddy." >&2
-    echo "$EN_443" >&2
-    CADDY="0"
-  elif [ -n "$EN_80" ]; then
-    echo "Aviso: el puerto 80 lo usa otro programa; Caddy atiende solo HTTPS (443), sin redireccion desde http." >&2
-    SIN_REDIRECCION=1
-  fi
-fi
-if [ "$CADDY" = "1" ]; then
-  CADDYFILE="/etc/caddy/Caddyfile"
-  MARCA="# Gestionado por los instaladores nativos de JZTech"
-  GLOBAL=""
-  [ "$SIN_REDIRECCION" = "1" ] && GLOBAL="{
-	auto_https disable_redirects
-}
-"
-  mkdir -p /etc/caddy
-  # Mismo criterio que los otros instaladores de JZTech: el Caddyfile de ejemplo compite por el puerto 80.
-  # Se escribe antes de instalar Caddy para que arranque con este y no con el de ejemplo.
-  if [ ! -f "$CADDYFILE" ] || ! grep -q "$MARCA" "$CADDYFILE"; then
-    printf '%s%s\n%s\n' "$GLOBAL" "$MARCA (install-native.sh)." "# Cada app agrega su propio bloque de sitio abajo." > "$CADDYFILE"
-  elif [ -n "$GLOBAL" ] && ! grep -q "auto_https disable_redirects" "$CADDYFILE"; then
-    { printf '%s' "$GLOBAL"; cat "$CADDYFILE"; } > "$CADDYFILE.tmp" && mv -f "$CADDYFILE.tmp" "$CADDYFILE"
-  fi
-  PRIMERA="$(printf '%s\n' "$BLOQUE" | head -n1)"
-  if ! grep -qxF "$PRIMERA" "$CADDYFILE"; then
-    printf '\n# tracker360\n%s\n' "$BLOQUE" >> "$CADDYFILE"
-  fi
-  if ! command -v caddy &> /dev/null; then
-    echo "Instalando Caddy..."
-    if ! DEBIAN_FRONTEND=noninteractive apt-get install -y -qq -o Dpkg::Options::=--force-confold caddy > /dev/null 2>&1; then
-      curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
-        | gpg --dearmor --yes -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-      curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list
-      apt-get update -qq
-      DEBIAN_FRONTEND=noninteractive apt-get install -y -qq -o Dpkg::Options::=--force-confold caddy > /dev/null
-    fi
-  fi
-  if caddy validate --config "$CADDYFILE" --adapter caddyfile > /dev/null 2>&1; then
-    systemctl enable --now caddy > /dev/null
-    systemctl reload caddy 2> /dev/null || systemctl restart caddy
-    # Caddy saca el certificado unos segundos despues de arrancar: se espera a que el HTTPS responda antes
-    # de dar la direccion (con dominio publico, el certificado automatico puede tardar mas).
-    if [ -n "$DOMAIN" ]; then
-      PRUEBA=(--resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/auth/setup/status")
-    else
-      PRUEBA=("https://$IP/api/auth/setup/status")
-    fi
-    HTTPS_OK=0
-    for _ in $(seq 1 30); do
-      if curl -fsSk --max-time 5 "${PRUEBA[@]}" > /dev/null 2>&1; then HTTPS_OK=1; break; fi
-      sleep 2
-    done
-    if [ "$HTTPS_OK" != "1" ]; then
-      echo "Aviso: el HTTPS todavia no responde en $SITIO. Con dominio, revisar que apunte a este servidor;" >&2
-      echo "el detalle esta en: journalctl -u caddy -n 50 --no-pager" >&2
-    fi
-  else
-    echo "Aviso: el Caddyfile no valida; no se recargo Caddy. Revisar $CADDYFILE." >&2
-  fi
-fi
+# 10. Caddy de versiones anteriores de este instalador: no se desinstala (puede usarlo otra app), se avisa.
+CADDY_VIEJO=0
+if [ -f /etc/caddy/Caddyfile ] && grep -qx '# tracker360' /etc/caddy/Caddyfile; then CADDY_VIEJO=1; fi
 
 # 11. Resumen
 ADMINS=$(sudo -u postgres psql -d "$DB_NAME" -tAc "SELECT count(*) FROM users WHERE role = 'ADMIN'" 2>/dev/null || echo 0)
@@ -383,18 +321,24 @@ echo ""
 echo "================================================================="
 echo "INSTALACION COMPLETADA - Tracker360 $VERSION"
 echo "================================================================="
-echo "Entrar desde el navegador: $SITIO"
-if [ "$CADDY" != "1" ]; then
-  echo "Caddy no se configuro. Agregar al proxy HTTPS del servidor el equivalente a:"
-  echo "$BLOQUE"
-elif [ -z "$DOMAIN" ]; then
-  echo "Certificado de la CA local de Caddy: el navegador avisa que la conexion no es privada hasta que se"
-  echo "instala en cada PC, colectora o celular el certificado raiz: $CA_LOCAL"
+echo "Escuchando en: http://$IP:$APP_PORT"
+if [ -n "$DOMAIN" ]; then
+  echo "Direccion publica: https://$DOMAIN (tiene que llegar a http://$IP:$APP_PORT)"
 fi
 if [ "$ADMINS" = "0" ]; then
   echo ""
   echo "Token de configuracion inicial: $SETUP_TOKEN"
   echo "La pagina lo pide para crear el usuario administrador (sirve una sola vez)."
+fi
+if [ "$CADDY_VIEJO" = "1" ]; then
+  echo ""
+  echo "AVISO: quedo el Caddy que configuraba una version anterior de este instalador (no se desinstala)."
+  echo "Ahora Tracker360 escucha directo en el puerto $APP_PORT; Caddy sigue ocupando el 80 y el 443."
+  echo "Si ninguna otra app usa Caddy, sacarlo con:"
+  echo "  sudo systemctl disable --now caddy"
+  echo "  sudo apt purge caddy"
+  echo "Si otra app lo sigue usando: borrar el bloque \"# tracker360\" de /etc/caddy/Caddyfile y"
+  echo "  sudo systemctl reload caddy"
 fi
 echo ""
 echo "Para actualizar mas adelante: sudo tracker360-actualizar"

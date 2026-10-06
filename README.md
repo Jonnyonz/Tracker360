@@ -165,21 +165,15 @@ cd Tracker360
 clona el repo en `./tracker360`.)
 
 El instalador genera el `.env` con clave de base, `SECRET_KEY` y `SETUP_TOKEN` aleatorios,
-pregunta el dominio, levanta los contenedores y muestra la URL y el `SETUP_TOKEN`.
+pregunta el dominio público (o se pasa con `TRACKER360_DOMAIN=wms.suempresa.com ./install.sh`), levanta los
+contenedores y deja la API escuchando por http en el puerto 8001 (`API_PORT`) de todas las interfaces
+(`TRACKER360_BIND` lo cambia). Al terminar muestra dónde quedó escuchando, la dirección pública y el
+`SETUP_TOKEN`. No instala ningún proxy: el HTTPS lo pone el proxy del servidor, que recibe el dominio y lo reenvía
+a ese puerto (ver [Acceso desde la red](#acceso-desde-la-red-https)). Si el proxy está en otro equipo,
+`TRACKER360_PROXY_IP=<su IP>` lo suma a `TRUSTED_PROXIES`. Las corridas siguientes recuerdan todo esto.
 
-**HTTPS incluido:** levanta también un contenedor de Caddy (`tracker360_caddy`) delante de la API. Con dominio
-(`TRACKER360_DOMAIN=wms.suempresa.com ./install.sh`, o contestando la pregunta) saca el certificado solo; sin
-dominio usa la IP del servidor con la CA local de Caddy y deja su certificado raíz en `caddy/ca-local.crt` para
-instalarlo en las PCs y celulares. Si el puerto 443 ya lo usa otro programa (por ejemplo otra app de la suite en
-el mismo servidor), HTTPS queda en el 8443 (o en el que se indique con `TRACKER360_HTTPS_PORT`). Al terminar
-muestra un **aviso de HTTPS** con la dirección y lo que hay que hacer con el certificado. Para no usarlo:
-`TRACKER360_HTTPS=no ./install.sh` (queda solo http en el puerto de la API, y no se puede ingresar desde otra PC).
-
-**Detrás de un proxy que ya tiene el 443** (Nginx Proxy Manager, Traefik...):
-`TRACKER360_HTTPS=proxy TRACKER360_DOMAIN=wms.suempresa.com ./install.sh`. No levanta Caddy: la API escucha en
-el puerto de la API (8001) en todas las interfaces y en el proxy se carga el dominio hacia
-`http://<IP del servidor>:8001`, con certificado SSL y Force SSL. Si el proxy está en otro equipo, sumar
-`TRACKER360_PROXY_IP=<su IP>` (para confiar en su `X-Forwarded-For`). Las corridas siguientes lo recuerdan.
+Las instalaciones anteriores con Caddy propio (`tracker360_caddy`) se pasan solas a este esquema al volver a
+correr el instalador: se saca el contenedor y las claves que ya no se usan del `.env`.
 
 Para **actualizar** se vuelve a correr (`sudo ./install.sh` en la carpeta de la instalación, o el mismo
 `curl ... | bash` desde la carpeta donde se instaló): trae la última versión publicada (`git pull --ff-only`;
@@ -215,28 +209,25 @@ docker compose up -d --build
 ## Instalación en el servidor (sin Docker)
 
 Para servidores sin Docker: Debian 12/13 o Ubuntu 24.04. El instalador deja Tracker360 como servicio del
-sistema, con PostgreSQL del servidor y **Caddy con HTTPS** delante (la sesión usa cookies `Secure`: sin HTTPS no
-se puede ingresar desde otra PC, colectora o celular).
+sistema, con PostgreSQL del servidor, escuchando por http en el puerto 8001 de todas las interfaces.
 
 ```bash
 git clone https://github.com/Jonnyonz/Tracker360.git
 cd Tracker360
-sudo ./install-native.sh                                   # red interna: HTTPS por la IP del servidor
-sudo TRACKER360_DOMAIN=wms.suempresa.com ./install-native.sh   # con dominio: certificado automatico
+sudo TRACKER360_DOMAIN=wms.suempresa.com ./install-native.sh
 ```
 
-Al terminar muestra la dirección (`https://<IP>` o `https://<dominio>`) y el `SETUP_TOKEN` para crear el
-administrador. Sin dominio, el certificado lo firma la CA local de Caddy: el navegador avisa "la conexión no
-es privada" hasta que se instala en cada equipo el certificado raíz que indica el instalador
-(`/var/lib/caddy/.local/share/caddy/pki/authorities/local/root.crt`).
+Al terminar muestra dónde quedó escuchando, la dirección pública y el `SETUP_TOKEN` para crear el
+administrador.
 
 Queda así: código y su venv en `/opt/tracker360/releases/<versión>` (la versión es el commit), enlace
 `/opt/tracker360/current` a la que está en uso, configuración en `/etc/tracker360/tracker360.env`
-(`root:tracker360`, 0640), servicio `tracker360` (uvicorn en `127.0.0.1:8001`, usuario de sistema sin login,
+(`root:tracker360`, 0640), servicio `tracker360` (uvicorn en `0.0.0.0:8001`, usuario de sistema sin login,
 código de solo lectura) y base `tracker360_db` con su propio rol. Las dependencias se instalan sin compilador,
 verificando los hashes. Se puede volver a correr: no pisa los secretos ni lo agregado a mano al `.env`.
-Si el puerto 80 lo usa otro programa (por ejemplo Apache), Caddy atiende solo el 443. Opciones:
-`TRACKER360_IP`, `TRACKER360_PORT`, `TRACKER360_CADDY=0` (si ya hay otro proxy HTTPS) y `TRACKER360_REPO_URL`.
+Opciones: `TRACKER360_DOMAIN`, `TRACKER360_PORT`, `TRACKER360_BIND`, `TRACKER360_PROXY_IP` y
+`TRACKER360_REPO_URL`. Un Caddy que haya configurado una versión anterior del instalador no se desinstala solo:
+el instalador avisa cómo sacarlo.
 Es independiente de la instalación con Docker: no se pueden usar las dos en el mismo puerto.
 
 **Actualizar:**
@@ -286,19 +277,9 @@ cierran.
 Desde otras PCs, colectoras o celulares hace falta HTTPS: la cookie de sesión es `Secure`
 (por `http://` el navegador la descarta fuera de `localhost`), la cámara del celular solo se
 habilita en sitios seguros, y la app rechaza conexiones sin HTTPS que no vengan de la red local.
-`install.sh` (Docker) e `install-native.sh` ya lo configuran con Caddy. Para un proxy propio, por ejemplo
-[Caddy](https://caddyserver.com/) instalado en el mismo servidor:
-
-```
-# /etc/caddy/Caddyfile
-wms.miempresa.com {
-    reverse_proxy 127.0.0.1:8001
-}
-```
-
-Y en el `.env`: `API_BIND=127.0.0.1` (la API solo escucha en el propio servidor) y
-`ALLOWED_ORIGINS=https://wms.miempresa.com`. En una red interna sin dominio público se puede
-usar `tls internal` (CA local, que hay que instalar en cada equipo).
+Los instaladores dejan la API escuchando por http en su puerto (8001); el HTTPS lo pone el proxy del servidor,
+que recibe el dominio (`https://wms.suempresa.com`) y lo reenvía a `http://<IP del servidor>:8001`. El dominio
+queda en `ALLOWED_ORIGINS`.
 
 ---
 

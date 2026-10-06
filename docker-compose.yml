@@ -22,6 +22,7 @@ services:
   api:
     # Imagen autocontenida: el codigo va dentro de la imagen (sin montar la carpeta del repo).
     # Para actualizar: git pull && docker compose up -d --build
+    # El HTTPS lo pone el proxy del servidor: reenvia por http a este puerto (API_BIND 0.0.0.0 para que llegue).
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -43,26 +44,5 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  caddy:
-    # HTTPS delante de la API. Lo activa install.sh (COMPOSE_PROFILES=https en el .env) y escribe
-    # caddy/Caddyfile: con dominio saca el certificado solo; sin dominio usa la IP del servidor con la CA
-    # local de Caddy. Sin HTTPS la sesion no se guarda desde otra PC (la cookie es Secure).
-    image: caddy:2-alpine
-    container_name: tracker360_caddy
-    profiles: ["https"]
-    restart: always
-    depends_on:
-      - api
-    ports:
-      - "${CADDY_HTTP_BIND:-0.0.0.0}:${CADDY_HTTP_PORT-80}:80"
-      - "0.0.0.0:${CADDY_HTTPS_PORT:-443}:443"
-    volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - tracker360_caddy_data:/data
-      - tracker360_caddy_config:/config
-    mem_limit: ${CADDY_MEM_LIMIT:-128m}
-
 volumes:
   tracker360_pgdata:
-  tracker360_caddy_data:
-  tracker360_caddy_config:
