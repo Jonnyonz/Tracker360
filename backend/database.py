@@ -590,25 +590,72 @@ async def verify_system_api_key(request: Request, x_api_key: Optional[str] = Hea
 
 # === INICIALIZACIÓN DE TABLAS (DDL) ===
 MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
+async def _crear_pool():
+    return await asyncpg.create_pool(
+        user=os.getenv("POSTGRES_USER", "tracker_admin"),
+        password=os.getenv("POSTGRES_PASSWORD", secrets.token_hex(24)),
+        database=os.getenv("POSTGRES_DB", "tracker360_db"),
+        host=os.getenv("POSTGRES_HOST", "db"),
+        port=int(os.getenv("POSTGRES_PORT", "5432")),
+        min_size=1, max_size=int(os.getenv("DB_POOL_MAX", "20"))
+    )
+
+
+def _causa_conexion(e: Exception) -> str:
+    """Pista para el log cuando la base no acepta la conexion."""
+    if isinstance(e, asyncpg.InvalidPasswordError):
+        return (" La contrasena de POSTGRES_PASSWORD (.env) no es la que tiene la base: volver a correr install.sh "
+                "(la alinea) o cambiarla en la base con ALTER USER.")
+    return ""
+
+
+REINTENTO_DB_SEGUNDOS = 5
+
+
+async def reconectar_db_en_segundo_plano():
+    """Si al arrancar la base no respondio (todavia levantando, contrasena mal), se sigue probando sin reiniciar el
+    servicio: mientras tanto la API responde 503. Al conectar se prepara el esquema igual que en el arranque."""
+    intento = 0
+    while DB.pool is None:
+        await asyncio.sleep(REINTENTO_DB_SEGUNDOS)
+        intento += 1
+        try:
+            pool = await _crear_pool()
+        except Exception as e:
+            if intento % 12 == 1:   # un aviso por minuto, no uno cada 5 s
+                logger.warning(f"[DB] Sigue sin conexion a PostgreSQL ({intento} reintentos): {e!r}.{_causa_conexion(e)}")
+            continue
+        DB.pool = pool
+        try:
+            await _preparar_esquema()
+        except Exception:
+            # Una migracion que falla no se reintenta en bucle: queda en el log y la API sigue en 503.
+            logger.exception("[DB] Conectado, pero fallo una migracion: la API respondera 503 hasta corregirla y reiniciar.")
+            DB.pool = None
+            await pool.close()
+            return
+        logger.info(f"[DB] Conectado a PostgreSQL despues de {intento} reintentos.")
+
+
 async def init_db_schema():
+    """Conecta y prepara el esquema. Devuelve False si la base no respondio en ~10 s: el que llama arranca
+    reconectar_db_en_segundo_plano() (la API no queda muerta hasta reiniciar)."""
     for attempt in range(10):
         try:
-            DB.pool = await asyncpg.create_pool(
-                user=os.getenv("POSTGRES_USER", "tracker_admin"),
-                password=os.getenv("POSTGRES_PASSWORD", secrets.token_hex(24)),
-                database=os.getenv("POSTGRES_DB", "tracker360_db"),
-                host=os.getenv("POSTGRES_HOST", "db"),
-                port=int(os.getenv("POSTGRES_PORT", "5432")),
-                min_size=1, max_size=int(os.getenv("DB_POOL_MAX", "20"))
-            )
+            DB.pool = await _crear_pool()
             if DB.pool is not None: break
         except Exception as e:
-            logger.warning(f"[DB] Intento {attempt + 1}/10 de conexion a PostgreSQL fallido: {e!r}")
+            logger.warning(f"[DB] Intento {attempt + 1}/10 de conexion a PostgreSQL fallido: {e!r}.{_causa_conexion(e)}")
             await asyncio.sleep(1.0)
 
     if DB.pool is None:
-        logger.error("[DB] No se pudo conectar a PostgreSQL: la API respondera 503 hasta reiniciar el servicio.")
+        logger.error(f"[DB] No se pudo conectar a PostgreSQL: la API responde 503 y sigue reintentando cada {REINTENTO_DB_SEGUNDOS} s.")
+        return False
+    await _preparar_esquema()
+    return True
 
+
+async def _preparar_esquema():
     if DB.pool is not None:
         # Esquema: migraciones versionadas (backend/migrations/NNNN_*.sql, jztech_core.migrations).
         # Cada archivo corre una sola vez y en su propia transaccion; si uno falla se corta el

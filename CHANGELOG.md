@@ -2,6 +2,25 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.3.2 — 2026-10-07
+
+Tag `v1.3.2`, publicado en GitHub Releases: arreglos de instalación y arranque que aparecieron al actualizar un
+servidor real.
+
+### Arreglado
+- La API ya no queda "muerta" si al arrancar no puede entrar a la base (base todavía levantando, contraseña que no
+  coincide): responde 503 mientras tanto y **sigue reintentando cada 5 segundos**; al conectar prepara el esquema
+  como en un arranque normal. Antes quedaba en 503 hasta reiniciar el contenedor. El log dice la causa (por
+  ejemplo, que `POSTGRES_PASSWORD` del `.env` no es la que tiene la base).
+- `install.sh`: si la API no entra porque la contraseña de la base no coincide con el `.env` (un `.env` rehecho o
+  tocado por un instalador viejo), la pone en la base igual que en el `.env` y espera a que la API responda. Los
+  datos no se tocan.
+- `install.sh`: si hay archivos del programa modificados a mano (por ejemplo un `install.sh` viejo copiado encima),
+  dice cuáles y el comando para volver a la versión publicada, en vez de un error genérico. Si se corre una copia del
+  instalador guardada en otra carpeta, sigue con el `install.sh` de la instalación (una copia vieja no actualiza).
+- `install.sh`: el resumen final muestra la versión instalada y, si la API no responde, ya no dice "se instaló e
+  inició correctamente".
+
 ## 1.3.1 — 2026-10-07
 
 Tag `v1.3.1`, publicado en GitHub Releases: documentación pública de la API de canales.

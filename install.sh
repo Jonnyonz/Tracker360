@@ -1,5 +1,7 @@
 #!/bin/bash
 set -e
+# Ruta del script que se esta corriendo (antes de cambiar de carpeta): ver 2a.
+ESTE="$(readlink -f "$0" 2>/dev/null || true)"
 
 echo "=================================================="
 echo "  Instalador Automatico de Tracker360 WMS         "
@@ -45,6 +47,16 @@ if [ ! -f "docker-compose.yml" ]; then
     cd tracker360
 fi
 
+# 2a. Si se corrio una COPIA de install.sh que no es la de la instalacion (por ejemplo una vieja, guardada en otra
+#     carpeta), se sigue con el install.sh de la instalacion: una copia vieja no sabe actualizar.
+if [ -f ./install.sh ] && [ "$ESTE" != "$(readlink -f ./install.sh)" ] && [ "${TRACKER360_DESDE_COPIA:-}" != "1" ]; then
+    echo "Se sigue con el instalador de la instalacion ($PWD/install.sh)."
+    # Con "curl ... | bash" la entrada es el script mismo: no se le pasa al instalador (las preguntas quedarian
+    # leyendo el resto del script).
+    if [ -t 0 ]; then exec env TRACKER360_DESDE_COPIA=1 bash ./install.sh "$@"; fi
+    exec env TRACKER360_DESDE_COPIA=1 bash ./install.sh "$@" < /dev/null
+fi
+
 # 2b. Actualizar: si ya es un repositorio, traer la version publicada antes de reconstruir (antes volver a
 #     correr el instalador reconstruia la misma version). Solo avanza (--ff-only): con cambios locales o sin
 #     conexion se detiene sin tocar nada. TRACKER360_NO_UPDATE=1 reconstruye la version que ya esta.
@@ -53,8 +65,20 @@ if [ -d .git ] && [ "${TRACKER360_NO_UPDATE:-}" != "1" ]; then
     GIT="git -c safe.directory=$PWD"
     ANTES=$($GIT rev-parse --short HEAD)
     echo "Buscando actualizaciones..."
+    CAMBIADOS="$($GIT status --porcelain --untracked-files=no 2>/dev/null | cut -c4-)"
+    if [ -n "$CAMBIADOS" ]; then
+        # Con archivos del programa cambiados a mano (por ejemplo un install.sh viejo copiado encima) git no
+        # actualiza: se avisa cuales y como volver a la version publicada, sin tocar nada.
+        echo "ERROR: hay archivos del programa modificados en $PWD, por eso no se puede actualizar:"
+        for f in $CAMBIADOS; do echo "  $f"; done
+        echo "Para descartar esos cambios y volver a la version publicada (el .env y la base no se tocan):"
+        echo "  sudo git -c safe.directory=$PWD checkout -- $(echo $CAMBIADOS)"
+        echo "y volver a correr: sudo ./install.sh"
+        echo "No se toco nada: la version instalada sigue funcionando ($ANTES)."
+        exit 1
+    fi
     if ! $GIT pull --ff-only --quiet; then
-        echo "ERROR: no se pudo traer la version nueva (cambios locales en $PWD o sin conexion)."
+        echo "ERROR: no se pudo traer la version nueva (sin conexion con GitHub?)."
         echo "No se toco nada: la version instalada sigue funcionando ($ANTES)."
         exit 1
     fi
@@ -210,12 +234,28 @@ API_PORT_SHOWN="$(leer API_PORT)"; API_PORT_SHOWN="${API_PORT_SHOWN:-8001}"
 BIND="$(leer API_BIND)"
 case "$BIND" in ""|0.0.0.0|127.0.0.1) LOCAL=127.0.0.1 ;; *) LOCAL="$BIND" ;; esac
 API_OK=0
-if command -v curl > /dev/null; then
-    for _ in $(seq 1 45); do
-        if curl -fsS --max-time 5 "http://$LOCAL:$API_PORT_SHOWN/api/auth/setup/status" > /dev/null 2>&1; then API_OK=1; break; fi
+esperar_api() {
+    command -v curl > /dev/null || return 0
+    for _ in $(seq 1 "$1"); do
+        if curl -fsS --max-time 5 "http://$LOCAL:$API_PORT_SHOWN/api/auth/setup/status" > /dev/null 2>&1; then API_OK=1; return 0; fi
         sleep 2
     done
+}
+esperar_api 45
+# La base guarda la contrasena con la que se creo su volumen; si el .env tiene otra (un .env rehecho o tocado por
+# un instalador viejo), la API no entra. Se pone en la base la del .env (por el socket local del contenedor, que
+# no pide contrasena) y la API se reconecta sola.
+if [ "$API_OK" != "1" ] && docker compose logs --tail=80 api 2>/dev/null | grep -q "InvalidPasswordError"; then
+    echo "La contrasena de la base no coincide con POSTGRES_PASSWORD del .env: se actualiza en la base..."
+    if echo "ALTER ROLE CURRENT_USER WITH PASSWORD :'pw';" | docker compose exec -T db sh -c \
+        'psql -q -v ON_ERROR_STOP=1 -v pw="$POSTGRES_PASSWORD" -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > /dev/null; then
+        echo "Contrasena de la base actualizada. Esperando a la API..."
+        esperar_api 30
+    else
+        echo "No se pudo cambiar la contrasena en la base. Ver: docker compose logs api"
+    fi
 fi
+VERSION_INSTALADA="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' backend/__init__.py 2>/dev/null | tr -d '\r')"
 # IP del servidor para el proxy (o la interfaz elegida con TRACKER360_BIND).
 if [ "$LOCAL" != "127.0.0.1" ]; then
     IP_LOCAL="$LOCAL"
@@ -228,7 +268,11 @@ fi
 
 echo ""
 echo "=================================================="
-echo "Tracker360 se instalo e inicio correctamente"
+if [ "$API_OK" = "1" ]; then
+    echo "Tracker360 ${VERSION_INSTALADA:+v$VERSION_INSTALADA }se instalo e inicio correctamente"
+else
+    echo "Tracker360 ${VERSION_INSTALADA:+v$VERSION_INSTALADA }se instalo, pero la API no responde todavia"
+fi
 echo "=================================================="
 echo "Escuchando en: http://$IP_LOCAL:$API_PORT_SHOWN"
 if [ -n "$DOMAIN" ]; then

@@ -18,15 +18,19 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from backend.database import init_db_schema, outbox_en_segundo_plano, DB, session_user, get_client_ip, get_request_scheme, is_private_ip, require_admin
+from backend.database import init_db_schema, reconectar_db_en_segundo_plano, outbox_en_segundo_plano, DB, session_user, get_client_ip, get_request_scheme, is_private_ip, require_admin
 from backend.routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater, notes, channels
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db_schema()
-    envios = asyncio.create_task(outbox_en_segundo_plano())  # webhooks despues del commit (S8)
+    tareas = []
+    if not await init_db_schema():
+        # La base no respondio: se sigue probando (antes la API quedaba en 503 hasta reiniciar el contenedor).
+        tareas.append(asyncio.create_task(reconectar_db_en_segundo_plano()))
+    tareas.append(asyncio.create_task(outbox_en_segundo_plano()))  # webhooks despues del commit (S8)
     yield
-    envios.cancel()
+    for tarea in tareas:
+        tarea.cancel()
     if DB.pool is not None:
         await DB.pool.close()
 
