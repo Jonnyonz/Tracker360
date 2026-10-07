@@ -2,9 +2,10 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
-## Sin versión todavía (2026-10-07)
+## 1.3.0 — 2026-10-07
 
-Arreglos de la revisión previa a la venta (`Revision_Tracker_y_Middle_2026-10-07.md`).
+Tag `v1.3.0`, publicado en GitHub Releases: arreglos previos a la venta, importación desde Excel y
+instaladores sin Caddy.
 
 ### Agregado
 - Importar artículos acepta **Excel nativo (.xlsx)**, **texto separado por tabulaciones (.txt/.tsv)** y CSV con
@@ -35,6 +36,9 @@ Arreglos de la revisión previa a la venta (`Revision_Tracker_y_Middle_2026-10-0
 - La versión sale de un solo lugar (`backend/__init__.py`).
 
 ### Panel
+- Configuración: la tarjeta **API para desarrolladores** tiene la clave de la API y los enlaces a la
+  documentación de los endpoints (Swagger y ReDoc, solo para el administrador).
+- Páginas legales: se agrega el domicilio del prestador (General Urquiza 1240, CABA).
 - Se sacó lo que no funcionaba: Swagger/ReDoc y webhooks de la tarjeta de API (queda "Clave de la API"),
   Facturas del menú de Compras, la carga masiva del pedido manual y las opciones de Configuración que el sistema
   no usaba (prefijos de traspaso y pedido, nombre, CUIT, modalidad de conteo, etc.). "Prefijo para
@@ -53,8 +57,6 @@ Arreglos de la revisión previa a la venta (`Revision_Tracker_y_Middle_2026-10-0
 ### Rendimiento
 - Migración 0008: índices para picking, stock, movimientos y pedidos abiertos (índice parcial), que mantienen
   rápidas las pantallas con muchos pedidos históricos.
-
-## Sin versión todavía (2026-10-06)
 
 ### Cambiado (instaladores sin Caddy)
 - `install.sh` (Docker) e `install-native.sh` ya no levantan ni instalan Caddy: instalan Tracker360 y lo dejan
