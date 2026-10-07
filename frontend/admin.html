@@ -1593,11 +1593,12 @@
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:12px;">
                     <div>
                         <h3 class="card-title" style="color:var(--success); margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> API para desarrolladores</h3>
-                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Documentación de los endpoints (Swagger y ReDoc, solo para el administrador) y clave para que otro sistema consulte Tracker360. Generar una clave nueva invalida la anterior.</span>
+                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Documentación de todos los endpoints (Swagger y ReDoc, solo para el administrador), documentación pública de la API de canales de venta (<span class="font-mono">/api/v1/docs</span>, para pasarle a quien integra una tienda o un sistema) y clave para que otro sistema consulte Tracker360. Generar una clave nueva invalida la anterior.</span>
                     </div>
                     <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
                         <a href="/docs" target="_blank" rel="noopener" class="btn-secondary" style="font-size:0.8rem;">Swagger UI</a>
                         <a href="/redoc" target="_blank" rel="noopener" class="btn-secondary" style="font-size:0.8rem;">ReDoc</a>
+                        <a href="/api/v1/docs" target="_blank" rel="noopener" class="btn-secondary" style="font-size:0.8rem;" title="Pública: se puede pasar a quien integra un canal de venta">API de canales (pública)</a>
                         <button type="button" class="btn-secondary" data-on-click="generateApiKey()" style="font-size:0.8rem;">Generar Clave API</button>
                     </div>
                 </div>

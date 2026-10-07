@@ -8,6 +8,7 @@ from jztech_core.logging_setup import configure_logging, install_generic_error_h
 configure_logging()
 import os
 import asyncio
+import copy
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
@@ -108,6 +109,77 @@ async def swagger_docs(admin: dict = Depends(require_admin)):
 @app.get("/redoc", include_in_schema=False)
 async def redoc_docs(admin: dict = Depends(require_admin)):
     return get_redoc_html(openapi_url="/openapi.json", title="Tracker360 API")
+
+# Documentacion PUBLICA, solo de la API de canales de venta (/api/v1/channel/*): para quien integra un marketplace
+# o su propio sistema con Tracker360. No muestra datos ni el resto de la API; para usarla igual hace falta la clave
+# del canal.
+DESCRIPCION_API_CANALES = """API para conectar un canal de venta (marketplace, tienda online o sistema propio) con Tracker360:
+cargar pedidos, cancelarlos (total o parcialmente), subir la etiqueta del envío, consultar el stock disponible para el
+canal y leer los eventos (cambios de estado y de stock) con un cursor.
+
+**Autenticación:** cada canal tiene su clave (empieza con `tch_`). La crea el administrador de Tracker360 en
+Configuración, Canales de venta, y se muestra una sola vez. Se manda en `Authorization: Bearer tch_...` (o en
+`X-API-Key`). Sin clave válida, la respuesta es 401. La sesión del panel no sirve para esta API.
+
+**Stock:** cada canal tiene su modo: `DISPONIBLE` (físico) o `DISPONIBLE_MENOS_COMPROMETIDO` (físico menos lo pedido y
+todavía no preparado; el recomendado para no vender dos veces la misma unidad).
+
+**Pedidos:** el alta es idempotente por `external_ref` (la referencia del pedido en el canal): repetirla devuelve el
+mismo pedido."""
+DOCS_PATHS |= {"/api/v1/docs", "/api/v1/docs/oauth2-redirect", "/api/v1/redoc"}
+_esquema_canales = None
+
+
+@app.get("/api/v1/openapi.json", include_in_schema=False)
+async def openapi_canales():
+    global _esquema_canales
+    if _esquema_canales is None:
+        # Del esquema completo quedan solo las rutas del canal y los modelos que usan (FastAPI anida los routers
+        # incluidos: filtrar app.routes no alcanza).
+        completo = copy.deepcopy(app.openapi())
+        esquema = {"openapi": completo["openapi"],
+                   "info": {"title": "Tracker360 - API de canales de venta", "version": __version__,
+                            "description": DESCRIPCION_API_CANALES},
+                   "paths": {p: ops for p, ops in completo.get("paths", {}).items() if p.startswith("/api/v1/channel/")}}
+        modelos = completo.get("components", {}).get("schemas", {})
+        usados, pendientes = set(), [esquema["paths"]]
+        while pendientes:
+            nodo = pendientes.pop()
+            if isinstance(nodo, dict):
+                ref = nodo.get("$ref", "")
+                if ref.startswith("#/components/schemas/"):
+                    nombre = ref.rsplit("/", 1)[1]
+                    if nombre not in usados and nombre in modelos:
+                        usados.add(nombre)
+                        pendientes.append(modelos[nombre])
+                pendientes.extend(nodo.values())
+            elif isinstance(nodo, list):
+                pendientes.extend(nodo)
+        esquema["components"] = {"schemas": {n: modelos[n] for n in sorted(usados)}}
+        # La clave va como esquema de seguridad (boton "Authorize"), no como parametro de cada operacion.
+        for operaciones in esquema.get("paths", {}).values():
+            for op in operaciones.values():
+                if isinstance(op, dict) and "parameters" in op:
+                    op["parameters"] = [p for p in op["parameters"]
+                                        if not (p.get("in") == "header" and p.get("name", "").lower() in ("authorization", "x-api-key"))]
+                    if not op["parameters"]:
+                        del op["parameters"]
+        esquema.setdefault("components", {})["securitySchemes"] = {
+            "ClaveDelCanal": {"type": "http", "scheme": "bearer", "description": "Clave del canal (tch_...)."},
+        }
+        esquema["security"] = [{"ClaveDelCanal": []}]
+        _esquema_canales = esquema
+    return _esquema_canales
+
+
+@app.get("/api/v1/docs", include_in_schema=False)
+async def swagger_canales():
+    return get_swagger_ui_html(openapi_url="/api/v1/openapi.json", title="Tracker360 - API de canales de venta")
+
+
+@app.get("/api/v1/redoc", include_in_schema=False)
+async def redoc_canales():
+    return get_redoc_html(openapi_url="/api/v1/openapi.json", title="Tracker360 - API de canales de venta")
 
 app.include_router(auth.router)
 app.include_router(users.router)

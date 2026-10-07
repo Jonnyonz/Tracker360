@@ -22,14 +22,27 @@ fi
 #    (se puede apuntar a un fork propio con TRACKER360_REPO_URL=...)
 REPO_URL="${TRACKER360_REPO_URL:-https://github.com/Jonnyonz/Tracker360.git}"
 if [ ! -f "docker-compose.yml" ]; then
-    if [ -f "tracker360/docker-compose.yml" ]; then
-        # Instalado antes con "curl ... | bash" desde esta carpeta: se actualiza esa instalacion.
-        cd tracker360
-    else
-        echo "Descargando codigo fuente desde ${REPO_URL}..."
-        git clone "${REPO_URL}" tracker360
-        cd tracker360
+    # Instalado antes desde esta carpeta (con "curl ... | bash" o con el clon dentro de otra carpeta tracker360):
+    # se actualiza esa instalacion.
+    for d in tracker360 tracker360/tracker360 Tracker360; do
+        if [ -f "$d/docker-compose.yml" ]; then
+            echo "Instalacion encontrada en $PWD/$d: se actualiza esa."
+            cd "$d"
+            break
+        fi
+    done
+fi
+if [ ! -f "docker-compose.yml" ]; then
+    if [ -d tracker360 ] && [ -n "$(ls -A tracker360 2>/dev/null)" ]; then
+        # No se clona encima de una carpeta con cosas (git falla y no se sabe que hay adentro).
+        echo "ERROR: la carpeta $PWD/tracker360 ya existe y no tiene una instalacion de Tracker360 (falta docker-compose.yml)."
+        echo "Correr el instalador desde la carpeta donde esta instalado (la que tiene docker-compose.yml y .env)."
+        echo "Para encontrarla: sudo find / -name docker-compose.yml -path '*racker360*' 2>/dev/null"
+        exit 1
     fi
+    echo "Descargando codigo fuente desde ${REPO_URL}..."
+    git clone "${REPO_URL}" tracker360
+    cd tracker360
 fi
 
 # 2b. Actualizar: si ya es un repositorio, traer la version publicada antes de reconstruir (antes volver a

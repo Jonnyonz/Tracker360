@@ -2,6 +2,24 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.3.1 — 2026-10-07
+
+Tag `v1.3.1`, publicado en GitHub Releases: documentación pública de la API de canales.
+
+### Agregado
+- Documentación **pública** de la API de canales de venta (`/api/v1/channel/*`), para pasarle a quien integra una
+  tienda o un sistema propio: Swagger en `/api/v1/docs`, ReDoc en `/api/v1/redoc` y el esquema OpenAPI en
+  `/api/v1/openapi.json`. No pide usuario y no muestra datos ni el resto de la API; para usar la API sigue haciendo
+  falta la clave del canal (botón "Authorize"). Explica autenticación, modos de stock e idempotencia de pedidos.
+- Configuración, API para desarrolladores: botón **API de canales (pública)**. Instructivo: sección para
+  desarrolladores en Canales de venta.
+
+### Arreglado
+- `install.sh`: si se corría desde la carpeta de arriba de la instalación (por ejemplo con el clon en
+  `tracker360/tracker360`), intentaba clonar de nuevo y fallaba con "la carpeta tracker360 ya existe y no está
+  vacía", sin actualizar. Ahora encuentra la instalación (`tracker360/` o `tracker360/tracker360/`) y la actualiza; si
+  la carpeta tiene otra cosa, explica desde dónde correrlo y cómo encontrar la instalación, sin tocar nada.
+
 ## 1.3.0 — 2026-10-07
 
 Tag `v1.3.0`, publicado en GitHub Releases: arreglos previos a la venta, importación desde Excel y
