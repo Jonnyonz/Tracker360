@@ -1,4 +1,5 @@
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from backend import __version__
 from fastapi import Depends
 from jztech_core.security_headers import SecurityHeadersMiddleware
 from jztech_core.logging_setup import configure_logging, install_generic_error_handler
@@ -29,7 +30,7 @@ async def lifespan(app: FastAPI):
         await DB.pool.close()
 
 # La documentacion interactiva expone el mapa completo de la API: solo con sesion de ADMIN (abajo).
-app = FastAPI(title="Tracker360 API", version="3.0 Enterprise", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="Tracker360 API", version=__version__, lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 # Un error no previsto se loguea completo en el servidor y el cliente recibe un mensaje generico en
 # "detail" (el campo que lee el frontend), nunca el texto de la excepcion.
 install_generic_error_handler(app, "tracker360", field="detail")

@@ -55,32 +55,24 @@ async function loadSettings() {
             }
         };
 
-        // Identidad Corporativa
-        setVal('cfg-app-name', data.app_name || '');
-        setVal('cfg-company-cuit', data.company_cuit || '');
 
         // Seguridad y Sesiones
         setVal('cfg-session-timeout-minutes', data.session_timeout_minutes || '240');
         setVal('cfg-max-login-attempts', data.max_login_attempts || '5');
         setVal('cfg-lockout-time-minutes', data.lockout_time_minutes || '15');
 
-        // Documentos y Correlativos
-        setVal('cfg-transfer-number-prefix', data.transfer_number_prefix || 'TR-');
-        setVal('cfg-sales-order-prefix', data.sales_order_prefix || 'PED-');
-        setVal('cfg-correlative-zeros-pad', data.correlative_zeros_pad || '6');
+        // Numeracion: solo el prefijo de devoluciones es configurable (el resto lo asigna el sistema)
+        setVal('cfg-return-number-prefix', data.return_number_prefix || 'DEV-');
 
         // Reglas de Operativa, Depósito y Auditoría
-        setVal('cfg-enable-stock-management', String(data.enable_stock_management ?? 'true'));
         setVal('cfg-allow-negative-stock', String(data.allow_negative_stock ?? 'false'));
         setVal('cfg-enable-lots-expiration', String(data.enable_lots_expiration ?? 'false'));
         setVal('cfg-enable-committed-stock', String(data.enable_committed_stock ?? 'true'));
         setVal('cfg-require-mobile-reception', String(data.require_mobile_reception ?? 'false'));
-        setVal('cfg-allow-multiproduct', String(data.allow_multiproduct_locations ?? 'false'));
         setVal('cfg-enable-item-dimensions', String(data.enable_item_dimensions ?? 'false'));
         setVal('cfg-auto-complete-picking', String(data.auto_complete_picking ?? 'true'));
-        setVal('cfg-default-inventory-count-type', data.default_inventory_count_type || 'HOT');
 
-        // Módulos Enterprise WMS
+        // Modulos avanzados
         setVal('cfg-enable-api-idempotency', String(data.enable_api_idempotency ?? 'false'));
         setVal('cfg-enable-serial-tracking', String(data.enable_serial_tracking ?? 'false'));
         setVal('cfg-enable-putaway-suggestions', String(data.enable_putaway_suggestions ?? 'false'));
@@ -88,7 +80,6 @@ async function loadSettings() {
         setVal('cfg-enable-wave-picking', String(data.enable_wave_picking ?? 'false'));
         setVal('cfg-enable-optimal-routing', String(data.enable_optimal_routing ?? 'false'));
         setVal('cfg-enable-packing-station', String(data.enable_packing_station ?? 'false'));
-        setVal('cfg-enable-labor-management', String(data.enable_labor_management ?? 'false'));
 
         // Configuración Google OAUTH2
         const ssoEnabled = (data.enable_google_sso === 'true');
@@ -105,7 +96,6 @@ async function loadSettings() {
         setVal('cfg-google-allowed-domain', data.google_allowed_domain || '');
 
         // Configuración Impresoras de Etiquetas ZPL
-        setVal('cfg-default-print-queue', data.default_print_queue || 'PRINT-SEC-01');
         
         setVal('cfg-zpl-item-width', data.zpl_item_width || '38');
         setVal('cfg-zpl-item-height', data.zpl_item_height || '20');
@@ -123,10 +113,9 @@ async function loadSettings() {
 
         if (typeof toggleGoogleFields === 'function') toggleGoogleFields();
 
-        // Integraciones, logs de webhooks y actualizaciones son solo del admin (el supervisor
-        // consulta, pero esas rutas le responden 403).
+        // Logs de webhooks y actualizaciones son solo del admin (el supervisor consulta, pero esas rutas
+        // le responden 403).
         if (!(await esSupervisor())) {
-            if (typeof loadIntegrations === 'function') loadIntegrations();
             await loadWebhookLogs();
             checkSystemUpdates();
         }
@@ -147,23 +136,16 @@ async function saveSettings(e) {
     const enable_google_sso = ssoEl ? (ssoEl.checked ? 'true' : 'false') : 'false';
 
     const payload = {
-        app_name: getVal('cfg-app-name'),
-        company_cuit: getVal('cfg-company-cuit'),
         session_timeout_minutes: getVal('cfg-session-timeout-minutes'),
         max_login_attempts: getVal('cfg-max-login-attempts'),
         lockout_time_minutes: getVal('cfg-lockout-time-minutes'),
-        transfer_number_prefix: getVal('cfg-transfer-number-prefix'),
-        sales_order_prefix: getVal('cfg-sales-order-prefix'),
-        correlative_zeros_pad: getVal('cfg-correlative-zeros-pad'),
-        enable_stock_management: getVal('cfg-enable-stock-management'),
+        return_number_prefix: getVal('cfg-return-number-prefix'),
         allow_negative_stock: getVal('cfg-allow-negative-stock'),
         enable_lots_expiration: getVal('cfg-enable-lots-expiration'),
         enable_committed_stock: getVal('cfg-enable-committed-stock'),
         require_mobile_reception: getVal('cfg-require-mobile-reception'),
-        allow_multiproduct_locations: getVal('cfg-allow-multiproduct'),
         enable_item_dimensions: getVal('cfg-enable-item-dimensions'),
         auto_complete_picking: getVal('cfg-auto-complete-picking'),
-        default_inventory_count_type: getVal('cfg-default-inventory-count-type'),
         
         enable_api_idempotency: getVal('cfg-enable-api-idempotency'),
         enable_serial_tracking: getVal('cfg-enable-serial-tracking'),
@@ -172,14 +154,12 @@ async function saveSettings(e) {
         enable_wave_picking: getVal('cfg-enable-wave-picking'),
         enable_optimal_routing: getVal('cfg-enable-optimal-routing'),
         enable_packing_station: getVal('cfg-enable-packing-station'),
-        enable_labor_management: getVal('cfg-enable-labor-management'),
 
         enable_google_sso: enable_google_sso,
         google_client_id: getVal('cfg-google-client-id'),
         google_client_secret: getVal('cfg-google-client-secret'),
         google_allowed_domain: getVal('cfg-google-allowed-domain'),
 
-        default_print_queue: getVal('cfg-default-print-queue'),
         zpl_item_width: getVal('cfg-zpl-item-width') || '38',
         zpl_item_height: getVal('cfg-zpl-item-height') || '20',
         zpl_item_template: getVal('cfg-zpl-item-template'),

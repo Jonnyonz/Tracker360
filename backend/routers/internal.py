@@ -168,6 +168,8 @@ async def scan_transfer_item(transfer_number: str, data: MobileTransferScanInput
 
         allow_neg = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'allow_negative_stock'")
         if allow_neg != "true":
+            # Bloquea las filas de origen: dos escaneos simultaneos no pueden mover el mismo stock dos veces.
+            await conn.execute("SELECT 1 FROM stock_inventory WHERE branch_id = $1 AND sector_id = $2 AND UPPER(sku) = $3 AND location_id IS NOT DISTINCT FROM $4 AND COALESCE(lot_number, '') = $5 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO' FOR UPDATE", tr["origin_branch_id"], tr["origin_sector_id"], sku_clean, line["origin_location_id"], line["lot_number"])
             avail = float(await conn.fetchval("SELECT COALESCE(SUM(quantity), 0) FROM stock_inventory WHERE branch_id = $1 AND sector_id = $2 AND UPPER(sku) = $3 AND location_id IS NOT DISTINCT FROM $4 AND COALESCE(lot_number, '') = $5 AND COALESCE(condition, 'OPERATIVO') = 'OPERATIVO'", tr["origin_branch_id"], tr["origin_sector_id"], sku_clean, line["origin_location_id"], line["lot_number"]) or 0)
             if avail < data.quantity: raise HTTPException(400, f"Stock insuficiente en el origen (Disponible: {avail:g}).")
 

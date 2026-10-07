@@ -387,8 +387,10 @@ async def scan_reception_item(remito_number: str, data: MobileRemitoScanInput, u
 
         loc_id = None
         if data.location_code and data.location_code.strip():
-            loc = await conn.fetchrow("SELECT id FROM locations WHERE UPPER(location_code) = $1", data.location_code.strip().upper())
-            if loc: loc_id = loc["id"]
+            codigo = data.location_code.strip().upper()
+            loc = await conn.fetchrow("SELECT id FROM locations WHERE sector_id = $1 AND UPPER(location_code) = $2", rem["sector_id"], codigo)
+            if not loc: raise HTTPException(400, f"La ubicación {codigo} no existe en el sector del remito.")
+            loc_id = loc["id"]
 
         restante = float(data.quantity)
         repartos = []

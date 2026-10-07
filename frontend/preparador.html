@@ -3,7 +3,7 @@
 <head>
     <link rel="icon" type="image/png" href="/favicon.png">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tracker360 - JZTech Suite</title>
     <style>
         :root { 
@@ -362,8 +362,8 @@
             </div>
             <div class="menu-card" data-on-click="openSpotCheck()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="M8 17l4 4 4-4"></path></svg>
-                <span>Spot Check</span>
-                <small>Consulta R&aacute;pida de Stock</small>
+                <span>Control puntual</span>
+                <small>Verificar r&aacute;pido una ubicaci&oacute;n</small>
             </div>
         </div>
         
@@ -430,14 +430,14 @@
             <div id="grp-pick-sku" class="form-group">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> 1. SKU del Producto *</label>
                 <div class="input-group">
-                    <input type="text" id="pick-sku" placeholder="A la espera..." autocomplete="off" data-on-input="onModuleInputProcess('PICKING', 'sku')" data-on-keydown="handleScannerEnter(event, null, 'form-picking')">
+                    <input type="text" id="pick-sku" placeholder="A la espera..." autocomplete="off" data-on-keydown="scanEnter(event, 'PICKING', 'sku')">
                 </div>
             </div>
 
             <div id="grp-pick-loc" class="form-group" style="display:none;">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> 2. Ubicaci&oacute;n *</label>
                 <div class="input-group">
-                    <input type="text" id="pick-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-input="onModuleInputProcess('PICKING', 'loc')" data-on-keydown="handleScannerEnter(event, 'pick-qty')">
+                    <input type="text" id="pick-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-keydown="scanEnter(event, 'PICKING', 'loc')">
                 </div>
             </div>
 
@@ -478,14 +478,14 @@
             <div id="grp-wave-sku" class="form-group">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> 1. SKU Consolidado *</label>
                 <div class="input-group">
-                    <input type="text" id="wave-sku" placeholder="A la espera..." autocomplete="off" data-on-input="onModuleInputProcess('WAVE', 'sku')" data-on-keydown="handleScannerEnter(event, null, 'form-wave')">
+                    <input type="text" id="wave-sku" placeholder="A la espera..." autocomplete="off" data-on-keydown="scanEnter(event, 'WAVE', 'sku')">
                 </div>
             </div>
 
             <div id="grp-wave-loc" class="form-group" style="display:none;">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> 2. Ubicaci&oacute;n *</label>
                 <div class="input-group">
-                    <input type="text" id="wave-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-input="onModuleInputProcess('WAVE', 'loc')" data-on-keydown="handleScannerEnter(event, 'wave-qty')">
+                    <input type="text" id="wave-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-keydown="scanEnter(event, 'WAVE', 'loc')">
                 </div>
             </div>
 
@@ -532,14 +532,14 @@
             <div id="grp-rec-sku" class="form-group">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> 1. SKU Recibido *</label>
                 <div class="input-group">
-                    <input type="text" id="rec-sku" placeholder="A la espera..." autocomplete="off" data-on-input="onModuleInputProcess('RECEPTION', 'sku')" data-on-keydown="handleScannerEnter(event, null, 'form-reception')">
+                    <input type="text" id="rec-sku" placeholder="A la espera..." autocomplete="off" data-on-keydown="scanEnter(event, 'RECEPTION', 'sku')">
                 </div>
             </div>
 
             <div id="grp-rec-loc" class="form-group" style="display:none;">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> 2. Destino (Opc.)</label>
                 <div class="input-group">
-                    <input type="text" id="rec-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-input="onModuleInputProcess('RECEPTION', 'loc')" data-on-keydown="handleScannerEnter(event, 'rec-qty')">
+                    <input type="text" id="rec-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-keydown="scanEnter(event, 'RECEPTION', 'loc')">
                 </div>
             </div>
 
@@ -587,14 +587,14 @@
             <div id="grp-tr-sku" class="form-group">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> 1. SKU a Transferir *</label>
                 <div class="input-group">
-                    <input type="text" id="tr-sku" placeholder="A la espera..." autocomplete="off" data-on-input="onModuleInputProcess('TRANSFER', 'sku')" data-on-keydown="handleScannerEnter(event, null, 'form-transfer-scan')">
+                    <input type="text" id="tr-sku" placeholder="A la espera..." autocomplete="off" data-on-keydown="scanEnter(event, 'TRANSFER', 'sku')">
                 </div>
             </div>
 
             <div id="grp-tr-loc" class="form-group" style="display:none;">
                 <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> 2. Destino *</label>
                 <div class="input-group">
-                    <input type="text" id="tr-dest-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-input="onModuleInputProcess('TRANSFER', 'loc')" data-on-keydown="handleScannerEnter(event, 'tr-qty')">
+                    <input type="text" id="tr-dest-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-keydown="scanEnter(event, 'TRANSFER', 'loc')">
                 </div>
             </div>
 
@@ -640,7 +640,7 @@
             </div>
             <div class="form-group">
                 <label>Cantidad Contada *</label>
-                <input type="number" id="inv-qty" min="0.01" step="0.01" required placeholder="0" style="font-size:1.2rem; font-weight:bold;">
+                <input type="number" id="inv-qty" min="0" step="0.01" required placeholder="0" style="font-size:1.2rem; font-weight:bold;">
             </div>
             <div class="form-group lot-input">
                 <label>Lote / Vto</label>
@@ -671,7 +671,7 @@
             </div>
             <div class="form-group">
                 <label>Cantidad F&iacute;sica *</label>
-                <input type="number" id="spot-check-qty" min="0.01" step="0.01" required placeholder="0" style="font-size:1.2rem; font-weight:bold;">
+                <input type="number" id="spot-check-qty" min="0" step="0.01" required placeholder="0" style="font-size:1.2rem; font-weight:bold;">
             </div>
             <div class="form-group lot-input">
                 <label>Lote / Vto</label>
@@ -693,8 +693,8 @@
     </div>
 
     <script src="js/acciones.js?v=20261001_1"></script>
-    <script src="js/api.js?v=20261001_1"></script>
-    <script src="js/mobile.js?v=20261003_1"></script>
+    <script src="js/api.js?v=20261007_2"></script>
+    <script src="js/mobile.js?v=20261007_2"></script>
     <script src="js/preparador-pagina.js?v=20261003_1"></script>
 </body>
 </html>

@@ -2,6 +2,58 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## Sin versión todavía (2026-10-07)
+
+Arreglos de la revisión previa a la venta (`Revision_Tracker_y_Middle_2026-10-07.md`).
+
+### Agregado
+- Importar artículos acepta **Excel nativo (.xlsx)**, **texto separado por tabulaciones (.txt/.tsv)** y CSV con
+  `;` o `,` (el Excel argentino guarda con `;`), en UTF-8 o en la codificación de Windows (no se pierden las
+  tildes). Los encabezados se reconocen con o sin tildes y mayúsculas. Lo mismo para importar ubicaciones y
+  asignar artículos a ubicaciones. El `.xls` viejo (Excel 97-2003) da un mensaje para guardarlo como `.xlsx`.
+  Lectura sin dependencias nuevas y con límites (10 MB, 50.000 filas, ZIP inflado).
+- La importación informa cuántos artículos son nuevos, cuántos se actualizaron y qué filas no se cargaron. Un
+  artículo actualizado sin medidas o peso conserva los que tenía. Admite largo_cm, ancho_cm, alto_cm y peso_kg
+  (con coma decimal).
+- **+ Nuevo artículo** en Artículos (alta de a uno, con validación de SKU repetido) y **Descargar plantilla**
+  en la importación.
+- Cancelación parcial desde el canal: `POST /api/v1/channel/orders/{ref}/cancel` acepta
+  `{"lines":[{"sku","quantity"}]}`; sin cuerpo sigue siendo total.
+
+### Arreglado
+- Preparador (celular): los campos de escaneo procesan al apretar Enter (el lector lo manda al final), no con
+  cada carácter; en la recepción ciega se controla solo el SKU y si no está en el remito avisa y sigue.
+- Picking: dos preparadores no pueden sacar el mismo stock a la vez (bloqueo de la fila); se elige la ubicación
+  que tiene stock del artículo; los pedidos **Full** no se pueden pickear.
+- Movimientos internos: el stock de origen se bloquea antes de controlarlo (no queda negativo).
+- Pedido manual: rechaza SKU que no existen y pedidos sin artículos, junta las líneas del mismo SKU y guarda la
+  dirección de entrega elegida (o la principal del cliente).
+- Recepción: la ubicación se busca en el sector del remito.
+- Ubicaciones: no se puede repetir un código en el mismo sector (alta e importación las saltea y lo informa).
+- Canales nuevos: modo de stock por defecto "disponible menos comprometido" (los de Mercado Libre existentes
+  pasan a ese modo), para no vender dos veces lo que ya está pedido.
+- La versión sale de un solo lugar (`backend/__init__.py`).
+
+### Panel
+- Se sacó lo que no funcionaba: Swagger/ReDoc y webhooks de la tarjeta de API (queda "Clave de la API"),
+  Facturas del menú de Compras, la carga masiva del pedido manual y las opciones de Configuración que el sistema
+  no usaba (prefijos de traspaso y pedido, nombre, CUIT, modalidad de conteo, etc.). "Prefijo para
+  Devoluciones" ahora sí se guarda. La tarjeta de reabastecimiento aparece solo si está activado.
+- Pedido manual: la lupa busca clientes por CUIT o nombre y carga sus direcciones (la principal primero).
+- Depósitos: **Importar ubicaciones** (general y dentro de cada sector); "Asignar artículos a ubicaciones".
+- Estados de pedidos, remitos, traspasos y conteos, y acciones de auditoría, en castellano en todo el panel y la
+  colectora.
+- Mensajes de error claros (datos inválidos, servidor que no responde, sin red); en la colectora el error no se
+  repite dos veces.
+- Tiendas sin conector todavía (Tiendanube, WooCommerce, Shopify, PrestaShop, Empretienda): "Próximamente".
+- Accesibilidad: se puede hacer zoom en el celular, Esc cierra los modales, el botón del menú tiene etiqueta.
+- Instructivo: alta de artículos, importación (formatos, columnas, plantilla), ubicaciones por sector y escaneo
+  con Enter.
+
+### Rendimiento
+- Migración 0008: índices para picking, stock, movimientos y pedidos abiertos (índice parcial), que mantienen
+  rápidas las pantallas con muchos pedidos históricos.
+
 ## Sin versión todavía (2026-10-06)
 
 ### Cambiado (instaladores sin Caddy)

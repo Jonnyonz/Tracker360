@@ -15,6 +15,10 @@ const TIENDA_LOGOS = {
 
 const CONTACTO_JZ = { mail: 'jonaiker.jimenez.g@gmail.com', web: 'https://jz-tech.mywire.org' };
 
+// Tiendas cuyo conector esta en desarrollo: se pueden activar, pero todavia no reciben ventas ni mandan stock.
+const TIENDAS_PROXIMAMENTE = new Set(['TIENDANUBE', 'WOOCOMMERCE', 'SHOPIFY', 'PRESTASHOP', 'EMPRETIENDA']);
+function tiendaProximamente(code) { return TIENDAS_PROXIMAMENTE.has(code); }
+
 let tiendasCache = [];
 let tiendaActual = null;   // tienda del modulo de publicaciones abierto
 
@@ -55,6 +59,7 @@ function abrirTienda(code, boton) {
 }
 
 function estadoTienda(t) {
+    if (tiendaProximamente(t.code)) return t.enabled ? 'Activada · conector en desarrollo' : 'Desactivada · conector en desarrollo';
     if (!t.enabled) return 'Desactivada: no aparece en el menú';
     if (!t.channels) return 'Activada · falta la conexión: pedila a JZ Tech Solutions';
     return `Activada · ${t.channels} canal${t.channels === 1 ? '' : 'es'} conectado${t.channels === 1 ? '' : 's'}`;
@@ -68,7 +73,7 @@ function pintarTiendasConfig() {
             <div class="tienda-linea-datos">
                 <span class="tienda-logo">${logoTienda(t.code)}</span>
                 <div class="canal-linea-datos">
-                    <strong>Trabaja con ${escapeHTML(t.name)}</strong>
+                    <strong>Trabaja con ${escapeHTML(t.name)}${tiendaProximamente(t.code) ? ' <span class="badge badge-neutral">Próximamente</span>' : ''}</strong>
                     <small>${escapeHTML(estadoTienda(t))}</small>
                 </div>
             </div>
@@ -87,7 +92,7 @@ async function cambiarTienda(code, casilla) {
         tiendasCache = tiendasCache.map(x => x.code === code ? t : x);
         await pintarMenuTiendas();
         pintarTiendasConfig();
-        if (activar && !t.channels) mostrarAvisoTienda(code);
+        if (activar && (!t.channels || tiendaProximamente(code))) mostrarAvisoTienda(code);
         else showToast(`${t.name} ${activar ? 'activada' : 'desactivada'}.`, 'success');
     } catch (e) {
         casilla.checked = !activar;
@@ -106,8 +111,9 @@ function mostrarAvisoTienda(code) {
     const nombre = nombreTienda(code);
     document.getElementById('tienda-aviso-logo').innerHTML = logoTienda(code);
     document.getElementById('tienda-aviso-titulo').textContent = `${nombre} activada`;
-    document.getElementById('tienda-aviso-texto').textContent =
-        `Ya aparece en el menú. Para que Tracker360 reciba las ventas de ${nombre} y le mande el stock hace falta instalar la conexión con tu tienda: contactá a JZ Tech Solutions y la dejamos funcionando.`;
+    document.getElementById('tienda-aviso-texto').textContent = tiendaProximamente(code)
+        ? `Ya aparece en el menú, pero el conector con ${nombre} está en desarrollo: por ahora Tracker360 no recibe sus ventas ni le manda el stock. Escribinos a JZ Tech Solutions y te avisamos cuando esté listo.`
+        : `Ya aparece en el menú. Para que Tracker360 reciba las ventas de ${nombre} y le mande el stock hace falta instalar la conexión con tu tienda: contactá a JZ Tech Solutions y la dejamos funcionando.`;
     document.getElementById('tienda-aviso-mail').href = mailContactoTienda(code);
     openModal('modal-tienda-aviso');
 }

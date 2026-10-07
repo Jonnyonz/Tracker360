@@ -758,3 +758,6 @@ td.busqueda-vacia { text-align: center; padding: 2rem 1rem; color: var(--text-mu
 .busqueda-atajos span { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
 .busqueda-atajos .btn-secondary { padding: 0.35rem 0.8rem; font-size: 0.8rem; }
 .pedido-origen { display: block; margin-top: 3px; font-family: inherit; font-weight: 500; color: var(--text-muted); }
+
+/* Tarjeta de sugerencias de reabastecimiento: solo con la opcion activa en Configuracion */
+#card-reabastecimiento[hidden] { display: none !important; }

@@ -448,10 +448,10 @@ async function verParticipantes(documentNumber) {
             ? d.picking.map(p => `<tr><td>${escapeHTML(p.username)}</td><td style="text-align:right;">${escapeHTML(String(p.unidades))}</td><td style="text-align:right;">${escapeHTML(String(p.lecturas))}</td><td>${escapeHTML(fecha(p.desde))} a ${escapeHTML(fecha(p.hasta))}</td></tr>`).join('')
             : '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin picking registrado para este pedido.</td></tr>';
         const eventos = d.eventos.length
-            ? d.eventos.map(e => `<tr><td>${escapeHTML(fecha(e.created_at))}</td><td>${escapeHTML(e.username)}</td><td>${escapeHTML(e.action)}</td><td>${escapeHTML(e.details)}</td></tr>`).join('')
+            ? d.eventos.map(e => `<tr><td>${escapeHTML(fecha(e.created_at))}</td><td>${escapeHTML(e.username)}</td><td>${escapeHTML(accionES(e.action))}</td><td>${escapeHTML(e.details)}</td></tr>`).join('')
             : '<tr><td colspan="4" style="text-align:center; color:var(--text-muted);">Sin eventos.</td></tr>';
         body.innerHTML = `
-            <p>Estado: <span class="badge badge-neutral">${escapeHTML(d.status)}</span> &nbsp; Creado: ${escapeHTML(fecha(d.created_at))}</p>
+            <p>Estado: <span class="badge badge-neutral">${escapeHTML(ESTADO_PEDIDO_LABEL[d.status] || d.status)}</span> &nbsp; Creado: ${escapeHTML(fecha(d.created_at))}</p>
             <h3 style="font-size:1rem; margin-top:1rem;">Picking</h3>
             <table><thead><tr><th>Usuario</th><th style="text-align:right;">Unidades</th><th style="text-align:right;">Lecturas</th><th>Periodo</th></tr></thead><tbody>${picking}</tbody></table>
             <h3 style="font-size:1rem; margin-top:1rem;">Eventos</h3>
@@ -593,6 +593,7 @@ function filterOrders() {
 
 function openManualOrderModal() {
     document.getElementById('form-manual-order').reset();
+    document.getElementById('manual-addr-label').innerHTML = '<option value="Principal">Principal</option>';
     document.getElementById('manual-order-lines').innerHTML = '';
     addDynamicLineManualOrder();
     
@@ -638,7 +639,7 @@ async function saveManualOrder(e) {
     btn.disabled = true; btn.textContent = 'Guardando...';
 
     try {
-        const r = await fetchAPI('/api/admin/sales-orders', { method: 'POST', body: JSON.stringify(payload) });
+        const r = await fetchAPI('/api/admin/sales-orders', { method: 'POST', body: payload });
         showToast(r.message, "success");
         closeModal('modal-manual-order');
         loadOrders();
@@ -647,6 +648,96 @@ async function saveManualOrder(e) {
     } finally {
         btn.disabled = false; btn.textContent = 'Registrar Pedido';
     }
+}
+
+// === PEDIDO MANUAL: buscar el cliente y cargar sus direcciones de entrega ===
+let busquedaClienteTimer = null;
+
+function openSearchCustomerModal() {
+    const q = document.getElementById('search-cust-query');
+    q.value = document.getElementById('manual-cust-taxid').value.trim() || document.getElementById('manual-cust-name').value.trim();
+    pintarClientesPedido(null);
+    openModal('modal-search-customer');
+    q.focus();
+    if (q.value.length >= 2) filtrarClientesPedido(q.value);
+}
+
+function direccionesDe(c) {
+    let dirs = c.addresses || [];
+    if (typeof dirs === 'string') { try { dirs = JSON.parse(dirs); } catch (e) { dirs = []; } }
+    return Array.isArray(dirs) ? dirs : [];
+}
+
+function pintarClientesPedido(lista, mensaje) {
+    const tbody = document.getElementById('table-search-cust-body');
+    if (!lista || lista.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="busqueda-vacia">${escapeHTML(mensaje || 'Escribí al menos 2 letras o números del CUIT / DNI o del nombre.')}</td></tr>`;
+        return;
+    }
+    tbody.innerHTML = lista.map(c => {
+        const dirs = direccionesDe(c).map(a => a.address_label || a.label).filter(Boolean).join(', ');
+        return `<tr>
+            <td class="font-mono">${escapeHTML(c.tax_id)}</td>
+            <td>${escapeHTML(c.company_name)}</td>
+            <td><small>${escapeHTML(dirs || 'Sin direcciones')}</small></td>
+            <td><button type="button" class="btn-submit" style="padding:4px 10px; font-size:0.75rem;" data-on-click="elegirClienteManual(${jsArg(c.id)}, ${jsArg(c.tax_id)}, ${jsArg(c.company_name)})">Elegir</button></td>
+        </tr>`;
+    }).join('');
+}
+
+function parametrosCliente(q, limite) {
+    const p = new URLSearchParams({ role: 'CLIENTE', limit: String(limite) });
+    // Solo numeros, puntos, guiones o espacios: es un CUIT / DNI; si no, se busca por nombre.
+    if (/^[\d\s.\-]+$/.test(q)) p.set('tax_id', q); else p.set('name', q);
+    return p;
+}
+
+function filtrarClientesPedido(texto) {
+    clearTimeout(busquedaClienteTimer);
+    const q = (texto || '').trim();
+    if (q.length < 2) { pintarClientesPedido(null); return; }
+    busquedaClienteTimer = setTimeout(async () => {
+        const tbody = document.getElementById('table-search-cust-body');
+        tbody.innerHTML = '<tr><td colspan="4" class="busqueda-vacia">Buscando...</td></tr>';
+        try {
+            const lista = await fetchAPI(`/api/admin/entities?${parametrosCliente(q, 20)}`);
+            pintarClientesPedido(lista || [], 'Ningún cliente coincide con la búsqueda.');
+        } catch (e) { pintarClientesPedido(null, e.message); }
+    }, 300);
+}
+
+async function cargarDireccionesCliente(entidadId) {
+    const sel = document.getElementById('manual-addr-label');
+    sel.innerHTML = '<option value="Principal">Cargando direcciones...</option>';
+    try {
+        const dirs = await fetchAPI(`/api/admin/entities/${encodeURIComponent(entidadId)}/addresses`) || [];
+        sel.innerHTML = dirs.length
+            ? dirs.map(d => `<option value="${escapeHTML(d.address_label)}"${d.is_default ? ' selected' : ''}>${escapeHTML(d.address_label)}${d.full_address ? ' - ' + escapeHTML(d.full_address) : ''}</option>`).join('')
+            : '<option value="Principal">El cliente no tiene direcciones cargadas</option>';
+    } catch (e) {
+        sel.innerHTML = '<option value="Principal">Principal</option>';
+    }
+}
+
+async function elegirClienteManual(entidadId, taxId, nombre) {
+    document.getElementById('manual-cust-taxid').value = taxId || '';
+    document.getElementById('manual-cust-name').value = nombre || '';
+    closeModal('modal-search-customer');
+    await cargarDireccionesCliente(entidadId);
+}
+
+// CUIT / DNI escrito a mano: si coincide con un cliente, se completan el nombre y sus direcciones.
+async function buscarClientePorCuit(valor) {
+    const q = (valor || '').trim();
+    const limpio = q.replace(/[^0-9A-Za-z]/g, '').toUpperCase();
+    if (limpio.length < 6) return;
+    try {
+        const lista = await fetchAPI(`/api/admin/entities?${parametrosCliente(q, 5)}`) || [];
+        const c = lista.find(x => String(x.tax_id || '').replace(/[^0-9A-Za-z]/g, '').toUpperCase() === limpio);
+        if (!c) return;
+        if (!document.getElementById('manual-cust-name').value.trim()) document.getElementById('manual-cust-name').value = c.company_name || '';
+        await cargarDireccionesCliente(c.id);
+    } catch (e) { /* fetchAPI ya mostro el error */ }
 }
 
 async function reprintOrderLabel(docNum) {
@@ -900,7 +991,7 @@ async function fetchPutawaySuggestion(sku, inputElement) {
                 if (typeof showToast === 'function') showToast(`Sugerencia (Agrupación de stock): ${res.suggested_location}`, 'warning');
             }
         }
-    } catch (e) { console.error("Error cargando sugerencia Putaway", e); }
+    } catch (e) { console.error("Error cargando la sugerencia de guardado", e); }
 }
 
 async function loadReplenishmentSuggestions() {
@@ -1049,11 +1140,11 @@ async function loadInventorySessions() {
             let badge = '';
             
             if(s.status === 'OPEN') {
-                badge = '<span class="badge badge-warning">ABIERTO (ESCANEO)</span>';
+                badge = '<span class="badge badge-warning">ABIERTO (CONTANDO)</span>';
                 btn = `<button class="btn-secondary" data-on-click="openScanInventoryModal(${jsArg(s.id)})" style="padding:4px 8px; font-size:0.75rem;">Escanear Físico</button>`;
             } else if (s.status === 'REVIEW') {
-                badge = '<span class="badge badge-info">EN REVISIÓN (DELTAS)</span>';
-                btn = `<button class="btn-submit" data-on-click="openReviewInventoryModal(${jsArg(s.id)})" style="padding:4px 8px; font-size:0.75rem;">Auditar Deltas</button>`;
+                badge = '<span class="badge badge-info">EN REVISIÓN (DIFERENCIAS)</span>';
+                btn = `<button class="btn-submit" data-on-click="openReviewInventoryModal(${jsArg(s.id)})" style="padding:4px 8px; font-size:0.75rem;">Revisar diferencias</button>`;
             } else {
                 badge = '<span class="badge badge-success">CERRADO</span>';
                 btn = `<span style="color:var(--text-muted); font-size:0.8rem; padding-right:8px;">Finalizado</span>`;
@@ -1137,7 +1228,7 @@ async function saveInventorySession(e) {
     };
     const r = await fetchAPI('/api/inventory/sessions', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
     if(r) {
-        showToast('Sesión de inventario iniciada. Foto (Snapshot) capturada.', 'success');
+        showToast('Conteo iniciado: se tomó la foto del stock del sector.', 'success');
         closeModal('modal-create-inventory');
         loadInventorySessions();
     }
@@ -1171,7 +1262,7 @@ async function scanInventoryCount(e) {
 
 async function finishInventorySession() {
     const sessionId = document.getElementById('scan-inv-session-id').value;
-    if(!confirm("¿Está seguro de finalizar el escaneo físico y enviar el conteo a Revisión de Deltas?")) return;
+    if(!confirm("¿Terminar el conteo físico y pasarlo a revisión de diferencias?")) return;
     
     const r = await fetchAPI(`/api/inventory/sessions/${sessionId}/finish`, { method: 'POST' });
     if(r) {
@@ -1423,7 +1514,7 @@ async function verTraspaso(transferNumber) {
             <td style="text-align:right;">${escapeHTML(String(l.quantity_received))}</td>
         </tr>`).join('');
         body.innerHTML = `
-            <p>Estado: <span class="badge badge-neutral">${escapeHTML(t.status)}</span> &nbsp; ${escapeHTML(t.origin_branch)} &rarr; ${escapeHTML(t.destination_branch)}</p>
+            <p>Estado: <span class="badge badge-neutral">${escapeHTML(TR_STATUS_LABEL[t.status] || t.status)}</span> &nbsp; ${escapeHTML(t.origin_branch)} &rarr; ${escapeHTML(t.destination_branch)}</p>
             <table><thead><tr><th>SKU</th><th>Origen</th><th>Destino</th><th style="text-align:right;">Enviado</th><th style="text-align:right;">Recibido</th></tr></thead><tbody>${filas}</tbody></table>
             <div id="transfer-notes"></div>`;
         renderObservaciones(document.getElementById('transfer-notes'), 'TRASPASO', transferNumber);
@@ -1536,3 +1627,7 @@ window.openPackingStation = openPackingStation;
 window.processPackingScan = processPackingScan;
 window.closeCurrentBox = closeCurrentBox;
 window.submitPackingStation = submitPackingStation;
+window.openSearchCustomerModal = openSearchCustomerModal;
+window.filtrarClientesPedido = filtrarClientesPedido;
+window.elegirClienteManual = elegirClienteManual;
+window.buscarClientePorCuit = buscarClientePorCuit;

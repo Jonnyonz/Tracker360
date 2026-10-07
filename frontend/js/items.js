@@ -372,16 +372,47 @@ async function openStockBreakdownModal(sku) {
     }
 }
 
-// === IMPORTACIÓN DE CSV (CATÁLOGO Y UBICACIONES) ===
+// === ALTA DE UN ARTÍCULO ===
+async function crearArticulo(event) {
+    event.preventDefault();
+    const num = id => parseFloat(document.getElementById(id).value) || 0;
+    try {
+        const r = await fetchAPI('/api/admin/items', { method: 'POST', body: {
+            sku: document.getElementById('nuevo-art-sku').value.trim(),
+            description: document.getElementById('nuevo-art-desc').value.trim(),
+            category: document.getElementById('nuevo-art-cat').value.trim(),
+            length: num('nuevo-art-largo'), width: num('nuevo-art-ancho'), height: num('nuevo-art-alto'), weight: num('nuevo-art-peso'),
+        } });
+        showToast(r.message, 'success');
+        document.getElementById('form-nuevo-articulo').reset();
+        closeModal('modal-nuevo-articulo');
+    } catch (e) { showToast(e.message, 'error'); }
+}
+
+// === IMPORTACIÓN (CATÁLOGO Y UBICACIONES): Excel, texto con tabulaciones o CSV ===
 function openImportModal(type) {
     const modal = document.getElementById('modal-import');
     if (!modal) return;
     
     document.getElementById('import-type').value = type;
     const title = document.getElementById('import-modal-title');
-    if (type === 'items') title.textContent = 'Importar Catálogo de Artículos';
-    else if (type === 'item_locations') title.textContent = 'Importar Ubicaciones de Artículos';
-    else title.textContent = 'Importar CSV';
+    const ayuda = document.getElementById('import-modal-ayuda');
+    const formatos = 'Excel (.xlsx), texto separado por tabulaciones (.txt) o CSV (con ; o ,). La primera fila son los encabezados.';
+    if (type === 'items') {
+        title.textContent = 'Importar artículos';
+        // Columnas y plantilla para descargar (se arma con DOM: sin HTML de afuera).
+        ayuda.textContent = `${formatos} Columnas: sku, descripcion, categoria y, si querés, largo_cm, ancho_cm, alto_cm, peso_kg. Un SKU que ya existe se actualiza. `;
+        const enlace = document.createElement('a');
+        enlace.href = '/api/admin/import/items/plantilla';
+        enlace.textContent = 'Descargar plantilla';
+        ayuda.appendChild(enlace);
+    } else if (type === 'item_locations') {
+        title.textContent = 'Asignar artículos a ubicaciones';
+        ayuda.textContent = `${formatos} Columnas: sku y ubicacion (la ubicación tiene que existir).`;
+    } else {
+        title.textContent = 'Importar';
+        ayuda.textContent = formatos;
+    }
 
     document.getElementById('import-file').value = '';
     document.getElementById('import-file-name').style.display = 'none';
@@ -410,7 +441,7 @@ async function uploadCSV() {
     const file = fileInput.files[0];
     
     if (!file) {
-        alert("Por favor seleccione un archivo CSV primero.");
+        alert("Elegí un archivo primero.");
         return;
     }
 
@@ -589,3 +620,4 @@ window.uploadCSV = uploadCSV;
 window.saveItemEdit = saveItemEdit;
 window.toggleEditComboSection = toggleEditComboSection;
 window.addComboComponentRow = addComboComponentRow;
+window.crearArticulo = crearArticulo;

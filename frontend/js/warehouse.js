@@ -103,6 +103,7 @@ async function pintarSectoresSucursal() {
     document.getElementById('sucursal-sectores-titulo').textContent = `Sectores de ${b.name}`;
     document.getElementById('sucursal-sectores-nuevo').style.display = soloConsulta ? 'none' : '';
     document.getElementById('sector-ubicaciones-nueva').style.display = soloConsulta ? 'none' : '';
+    document.getElementById('sector-ubicaciones-importar').style.display = soloConsulta ? 'none' : '';
     const sectores = sectoresDeSucursal(b.id);
     const body = document.getElementById('sucursal-sectores-body');
     body.innerHTML = sectores.length === 0
@@ -156,6 +157,19 @@ function nuevaUbicacionEnSector() {
     const sel = document.getElementById('loc-sector');
     if (sel && sector) sel.value = sector.id;
     openModal('modal-location');
+}
+
+// Importar ubicaciones a un sector (Excel, texto con tabulaciones o CSV: columnas ubicacion y descripcion).
+function abrirImportarUbicaciones(sectorId) {
+    document.getElementById('form-import-locations').reset();
+    const sel = document.getElementById('import-loc-sector');
+    if (sel) sel.value = sectorId || '';
+    openModal('modal-import-locations');
+}
+
+function importarUbicacionesEnSector() {
+    const sector = (cachedSectors || []).find(s => s.name === ubicacionesSectorNombre);
+    abrirImportarUbicaciones(sector ? sector.id : '');
 }
 
 function resetBranchModal() {
@@ -243,22 +257,23 @@ async function saveLocation(e) {
     } 
 }
 
-async function uploadLocationsCSV(e) { 
-    e.preventDefault(); 
-    const sectorId = document.getElementById('import-loc-sector').value; 
-    const fileInput = document.getElementById('import-loc-file'); 
-    if(!fileInput.files[0]) { 
-        showToast('Seleccione un archivo CSV.', 'warning'); 
-        return; 
-    } 
-    const formData = new FormData(); 
-    formData.append('file', fileInput.files[0]); 
-    const r = await fetchAPI(`/api/admin/sectors/${sectorId}/locations/import`, { method: 'POST', body: formData }); 
-    if(r) { 
-        showToast(r.message || 'Ubicaciones importadas correctamente.', 'success'); 
-        closeModal('modal-import-locations'); 
-        loadWarehouseData(); 
-    } 
+async function uploadLocationsCSV(e) {
+    e.preventDefault();
+    const sectorId = document.getElementById('import-loc-sector').value;
+    const fileInput = document.getElementById('import-loc-file');
+    if (!sectorId) { showToast('Elegí el sector.', 'warning'); return; }
+    if (!fileInput.files[0]) { showToast('Elegí el archivo.', 'warning'); return; }
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    const btn = document.getElementById('btn-import-loc');
+    btn.disabled = true; btn.textContent = 'Importando...';
+    try {
+        const r = await fetchAPI(`/api/admin/sectors/${encodeURIComponent(sectorId)}/locations/import`, { method: 'POST', body: formData });
+        showToast(r.message || 'Ubicaciones importadas.', 'success');
+        closeModal('modal-import-locations');
+        await loadWarehouseData();
+    } catch (err) { /* fetchAPI ya mostro el error */ }
+    finally { btn.disabled = false; btn.textContent = 'Importar'; }
 }
 
 window.loadWarehouseData = loadWarehouseData;
@@ -268,3 +283,5 @@ window.resetBranchModal = resetBranchModal;
 window.saveSector = saveSector;
 window.saveLocation = saveLocation;
 window.uploadLocationsCSV = uploadLocationsCSV;
+window.abrirImportarUbicaciones = abrirImportarUbicaciones;
+window.importarUbicacionesEnSector = importarUbicacionesEnSector;

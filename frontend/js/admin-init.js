@@ -8,7 +8,7 @@ async function loadDashboardSummary() {
         // 1. Pedidos
         const tOrders = document.getElementById('dash-orders-body');
         if(tOrders) {
-            tOrders.innerHTML = data.pending_orders.length ? data.pending_orders.map(o => `<tr><td class="font-mono" style="color:var(--accent); font-weight:bold;">${escapeHTML(o.document_number)}</td><td>${escapeHTML(o.company_name)}</td><td><span class="badge badge-warning">${escapeHTML(o.status)}</span></td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">Sin pedidos pendientes</td></tr>';
+            tOrders.innerHTML = data.pending_orders.length ? data.pending_orders.map(o => `<tr><td class="font-mono" style="color:var(--accent); font-weight:bold;">${escapeHTML(o.document_number)}</td><td>${escapeHTML(o.company_name)}</td><td><span class="badge badge-warning">${escapeHTML(ESTADO_PEDIDO_LABEL[o.status] || o.status)}</span></td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">Sin pedidos pendientes</td></tr>';
         }
 
         // 2. Traspasos
@@ -20,14 +20,14 @@ async function loadDashboardSummary() {
         // 3. Logs
         const tLogs = document.getElementById('dash-logs-body');
         if(tLogs) {
-            tLogs.innerHTML = data.latest_logs.length ? data.latest_logs.map(l => `<tr><td>${new Date(l.created_at).toLocaleDateString()}</td><td>${escapeHTML(l.username)}</td><td><span class="badge badge-neutral">${escapeHTML(l.action)}</span></td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">Sin registros</td></tr>';
+            tLogs.innerHTML = data.latest_logs.length ? data.latest_logs.map(l => `<tr><td>${new Date(l.created_at).toLocaleDateString()}</td><td>${escapeHTML(l.username)}</td><td><span class="badge badge-neutral" title="${escapeHTML(l.action)}">${escapeHTML(accionES(l.action))}</span></td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">Sin registros</td></tr>';
         }
 
         // 4. KPIs y Leaderboard (FASE 5)
         const kpiUnits = document.getElementById('kpi-units-today');
         const kpiCycle = document.getElementById('kpi-cycle-time');
         if(kpiUnits) kpiUnits.textContent = data.kpis?.units_today || 0;
-        if(kpiCycle) kpiCycle.textContent = (data.kpis?.avg_cycle_hours || 0).toFixed(1) + ' hrs';
+        if(kpiCycle) kpiCycle.textContent = (data.kpis?.avg_cycle_hours || 0).toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' h';
 
         const tLeader = document.getElementById('dash-leaderboard-body');
         if(tLeader) {
@@ -38,11 +38,14 @@ async function loadDashboardSummary() {
     } catch (e) { console.error("Error cargando dashboard:", e); }
 }
 
-// Muestra u oculta los campos de lote en todos los formularios segun la configuracion.
+// Muestra u oculta los campos de lote en todos los formularios segun la configuracion, y la tarjeta de
+// sugerencias de reabastecimiento (solo con esa opcion activa).
 async function aplicarAjusteLotes() {
     try {
         const cfg = await fetchAPI('/api/settings');
         document.body.classList.toggle('con-lotes', cfg && cfg.enable_lots_expiration === 'true');
+        const reab = document.getElementById('card-reabastecimiento');
+        if (reab) reab.hidden = !(cfg && cfg.enable_replenishment === 'true');
     } catch (e) { /* sin configuracion: quedan ocultos */ }
 }
 window.aplicarAjusteLotes = aplicarAjusteLotes;
@@ -61,5 +64,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (typeof loadAdminStock === 'function') loadAdminStock();
     if (typeof loadAdminKardex === 'function') loadAdminKardex();
     if (!supervisor && typeof loadSettings === 'function') loadSettings();
-    if (!supervisor && typeof loadIntegrations === 'function') loadIntegrations();
 });

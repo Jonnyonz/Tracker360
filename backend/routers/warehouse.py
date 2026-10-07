@@ -5,6 +5,7 @@ import asyncpg, uuid, csv
 from io import StringIO
 
 from backend.database import get_db_connection, require_admin, require_supervisor, build_full_address, parse_uuid
+from backend.planillas import PlanillaInvalida, leer_planilla, valor
 
 router = APIRouter(tags=["Warehouse"])
 
@@ -79,20 +80,31 @@ async def list_all_locations(admin: dict = Depends(require_supervisor), conn: as
 
 @router.post("/api/admin/locations")
 async def create_location_direct(data: LocationCreate, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    await conn.execute("INSERT INTO locations (sector_id, location_code, description) VALUES ($1, $2, $3)", parse_uuid(data.sector_id), data.location_code.strip().upper(), (data.description or "").strip())
+    sector_id, codigo = parse_uuid(data.sector_id), data.location_code.strip().upper()
+    if not codigo:
+        raise HTTPException(400, "El código de la ubicación es obligatorio.")
+    if await conn.fetchval("SELECT 1 FROM locations WHERE sector_id = $1 AND UPPER(location_code) = $2", sector_id, codigo):
+        raise HTTPException(409, f"La ubicación {codigo} ya existe en ese sector.")
+    await conn.execute("INSERT INTO locations (sector_id, location_code, description) VALUES ($1, $2, $3)", sector_id, codigo, (data.description or "").strip())
     return {"status": "success"}
 
 @router.post("/api/admin/sectors/{sector_id}/locations/import")
 async def import_locations_csv(sector_id: str, file: UploadFile = File(...), admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    content = await file.read()
-    text = content.decode('utf-8-sig', errors='ignore')
-    reader = csv.DictReader(StringIO(text))
-    count = 0
+    try:
+        filas = leer_planilla(file.filename or "", await file.read())
+    except PlanillaInvalida as e:
+        raise HTTPException(400, str(e))
+    count = repetidas = 0
     async with conn.transaction():
-        for row in reader:
-            code = row.get("ubicacion") or row.get("location_code") or row.get("codigo")
-            desc = row.get("descripcion") or row.get("description") or ""
+        for row in filas:
+            code = valor(row, "ubicacion", "ubicación", "location_code", "codigo")
+            desc = valor(row, "descripcion", "description")
             if code and code.strip():
-                await conn.execute("INSERT INTO locations (sector_id, location_code, description) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", parse_uuid(sector_id), code.strip().upper(), desc.strip())
+                codigo = code.strip().upper()
+                if await conn.fetchval("SELECT 1 FROM locations WHERE sector_id = $1 AND UPPER(location_code) = $2", parse_uuid(sector_id), codigo):
+                    repetidas += 1
+                    continue
+                await conn.execute("INSERT INTO locations (sector_id, location_code, description) VALUES ($1, $2, $3)", parse_uuid(sector_id), codigo, desc.strip())
                 count += 1
-    return {"status": "success", "message": f"Se importaron {count} ubicaciones al sector."}
+    extra = f" {repetidas} ya existían y no se duplicaron." if repetidas else ""
+    return {"status": "success", "message": f"Se importaron {count} ubicaciones al sector.{extra}"}

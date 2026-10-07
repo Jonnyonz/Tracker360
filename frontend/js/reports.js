@@ -413,7 +413,7 @@ window.generateOrdersReport = async function(e) {
                     <td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(r.document_number)}</td>
                     <td><small class="text-muted" style="font-weight:600;">${new Date(r.created_at).toLocaleDateString()}</small></td>
                     <td>${escapeHTML(r.customer_name)} <br><small class="text-muted">(${escapeHTML(r.customer_tax_id)})</small></td>
-                    <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(r.status)}</span></td>
+                    <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(ESTADO_PEDIDO_LABEL[r.status] || r.status)}</span></td>
                     <td style="font-weight:bold;">${escapeHTML(r.progress_pct)}%</td>
                     <td><span class="badge badge-neutral">${escapeHTML(r.related_document)}</span></td>
                 </tr>
@@ -538,7 +538,7 @@ window.generateRemitosReport = async function(e) {
                     <td><small class="text-muted" style="font-weight:600;">${new Date(r.created_at).toLocaleDateString()}</small></td>
                     <td>${escapeHTML(r.supplier_name)}</td>
                     <td><small>${escapeHTML(r.branch_name)} > ${escapeHTML(r.sector_name)}</small></td>
-                    <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(r.status)}</span> <span style="font-weight:bold; margin-left:8px;">${escapeHTML(r.progress_pct)}%</span></td>
+                    <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(REM_STATUS_LABEL[r.status] || r.status)}</span> <span style="font-weight:bold; margin-left:8px;">${escapeHTML(r.progress_pct)}%</span></td>
                 </tr>
             `;
         }).join('');
@@ -861,7 +861,7 @@ window.generatePOReport = async function(e) {
                     <td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(r.order_number)}</td>
                     <td><small class="text-muted" style="font-weight:600;">${new Date(r.created_at).toLocaleDateString()}</small></td>
                     <td>${escapeHTML(r.supplier_name)}</td>
-                    <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(r.status)}</span></td>
+                    <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(PO_STATUS_LABEL[r.status] || r.status)}</span></td>
                     <td style="font-weight:bold;">${escapeHTML(r.total_units)} un. en ${escapeHTML(r.total_skus)} SKUs</td>
                 </tr>
             `;

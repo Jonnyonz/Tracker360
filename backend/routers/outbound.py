@@ -120,21 +120,43 @@ async def create_manual_sales_order(
         ent_id = await conn.fetchval("SELECT id FROM entities WHERE tax_id = $1 AND is_customer AND is_active", cuit)
         if not ent_id:
             raise HTTPException(status_code=404, detail=f"Cliente no encontrado: no hay un cliente activo con el CUIT {cuit}. Darlo de alta en Clientes y Proveedores.")
+        # Lineas: al menos una, SKU del maestro y cada SKU una sola vez (con dos lineas del mismo SKU el picking
+        # tomaba siempre la primera y el pedido quedaba trabado). Todo antes de tomar el numero.
+        lineas = {}
+        for line in data.lines:
+            require_valid_quantity(line.quantity)
+            sku = line.sku.strip().upper()
+            if not sku:
+                raise HTTPException(400, "Hay una línea sin SKU.")
+            previa = lineas.get(sku)
+            lineas[sku] = {"cantidad": (previa["cantidad"] if previa else 0) + float(line.quantity),
+                           "series": (previa["series"] if previa else []) + list(line.serial_numbers or [])}
+        if not lineas:
+            raise HTTPException(400, "El pedido no tiene artículos.")
+        existentes = {r["sku"] for r in await conn.fetch("SELECT UPPER(sku) AS sku FROM items WHERE UPPER(sku) = ANY($1::text[])", list(lineas))}
+        faltan = sorted(set(lineas) - existentes)
+        if faltan:
+            raise HTTPException(400, f"SKU que no existe en Artículos: {', '.join(faltan)}.")
+        # Direccion de entrega: la elegida por su etiqueta; si no se encuentra, la principal del cliente.
+        direccion_id = await conn.fetchval("""
+            SELECT id FROM entity_addresses WHERE entity_id = $1
+            ORDER BY (UPPER(address_label) = UPPER($2)) DESC, COALESCE(is_default, FALSE) DESC, created_at
+            LIMIT 1
+        """, ent_id, (data.address_label or "").strip())
         numero, aviso = await numero_correlativo(conn, "PEDIDO", data.document_number)
 
         doc_id = await conn.fetchval(
-            "INSERT INTO documents (document_number, customer_id, status, channel_origin) VALUES ($1, $2, 'PENDING', 'MANUAL') RETURNING id",
-            numero, ent_id
+            "INSERT INTO documents (document_number, customer_id, customer_address_id, status, channel_origin) VALUES ($1, $2, $3, 'PENDING', 'MANUAL') RETURNING id",
+            numero, ent_id, direccion_id
         )
-        
-        for line in data.lines:
-            require_valid_quantity(line.quantity)
+
+        for sku, linea in lineas.items():
             await conn.execute(
                 "INSERT INTO document_lines (document_id, sku, quantity_requested, quantity_picked, serial_numbers) VALUES ($1, $2, $3, 0, $4::jsonb)",
-                doc_id, line.sku.strip().upper(), line.quantity, json.dumps(line.serial_numbers or [])
+                doc_id, sku, linea["cantidad"], json.dumps(linea["series"])
             )
-        
-        await emitir_stock_a_canales(conn, [line.sku for line in data.lines])
+
+        await emitir_stock_a_canales(conn, list(lineas))
         await log_action(conn, admin.get("username"), "ORDER_CREATED", f"Pedido manual {numero} creado.")
         res_data = {"status": "success", "message": f"Pedido {numero} creado correctamente." + (f" {aviso}" if aviso else ""),
                     "document_number": numero}
@@ -350,7 +372,13 @@ async def _origen_picking(conn: asyncpg.Connection, sku: str, location_code: Opt
     codigo = (location_code or "").strip().upper()
     loc = None
     if codigo and codigo not in SIN_UBICACION:
-        loc = await conn.fetchrow("SELECT l.id, l.sector_id, s.branch_id FROM locations l JOIN sectors s ON l.sector_id = s.id WHERE UPPER(l.location_code) = $1", codigo)
+        # El mismo codigo puede existir en otro sector (bases anteriores): se prefiere la ubicacion que tiene el SKU.
+        loc = await conn.fetchrow("""
+            SELECT l.id, l.sector_id, s.branch_id FROM locations l JOIN sectors s ON l.sector_id = s.id
+            WHERE UPPER(l.location_code) = $1
+            ORDER BY EXISTS (SELECT 1 FROM stock_inventory si WHERE si.location_id = l.id AND UPPER(si.sku) = $2 AND si.quantity > 0) DESC
+            LIMIT 1
+        """, codigo, sku)
         if not loc: raise HTTPException(400, f"La ubicación {codigo} no existe.")
     fila = await conn.fetchrow("""
         SELECT branch_id, sector_id, location_id, COALESCE(lot_number, '') AS lot_number, quantity::float AS quantity
@@ -359,7 +387,10 @@ async def _origen_picking(conn: asyncpg.Connection, sku: str, location_code: Opt
           AND ($2::uuid IS NULL OR location_id = $2)
         ORDER BY (quantity >= $3) DESC, expiration_date NULLS LAST, quantity DESC
         LIMIT 1
+        FOR UPDATE
     """, sku, loc["id"] if loc else None, cantidad)
+    # FOR UPDATE: dos operarios que pickean el mismo SKU a la vez no leen el mismo stock; el segundo espera y ve lo
+    # que dejo el primero (si no, los dos descontaban y el stock quedaba negativo aunque estuviera prohibido).
     permite_negativo = (await conn.fetchval("SELECT value FROM system_settings WHERE key = 'allow_negative_stock'")) == "true"
     donde = f" en la ubicación {codigo}" if loc else ""
     if fila and (fila["quantity"] >= cantidad or permite_negativo):
@@ -380,6 +411,7 @@ async def scan_picking_item(document_number: str, data: PickScanInput, user: dic
         if not doc: raise HTTPException(404, "Pedido no encontrado.")
         if doc["status"] == "COMPLETED": raise HTTPException(400, "El pedido ya se encuentra completado.")
         if doc["status"] in ("CANCELLED", "DISPATCHED"): raise HTTPException(400, "El pedido esta cancelado o ya fue despachado.")
+        if doc["status"] == "FULL": raise HTTPException(400, "Es un pedido Full: lo prepara Mercado Libre en su deposito, no se pickea.")
         
         sku_clean = data.sku.strip().upper()
         line = await conn.fetchrow("SELECT id, quantity_requested::float, quantity_picked::float FROM document_lines WHERE document_id = $1 AND UPPER(sku) = $2", doc["id"], sku_clean)
@@ -467,7 +499,7 @@ async def scan_wave_picking_item(data: WavePickScanInput, user: dict = Depends(g
         numeros = [n.strip().upper() for n in data.order_numbers]
         docs = await conn.fetch("SELECT id, document_number, status FROM documents WHERE UPPER(document_number) = ANY($1::text[]) FOR UPDATE", numeros)
         if not docs: raise HTTPException(404, "Pedidos de la ola no encontrados.")
-        cerrados = [d["document_number"] for d in docs if d["status"] in ("CANCELLED", "DISPATCHED")]
+        cerrados = [d["document_number"] for d in docs if d["status"] in ("CANCELLED", "DISPATCHED", "FULL")]
         if cerrados: raise HTTPException(400, f"Pedidos cancelados o ya despachados en la ola: {', '.join(cerrados)}.")
         
         total_needed = 0

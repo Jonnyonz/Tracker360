@@ -178,7 +178,7 @@ function switchView(secId, btnElement = null) {
     if(secId === 'section-orders' && typeof loadOrders === 'function') loadOrders();
     if(secId === 'section-inventory' && typeof loadInventorySessions === 'function') loadInventorySessions();
     if(secId === 'section-logs') loadLogs();
-    if(secId === 'section-settings' && typeof loadSettings === 'function') { loadSettings(); if(typeof loadIntegrationChannels === 'function') loadIntegrationChannels(); }
+    if(secId === 'section-settings' && typeof loadSettings === 'function') loadSettings();
     
     if(secId === 'section-kardex' && typeof window.loadKardexSelectors === 'function') window.loadKardexSelectors();
     if(secId === 'section-rep-stock' && typeof window.loadReportStockSelectors === 'function') window.loadReportStockSelectors();
@@ -192,6 +192,39 @@ function navigateToSubTab(sectionId, tabId) { switchView(sectionId); if(typeof s
 function openModal(id) { const m = document.getElementById(id); if(m) m.style.display = 'flex'; }
 function closeModal(id) { const m = document.getElementById(id); if(m) m.style.display = 'none'; }
 
+// Esc cierra el modal abierto (el ultimo, si hay uno encima de otro). Con el modo ayuda activo lo atiende ayuda.js.
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || document.body.classList.contains('help-mode-active')) return;
+    const abiertos = [...document.querySelectorAll('.modal')].filter(m => m.style.display === 'flex');
+    if (!abiertos.length) return;
+    const modal = abiertos[abiertos.length - 1];
+    // Los que tienen su propia funcion de cierre (limpian estado) se cierran con su boton.
+    const cerrar = modal.querySelector('.close-modal');
+    if (cerrar) cerrar.click(); else modal.style.display = 'none';
+});
+
+// Acciones de la auditoria en castellano. Una accion que no esta en la lista se muestra tal cual.
+const ACCIONES_AUDITORIA = {
+    LOGIN_SUCCESS: 'Ingreso al sistema', LOGIN_FAILED: 'Ingreso fallido', LOGOUT: 'Salida del sistema',
+    GOOGLE_LOGIN_SUCCESS: 'Ingreso con Google', GOOGLE_LOGIN_PENDING: 'Ingreso con Google pendiente de aprobación',
+    GOOGLE_LOGIN_BLOCKED: 'Ingreso con Google bloqueado', GOOGLE_LOGIN_REJECTED: 'Ingreso con Google rechazado',
+    USER_REGISTERED_GOOGLE_PENDING: 'Usuario de Google pendiente de aprobación', SETUP_ADMIN_CREATED: 'Administrador inicial creado',
+    UNAUTHORIZED_ACCESS: 'Acceso sin permiso', SECURITY_ALERT: 'Alerta de seguridad', API_INTRUSION: 'Acceso inválido a la API',
+    API_KEY_ROTATED: 'Clave de la API renovada', SETTINGS_UPDATED: 'Configuración modificada',
+    ITEM_CREATED: 'Artículo creado', ORDER_CREATED: 'Pedido creado', ORDER_CANCELLED: 'Pedido cancelado',
+    ORDER_PARTIAL_CANCEL: 'Pedido cancelado en parte', PACKING_DISPATCH: 'Pedido despachado',
+    PURCHASE_ORDER_CREATED: 'Orden de compra creada', PURCHASE_REMITO_CREATED: 'Remito de entrada registrado',
+    RECEPTION_EXCEPTION_APPROVED: 'Artículo no esperado aprobado', RECEPTION_EXCEPTION_REJECTED: 'Artículo no esperado rechazado',
+    RETURN_CREATED: 'Devolución registrada', TRANSFER_CREATED: 'Traspaso creado',
+    INVENTORY_STARTED: 'Conteo iniciado', INVENTORY_APPLIED: 'Conteo aplicado al stock', SPOT_CHECK_AUDIT: 'Control puntual',
+    SALES_CHANNEL_CREATED: 'Canal de venta creado', SALES_CHANNEL_UPDATED: 'Canal de venta modificado',
+    SALES_CHANNEL_KEY_ROTATED: 'Clave de canal renovada', CHANNEL_AUTH_FAILED: 'Clave de canal inválida',
+    CHANNEL_LABEL: 'Etiqueta de envío del canal', ONLINE_STORE_ENABLED: 'Tienda online activada',
+    ONLINE_STORE_DISABLED: 'Tienda online desactivada', PRINT_AGENT_AUTHORIZED: 'Agente de impresión autorizado',
+    PRINT_AGENT_REVOKED: 'Agente de impresión revocado', SYSTEM: 'Sistema', UNKNOWN: 'Desconocida',
+};
+function accionES(accion) { return ACCIONES_AUDITORIA[accion] || accion || ''; }
+
 async function loadDashboard() {
     try {
         const data = await fetchAPI('/api/admin/dashboard');
@@ -204,7 +237,7 @@ async function loadDashboard() {
                 bodyOrders.innerHTML = '<tr><td colspan="3" style="color:var(--text-muted); text-align:center;">No hay pedidos pendientes.</td></tr>';
             } else {
                 pending.forEach(o => {
-                    bodyOrders.innerHTML += `<tr><td style="font-weight:bold;">${escapeHTML(o.document_number)}</td><td>${escapeHTML(o.company_name)}</td><td><span class="badge badge-warning">${escapeHTML(o.status)}</span></td></tr>`;
+                    bodyOrders.innerHTML += `<tr><td style="font-weight:bold;">${escapeHTML(o.document_number)}</td><td>${escapeHTML(o.company_name)}</td><td><span class="badge badge-warning">${escapeHTML(ESTADO_PEDIDO_LABEL[o.status] || o.status)}</span></td></tr>`;
                 });
             }
         }
@@ -233,7 +266,7 @@ function filterLogs() {
     const query = document.getElementById('search-log-text')?.value.toLowerCase().trim() || '';
 
     const filtered = cachedLogsList.filter(l => {
-        const matchText = !query || l.username.toLowerCase().includes(query) || l.action.toLowerCase().includes(query) || (l.details && l.details.toLowerCase().includes(query));
+        const matchText = !query || l.username.toLowerCase().includes(query) || l.action.toLowerCase().includes(query) || accionES(l.action).toLowerCase().includes(query) || (l.details && l.details.toLowerCase().includes(query));
         return matchText;
     });
 
@@ -246,7 +279,7 @@ function filterLogs() {
         return `<tr>
             <td><small class="text-muted" style="font-weight:600;">${new Date(l.created_at).toLocaleString()}</small></td>
             <td style="font-weight:bold; color:var(--accent);">${escapeHTML(l.username)}</td>
-            <td><span class="badge ${l.result === 'ERROR' ? 'badge-danger' : 'badge-neutral'}">${escapeHTML(l.action)}</span></td>
+            <td><span class="badge ${l.result === 'ERROR' ? 'badge-danger' : 'badge-neutral'}" title="${escapeHTML(l.action)}">${escapeHTML(accionES(l.action))}</span></td>
             <td><small>${escapeHTML(l.details || '-')}</small></td>
         </tr>`;
     }).join('');
@@ -265,7 +298,7 @@ async function cargarEventosSistema() {
                 <div class="evento-linea">
                     <span class="badge ${l.result === 'ERROR' ? 'badge-danger' : 'badge-success'}">${l.result === 'ERROR' ? 'ERROR' : 'APROBADO'}</span>
                     <div class="evento-linea-datos">
-                        <div><strong>${escapeHTML(l.action)}</strong> <small>por ${escapeHTML(l.username)}</small></div>
+                        <div><strong>${escapeHTML(accionES(l.action))}</strong> <small>por ${escapeHTML(l.username)}</small></div>
                         <small>${escapeHTML(l.details || '-')}</small>
                     </div>
                     <small class="evento-linea-fecha">${escapeHTML(new Date(l.created_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }))}</small>
@@ -304,3 +337,4 @@ window.openModal = openModal;
 window.closeModal = closeModal;
 window.fetchAPI = fetchAPI;
 window.toggleHelpMode = toggleHelpMode;
+window.accionES = accionES;

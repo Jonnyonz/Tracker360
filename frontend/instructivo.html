@@ -112,6 +112,9 @@
                     <li><strong>Ubicaciones:</strong> los lugares físicos del sector (racks, estantes, posiciones). Se pueden imprimir sus etiquetas para escanearlas con la colectora.</li>
                 </ol>
                 <p>La pantalla lista solo las sucursales, con cuántos sectores y ubicaciones tiene cada una. <strong>Configuración</strong> edita los datos de la sucursal y <strong>Sectores</strong> muestra sus sectores; en cada sector, <strong>Ver ubicaciones</strong> muestra sus ubicaciones con un buscador. Desde ahí también se crean sectores y ubicaciones de esa sucursal.</p>
+                <h3>Importar ubicaciones</h3>
+                <p>Para cargar muchas ubicaciones juntas: <strong>Importar ubicaciones</strong> (arriba en Depósitos, o dentro de un sector, que ya lo deja elegido). Se elige el sector y un archivo <strong>Excel (.xlsx)</strong>, <strong>texto separado por tabulaciones (.txt)</strong> o <strong>CSV</strong> (con <code>;</code> o <code>,</code>). La primera fila son los encabezados: <code>ubicacion</code> (obligatoria) y <code>descripcion</code> (opcional). Las ubicaciones que ya existen en ese sector no se duplican; el sistema informa cuántas cargó.</p>
+                <p><strong>Asignar artículos a ubicaciones</strong> hace otra cosa: dice en qué ubicación fija va cada artículo. El archivo lleva las columnas <code>sku</code> y <code>ubicacion</code> (la ubicación tiene que existir).</p>
                 <div class="nota"><p>Si un sector no usa ubicaciones,el stock queda "sin ubicación" en ese sector. Para un depósito ordenado conviene usarlas: el picking sugiere de dónde sacar y la traza muestra exactamente dónde estaba cada unidad.</p></div>
             </section>
 
@@ -120,6 +123,11 @@
                 <p>En <strong>Artículos</strong> está el maestro: cada producto con su <strong>SKU</strong>, descripción y datos opcionales (series, códigos, combos).</p>
                 <div class="atencion"><p><strong>El SKU tiene que ser exactamente el mismo que en el canal de venta.</strong> Mercado Libre se conecta con Tracker por el SKU: si en ML la publicación tiene otro SKU, la venta no entra y el stock no se actualiza.</p></div>
                 <p>La pantalla no lista nada hasta buscar. Se busca por <strong>SKU</strong>, <strong>descripción</strong>, <strong>categoría</strong>, <strong>ubicación asignada</strong>, <strong>tipo</strong> (simple o combo) y <strong>stock</strong> (con stock, sin stock o negativo). Con todos los campos vacíos, <strong>Buscar</strong> muestra el catálogo completo por páginas; las columnas SKU, Descripción y Stock Total se ordenan tocando el título.</p>
+                <h3>Cargar artículos</h3>
+                <ul>
+                    <li><strong>+ Nuevo artículo:</strong> uno por vez, con SKU, descripción, categoría y, si hace falta, largo, ancho, alto (cm) y peso (kg). Si el SKU ya existe, avisa y no lo pisa.</li>
+                    <li><strong>Importar artículos:</strong> muchos de una vez desde un archivo <strong>Excel (.xlsx)</strong>, <strong>texto separado por tabulaciones (.txt)</strong> o <strong>CSV</strong> (con <code>;</code> o <code>,</code>). La primera fila son los encabezados: <code>sku</code>, <code>descripcion</code>, <code>categoria</code> y, opcionales, <code>largo_cm</code>, <code>ancho_cm</code>, <code>alto_cm</code>, <code>peso_kg</code> (se acepta coma decimal). Un SKU que ya existe se actualiza; al terminar se informan los nuevos, los actualizados y las filas que no se pudieron cargar. En la misma ventana está <strong>Descargar plantilla</strong>, con las columnas y dos filas de ejemplo. El formato .xls viejo no se lee: se guarda como .xlsx desde Excel.</li>
+                </ul>
                 <ul>
                     <li>Se pueden imprimir etiquetas de artículo, una por una o en forma masiva, en la impresora de un sector.</li>
                     <li>Si la empresa trabaja con <strong>lotes y vencimientos</strong> (opción de Configuración), los formularios piden lote y vencimiento, y el picking saca primero lo que vence antes (FEFO).</li>
@@ -134,7 +142,7 @@
 
             <section id="compras">
                 <h2>Compras y recepción</h2>
-                <p>En el menú, <strong>Compras y Recepción</strong> se despliega como Reportes: <strong>Órdenes de Compra</strong>, <strong>Remitos de Entrada</strong>, <strong>Facturas</strong>, <strong>Traspasos</strong> y <strong>Devoluciones</strong>. Cada uno muestra su historial recién al buscar, con filtros propios (número, proveedor o cliente, sucursal, estado y fechas); el botón <strong>Nuevo</strong> abre el formulario de alta. Las facturas por ahora solo se consultan.</p>
+                <p>En el menú, <strong>Compras y Recepción</strong> se despliega como Reportes: <strong>Órdenes de Compra</strong>, <strong>Remitos de Entrada</strong>, <strong>Traspasos</strong> y <strong>Devoluciones</strong>. Cada uno muestra su historial recién al buscar, con filtros propios (número, proveedor o cliente, sucursal, estado y fechas); el botón <strong>Nuevo</strong> abre el formulario de alta. Las facturas de compra se consultan en <strong>Reportes</strong>.</p>
 <h3>Órdenes de compra</h3>
                 <p>Desde <strong>Compras y Recepción</strong> se emite la orden de compra (OC) a un proveedor, con la sucursal donde se recibe. El número es correlativo y lo asigna el sistema (<code>OC-000001</code>): no se edita.</p>
                 <h3>Remitos de entrada</h3>
@@ -151,7 +159,6 @@
                     <li><strong>Encendida:</strong> el stock entra recién cuando el depósito controla físicamente con la colectora. El control es <strong>ciego</strong>: el operario no ve las cantidades esperadas, escanea lo que llegó.</li>
                 </ul>
                 <p>En el control: lo que llega de más se agrega como suelto y queda una observación; un artículo que no figura en el remito va a <span class="etiqueta aviso">CUARENTENA</span> (no se puede vender) hasta que un administrador o supervisor lo aprueba o lo rechaza desde el detalle del remito. Al cerrar el control, el remito queda como completo o "con diferencias", y las diferencias se ven en <strong>Reportes, Diferencias de Recepción</strong>.</p>
-                <div class="nota"><p>Las facturas de compra y el ingreso por devolución de clientes todavía están en preparación en el panel.</p></div>
                 <h3>Devoluciones de clientes</h3>
                 <p>En <strong>Devoluciones</strong>, <strong>Nueva devolución</strong>: se busca el pedido por número, venta del canal, cliente o comprador (solo aparecen los completos o despachados, también los de Mercado Libre), se elige la sucursal y el sector donde entra la mercadería y se carga cuánto vuelve de cada artículo y en qué estado: <strong>operativo</strong> (vuelve a la venta) o <strong>cuarentena</strong> (queda apartado para revisar). No se puede devolver más de lo preparado; si el pedido ya se devolvió en parte, la pantalla muestra lo ya devuelto. El número de devolución lo asigna el sistema.</p>
             </section>
@@ -164,12 +171,12 @@
                 <div class="tabla-scroll"><table>
                     <thead><tr><th>Estado</th><th>Significado</th></tr></thead>
                     <tbody>
-                        <tr><td><span class="etiqueta aviso">PENDING</span></td><td>Esperando preparación.</td></tr>
-                        <tr><td><span class="etiqueta info">IN_PROGRESS</span></td><td>En picking (ya se sacó una parte).</td></tr>
-                        <tr><td><span class="etiqueta ok">COMPLETED</span></td><td>Todo pickeado: listo para empacar.</td></tr>
-                        <tr><td><span class="etiqueta">DISPATCHED</span></td><td>Empacado y despachado.</td></tr>
-                        <tr><td><span class="etiqueta info">FULL</span></td><td>Venta de Mercado Libre Full: sale del depósito de Mercado Libre. Se registra para verla, pero no mueve stock ni se prepara.</td></tr>
-                        <tr><td><span class="etiqueta mal">CANCELLED</span></td><td>Cancelado.</td></tr>
+                        <tr><td><span class="etiqueta aviso">Pendiente</span></td><td>Esperando preparación.</td></tr>
+                        <tr><td><span class="etiqueta info">En preparación</span></td><td>En picking (ya se sacó una parte).</td></tr>
+                        <tr><td><span class="etiqueta ok">Para empacar</span></td><td>Todo pickeado: listo para empacar.</td></tr>
+                        <tr><td><span class="etiqueta">Despachado</span></td><td>Empacado y despachado.</td></tr>
+                        <tr><td><span class="etiqueta info">Full (informativo)</span></td><td>Venta de Mercado Libre Full: sale del depósito de Mercado Libre. Se registra para verla, pero no mueve stock ni se prepara.</td></tr>
+                        <tr><td><span class="etiqueta mal">Cancelado</span></td><td>Cancelado.</td></tr>
                     </tbody>
                 </table></div>
                 <h3>Preparación (picking)</h3>
@@ -212,7 +219,7 @@
                     <li><strong>Traspasos</strong>: envío y recepción.</li>
                     <li><strong>Conteos</strong> y <strong>control puntual</strong>.</li>
                 </ul>
-                <p>Se puede escanear con la cámara o con un lector. Si se corta la red, aparece un aviso: conviene esperar a que vuelva antes de seguir.</p>
+                <p>Se puede escanear con la cámara o con un lector. Con un <strong>lector láser</strong> (o la terminal con gatillo), cada lectura termina con <strong>Enter</strong>: la colectora valida el código recién ahí, así no se corta a mitad de la lectura. Si se escribe el código a mano, hay que apretar Enter al terminar. Si se corta la red, aparece un aviso: conviene esperar a que vuelva antes de seguir.</p>
             </section>
 
             <section id="reportes">
@@ -242,11 +249,11 @@
                 <p>Solo administradores. Las opciones más importantes:</p>
                 <ul>
                     <li><strong>Seguridad y sesiones:</strong> tiempo de expiración de la sesión e intentos de ingreso antes de bloquear.</li>
-                    <li><strong>Documentos y correlativos:</strong> prefijos de numeración. Los números de pedidos, órdenes de compra, traspasos y devoluciones los asigna el sistema y no se editan; las facturas y remitos de compra llevan el número del proveedor.</li>
-                    <li><strong>Operativa:</strong> lotes y vencimientos, segundo control de remitos, stock negativo, modalidad de conteo por defecto.</li>
-                    <li><strong>Módulos avanzados:</strong> picking por olas, estación de empaque y otras opciones.</li>
+                    <li><strong>Numeración:</strong> el prefijo de los números de devolución. Los números de pedidos, órdenes de compra, traspasos y devoluciones los asigna el sistema y no se editan; las facturas y remitos de compra llevan el número del proveedor.</li>
+                    <li><strong>Operativa:</strong> lotes y vencimientos, segundo control de remitos, stock negativo, pesos y volúmenes.</li>
+                    <li><strong>Módulos avanzados:</strong> picking por olas, estación de empaque, sugerencias de guardado y reabastecimiento (la tarjeta de sugerencias de reabastecimiento en Depósitos aparece solo con esa opción activa).</li>
                     <li><strong>Impresoras y plantillas ZPL.</strong></li>
-                    <li><strong>Tiendas online:</strong> un interruptor por tienda (Mercado Libre, Tiendanube, WooCommerce, Shopify, PrestaShop y Empretienda). Vienen desactivadas y no aparecen en el menú; al activar una, su módulo se suma al menú lateral con su logo. Se guarda al tocar el interruptor. La conexión con cada tienda la instala JZ Tech Solutions: si se activa una tienda que todavía no tiene conexión, el sistema muestra cómo pedirla, y su módulo lo indica hasta que se instale.</li>
+                    <li><strong>Tiendas online:</strong> un interruptor por tienda (Mercado Libre, Tiendanube, WooCommerce, Shopify, PrestaShop y Empretienda). Vienen desactivadas y no aparecen en el menú; al activar una, su módulo se suma al menú lateral con su logo. Se guarda al tocar el interruptor. La conexión con cada tienda la instala JZ Tech Solutions: si se activa una tienda que todavía no tiene conexión, el sistema muestra cómo pedirla, y su módulo lo indica hasta que se instale. Hoy funciona Mercado Libre; Tiendanube, WooCommerce, Shopify, PrestaShop y Empretienda figuran como <strong>Próximamente</strong>: se pueden activar, pero su conector está en desarrollo y todavía no reciben ventas ni mandan stock.</li>
                     <li><strong>Canales de venta</strong> (ver la sección siguiente).</li>
                     <li><strong>Eventos del sistema:</strong> los últimos 6 registros de la auditoría, marcados <strong>APROBADO</strong> o <strong>ERROR</strong> (ingresos fallidos, accesos no autorizados, alertas de seguridad). <strong>Ver auditoría completa</strong> abre el registro entero.</li>
                     <li><strong>Actualizaciones:</strong> muestra si hay una versión nueva publicada.</li>

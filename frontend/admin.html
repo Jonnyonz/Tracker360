@@ -3,11 +3,11 @@
 <head>
     <link rel="icon" type="image/png" href="/favicon.png">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title id="html-title">Tracker360 - JZTech Suite</title>
     
     <!-- CSS Separado y Limpio -->
-    <link rel="stylesheet" href="css/admin.css?v=20261006_1">
+    <link rel="stylesheet" href="css/admin.css?v=20261007_2">
 </head>
 <body>
     <div class="top-accent-bar"></div>
@@ -15,7 +15,7 @@
 
     <!-- Header Móvil Exclusivo para pantallas <= 850px -->
     <div class="mobile-header">
-        <button class="hamburger-btn" data-on-click="toggleSidebar()">
+        <button class="hamburger-btn" type="button" aria-label="Abrir o cerrar el menú" data-on-click="toggleSidebar()">
             <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         </button>
         <div style="display:flex; align-items:center; gap:8px; font-weight:700; color:var(--text-primary);">
@@ -118,7 +118,6 @@
             <div id="acc-compras" class="rail-accordion">
                 <button class="rail-sub-btn" data-on-click="abrirCompras('tab-po', this)">Órdenes de Compra</button>
                 <button class="rail-sub-btn" data-on-click="abrirCompras('tab-remito', this)">Remitos de Entrada</button>
-                <button class="rail-sub-btn" data-on-click="abrirCompras('tab-invoice', this)">Facturas</button>
                 <button class="rail-sub-btn" data-on-click="abrirCompras('tab-transfer', this)">Traspasos</button>
                 <button class="rail-sub-btn" data-on-click="abrirCompras('tab-return', this)">Devoluciones</button>
             </div>
@@ -217,7 +216,7 @@
                 </div>
                 <div class="kpi-card warning" data-help="Tiempo Promedio de Ciclo|Mide el promedio de tiempo desde que un pedido es cargado (PENDING) hasta que sale por la puerta empacado (DISPATCHED).">
                     <div style="font-size:0.85rem; color:var(--text-secondary); text-transform:uppercase; font-weight:700; letter-spacing:0.04em;">Tiempo de Ciclo Promedio</div>
-                    <div id="kpi-cycle-time" style="font-size:2.8rem; font-weight:800; color:var(--text-primary); margin-top:0.2rem; letter-spacing:-0.03em;">0.0 hrs</div>
+                    <div id="kpi-cycle-time" style="font-size:2.8rem; font-weight:800; color:var(--text-primary); margin-top:0.2rem; letter-spacing:-0.03em;">0,0 h</div>
                 </div>
             </div>
 
@@ -261,7 +260,6 @@
                         <div class="dash-action-item"><span>Devoluciones de clientes</span><button class="btn-secondary" data-on-click="abrirCompras('tab-return')">Ver</button></div>
                         <div class="dash-action-item"><span>Crear Orden de Traspaso (ODT)</span><button class="btn-secondary" data-on-click="abrirCompras('tab-transfer', null, true)">Crear</button></div>
                         <div class="dash-action-item"><span>Crear Remito de Compra</span><button class="btn-secondary" data-on-click="abrirCompras('tab-remito', null, true)">Crear</button></div>
-                        <div class="dash-action-item"><span>Facturas de Compra</span><button class="btn-secondary" data-on-click="abrirCompras('tab-invoice')">Ver</button></div>
                         <div class="dash-action-item"><span>Crear Orden de Compra</span><button class="btn-secondary" data-on-click="abrirCompras('tab-po', null, true)">Crear</button></div>
                     </div>
                 </div>
@@ -354,7 +352,8 @@
                     <button class="btn-submit" data-on-click="resetBranchModal(); openModal('modal-branch')">+ Crear Sucursal</button>
                     <button class="btn-submit" data-on-click="openModal('modal-sector')">+ Crear Sector</button>
                     <button class="btn-submit" data-on-click="openModal('modal-location')">+ Crear Ubicación</button>
-                    <button class="btn-secondary" data-on-click="openImportModal('item_locations')">Agregar Masivamente</button>
+                    <button class="btn-secondary" data-on-click="abrirImportarUbicaciones()">Importar ubicaciones</button>
+                    <button class="btn-secondary" data-on-click="openImportModal('item_locations')">Asignar artículos a ubicaciones</button>
                 </div>
             </div>
 
@@ -366,10 +365,10 @@
                 </div>
             </div>
 
-            <!-- TARJETA: ALERTAS Y SUGERENCIAS DE REABASTECIMIENTO (REPLENISHMENT - FASE 2) -->
-            <div class="card grid-full-width" style="margin-top:1.5rem;" data-help="Reabastecimiento Automático|Sugerencias de traspaso desde sectores Pulmón hacia áreas de Picking con quiebre de stock.">
+            <!-- TARJETA: SUGERENCIAS DE REABASTECIMIENTO (solo con la opcion activa en Configuracion) -->
+            <div class="card grid-full-width" id="card-reabastecimiento" hidden style="margin-top:1.5rem;" data-help="Reabastecimiento Automático|Sugerencias de traspaso desde sectores Pulmón hacia áreas de Picking con quiebre de stock.">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:12px;">
-                    <h3 class="card-title" style="margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sugerencias de Reabastecimiento (Replenishment)</h3>
+                    <h3 class="card-title" style="margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sugerencias de reabastecimiento</h3>
                     <button type="button" class="btn-secondary" data-on-click="loadReplenishmentSuggestions()" style="font-size:0.8rem;">
                         Actualizar Alertas
                     </button>
@@ -400,7 +399,8 @@
             <div class="content-header">
                 <h2>Maestro de Artículos</h2>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    <button data-on-click="openImportModal('items')" class="btn-secondary">Agregar Catálogo</button>
+                    <button data-on-click="openModal('modal-nuevo-articulo')" class="btn-submit">+ Nuevo artículo</button>
+                    <button data-on-click="openImportModal('items')" class="btn-secondary">Importar artículos</button>
                     <button data-on-click="openImportModal('item_locations')" class="btn-secondary">Agregar Ubicaciones</button>
                     <button data-on-click="openBatchPrintModal()" class="btn-secondary">Impresión Etiquetas</button>
                 </div>
@@ -773,10 +773,10 @@
             <div class="content-header">
                 <div>
                     <h2>Auditoría de Inventario Físico</h2>
-                    <p style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">Gestión de conteos ciegos mediante Deltas para ajustes precisos.</p>
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">Conteos ciegos: se cuenta sin ver el stock y se revisan las diferencias antes de ajustar.</p>
                 </div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                    <button type="button" class="btn-secondary" data-on-click="openSpotCheckModal()">Spot Check (Rápida)</button>
+                    <button type="button" class="btn-secondary" data-on-click="openSpotCheckModal()">Control puntual</button>
                     <button type="button" class="btn-submit" data-on-click="openCreateInventoryModal()">Nueva Sesión</button>
                 </div>
             </div>
@@ -798,7 +798,7 @@
                 <p id="inventario-resumen" class="busqueda-resumen" hidden></p>
             </div>
 
-            <div class="card grid-full-width" data-help="Sesiones de Conteo Ciego|Apertura de foto congelada (Snapshot) del inventario para auditoría.|HOT: Permite seguir operando. COLD: Congela el sector para máxima precisión.">
+            <div class="card grid-full-width" data-help="Sesiones de Conteo Ciego|Al abrir un conteo se toma una foto del stock del sector para comparar.|En caliente: se puede seguir operando. En frío: el sector queda congelado para mayor precisión.">
                 <table>
                     <thead>
                         <tr>
@@ -1429,55 +1429,24 @@
 
                     <!-- CARD 2: DOCUMENTOS, CORRELATIVOS E IDENTIDAD -->
                     <div class="card">
-                        <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Documentos y Correlativos</h3>
-                        <span class="settings-subtitle" style="display:block; margin-top:-0.5rem; margin-bottom:1rem; color:var(--text-muted); font-size:0.85rem;">Formato de numeración, prefijos e identidad corporativa</span>
+                        <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Numeración</h3>
+                        <span class="settings-subtitle" style="display:block; margin-top:-0.5rem; margin-bottom:1rem; color:var(--text-muted); font-size:0.85rem;">Prefijo de los números de devolución (los demás números los asigna el sistema)</span>
 
-                        <div class="settings-row">
-                            <label for="cfg-transfer-number-prefix">Prefijo para Órdenes de Traspaso</label>
-                            <div class="control-wrap"><input type="text" id="cfg-transfer-number-prefix"></div>
-                        </div>
-                        <div class="settings-row">
-                            <label for="cfg-sales-order-prefix">Prefijo para Pedidos de Venta</label>
-                            <div class="control-wrap"><input type="text" id="cfg-sales-order-prefix"></div>
-                        </div>
                         <div class="settings-row">
                             <label for="cfg-return-number-prefix">Prefijo para Devoluciones</label>
                             <div class="control-wrap"><input type="text" id="cfg-return-number-prefix"></div>
                         </div>
-                        <div class="settings-row">
-                            <label for="cfg-correlative-zeros-pad">Relleno de Ceros Correlativos (Padding)</label>
-                            <div class="control-wrap"><input type="number" id="cfg-correlative-zeros-pad" min="3" max="10"></div>
-                        </div>
                         
-                        <div class="settings-group-header" style="margin-top:1.5rem; border-top:1px solid var(--border); padding-top:1rem; font-weight:600;">Identidad Corporativa</div>
-                        <div class="form-row" style="margin-top:0.8rem;">
-                            <div class="form-group" style="flex:1; margin-bottom:0;">
-                                <label>Nombre de la App</label>
-                                <input type="text" id="cfg-app-name" placeholder="Nombre App">
-                            </div>
-                            <div class="form-group" style="flex:1; margin-bottom:0;">
-                                <label>CUIT Empresa</label>
-                                <input type="text" id="cfg-company-cuit" placeholder="CUIT">
-                            </div>
-                        </div>
                     </div>
 
                     <!-- CARD 3: OPERATIVA Y DEPÓSITO -->
-                    <div class="card" data-help="Reglas de Depósito|Ajustes avanzados para comportamiento de picking, quiebres de stock y calidades.|Active 'Estados de Stock' para clasificar mercadería en Operativo, Outlet o Dañado.">
+                    <div class="card" data-help="Reglas de Depósito|Reglas de picking, stock negativo, lotes y control de remitos.|Cada opción se aplica al guardar la configuración.">
                         <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Operativa y Depósito</h3>
                         <span class="settings-subtitle" style="display:block; margin-top:-0.5rem; margin-bottom:1rem; color:var(--text-muted); font-size:0.85rem;">Reglas de negocio logístico, inventarios y stock</span>
                         
                         <div class="settings-row">
                             <label for="cfg-auto-complete-picking">Auto-completar Pedido al finalizar Picking</label>
                             <div class="control-wrap"><select id="cfg-auto-complete-picking"><option value="true">SÍ</option><option value="false">NO</option></select></div>
-                        </div>
-                        <div class="settings-row">
-                            <label for="cfg-enable-stock-conditions">Habilitar Estados de Stock (Operativo, Outlet, Dañado)</label>
-                            <div class="control-wrap"><select id="cfg-enable-stock-conditions"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                        </div>
-                        <div class="settings-row">
-                            <label for="cfg-enable-stock-management">Gestión de Stock Estricta Activa</label>
-                            <div class="control-wrap"><select id="cfg-enable-stock-management"><option value="true">SÍ</option><option value="false">NO</option></select></div>
                         </div>
                         <div class="settings-row">
                             <label for="cfg-allow-negative-stock">Permitir Stock Negativo (Quiebres)</label>
@@ -1492,39 +1461,26 @@
                             <div class="control-wrap"><select id="cfg-enable-lots-expiration"><option value="false">NO</option><option value="true">SÍ</option></select></div>
                         </div>
                         <div class="settings-row">
-                            <label for="cfg-allow-multiproduct">Múltiples SKU en Misma Ubicación Física</label>
-                            <div class="control-wrap"><select id="cfg-allow-multiproduct"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                        </div>
-                        <div class="settings-row">
                             <label for="cfg-enable-item-dimensions">Trabaja con Pesos y Volúmenes</label>
                             <div class="control-wrap"><select id="cfg-enable-item-dimensions"><option value="false">NO</option><option value="true">SÍ</option></select></div>
                         </div>
-                        <div class="settings-row">
-                            <label for="cfg-default-inventory-count-type">Modalidad Predeterminada de Conteo Cíclico</label>
-                            <div class="control-wrap">
-                                <select id="cfg-default-inventory-count-type">
-                                    <option value="HOT">EN CALIENTE (HOT)</option>
-                                    <option value="COLD">EN FRÍO (COLD)</option>
-                                </select>
-                            </div>
-                        </div>
                     </div>
 
-                    <!-- CARD 4: MÓDULOS ENTERPRISE WMS -->
+                    <!-- CARD 4: MODULOS AVANZADOS -->
                     <div class="card">
-                        <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Módulos Enterprise WMS</h3>
+                        <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Módulos avanzados</h3>
                         <span class="settings-subtitle" style="display:block; margin-top:-0.5rem; margin-bottom:1rem; color:var(--text-muted); font-size:0.85rem;">Parámetros avanzados de logística, trazabilidad y algoritmos</span>
 
                         <div class="settings-row">
-                            <label for="cfg-enable-api-idempotency">Idempotencia API (Protección Doble Envío)</label>
+                            <label for="cfg-enable-api-idempotency">Evitar pedidos duplicados por la API (doble envío)</label>
                             <div class="control-wrap"><select id="cfg-enable-api-idempotency"><option value="false">NO</option><option value="true">SÍ</option></select></div>
                         </div>
                         <div class="settings-row">
-                            <label for="cfg-enable-serial-tracking">Trazabilidad por Número de Serie (SNT)</label>
+                            <label for="cfg-enable-serial-tracking">Trazabilidad por número de serie</label>
                             <div class="control-wrap"><select id="cfg-enable-serial-tracking"><option value="false">NO</option><option value="true">SÍ</option></select></div>
                         </div>
                         <div class="settings-row">
-                            <label for="cfg-enable-putaway-suggestions">Sugerencias de Guardado Inteligente (Putaway)</label>
+                            <label for="cfg-enable-putaway-suggestions">Sugerir dónde guardar al recibir</label>
                             <div class="control-wrap"><select id="cfg-enable-putaway-suggestions"><option value="false">NO</option><option value="true">SÍ</option></select></div>
                         </div>
                         <div class="settings-row">
@@ -1532,7 +1488,7 @@
                             <div class="control-wrap"><select id="cfg-enable-replenishment"><option value="false">NO</option><option value="true">SÍ</option></select></div>
                         </div>
                         <div class="settings-row">
-                            <label for="cfg-enable-wave-picking">Picking por Olas y Lotes (Wave/Batch)</label>
+                            <label for="cfg-enable-wave-picking">Picking por olas (varios pedidos juntos)</label>
                             <div class="control-wrap"><select id="cfg-enable-wave-picking"><option value="false">NO</option><option value="true">SÍ</option></select></div>
                         </div>
                         <div class="settings-row">
@@ -1542,10 +1498,6 @@
                         <div class="settings-row">
                             <label for="cfg-enable-packing-station">Estación de Empaque (Verificación de Bultos)</label>
                             <div class="control-wrap"><select id="cfg-enable-packing-station"><option value="false">NO</option><option value="true">SÍ</option></select></div>
-                        </div>
-                        <div class="settings-row">
-                            <label for="cfg-enable-labor-management">Medición de Rendimiento por Operario (KPIs)</label>
-                            <div class="control-wrap"><select id="cfg-enable-labor-management"><option value="false">NO</option><option value="true">SÍ</option></select></div>
                         </div>
                     </div>
 
@@ -1559,15 +1511,6 @@
                             <a href="/api/download-agent" class="btn-secondary" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Descargar Agente Windows (.exe)</a>
                         </div>
                         
-                        <div class="settings-row" style="background:var(--bg-page); border:1px solid var(--border); border-radius:8px; padding:1rem; margin-bottom:1rem;">
-                            <div>
-                                <label for="cfg-default-print-queue" style="font-weight:600; color:var(--text-primary); margin-bottom:2px;">Cola de Impresión Predeterminada</label>
-                                <div style="font-size:0.75rem; color:var(--text-muted);">Asignación de impresora principal para el depósito</div>
-                            </div>
-                            <div class="control-wrap" style="width:160px;">
-                                <input type="text" id="cfg-default-print-queue" placeholder="Ej: PRINT-SEC-01">
-                            </div>
-                        </div>
 
                         <div style="border:1px solid var(--border); border-radius:8px; overflow:hidden;">
                             <div class="settings-row" style="padding:1rem; border-bottom:1px solid var(--border);">
@@ -1649,30 +1592,12 @@
             <div class="card grid-full-width" style="margin-top:1.5rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:12px;">
                     <div>
-                        <h3 class="card-title" style="color:var(--success); margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> Vinculaciones vía API</h3>
-                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Documentación de endpoints, generación de claves de acceso y webhooks salientes</span>
+                        <h3 class="card-title" style="color:var(--success); margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> Clave de la API</h3>
+                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Clave para que otro sistema consulte Tracker360. Generar una nueva invalida la anterior.</span>
                     </div>
                     <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-                        <a href="/docs" target="_blank" class="btn-secondary" style="font-size:0.8rem;">Swagger UI</a>
-                        <a href="/redoc" target="_blank" class="btn-secondary" style="font-size:0.8rem;">ReDoc</a>
                         <button type="button" class="btn-secondary" data-on-click="generateApiKey()" style="font-size:0.8rem;">Generar Clave API</button>
-                        <button type="button" class="btn-submit" data-on-click="openModal('modal-add-channel')" style="background:var(--success); font-size:0.8rem;">+ Añadir Webhook</button>
                     </div>
-                </div>
-                <div style="overflow-x:auto;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Nombre del Canal Destino</th>
-                                <th>Tipo de Evento Gatillador</th>
-                                <th>URL Receptora (Endpoint)</th>
-                                <th style="text-align:right;">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="integrationsTableBody">
-                            <tr><td colspan="4" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Sin conexiones configuradas.</td></tr>
-                        </tbody>
-                    </table>
                 </div>
             </div>
 
@@ -1888,6 +1813,7 @@
                     <div style="display:flex; gap:8px; flex-wrap:wrap;">
                         <input type="text" id="sector-ubicaciones-filtro" placeholder="Buscar código o detalle" autocomplete="off" data-on-input="pintarUbicacionesSector()" style="width:220px;">
                         <button type="button" class="btn-secondary" id="sector-ubicaciones-nueva" data-on-click="nuevaUbicacionEnSector()" style="font-size:0.8rem;">+ Nueva ubicación</button>
+                        <button type="button" class="btn-secondary" id="sector-ubicaciones-importar" data-on-click="importarUbicacionesEnSector()" style="font-size:0.8rem;">Importar ubicaciones</button>
                     </div>
                 </div>
                 <div id="sector-ubicaciones-lista" class="ubicaciones-chips"></div>
@@ -1942,6 +1868,19 @@
                 <div class="form-group"><label>Código de Ubicación (Rack/Estante) *</label><input type="text" id="loc-code" class="font-mono" placeholder="Ej: RACK-A-01-01" required></div>
                 <div class="form-group"><label>Descripción / Detalle (Opcional)</label><input type="text" id="loc-desc" placeholder="Ej: Pasillo A, Altura 1"></div>
                 <button type="submit" class="btn-submit" style="margin-top:1.5rem; width:100%; justify-content:center;">Guardar Ubicación</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="modal-import-locations" class="modal">
+        <div class="modal-content" style="max-width:520px;">
+            <span class="close-modal" data-on-click="closeModal('modal-import-locations')">&times;</span>
+            <h3 style="color:var(--text-primary); margin-bottom:1rem;">Importar ubicaciones a un sector</h3>
+            <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1rem;">Excel (.xlsx), texto separado por tabulaciones (.txt) o CSV (con ; o ,). La primera fila son los encabezados: <strong>ubicacion</strong> (obligatoria) y <strong>descripcion</strong> (opcional). Las que ya existen en el sector no se duplican.</p>
+            <form id="form-import-locations" data-on-submit="uploadLocationsCSV(event)">
+                <div class="form-group"><label for="import-loc-sector">Sector *</label><select id="import-loc-sector" required></select></div>
+                <div class="form-group"><label for="import-loc-file">Archivo *</label><input type="file" id="import-loc-file" accept=".xlsx,.csv,.txt,.tsv" required></div>
+                <button type="submit" id="btn-import-loc" class="btn-submit" style="margin-top:1rem; width:100%; justify-content:center;">Importar</button>
             </form>
         </div>
     </div>
@@ -2105,7 +2044,7 @@
                     <label>Rol en el Sistema *</label>
                     <select id="user-role" required>
                         <option value="PREPARADOR">PREPARADOR (Colectora / Operativo)</option>
-                        <option value="SUPERVISOR">SUPERVISOR (Control y Deltas)</option>
+                        <option value="SUPERVISOR">SUPERVISOR (control y diferencias)</option>
                         <option value="ADMIN">ADMINISTRADOR (Acceso Total)</option>
                     </select>
                 </div>
@@ -2399,38 +2338,38 @@
         </div>
     </div>
 
-    <div id="modal-add-channel" class="modal">
-        <div class="modal-content" style="max-width:500px;">
-            <span class="close-modal" data-on-click="closeModal('modal-add-channel')">&times;</span>
-            <h3 style="color:var(--text-primary); margin-bottom:1.5rem;">Añadir Conexión Multicanal</h3>
-            <form id="form-add-channel" data-on-submit="saveNewChannel(event)">
-                <div class="form-group"><label>Nombre de la Aplicación / Canal *</label><input type="text" id="chan-name" required></div>
-                <div class="form-group">
-                    <label>Tipo de Evento *</label>
-                    <select id="chan-type" required>
-                        <option value="OUTBOUND_STOCK">Actualización de Stock</option>
-                        <option value="OUTBOUND_DESPACHO">Despacho de Pedidos</option>
-                    </select>
-                </div>
-                <div class="form-group"><label>URL Receptora (Webhook Endpoint) *</label><input type="url" id="chan-url" required></div>
-                <div class="form-group"><label>Clave API / Token de Autenticación (Opcional)</label><input type="text" id="chan-key"></div>
-                <button type="submit" class="btn-submit" style="margin-top:1.5rem; width:100%; justify-content:center;">Guardar Conexión</button>
-            </form>
-        </div>
-    </div>
 
     <div id="modal-import" class="modal">
         <div class="modal-content" style="max-width:500px;">
             <span class="close-modal" data-on-click="closeModal('modal-import')">&times;</span>
             <h3 style="color:var(--text-primary); margin-bottom:1rem;" id="import-modal-title">Importar Datos</h3>
-            <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1.5rem;">Sube un archivo CSV con el formato requerido.</p>
+            <p id="import-modal-ayuda" style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1.5rem;">Excel (.xlsx), texto separado por tabulaciones (.txt) o CSV (con ; o ,).</p>
             <input type="hidden" id="import-type">
             <div class="dropzone" data-on-click="clickEn('import-file')">
-                Haga clic aquí para seleccionar el archivo CSV
+                Hacé clic acá para elegir el archivo
             </div>
-            <input type="file" id="import-file" accept=".csv" style="display:none;" data-on-change="handleFileSelect(event)">
+            <input type="file" id="import-file" accept=".xlsx,.csv,.txt,.tsv" style="display:none;" data-on-change="handleFileSelect(event)">
             <p id="import-file-name" style="text-align:center; font-weight:600; color:var(--accent); display:none;"></p>
             <button type="button" class="btn-submit" id="btn-upload-csv" style="margin-top:1.5rem; width:100%; justify-content:center;" data-on-click="uploadCSV()">Procesar Archivo</button>
+        </div>
+    </div>
+
+    <div id="modal-nuevo-articulo" class="modal">
+        <div class="modal-content" style="max-width:520px;">
+            <span class="close-modal" data-on-click="closeModal('modal-nuevo-articulo')">&times;</span>
+            <h3 style="color:var(--text-primary); margin-bottom:1.5rem;">Nuevo artículo</h3>
+            <form id="form-nuevo-articulo" data-on-submit="crearArticulo(event)">
+                <div class="form-group"><label for="nuevo-art-sku">SKU *</label><input type="text" id="nuevo-art-sku" required maxlength="100" class="font-mono" autocomplete="off" placeholder="Ej: TAZA-001"></div>
+                <div class="form-group"><label for="nuevo-art-desc">Descripción *</label><input type="text" id="nuevo-art-desc" required autocomplete="off"></div>
+                <div class="form-group"><label for="nuevo-art-cat">Categoría</label><input type="text" id="nuevo-art-cat" autocomplete="off"></div>
+                <div class="form-row">
+                    <div class="form-group"><label for="nuevo-art-largo">Largo (cm)</label><input type="number" id="nuevo-art-largo" min="0" step="0.01"></div>
+                    <div class="form-group"><label for="nuevo-art-ancho">Ancho (cm)</label><input type="number" id="nuevo-art-ancho" min="0" step="0.01"></div>
+                    <div class="form-group"><label for="nuevo-art-alto">Alto (cm)</label><input type="number" id="nuevo-art-alto" min="0" step="0.01"></div>
+                    <div class="form-group"><label for="nuevo-art-peso">Peso (kg)</label><input type="number" id="nuevo-art-peso" min="0" step="0.001"></div>
+                </div>
+                <button type="submit" class="btn-submit" style="margin-top:1rem; width:100%; justify-content:center;">Crear artículo</button>
+            </form>
         </div>
     </div>
 
@@ -2470,7 +2409,7 @@
                         <option value="COLD">Conteo en Frío (Recomendado - Bloquea la operativa)</option>
                     </select>
                 </div>
-                <button type="submit" class="btn-submit" style="margin-top:1.5rem; width:100%; justify-content:center;">Crear Sesión y Tomar Foto (Snapshot)</button>
+                <button type="submit" class="btn-submit" style="margin-top:1.5rem; width:100%; justify-content:center;">Crear conteo y tomar la foto del stock</button>
             </form>
         </div>
     </div>
@@ -2503,7 +2442,7 @@
     <div id="modal-review-inventory" class="modal">
         <div class="modal-content" style="max-width:900px;">
             <span class="close-modal" data-on-click="closeModal('modal-review-inventory')">&times;</span>
-            <h3 style="color:var(--text-primary); margin-bottom:1.5rem;">Auditoría de Deltas (Esperado vs Contado)</h3>
+            <h3 style="color:var(--text-primary); margin-bottom:1.5rem;">Revisión de diferencias (esperado y contado)</h3>
             
             <input type="hidden" id="review-inv-session-id">
             <div style="overflow-x:auto; border:1px solid var(--border); border-radius:8px; max-height:400px; margin-bottom:1.5rem;">
@@ -2534,7 +2473,7 @@
     <div id="modal-spot-check" class="modal">
         <div class="modal-content" style="max-width:550px;">
             <span class="close-modal" data-on-click="closeModal('modal-spot-check')">&times;</span>
-            <h3 style="color:var(--text-primary); margin-bottom:1.5rem;">Spot Check (Auditoría Rápida)</h3>
+            <h3 style="color:var(--text-primary); margin-bottom:1.5rem;">Control puntual</h3>
 
             <form id="form-spot-check" data-on-submit="runSpotCheck(event)" style="background:var(--bg-page); padding:1.5rem; border-radius:8px; border:1px solid var(--border);">
                 <div class="form-group"><label>Código Ubicación (Opcional)</label><input type="text" id="spot-check-loc" class="font-mono"></div>
@@ -2559,8 +2498,8 @@
                     <div class="form-group">
                         <label>CUIT / DNI Cliente *</label>
                         <div style="display:flex; gap:6px;">
-                            <input type="text" id="manual-cust-taxid" class="font-mono" required style="flex:1;">
-                            <button type="button" data-on-click="openSearchCustomerModal()" class="btn-secondary" style="padding:0 12px; height:42px;">
+                            <input type="text" id="manual-cust-taxid" class="font-mono" required style="flex:1;" autocomplete="off" data-on-change="buscarClientePorCuit(this.value)">
+                            <button type="button" data-on-click="openSearchCustomerModal()" class="btn-secondary" style="padding:0 12px; height:42px;" aria-label="Buscar cliente" title="Buscar cliente">
                                 <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                             </button>
                         </div>
@@ -2568,13 +2507,11 @@
                 </div>
                 <div class="grid-layout" style="margin-bottom:0;">
                     <div class="form-group"><label>Nombre Cliente (Opcional)</label><input type="text" id="manual-cust-name"></div>
-                    <div class="form-group"><label>Dirección de Entrega</label><select id="manual-addr-label"><option value="Principal">Principal</option></select></div>
+                    <div class="form-group"><label for="manual-addr-label">Dirección de Entrega</label><select id="manual-addr-label"><option value="Principal">Principal</option></select></div>
                 </div>
                 
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; margin-top:1rem;">
                     <label style="margin:0;">Artículos del Pedido:</label>
-                    <button type="button" data-on-click="clickEn('file-manual-order-csv')" class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;">+ Agregar Masivamente</button>
-                    <input type="file" id="file-manual-order-csv" accept=".csv" style="display:none;" data-on-change="importManualOrderCSV(this)">
                 </div>
 
                 <div class="dynamic-list" id="manual-order-lines">
@@ -2596,7 +2533,7 @@
             <span class="close-modal" data-on-click="closeModal('modal-search-customer')">&times;</span>
             <h3 style="color:var(--text-primary); margin-bottom:1.5rem;">Seleccionar Cliente</h3>
             <div class="form-group">
-                <input type="text" id="search-cust-query" placeholder="Buscar por CUIT, Nombre o Dirección..." data-on-keyup="filterCustomerSearch()">
+                <input type="text" id="search-cust-query" placeholder="CUIT / DNI o nombre del cliente" autocomplete="off" aria-label="Buscar cliente" data-on-input="filtrarClientesPedido(this.value)">
             </div>
             <div style="max-height:300px; overflow-y:auto; border:1px solid var(--border); border-radius:8px;">
                 <table><thead><tr><th>CUIT / DNI</th><th>Razón Social / Nombre</th><th>Direcciones</th><th>Acción</th></tr></thead><tbody id="table-search-cust-body"></tbody></table>
@@ -2606,20 +2543,20 @@
 
     <!-- SCRIPTS DEL SISTEMA -->
     <script src="js/acciones.js?v=20261001_1"></script>
-    <script src="js/api.js?v=20261001_1"></script>
-    <script src="js/admin-core.js?v=20261006_1"></script>
+    <script src="js/api.js?v=20261007_2"></script>
+    <script src="js/admin-core.js?v=20261007_2"></script>
     <script src="js/ayuda.js?v=20261006_1"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261003_1"></script>
-    <script src="js/items.js?v=20261003_1"></script>
-    <script src="js/warehouse.js?v=20261003_2"></script>
-    <script src="js/operations.js?v=20261003_4"></script>
+    <script src="js/items.js?v=20261007_1"></script>
+    <script src="js/warehouse.js?v=20261007_2"></script>
+    <script src="js/operations.js?v=20261007_2"></script>
     <script src="js/compras.js?v=20261003_4"></script>
-    <script src="js/reports.js?v=20261001_3"></script>
-    <script src="js/settings.js?v=20261001_2"></script>
+    <script src="js/reports.js?v=20261007_2"></script>
+    <script src="js/settings.js?v=20261007_2"></script>
     <script src="js/canales.js?v=20261006_1"></script>
-    <script src="js/tiendas.js?v=20261006_1"></script>
-    <script src="js/admin-init.js?v=20261001_3"></script>
+    <script src="js/tiendas.js?v=20261007_2"></script>
+    <script src="js/admin-init.js?v=20261007_2"></script>
     
     <script src="js/admin-pagina.js?v=20261003_1"></script>
 </body>

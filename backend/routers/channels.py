@@ -7,7 +7,7 @@ import logging
 
 from backend.database import (get_db_connection, require_admin, get_current_user, log_action, get_client_ip, hash_system_api_key, parse_uuid,
                               numero_correlativo, require_valid_quantity, emitir_stock_a_canales)
-from backend.routers.outbound import cancelar_pedido, imprimir_etiqueta_pedido
+from backend.routers.outbound import CancelOrderInput, cancelar_pedido, imprimir_etiqueta_pedido
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class CanalInput(BaseModel):
     code: str
     name: str
     platform: str = "MERCADOLIBRE"
-    stock_mode: str = "DISPONIBLE"
+    stock_mode: str = "DISPONIBLE_MENOS_COMPROMETIDO"
     stock_branch_ids: Optional[List[str]] = None
 
 
@@ -361,14 +361,17 @@ async def ver_pedido_del_canal(external_ref: str, canal: dict = Depends(require_
 
 
 @router.post("/api/v1/channel/orders/{external_ref}/cancel")
-async def cancelar_pedido_del_canal(external_ref: str, request: Request, canal: dict = Depends(require_sales_channel),
+async def cancelar_pedido_del_canal(external_ref: str, request: Request, data: Optional[CancelOrderInput] = None,
+                                    canal: dict = Depends(require_sales_channel),
                                     conn: asyncpg.Connection = Depends(get_db_connection)):
-    """Cancelacion total desde el canal (la venta se cancelo en el marketplace). Lo pickeado vuelve al
-    stock. Un pedido ya despachado no se puede cancelar (400)."""
+    """Cancelacion desde el canal: total (sin cuerpo o sin lineas: la venta se cancelo en el marketplace) o parcial
+    (`lines`: SKU y cantidad, por ejemplo una orden de un carrito que se cancelo o se reembolso). Lo pickeado de la
+    parte cancelada vuelve al stock. Un pedido ya despachado no se puede cancelar (400)."""
     doc = await _pedido_del_canal(conn, canal, _ref(external_ref))
     if doc["status"] == "CANCELLED":
         return {**await _pedido_dict(conn, doc), "devuelto": []}
-    r = await cancelar_pedido(conn, doc["document_number"], None, f"canal:{canal['code']}", get_client_ip(request))
+    lineas = data.lines if data and data.lines else None
+    r = await cancelar_pedido(conn, doc["document_number"], lineas, f"canal:{canal['code']}", get_client_ip(request))
     doc = await _pedido_del_canal(conn, canal, doc["external_ref"])
     return {**await _pedido_dict(conn, doc), "devuelto": r["devuelto"]}
 

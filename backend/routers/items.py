@@ -1,5 +1,6 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
+from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional, List
 import asyncpg, csv
@@ -8,7 +9,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from backend.database import get_db_connection, require_admin, require_supervisor, queue_zpl_print_job, parse_uuid
+from backend.database import get_db_connection, require_admin, require_supervisor, queue_zpl_print_job, parse_uuid, log_action, get_client_ip
+from backend.planillas import PlanillaInvalida, leer_planilla, valor
 from backend.routers.printing import zpl_etiqueta_articulo
 
 router = APIRouter(tags=["Items"])
@@ -39,6 +41,34 @@ class BatchItemPrintLine(BaseModel):
 class BatchItemPrintInput(BaseModel):
     queue_code: str
     items: List[BatchItemPrintLine]
+
+class ItemCreate(BaseModel):
+    sku: str
+    description: str
+    category: Optional[str] = ""
+    length: Optional[float] = 0.0
+    width: Optional[float] = 0.0
+    height: Optional[float] = 0.0
+    weight: Optional[float] = 0.0
+
+
+def _medida(texto: str) -> float:
+    """Numero de una planilla: acepta coma decimal ("0,35", "1.234,5"). Vacio, negativo o invalido = 0."""
+    t = (texto or "").strip()
+    if "," in t:
+        t = t.replace(".", "").replace(",", ".")
+    try:
+        return max(0.0, float(t)) if t else 0.0
+    except ValueError:
+        return 0.0
+
+
+async def _leer_archivo(file: UploadFile):
+    try:
+        return leer_planilla(file.filename or "", await file.read())
+    except PlanillaInvalida as e:
+        raise HTTPException(400, str(e))
+
 
 class ItemLocationInput(BaseModel):
     sku: str
@@ -199,41 +229,108 @@ async def delete_item_location(assignment_id: str, admin: dict = Depends(require
     await conn.execute("DELETE FROM item_locations WHERE id = $1", parse_uuid(assignment_id))
     return {"status": "success"}
 
+@router.post("/api/admin/items")
+async def create_item(data: ItemCreate, request: Request, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Alta de un articulo desde el panel (el import sigue para cargar muchos)."""
+    sku = data.sku.strip().upper()
+    descripcion = data.description.strip()
+    if not sku or len(sku) > 100:
+        raise HTTPException(400, "El SKU es obligatorio (hasta 100 caracteres).")
+    if not descripcion:
+        raise HTTPException(400, "La descripción es obligatoria.")
+    if await conn.fetchval("SELECT 1 FROM items WHERE UPPER(sku) = $1", sku):
+        raise HTTPException(409, f"Ya existe un artículo con el SKU {sku}.")
+    medidas = [max(0.0, float(x or 0)) for x in (data.length, data.width, data.height, data.weight)]
+    volumen = (medidas[0] * medidas[1] * medidas[2]) / 1000000.0
+    await conn.execute("""
+        INSERT INTO items (sku, description, category, length, width, height, weight, volume)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    """, sku, descripcion, (data.category or "").strip(), *medidas, volumen)
+    await log_action(conn, admin["username"], "ITEM_CREATED", f"Artículo {sku} creado.", get_client_ip(request))
+    return {"status": "success", "message": f"Artículo {sku} creado.", "sku": sku}
+
+
+# Plantilla para importar articulos: separador ";" (lo que usa el Excel argentino) y filas de ejemplo.
+PLANTILLA_ARTICULOS = (
+    "sku;descripcion;categoria;largo_cm;ancho_cm;alto_cm;peso_kg\r\n"
+    "TAZA-001;Taza de ceramica blanca 350 ml;Bazar;9;9;10;0,35\r\n"
+    "PLATO-024;Plato playo 24 cm;Bazar;24;24;2;0,5\r\n"
+)
+
+
+@router.get("/api/admin/import/items/plantilla")
+async def plantilla_articulos(admin: dict = Depends(require_admin)):
+    return Response(content=("\ufeff" + PLANTILLA_ARTICULOS).encode("utf-8"), media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": 'attachment; filename="plantilla_articulos.csv"'})
+
+
 @router.post("/api/admin/import/items")
 async def import_items_csv(file: UploadFile = File(...), admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    content = await file.read()
-    text = content.decode('utf-8-sig', errors='ignore')
-    reader = csv.DictReader(StringIO(text))
-    count = 0
+    """Importa articulos desde Excel (.xlsx), texto con tabulaciones (.txt/.tsv) o CSV (; o ,). Columnas: sku (o
+    codigo), descripcion (o nombre), categoria, y opcionales largo_cm, ancho_cm, alto_cm, peso_kg. Un SKU que ya
+    existe se actualiza. Informa las filas que no se pudieron cargar."""
+    filas = await _leer_archivo(file)
+    if not filas:
+        raise HTTPException(400, "La planilla está vacía o no tiene encabezados (primera fila: sku, descripcion, categoria...).")
+    if not any(valor(f, "sku", "codigo", "código") for f in filas[:50]):
+        raise HTTPException(400, "No se encontró la columna sku (o codigo) en la primera fila de la planilla.")
+    nuevos = actualizados = 0
+    rechazadas = []
     async with conn.transaction():
-        for row in reader:
-            sku = row.get("sku") or row.get("SKU") or row.get("codigo")
-            desc = row.get("description") or row.get("descripcion") or row.get("nombre") or sku
-            cat = row.get("category") or row.get("categoria") or ""
-            if sku and sku.strip():
-                await conn.execute("""
-                    INSERT INTO items (sku, description, category) VALUES ($1, $2, $3)
-                    ON CONFLICT (sku) DO UPDATE SET description = EXCLUDED.description, category = EXCLUDED.category
-                """, sku.strip().upper(), desc.strip(), cat.strip())
-                count += 1
-    return {"status": "success", "message": f"Se procesaron {count} artículos."}
+        for n, fila in enumerate(filas, start=2):
+            sku = valor(fila, "sku", "codigo", "código").upper()
+            if not sku:
+                rechazadas.append(f"fila {n}: sin SKU")
+                continue
+            if len(sku) > 100:
+                rechazadas.append(f"fila {n}: SKU de más de 100 caracteres")
+                continue
+            desc = valor(fila, "descripcion", "description", "nombre") or sku
+            cat = valor(fila, "categoria", "category", "rubro")
+            medidas = [_medida(valor(fila, *c)) for c in (("largo_cm", "largo"), ("ancho_cm", "ancho"), ("alto_cm", "alto"), ("peso_kg", "peso"))]
+            existia = await conn.fetchval("SELECT 1 FROM items WHERE UPPER(sku) = $1", sku)
+            await conn.execute("""
+                INSERT INTO items (sku, description, category, length, width, height, weight, volume)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                ON CONFLICT (sku) DO UPDATE SET description = EXCLUDED.description, category = EXCLUDED.category,
+                    length = CASE WHEN EXCLUDED.length > 0 THEN EXCLUDED.length ELSE items.length END,
+                    width = CASE WHEN EXCLUDED.width > 0 THEN EXCLUDED.width ELSE items.width END,
+                    height = CASE WHEN EXCLUDED.height > 0 THEN EXCLUDED.height ELSE items.height END,
+                    weight = CASE WHEN EXCLUDED.weight > 0 THEN EXCLUDED.weight ELSE items.weight END,
+                    volume = CASE WHEN EXCLUDED.volume > 0 THEN EXCLUDED.volume ELSE items.volume END
+            """, sku, desc, cat, *medidas, (medidas[0] * medidas[1] * medidas[2]) / 1000000.0)
+            if existia:
+                actualizados += 1
+            else:
+                nuevos += 1
+    mensaje = f"Artículos nuevos: {nuevos}. Actualizados: {actualizados}."
+    if rechazadas:
+        mensaje += f" No se cargaron {len(rechazadas)} filas ({'; '.join(rechazadas[:5])}{'...' if len(rechazadas) > 5 else ''})."
+    return {"status": "success", "message": mensaje, "nuevos": nuevos, "actualizados": actualizados, "rechazadas": rechazadas}
 
 @router.post("/api/admin/import/item-locations")
 async def import_item_locations_csv(file: UploadFile = File(...), admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
-    content = await file.read()
-    text = content.decode('utf-8-sig', errors='ignore')
-    reader = csv.DictReader(StringIO(text))
+    """Asigna articulos a ubicaciones fijas desde Excel, texto con tabulaciones o CSV (columnas sku y ubicacion)."""
+    filas = await _leer_archivo(file)
     count = 0
+    rechazadas = []
     async with conn.transaction():
-        for row in reader:
-            sku = row.get("sku") or row.get("SKU")
-            loc_code = row.get("ubicacion") or row.get("location_code") or row.get("codigo")
-            if sku and loc_code:
-                loc = await conn.fetchrow("SELECT id FROM locations WHERE UPPER(location_code) = $1", loc_code.strip().upper())
-                if loc:
-                    await conn.execute("INSERT INTO item_locations (item_sku, location_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", sku.strip().upper(), loc["id"])
-                    count += 1
-    return {"status": "success", "message": f"Se asignaron {count} ubicaciones."}
+        for n, fila in enumerate(filas, start=2):
+            sku = valor(fila, "sku", "codigo_articulo").upper()
+            loc_code = valor(fila, "ubicacion", "ubicación", "location_code").upper()
+            if not sku or not loc_code:
+                rechazadas.append(f"fila {n}: falta sku o ubicacion")
+                continue
+            loc = await conn.fetchrow("SELECT id FROM locations WHERE UPPER(location_code) = $1", loc_code)
+            if not loc:
+                rechazadas.append(f"fila {n}: la ubicación {loc_code} no existe")
+                continue
+            await conn.execute("INSERT INTO item_locations (item_sku, location_id) VALUES ($1, $2) ON CONFLICT DO NOTHING", sku, loc["id"])
+            count += 1
+    mensaje = f"Se asignaron {count} ubicaciones."
+    if rechazadas:
+        mensaje += f" No se cargaron {len(rechazadas)} filas ({'; '.join(rechazadas[:5])}{'...' if len(rechazadas) > 5 else ''})."
+    return {"status": "success", "message": mensaje, "rechazadas": rechazadas}
 
 @router.post("/api/admin/items/batch-print-labels")
 async def batch_print_items_labels(req: dict, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):

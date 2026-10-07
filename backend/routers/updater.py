@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api/admin/updater", tags=["System Updater"])
 
 # Solo informa si hay una version publicada mas nueva. La actualizacion se aplica en el
 # servidor (git pull + docker compose up -d --build), nunca descargando codigo en caliente.
-CURRENT_VERSION = "2.0.0"
+from backend import __version__ as CURRENT_VERSION   # una sola fuente de la version
 GITHUB_REPO = os.getenv("UPDATER_GITHUB_REPO", "Jonnyonz/Tracker360")
 
 def parse_version(v_str: str):

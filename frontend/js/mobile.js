@@ -35,6 +35,21 @@ function jsArg(value) {
     return escapeHTML(JSON.stringify(value === null || value === undefined ? '' : String(value)));
 }
 
+// Estados en castellano (lo que no esta en la lista se muestra tal cual).
+const ESTADOS_COLECTORA = {
+    pedido: { PENDING: 'Pendiente', IN_PROGRESS: 'En preparación', COMPLETED: 'Para empacar' },
+    remito: { PENDING: 'Pendiente de control', PENDING_CONTROL: 'Pendiente de control', IN_PROGRESS: 'En control', COMPLETED: 'Ingresado', COMPLETED_DIFF: 'Con diferencias' },
+    traspaso: { PENDING: 'Pendiente', PENDING_CONTROL: 'Pendiente', IN_PROGRESS: 'En curso', COMPLETED: 'Completado' },
+    conteo: { HOT: 'En caliente', COLD: 'En frío' },
+};
+function estadoColectora(tipo, estado) { return (ESTADOS_COLECTORA[tipo] || {})[estado] || estado || ''; }
+
+// Error de una accion: si ya lo mostro fetchAPI, solo suena el tono (no se repite el cartel).
+function avisarError(e) {
+    if (e && e.mostrado) playErrorTone();
+    else showToast((e && e.message) || 'Ocurrió un error.', 'error');
+}
+
 function handleScannerEnter(event, nextFieldId, formId) {
     if (event.key === 'Enter') {
         event.preventDefault();
@@ -96,7 +111,8 @@ function showToast(msg, type = 'success') {
     if (type === 'success') playSuccessChime();
     else if (type === 'error') playErrorTone();
 
-    setTimeout(() => toast.remove(), 3000);
+    // Los errores quedan mas tiempo: el operario tiene las manos ocupadas y no siempre mira la pantalla.
+    setTimeout(() => toast.remove(), type === 'error' || type === 'warning' ? 7000 : 3000);
 }
 
 function openView(viewId, callback) {
@@ -302,6 +318,14 @@ function setModuleStepState(moduleName, newState) {
     }
 }
 
+// Escaneo de SKU y ubicacion: se valida al terminar (Enter). Los lectores laser y de colectora mandan Enter al final
+// del codigo; validar en cada tecla rompia el escaneo en el primer caracter.
+function scanEnter(event, moduleName, inputType) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    onModuleInputProcess(moduleName, inputType);
+}
+
 function onModuleInputProcess(moduleName, inputType) {
     if (!activeDocumentData) return;
     const lines = activeDocumentData.lines || [];
@@ -323,8 +347,16 @@ function onModuleInputProcess(moduleName, inputType) {
             lineMatch = lines.find(l => l.sku.toUpperCase() === scannedSku && l.quantity_picked < l.quantity_requested);
             if (lineMatch) qtyInp.value = lineMatch.quantity_requested - lineMatch.quantity_picked;
         } else if (moduleName === 'RECEPTION') {
-            lineMatch = lines.find(l => l.sku.toUpperCase() === scannedSku && l.quantity_received < l.quantity_sent);
-            if (lineMatch) qtyInp.value = lineMatch.quantity_sent - lineMatch.quantity_received;
+            // Control ciego: el detalle no trae cantidades del remito. Se reconoce el SKU y la cantidad la carga el
+            // operario (lo que cuenta). Un SKU que no figura sigue igual: al confirmar se ofrece como no esperado.
+            lineMatch = lines.find(l => l.sku.toUpperCase() === scannedSku);
+            if (qtyInp) qtyInp.value = '';
+            if (!lineMatch) {
+                playErrorTone();
+                showToast(`El SKU '${scannedSku}' no figura en este remito: al confirmar se puede registrar como no esperado.`, 'warning');
+                setModuleStepState(moduleName, 'LOCATION');
+                return;
+            }
         } else if (moduleName === 'TRANSFER') {
             lineMatch = lines.find(l => l.sku.toUpperCase() === scannedSku && l.quantity_received < l.quantity_sent);
             if (lineMatch) qtyInp.value = lineMatch.quantity_sent - lineMatch.quantity_received;
@@ -369,7 +401,7 @@ async function loadPicking() {
             <div class="list-item" data-on-click="startOrderPicking(${jsArg(o.document_number)})">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                     <strong>${escapeHTML(o.document_number)}${o.priority > 0 ? ' <span class="badge badge-danger">URGENTE</span>' : ''}</strong>
-                    <span class="badge ${o.status === 'PENDING' ? 'badge-warning' : 'badge-info'}">${escapeHTML(o.status)}</span>
+                    <span class="badge ${o.status === 'PENDING' ? 'badge-warning' : 'badge-info'}">${escapeHTML(estadoColectora('pedido', o.status))}</span>
                 </div>
                 <p>Cliente: ${escapeHTML(o.company_name)}</p>
                 <p><small style="color:var(--accent-blue); font-weight:bold;">A recolectar: ${escapeHTML(o.requested_items || 0)} unidades (${escapeHTML(o.total_items || 0)} ítems)</small></p>
@@ -414,7 +446,7 @@ async function refreshPickingOrderSheet(documentNumber) {
                                 <span class="badge badge-warning">Faltan: ${remaining} un</span>
                             </div>
                             <div style="color:var(--text-main); font-weight:600; margin-top:2px;">${escapeHTML(l.description)}</div>
-                            <div style="color:var(--text-muted); font-size:0.75rem; margin-top:2px; font-weight:bold;">?? Ruta / Ubicación: ${escapeHTML(l.suggested_locations)}</div>
+                            <div style="color:var(--text-muted); font-size:0.75rem; margin-top:2px; font-weight:bold;">Ruta / ubicación: ${escapeHTML(l.suggested_locations)}</div>
                         </div>
                     `;
                 }).join('');
@@ -444,7 +476,7 @@ async function handlePickingFormSubmit(event) {
             await refreshPickingOrderSheet(docNumber);
             setModuleStepState('PICKING', 'SKU');
         }
-    } catch (e) { showToast(e.message, "error"); }
+    } catch (e) { avisarError(e); }
 }
 
 // === FASE 3: PICKING POR OLAS (WAVE) ===
@@ -468,7 +500,7 @@ async function startWavePicking(limit) {
         showToast(`Ola generada con éxito. Ruta optimizada.`, "success");
 
     } catch (e) {
-        showToast(e.message || "Error al generar la Ola de Picking.", "error");
+        avisarError(e);
     }
 }
 
@@ -490,7 +522,7 @@ function refreshWaveOrderSheet(lines) {
                             <span class="badge badge-warning" style="background:#FEF3C7; color:#B45309;">Extraer: ${remaining} un</span>
                         </div>
                         <div style="color:var(--text-main); font-weight:600; margin-top:2px;">${escapeHTML(l.description)}</div>
-                        <div style="color:var(--text-muted); font-size:0.75rem; margin-top:2px; font-weight:bold;">?? Ruta: ${escapeHTML(l.suggested_locations)}</div>
+                        <div style="color:var(--text-muted); font-size:0.75rem; margin-top:2px; font-weight:bold;">Ruta: ${escapeHTML(l.suggested_locations)}</div>
                     </div>
                 `;
             }).join('');
@@ -532,7 +564,7 @@ async function handleWaveFormSubmit(event) {
             refreshWaveOrderSheet(freshData.lines);
             setModuleStepState('WAVE', 'SKU');
         }
-    } catch (e) { showToast(e.message, "error"); }
+    } catch (e) { avisarError(e); }
 }
 
 // =========================================================================================
@@ -553,7 +585,7 @@ async function loadReceptions() {
             <div class="list-item" data-on-click="startReceptionScan(${jsArg(r.id)}, ${jsArg(r.remito_number)})">
                 <strong>${escapeHTML(r.remito_number)}</strong>
                 <p>Proveedor: ${escapeHTML(r.supplier_name)}</p>
-                <span class="badge ${r.status === 'PENDING' ? 'badge-warning' : 'badge-info'}">${escapeHTML(r.status)}</span>
+                <span class="badge ${r.status === 'PENDING' ? 'badge-warning' : 'badge-info'}">${escapeHTML(estadoColectora('remito', r.status))}</span>
             </div>
         `).join('');
     } catch (e) { container.innerHTML = `<p style="text-align:center; color:var(--danger);">Error: ${escapeHTML(e.message)}</p>`; }
@@ -665,7 +697,7 @@ async function loadTransfers() {
             <div class="list-item" data-on-click="startTransferScan(${jsArg(t.transfer_number)})">
                 <strong>${escapeHTML(t.transfer_number)}</strong>
                 <p>Origen: ${escapeHTML(t.origin_branch)} > Destino: ${escapeHTML(t.destination_branch)}</p>
-                <span class="badge badge-warning">${escapeHTML(t.status)}</span>
+                <span class="badge badge-warning">${escapeHTML(estadoColectora('traspaso', t.status))}</span>
             </div>
         `).join('');
     } catch (e) { container.innerHTML = `<p style="text-align:center; color:var(--danger);">Error: ${escapeHTML(e.message)}</p>`; }
@@ -734,7 +766,7 @@ async function handleTransferFormSubmit(event) {
             await refreshTransferOrderSheet(num);
             setModuleStepState('TRANSFER', 'SKU');
         }
-    } catch (e) { showToast(e.message, "error"); }
+    } catch (e) { avisarError(e); }
 }
 
 // =========================================================================================
@@ -756,7 +788,7 @@ async function loadInventory() {
             <div class="list-item" data-on-click="startInventoryScan(${jsArg(s.id)})">
                 <strong>Sector: ${escapeHTML(s.sector_name)}</strong>
                 <p>Sucursal: ${escapeHTML(s.branch_name)}</p>
-                <span class="badge badge-info">${escapeHTML(s.count_type)}</span>
+                <span class="badge badge-info">${escapeHTML(estadoColectora('conteo', s.count_type))}</span>
             </div>
         `).join('');
     } catch (e) { container.innerHTML = `<p style="text-align:center; color:var(--danger);">Error: ${escapeHTML(e.message)}</p>`; }
@@ -784,7 +816,7 @@ async function scanInventoryCount(event) {
         document.getElementById('inv-sku').value = '';
         document.getElementById('inv-qty').value = '';
         document.getElementById('inv-sku').focus();
-    } catch (e) { showToast(e.message, "error"); }
+    } catch (e) { avisarError(e); }
 }
 
 async function finishInventorySession() {
@@ -794,7 +826,7 @@ async function finishInventorySession() {
         await fetchAPI(`/api/inventory/sessions/${sessId}/finish`, { method: 'POST' });
         showToast("Conteo finalizado y enviado a revisión.", "success");
         openView('view-inventory', loadInventory);
-    } catch (e) { showToast(e.message, "error"); }
+    } catch (e) { avisarError(e); }
 }
 
 // =========================================================================================
@@ -834,7 +866,7 @@ async function runSpotCheck(event) {
                                 <p style="color:#991B1B; margin:0;">Esperado: <strong>${escapeHTML(res.expected)}</strong> | Faltante/Sobrante: <strong>${res.delta > 0 ? '+'+res.delta : res.delta}</strong></p>`;
         }
         document.getElementById('spot-check-sku').select();
-    } catch (e) { showToast(e.message, "error"); }
+    } catch (e) { avisarError(e); }
 }
 
 // Exponer funciones globales al objeto Window
@@ -846,6 +878,7 @@ window.openView = openView;
 window.goHome = goHome;
 window.logout = logout;
 window.onModuleInputProcess = onModuleInputProcess;
+window.scanEnter = scanEnter;
 
 window.loadPicking = loadPicking;
 window.startOrderPicking = startOrderPicking;
