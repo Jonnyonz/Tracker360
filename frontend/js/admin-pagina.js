@@ -9,10 +9,22 @@ function toggleSidebar() {
 }
 
 // Acordeon del menu lateral (acc-<nombre>, icon-acc-<nombre>, btn-acc-<nombre>).
+// Abrir un desplegable del menu cierra los demas: el menu entra en la pantalla sin barra de desplazamiento.
+function cerrarOtrosAcordeones(nombre) {
+    document.querySelectorAll('.nav-rail .rail-accordion.open').forEach(acc => {
+        const otro = acc.id.replace(/^acc-/, '');
+        if (otro === nombre) return;
+        acc.classList.remove('open');
+        const icon = document.getElementById(`icon-acc-${otro}`);
+        if (icon) icon.textContent = '▼';
+    });
+}
+
 function alternarAcordeon(nombre) {
     const acc = document.getElementById(`acc-${nombre}`);
     if (!acc) return;
     const abrir = !acc.classList.contains('open');
+    if (abrir) cerrarOtrosAcordeones(nombre);
     acc.classList.toggle('open', abrir);
     const icon = document.getElementById(`icon-acc-${nombre}`);
     if (icon) icon.textContent = abrir ? '▲' : '▼';
@@ -29,6 +41,7 @@ function toggleReportsAccordion() {
         if (icon) icon.textContent = '▼';
         if (btn) btn.classList.remove('active');
     } else {
+        cerrarOtrosAcordeones('reports');
         acc.classList.add('open');
         if (icon) icon.textContent = '▲';
         if (btn) btn.classList.add('active');

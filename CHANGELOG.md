@@ -2,6 +2,19 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.3.3 — 2026-10-07
+
+Tag `v1.3.3`, publicado en GitHub Releases: menú lateral más corto.
+
+### Cambiado
+- **Configuración** pasa a ser un desplegable con **General**, **Usuarios**, **Soporte** e **Instructivo** (antes eran
+  tres botones sueltos del menú y el Instructivo estaba abajo). El supervisor sigue viendo solo Soporte e
+  Instructivo.
+- Abrir un desplegable del menú (Compras y Recepción, Reportes, Configuración) cierra los demás.
+- Con el menú angosto, las opciones de un desplegable abierto no ocupan lugar: el menú entra en la pantalla sin barra
+  de desplazamiento. La barra de desplazamiento del menú ya no se muestra (en pantallas muy bajas se desplaza igual
+  con la rueda o el dedo).
+
 ## 1.3.2 — 2026-10-07
 
 Tag `v1.3.2`, publicado en GitHub Releases: arreglos de instalación y arranque que aparecieron al actualizar un

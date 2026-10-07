@@ -99,7 +99,10 @@ input[id*="sku"], input[id*="-num"], input[id*="-code"], input[id*="taxid"],
     overflow-x: hidden;
     overflow-y: auto;
     position: relative;
+    /* Sin barra de desplazamiento visible: si en una pantalla baja no entra, se desplaza igual con la rueda o el dedo. */
+    scrollbar-width: none;
 }
+.nav-rail::-webkit-scrollbar { display: none; }
 
 .nav-rail:hover {
     width: 240px;
@@ -222,6 +225,11 @@ input[id*="sku"], input[id*="-num"], input[id*="-code"], input[id*="taxid"],
 
 .rail-accordion.open {
     display: flex;
+}
+/* Con el menu angosto (sin el mouse encima) las opciones de un desplegable abierto no se ven: no ocupan lugar, asi el
+   menu entra en la pantalla. Al pasar el mouse vuelve a mostrarse abierto. */
+@media (min-width: 851px) {
+    .nav-rail:not(:hover) .rail-accordion.open { display: none; }
 }
 
 .rail-sub-btn {

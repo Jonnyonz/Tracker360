@@ -7,7 +7,7 @@
     <title id="html-title">Tracker360 - JZTech Suite</title>
     
     <!-- CSS Separado y Limpio -->
-    <link rel="stylesheet" href="css/admin.css?v=20261007_2">
+    <link rel="stylesheet" href="css/admin.css?v=20261007_3">
 </head>
 <body>
     <div class="top-accent-bar"></div>
@@ -85,12 +85,6 @@
             </button>
         </div>
         <div class="rail-item">
-            <button class="rail-btn" title="Usuarios" data-on-click="switchView('section-users', this)">
-                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" fill="none"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-                <span class="rail-label">Usuarios</span>
-            </button>
-        </div>
-        <div class="rail-item">
             <button class="rail-btn" title="Clientes y Proveedores" data-on-click="switchView('section-entities', this)">
                 <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" fill="none"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg>
                 <span class="rail-label">Clientes y Proveedores</span>
@@ -163,26 +157,23 @@
             </button>
         </div>
         <div class="rail-item">
-            <button class="rail-btn" title="Soporte" data-on-click="switchView('section-soporte', this)">
-                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="M4.93 4.93l4.24 4.24M14.83 14.83l4.24 4.24M14.83 9.17l4.24-4.24M4.93 19.07l4.24-4.24"/></svg>
-                <span class="rail-label">Soporte</span>
-            </button>
-        </div>
-        <div class="rail-item">
-            <button class="rail-btn" title="Configuración" data-on-click="switchView('section-settings', this)">
+            <button class="rail-btn" id="btn-acc-config" title="Configuración" data-on-click="alternarAcordeon('config')">
                 <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                 <span class="rail-label">Configuración</span>
+                <span class="rail-arrow" id="icon-acc-config">▼</span>
             </button>
+            <div id="acc-config" class="rail-accordion">
+                <button class="rail-sub-btn" data-on-click="switchView('section-settings', this)">General</button>
+                <button class="rail-sub-btn" data-on-click="switchView('section-users', this)">Usuarios</button>
+                <button class="rail-sub-btn" data-on-click="switchView('section-soporte', this)">Soporte</button>
+                <button class="rail-sub-btn" data-on-click="irA('/instructivo.html')">Instructivo</button>
+            </div>
         </div>
 
         <div class="nav-rail-bottom">
             <button class="rail-btn" title="Modo Ayuda" id="btn-toggle-help" data-on-click="toggleHelpMode()">
                 <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" fill="none"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                 <span class="rail-label">Modo Ayuda</span>
-            </button>
-            <button class="rail-btn" title="Instructivo completo" data-on-click="irA('/instructivo.html')">
-                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/><path d="M9 7h7M9 11h5"/></svg>
-                <span class="rail-label">Instructivo</span>
             </button>
             <button class="rail-btn" title="Modo Oscuro / Claro" data-on-click="toggleTheme()">
                 <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" fill="none"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
@@ -2561,6 +2552,6 @@
     <script src="js/tiendas.js?v=20261007_2"></script>
     <script src="js/admin-init.js?v=20261007_2"></script>
     
-    <script src="js/admin-pagina.js?v=20261003_1"></script>
+    <script src="js/admin-pagina.js?v=20261007_1"></script>
 </body>
 </html>
