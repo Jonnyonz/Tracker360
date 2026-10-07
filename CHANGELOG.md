@@ -2,6 +2,14 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## Sin versión todavía (2026-10-07)
+
+### Documentación
+- README al día con la seguridad actual: sesiones guardadas en la base (ya no JWT), protección CSRF con
+  `X-CSRF-Token`, tiempo de sesión configurable, límite de login por IP y usuario, versiones del stack, y
+  `SECRET_KEY` marcada como ya no usada. Limitaciones actualizadas: Mercado Libre funciona por el middleware y la
+  API de canales; faltan la carga de facturas de compra y la administración de webhooks desde el panel.
+
 ## 1.3.3 — 2026-10-07
 
 Tag `v1.3.3`, publicado en GitHub Releases: menú lateral más corto.

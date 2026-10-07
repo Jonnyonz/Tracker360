@@ -75,10 +75,10 @@ administrador.
 | Componente | Versión |
 |---|---|
 | Python | 3.11 (imagen `python:3.11-slim`) |
-| FastAPI / Uvicorn | 0.109.2 / 0.27.0 |
-| asyncpg | 0.29.0 (SQL directo, sin ORM) |
-| Hash de claves | passlib 1.7.4 + argon2-cffi 23.1.0 (Argon2) |
-| Sesiones | PyJWT 2.8.0 |
+| FastAPI / Uvicorn | 0.141.1 / 0.54.0 |
+| asyncpg | 0.31.0 (SQL directo, sin ORM) |
+| Hash de claves | argon2-cffi 23.1.0 (Argon2id, por jztech-core) |
+| Sesiones, CSRF, cabeceras, migraciones | jztech-core 0.1.5 (librería común de JZ Tech) |
 | PostgreSQL | 15 (imagen `postgres:15-alpine`) |
 
 ### Estructura
@@ -127,14 +127,19 @@ número siguiente; los que ya están aplicados no se editan. Al arrancar tambié
 
 ### Seguridad
 
-- **Sesión:** JWT firmado con `SECRET_KEY` en una cookie `HttpOnly` + `Secure` +
-  `SameSite=Strict` (4 horas). Cada usuario tiene un `token_version`: el logout, el cambio de
-  clave o la desactivación lo incrementan e invalidan todas sus sesiones.
-- **Claves con Argon2.** Las claves API y los tokens del agente se guardan hasheados.
+- **Sesión:** token al azar en la cookie `session_token` (`HttpOnly` + `Secure` + `SameSite=Strict`); en
+  la base solo queda su hash. Dura lo que diga **Tiempo de sesión** en Configuración (entre 5 minutos y 7
+  días; 240 minutos si no se configura) y sigue valiendo después de reiniciar el servidor. El logout la
+  borra; el cambio de clave, la desactivación o el borrado del usuario cierran todas sus sesiones.
+- **CSRF:** toda escritura (POST, PUT, PATCH, DELETE) con sesión necesita el encabezado `X-CSRF-Token`
+  igual a la cookie `csrf_token`, que es un HMAC de la propia sesión: otro sitio no puede leerlo ni
+  calcularlo. El panel lo manda solo.
+- **Claves con Argon2id.** Las claves de los usuarios, las claves API y los tokens del agente se guardan
+  hasheados.
 - **HTTPS obligatorio** fuera de la red local: la app rechaza (403) toda conexión que no sea
   HTTPS salvo desde IPs privadas o loopback. `X-Forwarded-For`/`X-Forwarded-Proto` solo se
   aceptan de los proxies listados en `TRUSTED_PROXIES`.
-- **Fuerza bruta:** límite de intentos de login por IP (configurable: 5 intentos, 15 minutos).
+- **Fuerza bruta:** límite de intentos de login por IP y usuario (configurable: 5 intentos, 15 minutos).
 - **Cabeceras:** CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options`, HSTS,
   `Referrer-Policy`.
 - **Webhooks con protección anti-SSRF:** no pueden apuntar a direcciones internas (se valida
@@ -267,8 +272,7 @@ export SETUP_TOKEN=$(openssl rand -hex 24); echo "SETUP_TOKEN: $SETUP_TOKEN"
 uvicorn backend.main:app --host 127.0.0.1 --port 8001 --no-proxy-headers
 ```
 
-Guardar `SECRET_KEY` en un lugar fijo: si cambia en cada arranque, todas las sesiones se
-cierran.
+Las sesiones se guardan en la base: reiniciar el servidor no las cierra.
 
 ---
 
@@ -293,7 +297,7 @@ queda en `ALLOWED_ORIGINS`.
 |---|---|---|
 | `POSTGRES_USER` / `POSTGRES_DB` | `tracker_admin` / `tracker360_db` | Usuario y nombre de la base. |
 | `POSTGRES_PASSWORD` | — | Clave de la base (`openssl rand -hex 16`). Postgres la toma solo al crear el volumen. |
-| `SECRET_KEY` | aleatoria por arranque | Firma de las sesiones (`openssl rand -hex 32`). Sin ella, las sesiones se cierran en cada reinicio. |
+| `SECRET_KEY` | aleatoria por arranque | Ya no se usa (las sesiones viven en la base desde la 1.1). Los instaladores la siguen generando; se puede dejar como está. |
 | `SETUP_TOKEN` | vacío | Crea el primer admin, una sola vez (`openssl rand -hex 24`). Vacío = no se puede crear. |
 
 **Red y dominio**
@@ -377,18 +381,15 @@ actualización se hace a mano en el servidor.
 
 Para no prometer lo que no está:
 
-- **No hay conectores de e-commerce** (MercadoLibre, WooCommerce, etc.): la integración son
-  webhooks salientes. Los canales de webhook y las claves API de entrada todavía no se pueden
-  administrar desde el panel.
-- Algunos formularios del panel (órdenes de compra, remitos, facturas de compra, devoluciones
-  de cliente, alta de canales) todavía no tienen su acción implementada. Hoy la recepción
-  trabaja sobre remitos ya cargados en la base.
+- **Tiendas online:** Mercado Libre funciona a través del middleware JZMiddle y la API de canales de venta
+  (`/api/v1/channel/*`, documentada en `/api/v1/docs`). Tiendanube, WooCommerce, Shopify, PrestaShop y
+  Empretienda figuran como "Próximamente": su conector está en desarrollo.
+- Los webhooks salientes todavía no se administran desde el panel: se ve su registro de envíos, pero los
+  destinos se cargan en la base.
+- La carga de **facturas de compra** no está implementada (el reporte de facturas sí).
 - Los pickeos por ola hechos antes de esta versión quedaron sin número de pedido: no aparecen
   en los participantes y no se pueden revertir automáticamente al cancelar (la cancelación lo
   avisa y hay que devolverlos con un ajuste de stock).
-- Hay opciones de configuración que se guardan pero todavía no cambian el comportamiento
-  (por ejemplo, el tiempo de sesión: hoy es fijo en 4 horas).
-- No hay token CSRF: la protección es `SameSite=Strict` en la cookie de sesión.
 
 ---
 
