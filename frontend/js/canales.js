@@ -38,11 +38,11 @@ function canalesPorActividad(canales) {
     return [...canales].sort((a, b) => (b.is_active - a.is_active) || ((b.orders_7d || 0) - (a.orders_7d || 0)) || (uso(b) - uso(a)));
 }
 
-function botonesCanal(c, conClave) {
+function botonesCanal(c) {
     const estilo = 'padding:3px 8px; font-size:0.75rem;';
     return `<button type="button" class="btn-secondary" style="${estilo}" data-on-click="abrirCanalVenta(${jsArg(c.id)})">Configuración</button>`
         + `<button type="button" class="btn-secondary" style="${estilo} margin-left:6px;" data-on-click="abrirEventosCanal(${jsArg(c.id)})">Eventos</button>`
-        + (conClave ? `<button type="button" class="btn-secondary" style="${estilo} margin-left:6px;" data-on-click="rotarClaveCanal(${jsArg(c.id)})">Rotar clave</button>` : '');
+        + `<button type="button" class="btn-secondary" style="${estilo} margin-left:6px;" data-on-click="rotarClaveCanal(${jsArg(c.id)})">Rotar clave</button>`;
 }
 
 function pintarCanalesDestacados() {
@@ -61,7 +61,7 @@ function pintarCanalesDestacados() {
                     <span class="badge ${c.is_active ? 'badge-success' : 'badge-danger'}">${c.is_active ? 'ACTIVO' : 'INACTIVO'}</span></div>
                 <small>${c.orders_7d || 0} pedido${c.orders_7d === 1 ? '' : 's'} en 7 días · último uso: ${escapeHTML(fechaCanal(c.last_used_at))}</small>
             </div>
-            <div class="canal-linea-botones">${botonesCanal(c, false)}</div>
+            <div class="canal-linea-botones">${botonesCanal(c)}</div>
         </div>`).join('');
 }
 
@@ -81,7 +81,7 @@ function pintarTodosCanales() {
             <td><span class="badge ${c.is_active ? 'badge-success' : 'badge-danger'}">${c.is_active ? 'ACTIVO' : 'INACTIVO'}</span></td>
             <td>${Number(c.orders_7d) || 0}</td>
             <td><small>${escapeHTML(fechaCanal(c.last_used_at))}</small></td>
-            <td style="text-align:right; white-space:nowrap;">${botonesCanal(c, true)}</td>
+            <td style="text-align:right; white-space:nowrap;">${botonesCanal(c)}</td>
         </tr>
     `).join('');
 }
@@ -244,6 +244,12 @@ async function rotarClaveCanal(id) {
     } catch (e) {
         showToast(e.message, 'error');
     }
+}
+
+// Boton "Rotar clave" del modal de configuracion del canal.
+function rotarClaveCanalAbierto() {
+    closeModal('modal-canal-venta');
+    rotarClaveCanal(document.getElementById('canal-venta-id').value);
 }
 
 function mostrarClaveCanal(clave, titulo, tienda) {

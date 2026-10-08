@@ -15,10 +15,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # === SEGURIDAD Y CONFIGURACIÓN ===
-SECRET_KEY = os.getenv("SECRET_KEY", "")
-if not SECRET_KEY:
-    logger.warning("[Tracker360] SECRET_KEY no esta configurada en el .env: se usa una clave temporal y las sesiones se cierran en cada reinicio.")
-    SECRET_KEY = secrets.token_hex(32)
+# SECRET_KEY ya no se usa: las sesiones viven en la base y el CSRF es un HMAC de la sesion.
 ACCESS_TOKEN_EXPIRE_MINUTES = 240  # Fallback en caso de no leer la DB
 
 # Hash de claves: jztech_core.passwords (Argon2id, parametros OWASP). Los hashes Argon2 que dejo

@@ -2,6 +2,18 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## Sin versión todavía (2026-10-08)
+
+### Cambiado
+- Canales de venta: botón **Rotar clave** también en la tarjeta de canales de Configuración y en el modal
+  **Configuración** del canal (antes solo en "Ver canales").
+- Las casillas de verificación del panel ya no ocupan todo el ancho: en el modal del canal "Todas las sucursales" y
+  "Canal activo" quedan alineadas con su texto.
+
+### Corregido
+- Se quitó el aviso de arranque "SECRET_KEY no esta configurada... las sesiones se cierran en cada reinicio": era
+  falso, las sesiones viven en la base desde la 1.1 y `SECRET_KEY` ya no se usa.
+
 ## Sin versión todavía (2026-10-07)
 
 ### Documentación
