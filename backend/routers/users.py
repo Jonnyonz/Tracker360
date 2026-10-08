@@ -109,8 +109,10 @@ async def update_user(identifier: str, data: UserUpdate, admin: dict = Depends(r
         query = f"UPDATE users SET {', '.join(updates)} WHERE id = ${idx}"
         params.append(user["id"])
         await conn.execute(query, *params)
-        # Cambiar la clave o desactivar al usuario cierra todas sus sesiones activas.
-        if (data.password and data.password.strip()) or data.is_active is False:
+        # Cambiar la clave, desactivar al usuario o bajarlo a PREPARADOR cierra sus sesiones y revoca los
+        # agentes de impresion que autorizo.
+        if (data.password and data.password.strip()) or data.is_active is False or \
+                (data.role is not None and _validar_rol(data.role) == "PREPARADOR"):
             await invalidate_user_sessions(conn, user["id"])
         await log_action(conn, admin.get("username", "admin"), "USER_UPDATE", f"Actualizó usuario {user['username']}")
 

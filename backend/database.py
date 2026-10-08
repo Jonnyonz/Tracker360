@@ -110,9 +110,12 @@ def verify_system_key_value(raw: str, stored: str) -> bool:
     return secrets.compare_digest(raw.strip(), stored.strip())
 
 async def invalidate_user_sessions(conn: asyncpg.Connection, user_id) -> None:
-    """Cierra todas las sesiones del usuario (cambio de clave, desactivacion o baja)."""
+    """Cierra todas las sesiones del usuario (cambio de clave, desactivacion, baja o perdida del rol que
+    autoriza agentes) y revoca los agentes de impresion que autorizo: si no, siguen andando con su token."""
     await core_sessions.revoke_all_sessions_for_user(_ConexionComoPool(conn), str(user_id))
     await conn.execute("UPDATE users SET token_version = token_version + 1 WHERE id = $1", user_id)
+    await conn.execute("UPDATE print_agent_tokens SET is_active = FALSE WHERE is_active AND LOWER(created_by) = "
+                       "(SELECT LOWER(username) FROM users WHERE id = $1)", user_id)
 
 # === IP REAL DEL CLIENTE (DETRAS DE PROXY INVERSO) ===
 # Solo se confia en X-Forwarded-For / X-Forwarded-Proto si la conexion viene de un proxy listado.
@@ -467,11 +470,17 @@ async def numero_correlativo(conn: asyncpg.Connection, tipo: str, mostrado: Opti
         aviso = f"El número {mostrado.strip()} ya no estaba disponible: se registró con el {numero}."
     return numero, aviso
 
+# Tope de una cantidad: con valores enormes (aunque finitos) las sumas del picking y del stock comprometido no
+# entran en un float y esas consultas fallan para todos. Mil millones alcanza para cualquier deposito.
+MAX_CANTIDAD = 1_000_000_000
+
 def require_valid_quantity(quantity: float, allow_zero: bool = False) -> None:
     # Una cantidad negativa invierte el movimiento (una recepcion resta stock, un traspaso lo
     # devuelve al origen) y NaN/infinito llegan a la base (NUMERIC acepta 'Infinity').
     if not math.isfinite(quantity) or quantity < 0 or (quantity == 0 and not allow_zero):
         raise HTTPException(400, "La cantidad no puede ser negativa." if allow_zero else "La cantidad debe ser mayor a cero.")
+    if quantity > MAX_CANTIDAD:
+        raise HTTPException(400, f"La cantidad es demasiado grande (máximo {MAX_CANTIDAD:,}).".replace(",", "."))
 
 async def add_system_note(conn: asyncpg.Connection, doc_type: str, doc_id: uuid.UUID, body: str):
     # Observacion automatica (la escribe el sistema, no un usuario). doc_type: ver DOC_TYPES en routers/notes.py.
@@ -574,11 +583,12 @@ async def verify_system_api_key(request: Request, x_api_key: Optional[str] = Hea
     if valid_key and verify_system_key_value(x_api_key, valid_key):
         return True
         
-    # Las claves por-canal tambien se guardan hasheadas; se aceptan tanto el hash (ya migradas)
-    # como el valor en claro (recien insertadas por SQL, aun sin migrar).
+    # Las claves por-canal tambien se guardan hasheadas. El valor en claro solo vale para filas recien
+    # insertadas por SQL y aun sin migrar: si no, el hash guardado (backup, lectura de la base) serviria de clave.
     valid_channel = await conn.fetchval(
-        "SELECT name FROM inbound_api_keys WHERE api_key = ANY($1::text[]) AND is_active = TRUE",
-        [hash_system_api_key(x_api_key), x_api_key.strip()])
+        "SELECT name FROM inbound_api_keys WHERE is_active = TRUE "
+        "AND (api_key = $1 OR (api_key NOT LIKE 'sha256:%' AND api_key = $2))",
+        hash_system_api_key(x_api_key), x_api_key.strip())
     if valid_channel:
         return valid_channel
         

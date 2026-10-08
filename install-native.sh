@@ -203,7 +203,8 @@ else
 fi
 if [ "$ROL_EXISTE" != "1" ]; then
   echo "Creando rol $DB_USER..."
-  sudo -u postgres psql -q -v ON_ERROR_STOP=1 -c "CREATE ROLE $DB_USER LOGIN PASSWORD '$DB_PASSWORD';"
+  # El SQL va por stdin (printf es interno de bash): en -c la clave quedaba en la lista de procesos y en el log de sudo.
+  printf "CREATE ROLE %s LOGIN PASSWORD '%s';\n" "$DB_USER" "$DB_PASSWORD" | sudo -u postgres psql -q -v ON_ERROR_STOP=1
 fi
 if [ "$BASE_EXISTE" != "1" ]; then
   echo "Creando base $DB_NAME..."

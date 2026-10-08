@@ -47,13 +47,15 @@ async def verify_print_agent(request: Request, authorization: Optional[str] = He
     # Agente autorizado desde el navegador: Authorization: Bearer <token>
     if authorization and authorization.startswith("Bearer "):
         token = authorization[7:].strip()
-        # Si el usuario que lo autorizo se desactiva, el agente deja de funcionar.
+        # El agente vale mientras quien lo autorizo siga activo y con un rol que autoriza agentes. Un usuario
+        # creado despues del token con el mismo nombre (se borro y se volvio a crear) no lo revive.
         row = await conn.fetchrow("""
             SELECT t.id, t.agent_name FROM print_agent_tokens t
             JOIN users u ON u.username = t.created_by
             WHERE t.token_hash = $1 AND t.is_active = TRUE AND u.is_active = TRUE
+              AND u.role = ANY($3::text[]) AND u.created_at <= t.created_at
               AND COALESCE(t.last_used_at, t.created_at) > NOW() - make_interval(days => $2)
-        """, _sha256_hex(token), AGENT_TOKEN_INACTIVITY_DAYS)
+        """, _sha256_hex(token), AGENT_TOKEN_INACTIVITY_DAYS, sorted(AGENT_AUTH_ROLES))
         if row:
             await conn.execute("UPDATE print_agent_tokens SET last_used_at = NOW() WHERE id = $1", row["id"])
             return row["agent_name"]

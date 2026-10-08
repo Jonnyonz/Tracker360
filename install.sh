@@ -130,6 +130,9 @@ if [ ! -f .env ]; then
         read -r -p "Dominio publico de este servidor (ej. wms.suempresa.com, Enter para omitir): " DOMAIN < /dev/tty || DOMAIN=""
     fi
 
+    # umask 077 solo para crear el .env: tiene la clave del superusuario de Postgres y el SETUP_TOKEN, y con
+    # el umask por defecto (022) quedaba legible para cualquier usuario del servidor.
+    ( umask 077; : > .env )
     cat <<EOF > .env
 # Ver .env.example para la descripcion de cada variable. TRACKER360_DOMAIN, ALLOWED_ORIGINS, API_BIND y
 # TRUSTED_PROXIES los mantiene install.sh.
@@ -197,10 +200,18 @@ sed -i -E -e '/^(CADDY_[A-Z_]*|TRACKER360_HTTPS|TRACKER360_IP)=/d' -e '/^COMPOSE
     -e 's/^(# Ver \.env\.example para la descripcion de cada variable\.) Lo de HTTPS .*/\1 TRACKER360_DOMAIN, API_BIND y TRUSTED_PROXIES los mantiene install.sh./' \
     -e '/^# lo mantiene install\.sh\.[[:space:]]*$/d' .env
 
+# El .env de instalaciones anteriores puede haber quedado legible para todos (antes se creaba con 644).
+chmod 600 .env
+
 # 4. Copia de la base antes de reconstruir (al arrancar, la API aplica las migraciones nuevas).
 if docker compose ps --status running --services 2>/dev/null | grep -qx db; then
-    mkdir -p backups
+    # Solo root: la copia tiene usuarios, claves de canal y datos de compradores. Tambien corrige las
+    # copias que dejaron versiones anteriores con 644.
+    install -d -m 700 backups
+    chmod 700 backups
+    chmod 600 backups/* 2>/dev/null || true
     COPIA="backups/antes_de_actualizar_$(date +%Y-%m-%d_%H%M%S).sql"
+    ( umask 077; : > "$COPIA" )
     # < /dev/null: con "curl ... | bash" el script llega por stdin y exec se comeria el resto del script.
     if docker compose exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' < /dev/null > "$COPIA"; then
         echo "Copia de la base de datos: $PWD/$COPIA"
@@ -247,8 +258,10 @@ esperar_api 45
 # no pide contrasena) y la API se reconecta sola.
 if [ "$API_OK" != "1" ] && docker compose logs --tail=80 api 2>/dev/null | grep -q "InvalidPasswordError"; then
     echo "La contrasena de la base no coincide con POSTGRES_PASSWORD del .env: se actualiza en la base..."
-    if echo "ALTER ROLE CURRENT_USER WITH PASSWORD :'pw';" | docker compose exec -T db sh -c \
-        'psql -q -v ON_ERROR_STOP=1 -v pw="$POSTGRES_PASSWORD" -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > /dev/null; then
+    # psql toma la clave de su entorno con \getenv: pasada como argumento (-v pw=...) quedaba a la vista en la
+    # lista de procesos (/proc/<pid>/cmdline) de cualquier usuario del servidor.
+    if printf '%s\n' '\getenv pw POSTGRES_PASSWORD' "ALTER ROLE CURRENT_USER WITH PASSWORD :'pw';" | docker compose exec -T db sh -c \
+        'psql -q -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' > /dev/null; then
         echo "Contrasena de la base actualizada. Esperando a la API..."
         esperar_api 30
     else

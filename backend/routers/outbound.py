@@ -2,12 +2,13 @@ from fastapi import APIRouter, Depends, HTTPException, Header, Request
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone
-import asyncpg, uuid, json, math
+import asyncpg, uuid, json, math, re, logging
 
 from backend.filtros import Filtros
 from backend.database import get_db_connection, get_current_user, get_client_ip, require_admin, require_supervisor, record_stock_movement, log_action, dispatch_event_to_channels, queue_zpl_print_job, numero_correlativo, siguiente_numero, check_idempotency, save_idempotency, require_valid_quantity, emitir_stock_a_canales, emitir_estado_a_canal
 
 router = APIRouter(tags=["Outbound & Dispatch"])
+logger = logging.getLogger(__name__)
 
 class PickScanInput(BaseModel):
     sku: str
@@ -131,6 +132,7 @@ async def create_manual_sales_order(
             previa = lineas.get(sku)
             lineas[sku] = {"cantidad": (previa["cantidad"] if previa else 0) + float(line.quantity),
                            "series": (previa["series"] if previa else []) + list(line.serial_numbers or [])}
+            require_valid_quantity(lineas[sku]["cantidad"])
         if not lineas:
             raise HTTPException(400, "El pedido no tiene artículos.")
         existentes = {r["sku"] for r in await conn.fetch("SELECT UPPER(sku) AS sku FROM items WHERE UPPER(sku) = ANY($1::text[])", list(lineas))}
@@ -187,6 +189,10 @@ async def cancelar_pedido(conn: asyncpg.Connection, document_number: str, lineas
         if not doc: raise HTTPException(404, "Pedido no encontrado.")
         if doc["status"] == "DISPATCHED": raise HTTPException(400, "El pedido ya fue despachado: no se puede cancelar.")
         if doc["status"] == "CANCELLED": raise HTTPException(400, "El pedido ya esta cancelado.")
+        # Una devolucion ya reingreso al stock unidades pickeadas de este pedido; cancelarlo las devolveria
+        # otra vez (stock fantasma que se publica en los canales).
+        if await conn.fetchval("SELECT 1 FROM customer_returns WHERE document_id = $1 LIMIT 1", doc["id"]):
+            raise HTTPException(409, "El pedido tiene devoluciones registradas: no se puede cancelar.")
 
         lineas = await conn.fetch("SELECT id, UPPER(sku) AS sku, quantity_requested::float AS pedido, quantity_picked::float AS pickeado FROM document_lines WHERE document_id = $1 FOR UPDATE", doc["id"])
         por_sku = {l["sku"]: l for l in lineas}
@@ -197,8 +203,10 @@ async def cancelar_pedido(conn: asyncpg.Connection, document_number: str, lineas
             for cl in lineas_cancelar:
                 sku = cl.sku.strip().upper()
                 if sku not in por_sku: raise HTTPException(400, f"El SKU '{sku}' no pertenece a este pedido.")
-                if cl.quantity <= 0: raise HTTPException(400, "La cantidad a cancelar debe ser mayor a cero.")
+                # require_valid_quantity tambien rechaza NaN e infinito (`<= 0` deja pasar NaN).
+                require_valid_quantity(cl.quantity)
                 objetivo[sku] = objetivo.get(sku, 0) + cl.quantity
+                require_valid_quantity(objetivo[sku])
             for sku, cant in objetivo.items():
                 if cant > por_sku[sku]["pedido"] + 1e-9:
                     raise HTTPException(400, f"No se pueden cancelar {cant:g} de '{sku}': el pedido tiene {por_sku[sku]['pedido']:g}.")
@@ -273,11 +281,36 @@ def _zpl_pedido(template: str, doc) -> str:
         template = template.replace(marcador, valor)
     return template
 
+# Comandos ZPL que configuran la impresora en vez de dibujar la etiqueta: reset y valores de fabrica (~J*,
+# ^JU...), red (^N*), clave y bloqueos (^K*), borrar objetos (^ID), cambio de prefijo (^CC/^CT/^CD, que
+# esconderia el resto), inalambrico (^W*/~W*), puerto serie y reloj (^SC/^ST) y descarga de objetos (~DY).
+# Una etiqueta que llega de un canal no los necesita: se rechaza al recibirla y no se imprime si quedo
+# guardada de antes.
+ZPL_PROHIBIDO = re.compile(r"~J[A-Z]|\^J[BJSTUWZ]|[\^~]N[A-Z]|[\^~]K[A-Z]|\^ID|[\^~]C[CDT]|[\^~]W[A-Z]|\^S[CT]|~DY"
+                           # Comandos SGD de Zebra (fuera de ^XA..^XZ): "! U1 do/setvar/getvar ..." y la forma JSON "{}{...}".
+                           r"|!\s*U1?\s*(?:DO|SETVAR|GETVAR)|\{\s*\}\s*\{", re.IGNORECASE)
+
+
+def zpl_peligroso(zpl: str):
+    """Comando de configuracion de la impresora en la etiqueta, o None. Se mira el texto como lo manda el agente
+    (sin saltos de linea): si no, "~J" + salto + "R" pasaba el control y llegaba a la impresora como ~JR."""
+    plano = (zpl or "").replace("\r", "").replace("\n", "")
+    m = ZPL_PROHIBIDO.search(plano)
+    if m:
+        return m.group(0)
+    # Fuera de los bloques ^XA..^XZ no va nada (ahi viajarian comandos SGD u otros que no son de la etiqueta).
+    if re.sub(r"\^XA.*?\^XZ", "", plano, flags=re.IGNORECASE | re.DOTALL).strip():
+        return "texto fuera de ^XA..^XZ"
+    return None
+
 async def imprimir_etiqueta_pedido(conn: asyncpg.Connection, doc) -> bool:
     """Encola la etiqueta del pedido: la que mando el canal de venta (channel_label_zpl, por ejemplo la
     de envio de Mercado Libre) si la tiene; si no, la plantilla zpl_order_template. False si no hay
     ninguna. doc necesita document_number, client_name, delivery_address y channel_label_zpl."""
     zpl = doc["channel_label_zpl"]
+    if zpl and zpl_peligroso(zpl):
+        logger.warning(f"[ETIQUETA] La etiqueta del canal del pedido {doc['document_number']} tiene comandos de configuración de la impresora: se usa la plantilla de Tracker.")
+        zpl = None
     if not zpl:
         template = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'zpl_order_template'")
         if not template:

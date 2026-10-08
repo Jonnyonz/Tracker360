@@ -7,7 +7,7 @@ import logging
 
 from backend.database import (get_db_connection, require_admin, get_current_user, log_action, get_client_ip, hash_system_api_key, parse_uuid,
                               numero_correlativo, require_valid_quantity, emitir_stock_a_canales)
-from backend.routers.outbound import CancelOrderInput, cancelar_pedido, imprimir_etiqueta_pedido
+from backend.routers.outbound import CancelOrderInput, cancelar_pedido, imprimir_etiqueta_pedido, zpl_peligroso
 
 logger = logging.getLogger(__name__)
 
@@ -321,6 +321,7 @@ async def crear_pedido_del_canal(data: PedidoCanal, request: Request, canal: dic
         if not sku:
             raise HTTPException(400, "Hay un artículo sin SKU.")
         cantidades[sku] = cantidades.get(sku, 0) + l.quantity
+        require_valid_quantity(cantidades[sku])   # dos lineas finitas del mismo SKU pueden sumar infinito
 
     async with conn.transaction():
         # Dos altas simultaneas del mismo pedido (reintento del canal) se ordenan por este lock.
@@ -449,6 +450,9 @@ async def etiqueta_del_canal(external_ref: str, data: EtiquetaCanal, request: Re
         raise HTTPException(400, "La etiqueta tiene que ser ZPL (con ^XA y ^XZ).")
     if len(zpl.encode("utf-8")) > ETIQUETA_MAX_BYTES:
         raise HTTPException(400, "La etiqueta es demasiado grande (máximo 256 KB).")
+    peligroso = zpl_peligroso(zpl)
+    if peligroso:
+        raise HTTPException(400, f"La etiqueta tiene un comando de configuración de la impresora ({peligroso}): solo se aceptan comandos de formato.")
     async with conn.transaction():
         doc = await _pedido_del_canal(conn, canal, _ref(external_ref))
         await conn.execute("UPDATE documents SET channel_label_zpl = $2 WHERE id = $1", doc["id"], zpl)

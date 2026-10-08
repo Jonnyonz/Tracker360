@@ -2,7 +2,32 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
-## Sin versión todavía (2026-10-08)
+## 1.3.4 — 2026-10-08
+
+Tag `v1.3.4`: arreglos de la auditoría de seguridad del 2026-10-08 y lo que estaba sin versión del 2026-10-07/08.
+
+### Seguridad
+- **Canales de venta:** una cantidad no finita (dos líneas del mismo SKU que suman infinito, o `NaN` al cancelar)
+  quedaba guardada, dejaba el picking caído para todos y el pedido sin poder cancelarse. Ahora se rechaza con 400 (también cantidades
+  mayores a 1.000.000.000, cuyas sumas no entran en un float), y la migración `0009` impide guardar `NaN`, `Infinity`
+  o valores fuera de rango en `document_lines` por cualquier camino. Si una base ya tiene
+  filas así, hay que corregirlas a mano.
+- **Devolución + cancelación:** cancelar un pedido que ya tenía una devolución reingresaba el mismo stock dos veces.
+  Ahora se rechaza (409 "El pedido tiene devoluciones registradas").
+- **Agente de impresión:** el token seguía andando después de cambiarle la clave o bajarle el rol a quien lo
+  autorizó, y revivía si se creaba otro usuario con el mismo nombre. Ahora se revoca en esos casos y se valida el rol
+  en cada uso.
+- **Claves de entrada (`inbound_api_keys`):** el hash guardado servía como si fuera la clave. Ya no.
+- **Etiquetas del canal:** se rechazan las que traen comandos de configuración de la impresora (reset, red, clave,
+  cambio de prefijo, SGD de Zebra, etc.), también partidos con saltos de línea, y cualquier texto fuera de los bloques
+  `^XA...^XZ`; si quedó guardada una así, se imprime la etiqueta de Tracker.
+- **install.sh (Docker):** el `.env` (con la clave del superusuario de Postgres) y las copias de la base quedaban
+  legibles para cualquier usuario del servidor. Ahora `.env` 600, `backups/` 700 y copias 600 (también corrige las
+  instalaciones anteriores al volver a correrlo).
+- **Instaladores:** la clave de la base ya no se pasa como argumento de `psql` (se veía en la lista de procesos y en el
+  log de sudo): va por stdin o por el entorno del contenedor.
+- `TRUSTED_PROXIES` sigue por defecto en `127.0.0.1/32,::1/128,172.16.0.0/12`. Si algún equipo que no sea el proxy
+  llega directo al puerto de la API desde ese rango, poné en el `.env` solo la IP del proxy.
 
 ### Cambiado
 - Canales de venta: botón **Rotar clave** también en la tarjeta de canales de Configuración y en el modal
