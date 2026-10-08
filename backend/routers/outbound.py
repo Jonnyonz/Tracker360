@@ -650,7 +650,7 @@ async def pack_order_and_dispatch(document_number: str, data: PackOrderInput, us
             FROM document_lines dl JOIN items i ON UPPER(dl.sku) = UPPER(i.sku) WHERE dl.document_id = $1
         """, doc["id"])
 
-        await conn.execute("UPDATE documents SET status = 'DISPATCHED' WHERE id = $1", doc["id"])
+        await conn.execute("UPDATE documents SET status = 'DISPATCHED', dispatched_at = now() WHERE id = $1", doc["id"])
         await emitir_estado_a_canal(conn, doc["id"])
         await log_action(conn, user.get("username"), "PACKING_DISPATCH", f"Empacó y despachó {document_number} ({data.boxes} bultos)")
 

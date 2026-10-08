@@ -49,14 +49,14 @@ async def get_admin_dashboard_op(admin: dict = Depends(require_supervisor), conn
         logger.exception(f"[KPI Error] units_today falló: {e}")
 
     try:
-        # Simplificamos la consulta por si la base de datos no tiene 'updated_at'
+        # Carga -> despacho de los pedidos despachados en los ultimos 30 dias (dispatched_at, migracion 0010).
         avg_cycle = await conn.fetchval("""
-            SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (updated_at - created_at))/3600), 0)
-            FROM documents 
-            WHERE status IN ('COMPLETED', 'DISPATCHED') AND updated_at IS NOT NULL
+            SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (dispatched_at - created_at))/3600), 0)
+            FROM documents
+            WHERE dispatched_at >= now() - INTERVAL '30 days'
         """)
     except Exception as e:
-        logger.exception(f"[KPI Error] avg_cycle falló (Posible falta de columna updated_at): {e}")
+        logger.exception(f"[KPI Error] avg_cycle falló: {e}")
 
     try:
         leaderboard_rows = await conn.fetch("""

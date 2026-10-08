@@ -2,6 +2,16 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.3.5 — 2026-10-08
+
+Tag `v1.3.5`.
+
+### Arreglos
+- **Panel: "Tiempo de Ciclo Promedio"** siempre mostraba 0 h y dejaba un error `[KPI Error] avg_cycle` en el log
+  cada vez que se abría el panel (consultaba una columna `updated_at` que los pedidos no tienen). Ahora se guarda el
+  momento del despacho (migración `0010`, columna `documents.dispatched_at`) y el KPI promedia carga → despacho de
+  los pedidos despachados en los últimos 30 días. Los pedidos despachados antes de actualizar no cuentan.
+
 ## 1.3.4 — 2026-10-08
 
 Tag `v1.3.4`: arreglos de la auditoría de seguridad del 2026-10-08 y lo que estaba sin versión del 2026-10-07/08.
