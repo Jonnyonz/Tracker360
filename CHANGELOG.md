@@ -2,7 +2,9 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
-## Sin versión todavía (2026-10-13)
+## 1.3.6 — 2026-10-13
+
+Tag `v1.3.6`.
 
 ### Agregado
 - **Módulo Mercado Libre: aviso de stock 0.** Un cartel arriba del listado explica que, si un artículo queda sin
