@@ -2,6 +2,21 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## Sin versión todavía (2026-10-13)
+
+### Agregado
+- **Módulo Mercado Libre: aviso de stock 0.** Un cartel arriba del listado explica que, si un artículo queda sin
+  disponible en Tracker, la conexión deja la publicación en 0 y Mercado Libre la pausa (se reactiva sola cuando
+  vuelve a haber stock). Si hay publicaciones en esa situación, el cartel las cuenta y lleva al listado. Nueva
+  situación **"Sin stock en Tracker: queda en 0"** (resumen, filtro y columna Situación): publicaciones que se
+  sincronizan y cuyo SKU tiene 0 disponible para el canal (según sus sucursales y su modo de stock; el stock en
+  cuarentena no cuenta). `GET /api/admin/sales-channels/{id}/listings` acepta `problem=SIN_STOCK` y devuelve
+  `summary.sin_stock`. Instructivo actualizado.
+
+### Arreglos
+- Módulo Mercado Libre: con más de 500 publicaciones por página, las que pasaban de la 500 se mostraban sin el
+  disponible de Tracker ("-").
+
 ## 1.3.5 — 2026-10-08
 
 Tag `v1.3.5`.

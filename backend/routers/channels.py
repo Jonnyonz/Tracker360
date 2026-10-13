@@ -521,7 +521,8 @@ async def ver_publicaciones_del_canal(channel_id: str, problem: Optional[str] = 
                                       title: str = "", account: str = "", status: str = "", limit: int = 200, offset: int = 0,
                                       admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):
     """Publicaciones que informo el canal, con el disponible que Tracker le informa por SKU. problem: OK
-    (las que se sincronizan), SIN_SKU, SKU_NO_EN_TRACKER, FULL o ERROR. q busca en SKU, titulo y publicacion;
+    (las que se sincronizan), SIN_STOCK (se sincronizan y Tracker tiene 0 disponible: el canal las deja en 0),
+    SIN_SKU, SKU_NO_EN_TRACKER, FULL o ERROR. q busca en SKU, titulo y publicacion;
     sku, listing (MLA), title, account y status filtran cada dato por separado (coincidencia parcial)."""
     cid = parse_uuid(channel_id, "Canal inválido.")
     canal = await conn.fetchrow("SELECT id, code, name, platform, stock_mode, stock_branch_ids, listings_synced_at FROM sales_channels WHERE id = $1", cid)
@@ -529,10 +530,19 @@ async def ver_publicaciones_del_canal(channel_id: str, problem: Optional[str] = 
         raise HTTPException(404, "Canal no encontrado.")
     resumen = {r["p"]: r["n"] for r in await conn.fetch(
         "SELECT COALESCE(problem, 'OK') AS p, COUNT(*) AS n FROM channel_listings WHERE sales_channel_id = $1 GROUP BY 1", cid)}
+    # SKU sincronizados que Tracker tiene en 0 para este canal: el canal deja esas publicaciones en 0 (ML las pausa).
+    skus_sync = [r["s"] for r in await conn.fetch(
+        "SELECT DISTINCT UPPER(sku) AS s FROM channel_listings WHERE sales_channel_id = $1 AND problem IS NULL AND sku IS NOT NULL", cid)]
+    sin_stock = [s["sku"] for s in await stock_para_canal(conn, dict(canal), skus_sync, limite=len(skus_sync)) if s["available"] < 1] if skus_sync else []
+    sin_stock_n = await conn.fetchval(
+        "SELECT COUNT(*) FROM channel_listings WHERE sales_channel_id = $1 AND problem IS NULL AND UPPER(sku) = ANY($2::text[])", cid, sin_stock) if sin_stock else 0
     filtros, args = ["sales_channel_id = $1"], [cid]
     if problem:
         if problem.upper() == "OK":
             filtros.append("problem IS NULL")
+        elif problem.upper() == "SIN_STOCK":
+            args.append(sin_stock)
+            filtros.append(f"problem IS NULL AND UPPER(sku) = ANY(${len(args)}::text[])")
         else:
             args.append(problem.strip().upper())
             filtros.append(f"problem = ${len(args)}")
@@ -553,11 +563,12 @@ async def ver_publicaciones_del_canal(channel_id: str, problem: Optional[str] = 
         LIMIT ${len(args) - 1} OFFSET ${len(args)}
     """, *args)
     skus = sorted({f["sku"] for f in filas if f["sku"]})
-    disponible = {s["sku"]: s["available"] for s in await stock_para_canal(conn, dict(canal), skus)} if skus else {}
+    # limite = todos los pedidos: con el default (500) una pagina de mas de 500 SKU quedaba sin disponible.
+    disponible = {s["sku"]: s["available"] for s in await stock_para_canal(conn, dict(canal), skus, limite=len(skus))} if skus else {}
     return {
         "channel": {"id": str(canal["id"]), "code": canal["code"], "name": canal["name"], "platform": canal["platform"], "stock_mode": canal["stock_mode"],
                     "listings_synced_at": canal["listings_synced_at"]},
-        "summary": {"total": sum(resumen.values()), "ok": resumen.get("OK", 0), "sin_sku": resumen.get("SIN_SKU", 0),
+        "summary": {"total": sum(resumen.values()), "ok": resumen.get("OK", 0), "sin_stock": sin_stock_n, "sin_sku": resumen.get("SIN_SKU", 0),
                     "sku_no_en_tracker": resumen.get("SKU_NO_EN_TRACKER", 0), "full": resumen.get("FULL", 0),
                     "error": resumen.get("ERROR", 0)},
         "total": total,

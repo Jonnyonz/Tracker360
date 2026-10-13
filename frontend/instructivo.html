@@ -313,13 +313,14 @@
                     <tbody>
                         <tr><td><span class="etiqueta ok">Sincronizada</span></td><td>Todo bien: ML tiene el stock de Tracker.</td></tr>
                         <tr><td><span class="etiqueta aviso">Por actualizar</span></td><td>El stock cambió y se va a mandar en instantes.</td></tr>
+                        <tr><td><span class="etiqueta mal">Sin stock en Tracker: queda en 0</span></td><td>Tracker no tiene disponible para ese SKU, así que la publicación queda en 0 y Mercado Libre la pausa. Se reactiva sola cuando entra stock. Si en el depósito sí hay mercadería, revisar que esté cargada en Tracker (ingreso, ubicación y sucursales del canal) o que no esté toda comprometida en pedidos abiertos.</td></tr>
                         <tr><td><span class="etiqueta aviso">Sin SKU</span></td><td>La publicación no tiene SKU en Mercado Libre: cargarle el mismo SKU que en Tracker.</td></tr>
                         <tr><td><span class="etiqueta aviso">SKU que no está en Tracker</span></td><td>El SKU de ML no existe en Tracker: darlo de alta en Artículos (o corregirlo en ML).</td></tr>
                         <tr><td><span class="etiqueta info">Full</span></td><td>El stock lo maneja Mercado Libre en su depósito: no se toca.</td></tr>
                         <tr><td><span class="etiqueta mal">Error</span></td><td>Mercado Libre rechazó el cambio: el detalle dice por qué.</td></tr>
                     </tbody>
                 </table></div>
-                <p>Para encontrar una publicación hay un campo por dato: <strong>publicación (MLA)</strong>, <strong>SKU</strong>, <strong>título</strong>, <strong>cuenta</strong>, <strong>estado en ML</strong> y <strong>situación</strong>. Se pueden combinar y alcanza con una parte (por ejemplo una palabra del título). Los resúmenes de arriba también filtran por situación con un toque.</p>
+                <p>Para encontrar una publicación hay un campo por dato: <strong>publicación (MLA)</strong>, <strong>SKU</strong>, <strong>título</strong>, <strong>cuenta</strong>, <strong>estado en ML</strong> y <strong>situación</strong>. Se pueden combinar y alcanza con una parte (por ejemplo una palabra del título). Los resúmenes de arriba también filtran por situación con un toque. El cartel amarillo de arriba recuerda que <strong>stock 0 en Tracker es 0 en Mercado Libre</strong> y, si hay publicaciones en esa situación, las cuenta y lleva directo al listado.</p>
                 <div class="nota"><p>Las publicaciones pausadas a mano por el vendedor no reciben stock y no aparecen en el módulo.</p></div>
             </section>
 

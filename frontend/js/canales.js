@@ -377,6 +377,8 @@ function situacionPublicacion(p) {
     if (p.problem) {
         const [texto, clase] = SITUACION_PUBLICACION[p.problem] || [p.problem, 'badge-neutral'];
         html = `<span class="badge ${clase}">${escapeHTML(texto)}</span>`;
+    } else if (p.tracker_available !== null && p.tracker_available !== undefined && p.tracker_available < 1) {
+        html = '<span class="badge badge-danger">Sin stock en Tracker: queda en 0</span>';
     } else if (p.tracker_available !== null && p.quantity !== null && Math.floor(p.tracker_available) !== p.quantity) {
         html = '<span class="badge badge-warning">Por actualizar</span>';
     } else {
@@ -405,9 +407,16 @@ async function cargarPublicacionesCanal(desde) {
         document.getElementById('canal-pub-info').textContent = r.channel.listings_synced_at
             ? `Último informe del canal: ${fechaCanal(r.channel.listings_synced_at)} · Stock que Tracker le manda: ${NOMBRE_MODO_CANAL[r.channel.stock_mode] || r.channel.stock_mode}.`
             : `El canal todavía no informó publicaciones (la conexión las manda después de repasarlas en ${nombre}).`;
+        // Cartel fijo: con 0 disponible en Tracker la conexion deja la publicacion en 0 (la tienda la pausa sola y la
+        // reactiva cuando vuelve a haber stock). Si hay publicaciones en esa situacion, las cuenta y lleva al listado.
+        const aviso = document.getElementById('canal-pub-aviso-stock');
+        aviso.hidden = !r.channel.listings_synced_at;
+        aviso.innerHTML = `<strong>Stock 0 en Tracker = 0 en ${escapeHTML(nombre)}.</strong> Si un artículo queda sin disponible en Tracker, la conexión pone esa publicación en 0 y ${escapeHTML(nombre)} la pausa; vuelve a activarse sola cuando Tracker tiene stock otra vez.`
+            + (s.sin_stock ? ` <button type="button" class="btn-secondary" style="margin-left:6px; padding:3px 10px;" data-on-click="filtrarPublicacionesCanal('SIN_STOCK')">Ver las ${escapeHTML(s.sin_stock)} que hoy están en 0</button>` : ' Hoy no hay publicaciones en esa situación.');
         document.getElementById('canal-pub-resumen').innerHTML = [
             chipResumenCanal('Todas', s.total, '', 'badge-neutral'),
             chipResumenCanal('Se sincronizan', s.ok, 'OK', 'badge-success'),
+            chipResumenCanal('Sin stock en Tracker', s.sin_stock, 'SIN_STOCK', 'badge-danger'),
             chipResumenCanal('Sin SKU', s.sin_sku, 'SIN_SKU', 'badge-warning'),
             chipResumenCanal('SKU que no está en Tracker', s.sku_no_en_tracker, 'SKU_NO_EN_TRACKER', 'badge-warning'),
             r.channel.platform === 'MERCADOLIBRE' ? chipResumenCanal('Full', s.full, 'FULL', 'badge-info') : '',
