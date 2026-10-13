@@ -2,6 +2,14 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## Sin versión todavía (2026-10-13)
+
+### Arreglos
+- `install.sh` (Docker) ya no levanta los contenedores con `--remove-orphans`. En un servidor compartido, Docker
+  puede contar como "huérfanos" del proyecto contenedores de otras aplicaciones con la misma etiqueta de proyecto, y
+  los borraba. El único servicio que se sacó del compose (el Caddy de las versiones anteriores, `tracker360_caddy`)
+  se sigue borrando por su nombre.
+
 ## 1.3.6 — 2026-10-13
 
 Tag `v1.3.6`.

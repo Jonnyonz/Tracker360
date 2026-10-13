@@ -236,9 +236,11 @@ if [ -d caddy ]; then
 fi
 VOLUMENES_CADDY="$(docker volume ls -q 2>/dev/null | grep -xE "${PROJECT}_tracker360_caddy_(data|config)" | tr '\n' ' ' || true)"
 
-# 5. Construir y levantar contenedores con Docker Compose (--remove-orphans: saca servicios que ya no estan)
+# 5. Construir y levantar contenedores con Docker Compose. Sin --remove-orphans: en un servidor compartido Docker
+#    puede contar como "huerfanos" del proyecto contenedores de otras aplicaciones y los borraria. El unico servicio
+#    que se saco del compose (el Caddy de versiones anteriores) se borra arriba por su nombre.
 echo "Desplegando servicios con Docker Compose..."
-docker compose up -d --build --remove-orphans
+docker compose up -d --build
 
 # 6. Esperar a que la API responda en su puerto (es lo que va a consultar el proxy).
 API_PORT_SHOWN="$(leer API_PORT)"; API_PORT_SHOWN="${API_PORT_SHOWN:-8001}"
