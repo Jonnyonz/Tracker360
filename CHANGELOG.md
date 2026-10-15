@@ -2,7 +2,20 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
-## Sin versión todavía (2026-10-13)
+## 1.3.7 — 2026-10-15
+
+Tag `v1.3.7`.
+
+### Cambiado (dependencias alineadas en las cuatro apps)
+- Mismas versiones en Tracker360, JZPass, JZTravell y JZ Middle: FastAPI 0.143.1 (Starlette 1.8.0), Uvicorn
+  0.54.0, Pydantic 2.14.1, asyncpg 0.32.0, argon2-cffi 25.1.0, httpx 0.28.1, bcrypt 5.0.0 y `jztech-core` 0.1.6.
+  Las dependencias indirectas se actualizaron a su última versión compatible. Todas tienen binarios para
+  Python 3.11 a 3.13 (la instalación sin Docker sigue sin necesitar compilador).
+- FastAPI agrega desde la 0.142 la dependencia `opentelemetry-api` (paquete oficial de OpenTelemetry).
+- `jztech-core` 0.1.6: con bcrypt 5, una clave de más de 72 caracteres contra un hash bcrypt viejo ya no da error.
+- Se sacan del lockfile `qrcode`, `Pillow` y `aiofiles`, que no usaba ningún archivo del sistema (la imagen
+  queda más chica), y `argon2-cffi` como dependencia directa (llega por `jztech-core`).
+
 
 ### Arreglos
 - `install.sh` (Docker) ya no levanta los contenedores con `--remove-orphans`. En un servidor compartido, Docker

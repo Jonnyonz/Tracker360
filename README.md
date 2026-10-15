@@ -75,10 +75,10 @@ administrador.
 | Componente | Versión |
 |---|---|
 | Python | 3.11 (imagen `python:3.11-slim`) |
-| FastAPI / Uvicorn | 0.141.1 / 0.54.0 |
-| asyncpg | 0.31.0 (SQL directo, sin ORM) |
-| Hash de claves | argon2-cffi 23.1.0 (Argon2id, por jztech-core) |
-| Sesiones, CSRF, cabeceras, migraciones | jztech-core 0.1.5 (librería común de JZ Tech) |
+| FastAPI / Uvicorn | 0.143.1 / 0.54.0 |
+| asyncpg | 0.32.0 (SQL directo, sin ORM) |
+| Hash de claves | argon2-cffi 25.1.0 (Argon2id, por jztech-core 0.1.6) |
+| Sesiones, CSRF, cabeceras, migraciones | jztech-core 0.1.6 (librería común de JZ Tech) |
 | PostgreSQL | 15 (imagen `postgres:15-alpine`) |
 
 ### Estructura
