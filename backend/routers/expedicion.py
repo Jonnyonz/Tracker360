@@ -67,7 +67,8 @@ async def require_expedicion(request: Request, authorization: Optional[str] = He
         await log_action(conn, "SYSTEM", "SCANNER_AUTH_FAILED", "Clave de expedición inválida", get_client_ip(request))
         raise HTTPException(401, "Clave de expedición inválida.")
     if aj.get(AJUSTE) != "true":
-        raise HTTPException(409, "El despacho desde el Escáner Flex está desactivado en Tracker (Configuración).")
+        # 403 y no 409: es configuracion, no un rechazo del pedido (el Escaner reintenta, no da el envio por rechazado).
+        raise HTTPException(403, "El despacho desde el Escáner Flex está desactivado en Tracker (Configuración).")
     await _guardar(conn, ULTIMO_USO, datetime.now(timezone.utc).isoformat())
 
 
