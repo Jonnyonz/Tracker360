@@ -255,7 +255,10 @@ function rotarClaveCanalAbierto() {
 function mostrarClaveCanal(clave, titulo, tienda) {
     document.getElementById('canal-clave-titulo').textContent = titulo;
     document.getElementById('canal-clave-valor').value = clave;
-    document.getElementById('canal-clave-ayuda').textContent = tienda === 'MERCADOLIBRE'
+    document.getElementById('canal-clave-ayuda').textContent = tienda === 'ESCANER'
+        ? 'En el Escáner Flex, "Conexión con Tracker": cargá la dirección de Tracker vista desde el Escáner (por ejemplo ' +
+          'http://192.168.0.10:8001) y esta clave, y tocá "Probar conexión".'
+        : tienda === 'MERCADOLIBRE'
         ? 'Para el middleware de Mercado Libre: en su página, "Conexión con Tracker360", cargá la dirección interna de ' +
           'Tracker en este servidor (por ejemplo http://127.0.0.1:8001) y esta clave, y tocá "Probar conexión".'
         : `Se carga en la conexión con ${nombreTienda(tienda)} junto con la dirección interna de Tracker en este servidor ` +
@@ -449,7 +452,52 @@ async function cargarPublicacionesCanal(desde) {
     }
 }
 
+// === ESCANER FLEX (/api/admin/expedicion): empacar sin despachar; despacha el Escaner al cerrar la ola ===
+function pintarEscaner(e) {
+    document.getElementById('escaner-activo').checked = e.enabled;
+    const partes = [e.enabled ? 'Activado: Empacar deja el pedido esperando la carga.' : 'Desactivado: Empacar despacha en el mismo paso.',
+        e.has_key ? (e.last_used_at ? 'Último uso del Escáner: ' + fechaCanal(e.last_used_at) : 'Clave generada, todavía sin uso.')
+                  : 'Falta generar la clave para el Escáner.'];
+    document.getElementById('escaner-estado').textContent = partes.join(' ');
+}
+
+async function cargarEscaner() {
+    if (!document.getElementById('card-escaner-flex')) return;
+    try {
+        pintarEscaner(await fetchAPI('/api/admin/expedicion'));
+    } catch (e) {
+        document.getElementById('escaner-estado').textContent = 'Error: ' + e.message;
+    }
+}
+
+async function activarEscaner(casilla) {
+    const activar = casilla.checked;
+    if (activar && !confirm('Con el despacho desde el Escáner Flex, Empacar ya no despacha: el pedido queda esperando la carga y pasa a Despachado cuando el Escáner cierra la ola. ¿Activarlo?')) {
+        casilla.checked = false;
+        return;
+    }
+    try {
+        pintarEscaner(await fetchAPI('/api/admin/expedicion', { method: 'PUT', body: { enabled: activar } }));
+        showToast(activar ? 'Despacho desde el Escáner Flex activado.' : 'Despacho desde el Escáner Flex desactivado.', 'success');
+    } catch (e) {
+        casilla.checked = !activar;
+        showToast(e.message, 'error');
+    }
+}
+
+async function generarClaveEscaner() {
+    if (!confirm('¿Generar una clave nueva para el Escáner Flex? Si ya había una, deja de funcionar en el momento.')) return;
+    try {
+        const r = await fetchAPI('/api/admin/expedicion/rotate-key', { method: 'POST' });
+        mostrarClaveCanal(r.api_key, 'Clave del Escáner Flex', 'ESCANER');
+        cargarEscaner();
+    } catch (e) {
+        showToast(e.message, 'error');
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     if (typeof esSupervisor === 'function' && await esSupervisor()) return;   // solo admin
     cargarCanalesVenta();
+    cargarEscaner();
 });

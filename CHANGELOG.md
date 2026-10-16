@@ -2,6 +2,27 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.4.0 — 2026-10-16
+
+### Agregado
+- **Despacho desde el Escáner Flex** (Configuración, tarjeta *Escáner Flex*, desactivado por defecto). Activado,
+  **Empacar** imprime la etiqueta y el pedido queda **Empacado (esperando carga)**: pasa a **Despachado** recién
+  cuando el Escáner Flex cierra la ola en la que se cargó (y ahí se avisa al canal, como siempre). Desactivado,
+  Empacar sigue despachando en el mismo paso.
+- Clave propia para el Escáner (`tex_...`, botón *Generar clave*; se muestra una sola vez y la anterior deja de
+  valer). No sirve para la API de canales, ni la de un canal para esta.
+- API para el Escáner: `GET /api/v1/expedicion/envios/{número de envío}` (pedido, etapa y si se puede cargar) y
+  `POST /api/v1/expedicion/envios/{número de envío}/despacho` (ola, patente, transportista y quién cargó; repetirlo
+  no cambia nada). Rechaza con el motivo un pedido sin empacar, cancelado o Full.
+- Pedidos: estado **Esperando carga** con *Re-imprimir*, y filtro *Empacado (esperando carga)*. *Para empacar* ya no
+  muestra los empacados.
+
+### Cambiado
+- Cancelar una parte de un pedido empacado que espera la carga lo vuelve a *Para empacar* (el paquete cambió).
+- La etiqueta de un canal que llega con el pedido ya empacado se imprime en el momento (antes, solo si ya estaba
+  despachado).
+- Migración `0011_empaque_y_carga` (`documents.packed_at`, `documents.dispatch_ref` e índice por número de envío).
+
 ## 1.3.7 — 2026-10-15
 
 Tag `v1.3.7`.

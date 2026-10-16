@@ -51,14 +51,18 @@ async def list_admin_documents(number: str = "", customer: str = "", sku: str = 
     """Pedidos, del mas nuevo al mas viejo (sin filtros, los ultimos 100). Filtros opcionales: number (pedido o
     venta del canal), customer (cliente o comprador), sku, status, channel (codigo o nombre), account (cuenta del
     canal), shipping (tipo de envio), urgent SI, fechas AAAA-MM-DD. limit de 1 a 500."""
+    # EMPACADO: empacado esperando la carga (despacho desde el Escaner Flex); COMPLETED: pickeado sin empacar.
+    estado = status.strip().upper()
     f = (Filtros().texto(number, "d.document_number", "d.external_ref").texto(customer, "e.company_name", "d.buyer_name")
-         .igual(status, "d.status", ("PENDING", "IN_PROGRESS", "COMPLETED", "DISPATCHED", "CANCELLED", "FULL"))
+         .igual("COMPLETED" if estado == "EMPACADO" else status, "d.status", ("PENDING", "IN_PROGRESS", "COMPLETED", "DISPATCHED", "CANCELLED", "FULL"))
          .texto(channel, "sc.code", "sc.name").texto(account, "d.external_account").texto(shipping, "d.shipping_type")
          .fechas(date_from, date_to, "d.created_at"))
     if sku.strip():
         f.condiciones.append(f"EXISTS (SELECT 1 FROM document_lines dl WHERE dl.document_id = d.id AND dl.sku ILIKE {f._param('%' + sku.strip() + '%')})")
     if urgent.strip().upper() == "SI":
         f.condiciones.append("COALESCE(d.priority, 0) > 0")
+    if estado in ("COMPLETED", "EMPACADO"):
+        f.condiciones.append("d.packed_at IS " + ("NOT NULL" if estado == "EMPACADO" else "NULL"))
     tope = f.limite(limit)
     rows = await conn.fetch(f"""
         SELECT d.document_number, COALESCE(e.company_name, d.buyer_name, 'Consumidor Final') as company_name,
@@ -66,7 +70,7 @@ async def list_admin_documents(number: str = "", customer: str = "", sku: str = 
                COALESCE((SELECT SUM(quantity_picked) * 100.0 / NULLIF(SUM(quantity_requested), 0)
                          FROM document_lines WHERE document_id = d.id), 0)::int as progress_pct,
                d.created_at, d.external_ref, d.external_account, d.shipping_type, COALESCE(d.priority, 0) > 0 as urgent,
-               sc.code as channel_code
+               sc.code as channel_code, d.packed_at IS NOT NULL as packed
         FROM documents d
         LEFT JOIN entities e ON d.customer_id = e.id
         LEFT JOIN sales_channels sc ON d.sales_channel_id = sc.id
@@ -256,7 +260,8 @@ async def cancelar_pedido(conn: asyncpg.Connection, document_number: str, lineas
         elif tot["pendientes"] == 0: estado = "COMPLETED"
         elif tot["pickeado"] > 0: estado = "IN_PROGRESS"
         else: estado = "PENDING"
-        await conn.execute("UPDATE documents SET status = $1 WHERE id = $2", estado, doc["id"])
+        # Si estaba empacado esperando la carga, el contenido cambio: hay que volver a empacarlo.
+        await conn.execute("UPDATE documents SET status = $1, packed_at = NULL WHERE id = $2", estado, doc["id"])
         await emitir_stock_a_canales(conn, objetivo.keys())
         await emitir_estado_a_canal(conn, doc["id"])
         detalle = ", ".join(f"{sku} x{cant:g}" for sku, cant in objetivo.items())
@@ -591,7 +596,7 @@ async def scan_wave_picking_item(data: WavePickScanInput, user: dict = Depends(g
 
 @router.get("/api/packing/orders")
 async def get_packing_orders(user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
-    return [dict(r) for r in await conn.fetch("SELECT d.document_number, d.status, COALESCE(c.company_name, 'Sin Cliente') as company_name FROM documents d LEFT JOIN entities c ON d.customer_id = c.id WHERE d.status = 'COMPLETED' ORDER BY d.created_at ASC")]
+    return [dict(r) for r in await conn.fetch("SELECT d.document_number, d.status, COALESCE(c.company_name, 'Sin Cliente') as company_name FROM documents d LEFT JOIN entities c ON d.customer_id = c.id WHERE d.status = 'COMPLETED' AND d.packed_at IS NULL ORDER BY d.created_at ASC")]
 
 @router.get("/api/packing/orders/{document_number}")
 async def get_packing_order_details(document_number: str, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
@@ -617,10 +622,11 @@ async def get_packing_order_details(document_number: str, user: dict = Depends(g
 @router.post("/api/packing/orders/{document_number}/pack")
 async def pack_order_and_dispatch(document_number: str, data: PackOrderInput, user: dict = Depends(get_current_user), conn: asyncpg.Connection = Depends(get_db_connection)):
     async with conn.transaction():
-        doc = await conn.fetchrow("SELECT d.id, d.status, d.document_number, d.channel_origin, d.channel_label_zpl, COALESCE(c.company_name, d.buyer_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, d.buyer_address, 'A coordinar') as delivery_address FROM documents d LEFT JOIN entities c ON d.customer_id = c.id LEFT JOIN entity_addresses a ON d.customer_address_id = a.id WHERE UPPER(d.document_number) = $1 FOR UPDATE OF d", document_number.strip().upper())
+        doc = await conn.fetchrow("SELECT d.id, d.status, d.document_number, d.channel_origin, d.channel_label_zpl, d.packed_at, COALESCE(c.company_name, d.buyer_name, 'Consumidor Final') as client_name, COALESCE(a.full_address, d.buyer_address, 'A coordinar') as delivery_address FROM documents d LEFT JOIN entities c ON d.customer_id = c.id LEFT JOIN entity_addresses a ON d.customer_address_id = a.id WHERE UPPER(d.document_number) = $1 FOR UPDATE OF d", document_number.strip().upper())
         if not doc: raise HTTPException(404, "Pedido no encontrado.")
         if doc["status"] == "DISPATCHED": raise HTTPException(400, "El pedido ya fue despachado.")
         if doc["status"] != "COMPLETED": raise HTTPException(400, "El pedido aún no está pickeado completamente.")
+        if doc["packed_at"]: raise HTTPException(400, "El pedido ya está empacado: espera la carga en el Escáner Flex.")
 
         packing_enabled = await conn.fetchval("SELECT value FROM system_settings WHERE key = 'enable_packing_station'")
         if packing_enabled == "true":
@@ -650,7 +656,15 @@ async def pack_order_and_dispatch(document_number: str, data: PackOrderInput, us
             FROM document_lines dl JOIN items i ON UPPER(dl.sku) = UPPER(i.sku) WHERE dl.document_id = $1
         """, doc["id"])
 
-        await conn.execute("UPDATE documents SET status = 'DISPATCHED', dispatched_at = now() WHERE id = $1", doc["id"])
+        # Con el despacho desde el Escaner Flex, empacar solo imprime la etiqueta: el pedido espera la carga en
+        # una ola y lo despacha el Escaner (routers/expedicion.py).
+        if await conn.fetchval("SELECT value FROM system_settings WHERE key = 'dispatch_from_scanner'") == "true":
+            await conn.execute("UPDATE documents SET packed_at = now() WHERE id = $1", doc["id"])
+            await log_action(conn, user.get("username"), "PACKING_DONE", f"Empacó {document_number} ({data.boxes} bultos): espera la carga en el Escáner Flex")
+            await imprimir_etiqueta_pedido(conn, doc)
+            return {"status": "success", "message": "Pedido empacado: queda esperando la carga en el Escáner Flex."}
+
+        await conn.execute("UPDATE documents SET status = 'DISPATCHED', packed_at = now(), dispatched_at = now() WHERE id = $1", doc["id"])
         await emitir_estado_a_canal(conn, doc["id"])
         await log_action(conn, user.get("username"), "PACKING_DISPATCH", f"Empacó y despachó {document_number} ({data.boxes} bultos)")
 

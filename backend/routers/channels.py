@@ -457,7 +457,8 @@ async def etiqueta_del_canal(external_ref: str, data: EtiquetaCanal, request: Re
         doc = await _pedido_del_canal(conn, canal, _ref(external_ref))
         await conn.execute("UPDATE documents SET channel_label_zpl = $2 WHERE id = $1", doc["id"], zpl)
         impresa = False
-        if doc["status"] == "DISPATCHED":
+        # Llego tarde: el pedido ya se empaco (despachado, o esperando la carga en el Escaner Flex).
+        if doc["status"] == "DISPATCHED" or await conn.fetchval("SELECT packed_at IS NOT NULL FROM documents WHERE id = $1", doc["id"]):
             fila = await conn.fetchrow("SELECT d.document_number, d.channel_label_zpl, '' AS client_name, '' AS delivery_address FROM documents d WHERE d.id = $1", doc["id"])
             impresa = await imprimir_etiqueta_pedido(conn, fila)
         await log_action(conn, f"canal:{canal['code']}", "CHANNEL_LABEL", f"Etiqueta del canal para el pedido {doc['document_number']}" + (" (impresa: ya estaba despachado)." if impresa else "."), get_client_ip(request))

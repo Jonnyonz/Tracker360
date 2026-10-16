@@ -19,7 +19,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 from backend.database import init_db_schema, reconectar_db_en_segundo_plano, outbox_en_segundo_plano, DB, session_user, get_client_ip, get_request_scheme, is_private_ip, require_admin
-from backend.routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater, notes, channels
+from backend.routers import auth, users, entities, items, warehouse, settings, printing, inbound, outbound, internal, inventory, dashboard, reports, rfid, updater, notes, channels, expedicion
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -202,6 +202,7 @@ app.include_router(rfid.router)
 app.include_router(updater.router)
 app.include_router(notes.router)     # Observaciones de documentos
 app.include_router(channels.router)  # Canales de venta (marketplaces): /api/v1/channel/*
+app.include_router(expedicion.router)  # Despacho desde el Escaner Flex: /api/v1/expedicion/*
 
 # === ENDPOINTS EXPLICITOS DE FAVICON ===
 @app.get("/favicon.png", include_in_schema=False)

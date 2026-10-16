@@ -222,6 +222,9 @@ const ACCIONES_AUDITORIA = {
     CHANNEL_LABEL: 'Etiqueta de envío del canal', ONLINE_STORE_ENABLED: 'Tienda online activada',
     ONLINE_STORE_DISABLED: 'Tienda online desactivada', PRINT_AGENT_AUTHORIZED: 'Agente de impresión autorizado',
     PRINT_AGENT_REVOKED: 'Agente de impresión revocado', SYSTEM: 'Sistema', UNKNOWN: 'Desconocida',
+    PACKING_DONE: 'Pedido empacado (espera la carga)', SCANNER_DISPATCH: 'Despachado desde el Escáner Flex',
+    SCANNER_DISPATCH_ENABLED: 'Despacho desde el Escáner activado', SCANNER_DISPATCH_DISABLED: 'Despacho desde el Escáner desactivado',
+    SCANNER_KEY_ROTATED: 'Clave del Escáner generada', SCANNER_AUTH_FAILED: 'Clave del Escáner inválida',
 };
 function accionES(accion) { return ACCIONES_AUDITORIA[accion] || accion || ''; }
 

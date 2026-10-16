@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Claves cuyo valor nunca se devuelve en claro por GET.
-SECRET_KEYS = {"tracker360_api_key", "api_key", "google_client_secret"}
+SECRET_KEYS = {"tracker360_api_key", "api_key", "google_client_secret", "expedicion_api_key"}
 SECRET_MASK = "********"
 VALID_KEY_RE = re.compile(r"^[a-z0-9_]{1,64}$")
 GENERATE_KEY_ALIASES = {"generate-key", "generate-api-key", "api-key"}

@@ -94,7 +94,7 @@ async def get_admin_integrations_op(admin: dict = Depends(require_admin), conn: 
 
 # Acciones de auditoria que son un error o un intento rechazado; el resto salio bien.
 ACCIONES_CON_ERROR = {"LOGIN_FAILED", "CHANNEL_AUTH_FAILED", "GOOGLE_LOGIN_BLOCKED", "UNAUTHORIZED_ACCESS",
-                      "API_INTRUSION", "SECURITY_ALERT"}
+                      "API_INTRUSION", "SECURITY_ALERT", "SCANNER_AUTH_FAILED"}
 
 @router.get("/api/admin/logs")
 async def list_admin_logs(limit: int = 100, admin: dict = Depends(require_admin), conn: asyncpg.Connection = Depends(get_db_connection)):

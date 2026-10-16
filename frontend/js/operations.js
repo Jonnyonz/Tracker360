@@ -552,8 +552,13 @@ function filterOrders() {
         if (o.status === 'CANCELLED') badgeClass = 'badge-danger';
         if (o.status === 'FULL') badgeClass = 'badge-info';
         
+        // Empacado con el despacho desde el Escaner Flex: espera la carga en una ola (lo despacha el Escaner).
+        const esperandoCarga = o.status === 'COMPLETED' && o.packed;
+        if (esperandoCarga) badgeClass = 'badge-info';
         let actionBtn = `<span style="color:var(--text-muted); font-size:0.8rem;">Sin Acción</span>`;
-        if (o.status === 'COMPLETED') {
+        if (esperandoCarga) {
+            actionBtn = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-on-click="reprintOrderLabel(${jsArg(o.document_number)})">Re-imprimir</button>`;
+        } else if (o.status === 'COMPLETED') {
             actionBtn = `<button class="btn-submit" style="padding:4px 10px; font-size:0.75rem; background:var(--accent);" data-on-click="openPackingStation(${jsArg(o.document_number)}, ${jsArg(o.company_name)})">Empacar (Verificar)</button>`;
         } else if (o.status === 'PENDING' || o.status === 'IN_PROGRESS') {
             actionBtn = `<span style="color:var(--text-secondary); font-size:0.8rem;">En Picking</span>`;
@@ -578,7 +583,7 @@ function filterOrders() {
         return `<tr>
             <td style="font-weight:bold; color:var(--accent); font-family:monospace;">${escapeHTML(o.document_number)}${o.urgent ? ' <span class="badge badge-danger">URGENTE</span>' : ''}${origen}</td>
             <td>${escapeHTML(o.company_name)}</td>
-            <td><span class="badge ${badgeClass}">${escapeHTML(ESTADO_PEDIDO_LABEL[o.status] || o.status)}</span></td>
+            <td><span class="badge ${badgeClass}">${escapeHTML(esperandoCarga ? 'Esperando carga' : (ESTADO_PEDIDO_LABEL[o.status] || o.status))}</span></td>
             <td>
                 <div style="width:100%; background:var(--border); border-radius:4px; height:8px; overflow:hidden;">
                     <div style="width:${escapeHTML(o.progress_pct)}%; background:${o.progress_pct === 100 ? 'var(--success)' : 'var(--accent)'}; height:100%;"></div>

@@ -734,7 +734,7 @@
                     <div class="form-group"><label for="f-ped-numero">Nº de pedido o venta</label><input type="text" id="f-ped-numero" name="number" autocomplete="off"></div>
                     <div class="form-group"><label for="f-ped-cliente">Cliente o comprador</label><input type="text" id="f-ped-cliente" name="customer" autocomplete="off"></div>
                     <div class="form-group"><label for="f-ped-sku">SKU</label><input type="text" id="f-ped-sku" name="sku" autocomplete="off"></div>
-                    <div class="form-group"><label for="f-ped-estado">Estado</label><select id="f-ped-estado" name="status"><option value="">Todos</option><option value="PENDING">Pendiente</option><option value="IN_PROGRESS">En preparación</option><option value="COMPLETED">Para empacar</option><option value="DISPATCHED">Despachado</option><option value="CANCELLED">Cancelado</option><option value="FULL">Full (informativo)</option></select></div>
+                    <div class="form-group"><label for="f-ped-estado">Estado</label><select id="f-ped-estado" name="status"><option value="">Todos</option><option value="PENDING">Pendiente</option><option value="IN_PROGRESS">En preparación</option><option value="COMPLETED">Para empacar</option><option value="EMPACADO">Empacado (esperando carga)</option><option value="DISPATCHED">Despachado</option><option value="CANCELLED">Cancelado</option><option value="FULL">Full (informativo)</option></select></div>
                     <div class="form-group"><label for="f-ped-canal">Canal</label><input type="text" id="f-ped-canal" name="channel" placeholder="Código o nombre" autocomplete="off"></div>
                     <div class="form-group"><label for="f-ped-cuenta">Cuenta del canal</label><input type="text" id="f-ped-cuenta" name="account" autocomplete="off"></div>
                     <div class="form-group"><label for="f-ped-envio">Envío</label><select id="f-ped-envio" name="shipping"><option value="">Todos</option><option value="cross_docking">Colecta</option><option value="self_service">Flex</option><option value="fulfillment">Full</option><option value="drop_off">Correo</option></select></div>
@@ -1563,6 +1563,21 @@
                 <div id="canales-venta-destacados" class="canales-lista">
                     <p class="canales-vacio">Cargando canales...</p>
                 </div>
+            </div>
+
+            <!-- TARJETA: ESCANER FLEX (js/canales.js): empacar sin despachar; despacha el Escaner al cerrar la ola -->
+            <div class="card grid-full-width" id="card-escaner-flex" style="margin-top:1.5rem;" data-help="Escáner Flex|Para trabajar con el Escáner Flex (carga de envíos por olas). Activado, Empacar imprime la etiqueta y el pedido queda Empacado esperando la carga; pasa a Despachado cuando el Escáner cierra la ola donde se cargó.|La clave se carga en el Escáner (Conexión con Tracker) junto con la dirección de Tracker. Se muestra una sola vez.">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:12px;">
+                    <div>
+                        <h3 class="card-title" style="margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 8v8M11 8v8M15 8v8"/></svg> Escáner Flex</h3>
+                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Empacar imprime la etiqueta y el pedido espera la carga: lo despacha el Escáner al cerrar la ola</span>
+                    </div>
+                    <button type="button" class="btn-secondary" data-on-click="generarClaveEscaner()" style="font-size:0.8rem;">Generar clave</button>
+                </div>
+                <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
+                    <input type="checkbox" id="escaner-activo" data-on-change="activarEscaner(this)"> Despacho desde el Escáner Flex
+                </label>
+                <p id="escaner-estado" style="font-size:0.85rem; color:var(--text-secondary); margin-top:0.6rem;"></p>
             </div>
 
             <!-- TARJETA: EVENTOS DEL SISTEMA (ultimos registros de la auditoria general) -->
