@@ -30,6 +30,11 @@ TIENDAS = {
     "PRESTASHOP": "PrestaShop",
     "EMPRETIENDA": "Empretienda",
 }
+# Sistemas propios de la Suite que tambien se conectan con una clave de canal, pero no son tiendas: no se activan
+# en Configuracion ni tienen modulo de publicaciones.
+SISTEMAS = {
+    "JZBILL": "JZBill (facturador)",
+}
 
 
 def _clave_tienda(tienda: str) -> str:
@@ -38,7 +43,7 @@ def _clave_tienda(tienda: str) -> str:
 
 def _tienda(valor: str) -> str:
     tienda = (valor or "").strip().upper()
-    if tienda not in TIENDAS:
+    if tienda not in TIENDAS and tienda not in SISTEMAS:
         raise HTTPException(400, "Tienda inválida.")
     return tienda
 

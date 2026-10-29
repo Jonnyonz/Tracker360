@@ -2,6 +2,13 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.5.1 — 2026-10-29
+
+### Agregado
+- Canales de venta: tienda **JZBill (facturador)** para la clave con la que JZBill importa el catálogo. No es una
+  tienda online: no aparece en Configuración, Tiendas online, ni tiene módulo de publicaciones. La ventana de la
+  clave explica dónde cargarla en JZBill.
+
 ## 1.5.0 — 2026-10-29
 
 ### Agregado

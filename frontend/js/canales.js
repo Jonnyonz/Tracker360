@@ -258,6 +258,9 @@ function mostrarClaveCanal(clave, titulo, tienda) {
     document.getElementById('canal-clave-ayuda').textContent = tienda === 'ESCANER'
         ? 'En el Escáner Flex, "Conexión con Tracker": cargá la dirección de Tracker vista desde el Escáner (por ejemplo ' +
           'http://192.168.0.10:8001) y esta clave, y tocá "Probar conexión".'
+        : tienda === 'JZBILL'
+        ? 'En JZBill, "Artículos", tarjeta "Conexión con Tracker360": cargá la dirección de Tracker vista desde JZBill ' +
+          '(por ejemplo http://192.168.0.10:8001) y esta clave, y tocá "Probar conexión".'
         : tienda === 'MERCADOLIBRE'
         ? 'Para el middleware de Mercado Libre: en su página, "Conexión con Tracker360", cargá la dirección interna de ' +
           'Tracker en este servidor (por ejemplo http://127.0.0.1:8001) y esta clave, y tocá "Probar conexión".'

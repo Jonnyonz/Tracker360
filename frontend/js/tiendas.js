@@ -23,7 +23,9 @@ let tiendasCache = [];
 let tiendaActual = null;   // tienda del modulo de publicaciones abierto
 
 function logoTienda(code) { return TIENDA_LOGOS[code] || ''; }
-function nombreTienda(code) { return (tiendasCache.find(t => t.code === code) || {}).name || code; }
+// Sistemas propios que se conectan con clave de canal pero no son tiendas (no estan en /api/online-stores).
+const SISTEMAS_NOMBRES = { JZBILL: 'JZBill (facturador)' };
+function nombreTienda(code) { return (tiendasCache.find(t => t.code === code) || {}).name || SISTEMAS_NOMBRES[code] || code; }
 
 async function cargarTiendas() {
     try {
