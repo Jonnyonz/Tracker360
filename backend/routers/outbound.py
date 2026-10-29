@@ -1,4 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Header, Request
+from fastapi.responses import HTMLResponse
+import html as _html
+from zoneinfo import ZoneInfo
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone
@@ -162,13 +165,96 @@ async def create_manual_sales_order(
                 doc_id, sku, linea["cantidad"], json.dumps(linea["series"])
             )
 
+        # Venta de mostrador (Configuracion): la mercaderia se entrega en el acto, asi que el pedido descuenta el
+        # stock al crearse (mismo origen que el picking: FEFO, respeta "stock negativo") y queda despachado. Las
+        # devoluciones se registran en Devoluciones, como con cualquier pedido despachado.
+        venta_directa = (await conn.fetchval("SELECT value FROM system_settings WHERE key = 'manual_order_direct_sale'")) == "true"
+        if venta_directa:
+            for sku, linea in lineas.items():
+                branch_id, sector_id, loc_id, lot = await _origen_picking(conn, sku, None, linea["cantidad"])
+                await record_stock_movement(conn, sku, branch_id, sector_id, loc_id, -linea["cantidad"], 'OUT_PICKING', numero,
+                                            admin.get("username"), lot_number=lot, serial_numbers=linea["series"] or None)
+                await conn.execute("UPDATE document_lines SET quantity_picked = quantity_requested WHERE document_id = $1 AND sku = $2", doc_id, sku)
+            await conn.execute("UPDATE documents SET status = 'DISPATCHED', packed_at = now(), dispatched_at = now() WHERE id = $1", doc_id)
+
         await emitir_stock_a_canales(conn, list(lineas))
-        await log_action(conn, admin.get("username"), "ORDER_CREATED", f"Pedido manual {numero} creado.")
-        res_data = {"status": "success", "message": f"Pedido {numero} creado correctamente." + (f" {aviso}" if aviso else ""),
+        await log_action(conn, admin.get("username"), "ORDER_CREATED",
+                         f"Pedido manual {numero} creado" + (" como venta de mostrador: stock descontado y despachado." if venta_directa else "."))
+        res_data = {"status": "success", "direct_sale": venta_directa,
+                    "message": f"Pedido {numero} " + ("registrado: stock descontado y despachado." if venta_directa else "creado correctamente.") + (f" {aviso}" if aviso else ""),
                     "document_number": numero}
         
         await save_idempotency(conn, x_idempotency_key, "/api/admin/sales-orders", res_data)
         return res_data
+
+ESTADOS_HOJA = {"PENDING": "Pendiente", "IN_PROGRESS": "En preparación", "COMPLETED": "Preparado", "DISPATCHED": "Despachado",
+                "CANCELLED": "Cancelado", "FULL": "Full (depósito del marketplace)"}
+
+
+@router.get("/api/admin/sales-orders/{document_number}/hoja", response_class=HTMLResponse)
+async def hoja_pedido(document_number: str, user: dict = Depends(require_supervisor), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Hoja A4 del pedido de venta para imprimir desde el navegador (venta de mostrador sin factura, o
+    comprobante interno de cualquier pedido). Sin precios: Tracker no los tiene. Todo escapado."""
+    num = document_number.strip().upper()
+    doc = await conn.fetchrow("""
+        SELECT d.document_number, d.status, d.channel_origin, d.external_ref, d.shipping_type, d.created_at, d.dispatched_at,
+               d.dispatch_ref, COALESCE(c.company_name, d.buyer_name, 'Consumidor Final') AS cliente, c.tax_id,
+               COALESCE(a.full_address, d.buyer_address, '') AS direccion, a.address_label, sc.name AS canal
+        FROM documents d LEFT JOIN entities c ON d.customer_id = c.id LEFT JOIN entity_addresses a ON d.customer_address_id = a.id
+        LEFT JOIN sales_channels sc ON d.sales_channel_id = sc.id
+        WHERE UPPER(d.document_number) = $1
+    """, num)
+    if not doc:
+        raise HTTPException(404, "Pedido no encontrado.")
+    lineas = await conn.fetch("""
+        SELECT dl.sku, COALESCE(i.description, '') AS descripcion, dl.quantity_requested::float AS pedido, dl.quantity_picked::float AS preparado
+        FROM document_lines dl LEFT JOIN items i ON UPPER(i.sku) = UPPER(dl.sku) WHERE dl.document_id = (SELECT id FROM documents WHERE UPPER(document_number) = $1)
+        ORDER BY dl.sku
+    """, num)
+    ajustes = {r["key"]: r["value"] for r in await conn.fetch("SELECT key, value FROM system_settings WHERE key IN ('app_name', 'company_cuit')")}
+    e = lambda v: _html.escape(str(v if v is not None else ""))
+    tz = ZoneInfo("America/Argentina/Buenos_Aires")
+    fecha = lambda t: t.astimezone(tz).strftime("%d/%m/%Y %H:%M") if t else ""
+    def fmt(n): return f"{n:g}"
+    origen = doc["canal"] or ("Venta de mostrador / pedido manual" if doc["channel_origin"] == "MANUAL" else doc["channel_origin"])
+    filas = "".join(f"<tr><td class='mono'>{e(l['sku'])}</td><td>{e(l['descripcion'])}</td><td class='num'>{fmt(l['pedido'])}</td><td class='num'>{fmt(l['preparado'])}</td></tr>" for l in lineas)
+    total = sum(l["pedido"] for l in lineas)
+    datos = [("Cliente", doc["cliente"] + (f" ({doc['tax_id']})" if doc["tax_id"] else "")),
+             ("Dirección", (doc["direccion"] + (f" ({doc['address_label']})" if doc["address_label"] else "")) if doc["direccion"] else "A coordinar"),
+             ("Origen", origen + (f" · venta {doc['external_ref']}" if doc["external_ref"] else "")),
+             ("Estado", ESTADOS_HOJA.get(doc["status"], doc["status"])),
+             ("Fecha", fecha(doc["created_at"])), ("Despachado", fecha(doc["dispatched_at"]) if doc["dispatched_at"] else ""),
+             ("Envío", doc["shipping_type"] or ""), ("Carga", doc["dispatch_ref"] or "")]
+    dl = "".join(f"<dt>{e(k)}</dt><dd>{e(v)}</dd>" for k, v in datos if v)
+    return f"""<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><title>Pedido {e(doc['document_number'])}</title>
+<style>
+@page {{ size: A4; margin: 15mm; }}
+body {{ font-family: Arial, Helvetica, sans-serif; color: #111; margin: 0; padding: 16px; font-size: 12pt; }}
+header {{ display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 12px; }}
+h1 {{ font-size: 16pt; margin: 0; }} h2 {{ font-size: 13pt; margin: 0; text-align: right; }}
+.sub {{ color: #444; font-size: 10pt; }}
+dl {{ display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; margin: 0 0 12px; }} dt {{ font-weight: bold; }} dd {{ margin: 0; }}
+table {{ width: 100%; border-collapse: collapse; }} th, td {{ border: 1px solid #999; padding: 5px 6px; text-align: left; vertical-align: top; }}
+th {{ background: #eee; }} .num {{ text-align: right; white-space: nowrap; }} .mono {{ font-family: Consolas, monospace; }}
+tfoot td {{ font-weight: bold; }}
+.firmas {{ display: flex; justify-content: space-between; margin-top: 48px; }} .firmas div {{ width: 40%; border-top: 1px solid #111; padding-top: 4px; text-align: center; font-size: 10pt; }}
+.pie {{ margin-top: 24px; font-size: 9pt; color: #555; }}
+.acciones {{ margin-bottom: 12px; }} button {{ font: inherit; padding: 6px 14px; }}
+@media print {{ .acciones {{ display: none; }} body {{ padding: 0; }} }}
+</style></head>
+<body>
+<div class="acciones"><button type="button" data-on-click="imprimirPagina()">Imprimir</button></div>
+<header><div><h1>{e(ajustes.get('app_name') or 'Tracker360')}</h1><div class="sub">CUIT {e(ajustes.get('company_cuit') or '')}</div></div>
+<div><h2>Pedido de venta {e(doc['document_number'])}</h2><div class="sub">Documento no válido como factura</div></div></header>
+<dl>{dl}</dl>
+<table><thead><tr><th>SKU</th><th>Descripción</th><th class="num">Cantidad</th><th class="num">Entregado</th></tr></thead>
+<tbody>{filas}</tbody><tfoot><tr><td colspan="2">Total de unidades</td><td class="num">{fmt(total)}</td><td></td></tr></tfoot></table>
+<div class="firmas"><div>Entregó</div><div>Recibió / Aclaración</div></div>
+<div class="pie">Impreso {e(fecha(datetime.now(timezone.utc)))} por {e(user.get('username'))}.</div>
+<script src="/js/acciones.js"></script><script src="/js/hoja-pedido.js"></script>
+</body></html>"""
+
 
 class CancelLine(BaseModel):
     sku: str

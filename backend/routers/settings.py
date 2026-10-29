@@ -57,6 +57,8 @@ DEFAULT_SETTINGS = {
     "company_cuit": "30-00000000-0",
     "enable_stock_management": "true",
     "allow_negative_stock": "false",
+    # Venta de mostrador: el pedido manual descuenta el stock al crearse y queda despachado (sin picking ni empaque).
+    "manual_order_direct_sale": "false",
     "enable_committed_stock": "true",
     "require_mobile_reception": "false",
     "allow_multiproduct_locations": "false",

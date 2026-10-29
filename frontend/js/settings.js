@@ -66,6 +66,7 @@ async function loadSettings() {
 
         // Reglas de Operativa, Depósito y Auditoría
         setVal('cfg-allow-negative-stock', String(data.allow_negative_stock ?? 'false'));
+        setVal('cfg-manual-order-direct-sale', String(data.manual_order_direct_sale ?? 'false'));
         setVal('cfg-enable-lots-expiration', String(data.enable_lots_expiration ?? 'false'));
         setVal('cfg-enable-committed-stock', String(data.enable_committed_stock ?? 'true'));
         setVal('cfg-require-mobile-reception', String(data.require_mobile_reception ?? 'false'));
@@ -141,6 +142,7 @@ async function saveSettings(e) {
         lockout_time_minutes: getVal('cfg-lockout-time-minutes'),
         return_number_prefix: getVal('cfg-return-number-prefix'),
         allow_negative_stock: getVal('cfg-allow-negative-stock'),
+        manual_order_direct_sale: getVal('cfg-manual-order-direct-sale'),
         enable_lots_expiration: getVal('cfg-enable-lots-expiration'),
         enable_committed_stock: getVal('cfg-enable-committed-stock'),
         require_mobile_reception: getVal('cfg-require-mobile-reception'),

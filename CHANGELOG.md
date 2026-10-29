@@ -2,6 +2,19 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.6.0 — 2026-10-29
+
+### Agregado
+- **Venta de mostrador** (Configuración, *Pedido de venta manual como venta de mostrador*, desactivado por defecto).
+  Activado, el pedido manual descuenta el stock al crearse (mismo origen que el picking: primero lo que vence
+  antes; respeta *Permitir stock negativo*), queda **Despachado** sin pasar por picking ni empaque, y abre la hoja
+  A4 para entregar con la mercadería. Las devoluciones se registran en Devoluciones. Los pedidos de los canales
+  (Mercado Libre) siguen el circuito normal.
+- **Hoja A4 del pedido** (botón *Hoja A4* en Pedidos, admin y supervisor): emisor, cliente, dirección, origen,
+  estado, fechas y líneas con SKU, descripción, cantidad y entregado. No es una factura y no lleva precios.
+- Varias instalaciones en el mismo servidor: los contenedores se llaman según el proyecto de Docker Compose
+  (`<carpeta>_api` y `<carpeta>_db`; la instalación existente, en la carpeta `tracker360`, no cambia).
+
 ## 1.5.1 — 2026-10-29
 
 ### Agregado

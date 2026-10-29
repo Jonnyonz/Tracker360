@@ -574,7 +574,9 @@ function filterOrders() {
         const btnCancel = (o.status !== 'DISPATCHED' && o.status !== 'CANCELLED')
             ? `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; margin-left:6px; color:var(--danger);" data-on-click="abrirCancelacion(${jsArg(o.document_number)})">Cancelar</button>`
             : '';
-        actionBtn = (window.ROL_ACTUAL === 'SUPERVISOR') ? btnPart : actionBtn + btnPart + btnCancel;
+        // Hoja A4 del pedido (venta de mostrador sin factura o comprobante interno): admin y supervisor.
+        const btnHoja = `<button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem; margin-left:6px;" data-on-click="imprimirHojaPedido(${jsArg(o.document_number)})">Hoja A4</button>`;
+        actionBtn = (window.ROL_ACTUAL === 'SUPERVISOR') ? btnPart + btnHoja : actionBtn + btnPart + btnHoja + btnCancel;
 
         const envio = ENVIO_PEDIDO_LABEL[String(o.shipping_type || '').toUpperCase()] || o.shipping_type || '';
         const origen = o.channel_code
@@ -648,6 +650,8 @@ async function saveManualOrder(e) {
         showToast(r.message, "success");
         closeModal('modal-manual-order');
         loadOrders();
+        // Venta de mostrador: la hoja A4 sale sola para entregarla con la mercaderia.
+        if (r.direct_sale && r.document_number) imprimirHojaPedido(r.document_number);
     } catch(err) {
         showToast(err.message, "error");
     } finally {
@@ -1615,6 +1619,8 @@ window.openManualOrderModal = openManualOrderModal;
 window.addDynamicLineManualOrder = addDynamicLineManualOrder;
 window.saveManualOrder = saveManualOrder;
 window.reprintOrderLabel = reprintOrderLabel;
+function imprimirHojaPedido(docNum) { window.open('/api/admin/sales-orders/' + encodeURIComponent(docNum) + '/hoja', '_blank'); }
+window.imprimirHojaPedido = imprimirHojaPedido;
 
 // === VINCULACIÓN DEL MÓDULO DE INVENTARIO FÍSICO ===
 window.openSpotCheckModal = openSpotCheckModal;
