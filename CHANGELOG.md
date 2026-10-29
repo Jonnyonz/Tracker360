@@ -2,6 +2,14 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.5.0 — 2026-10-29
+
+### Agregado
+- API de canales: `GET /api/v1/channel/items`, el catálogo de artículos (SKU, descripción, categoría, activo y si es
+  combo), de solo lectura, con la misma clave de canal y el mismo paginado que el stock (`?skus=A,B` o
+  `?after=<último SKU>&limit=500`). Sirve para que otra aplicación, como el facturador JZBill, importe los artículos
+  desde Tracker360 y no haya que cargarlos dos veces. Los precios no son de Tracker360.
+
 ## 1.4.0 — 2026-10-16
 
 ### Agregado

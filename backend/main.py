@@ -118,8 +118,8 @@ async def redoc_docs(admin: dict = Depends(require_admin)):
 # o su propio sistema con Tracker360. No muestra datos ni el resto de la API; para usarla igual hace falta la clave
 # del canal.
 DESCRIPCION_API_CANALES = """API para conectar un canal de venta (marketplace, tienda online o sistema propio) con Tracker360:
-cargar pedidos, cancelarlos (total o parcialmente), subir la etiqueta del envío, consultar el stock disponible para el
-canal y leer los eventos (cambios de estado y de stock) con un cursor.
+cargar pedidos, cancelarlos (total o parcialmente), subir la etiqueta del envío, consultar el catálogo de artículos y el
+stock disponible para el canal, y leer los eventos (cambios de estado y de stock) con un cursor.
 
 **Autenticación:** cada canal tiene su clave (empieza con `tch_`). La crea el administrador de Tracker360 en
 Configuración, Canales de venta, y se muestra una sola vez. Se manda en `Authorization: Bearer tch_...` (o en

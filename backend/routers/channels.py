@@ -423,6 +423,31 @@ async def stock_del_canal(skus: Optional[str] = Query(None, description="SKU sep
             "next_after": filas[-1]["sku"] if lista is None and len(filas) == limite else None}
 
 
+@router.get("/api/v1/channel/items")
+async def catalogo_del_canal(skus: Optional[str] = Query(None, description="SKU separados por coma"),
+                             after: str = "", limit: int = 500,
+                             canal: dict = Depends(require_sales_channel), conn: asyncpg.Connection = Depends(get_db_connection)):
+    """Catalogo de articulos: SKU, descripcion, categoria, si esta activo y si es un combo. Para que otra aplicacion
+    (por ejemplo el facturador JZBill) importe los articulos desde Tracker en vez de cargarlos dos veces; los precios
+    no son de Tracker. ?skus=A,B para algunos, o paginado por SKU (?after=<ultimo sku>&limit=500). Un SKU que no
+    existe no aparece; los inactivos si, marcados."""
+    limite = max(1, min(int(limit), 1000))
+    if skus is not None:
+        lista = [s.strip() for s in skus.split(",") if s.strip()]
+        if len(lista) > 1000:
+            raise HTTPException(400, "Hasta 1000 SKU por consulta.")
+        filas = await conn.fetch("""
+            SELECT sku, description, category, is_active, is_combo FROM items WHERE sku = ANY($1::varchar[]) ORDER BY sku
+        """, lista)
+    else:
+        filas = await conn.fetch("""
+            SELECT sku, description, category, is_active, is_combo FROM items WHERE sku > $1 ORDER BY sku LIMIT $2
+        """, after, limite)
+    items = [{"sku": f["sku"], "description": f["description"], "category": f["category"] or "",
+              "is_active": bool(f["is_active"]), "is_combo": bool(f["is_combo"])} for f in filas]
+    return {"items": items, "next_after": items[-1]["sku"] if skus is None and len(items) == limite else None}
+
+
 @router.get("/api/v1/channel/events")
 async def eventos_del_canal(after: int = 0, limit: int = 200, canal: dict = Depends(require_sales_channel),
                             conn: asyncpg.Connection = Depends(get_db_connection)):
