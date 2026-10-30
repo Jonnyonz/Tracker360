@@ -107,7 +107,7 @@ const ESTADO_PEDIDO_CANAL = {
     PENDING: 'Pendiente', IN_PROGRESS: 'En preparación', COMPLETED: 'Para empacar', DISPATCHED: 'Despachado',
     CANCELLED: 'Cancelado', FULL: 'Full (informativo)',
 };
-const ENVIO_CANAL = { fulfillment: 'Full', self_service: 'Flex', cross_docking: 'Colecta', drop_off: 'Correo' };
+const ENVIO_CANAL = { fulfillment: 'Full', self_service: 'Flex', cross_docking: 'Colecta', drop_off: 'Correo', mostrador: 'Mostrador' };
 
 function claseEstadoPedidoCanal(estado) {
     if (estado === 'CANCELLED') return 'badge-danger';

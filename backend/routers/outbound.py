@@ -275,9 +275,11 @@ async def cancelar_pedido(conn: asyncpg.Connection, document_number: str, lineas
     num = document_number.strip().upper()
     tipo = _tipo_retroceso(num)
     async with conn.transaction():
-        doc = await conn.fetchrow("SELECT id, status FROM documents WHERE UPPER(document_number) = $1 FOR UPDATE", num)
+        doc = await conn.fetchrow("SELECT id, status, shipping_type FROM documents WHERE UPPER(document_number) = $1 FOR UPDATE", num)
         if not doc: raise HTTPException(404, "Pedido no encontrado.")
-        if doc["status"] == "DISPATCHED": raise HTTPException(400, "El pedido ya fue despachado: no se puede cancelar.")
+        # Venta de mostrador del canal (JZBill): ya salio despachada; cancelarla es la nota de credito, el stock vuelve.
+        mostrador = doc["shipping_type"] == "MOSTRADOR"
+        if doc["status"] == "DISPATCHED" and not mostrador: raise HTTPException(400, "El pedido ya fue despachado: no se puede cancelar.")
         if doc["status"] == "CANCELLED": raise HTTPException(400, "El pedido ya esta cancelado.")
         # Una devolucion ya reingreso al stock unidades pickeadas de este pedido; cancelarlo las devolveria
         # otra vez (stock fantasma que se publica en los canales).
@@ -343,11 +345,13 @@ async def cancelar_pedido(conn: asyncpg.Connection, document_number: str, lineas
         tot = await conn.fetchrow("SELECT COALESCE(SUM(quantity_requested), 0)::float AS pedido, COALESCE(SUM(quantity_picked), 0)::float AS pickeado, COUNT(*) FILTER (WHERE quantity_picked < quantity_requested) AS pendientes FROM document_lines WHERE document_id = $1", doc["id"])
         if tot["pedido"] <= 1e-9: estado = "CANCELLED"
         elif doc["status"] == "FULL": estado = "FULL"   # Full (deposito del marketplace): nunca entra al picking
+        elif doc["status"] == "DISPATCHED": estado = "DISPATCHED"   # venta de mostrador: lo que queda ya se entrego
         elif tot["pendientes"] == 0: estado = "COMPLETED"
         elif tot["pickeado"] > 0: estado = "IN_PROGRESS"
         else: estado = "PENDING"
         # Si estaba empacado esperando la carga, el contenido cambio: hay que volver a empacarlo.
-        await conn.execute("UPDATE documents SET status = $1, packed_at = NULL WHERE id = $2", estado, doc["id"])
+        await conn.execute("UPDATE documents SET status = $1, packed_at = CASE WHEN $3::boolean THEN packed_at END WHERE id = $2",
+                           estado, doc["id"], estado == "DISPATCHED")
         await emitir_stock_a_canales(conn, objetivo.keys())
         await emitir_estado_a_canal(conn, doc["id"])
         detalle = ", ".join(f"{sku} x{cant:g}" for sku, cant in objetivo.items())

@@ -6,8 +6,8 @@ import asyncpg, json, re, secrets
 import logging
 
 from backend.database import (get_db_connection, require_admin, get_current_user, log_action, get_client_ip, hash_system_api_key, parse_uuid,
-                              numero_correlativo, require_valid_quantity, emitir_stock_a_canales)
-from backend.routers.outbound import CancelOrderInput, cancelar_pedido, imprimir_etiqueta_pedido, zpl_peligroso
+                              numero_correlativo, require_valid_quantity, emitir_stock_a_canales, record_stock_movement)
+from backend.routers.outbound import CancelOrderInput, cancelar_pedido, imprimir_etiqueta_pedido, zpl_peligroso, _origen_picking
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +85,12 @@ class PedidoCanal(BaseModel):
 # registra con estado FULL, solo informativo: no descuenta ni compromete stock, no entra al picking, al
 # empaque ni a devoluciones. Se puede cancelar.
 ENVIOS_FUERA_DEL_DEPOSITO = {"FULFILLMENT"}
+# Venta directa: la mercaderia ya se entrego en el mostrador (el facturador JZBill emitio el comprobante). El pedido
+# descuenta el stock al crearse (mismo origen que el picking, respeta "stock negativo") y queda despachado, como la
+# venta de mostrador manual de la 1.6.0 pero sin depender del ajuste de Configuracion: lo declara el canal. Si no hay
+# stock (y no se permite negativo) se rechaza con 400 y el canal lo muestra como error para que lo corrijan. Su
+# cancelacion (nota de credito) devuelve el stock aunque este despachado.
+ENVIOS_VENTA_DIRECTA = {"MOSTRADOR"}
 
 
 class EtiquetaCanal(BaseModel):
@@ -317,6 +323,7 @@ async def crear_pedido_del_canal(data: PedidoCanal, request: Request, canal: dic
     envio = data.shipping or PedidoEnvio()
     tipo_envio = (envio.type or "").strip().upper() or None
     externo = tipo_envio in ENVIOS_FUERA_DEL_DEPOSITO
+    directa = tipo_envio in ENVIOS_VENTA_DIRECTA
     if not data.lines:
         raise HTTPException(400, "El pedido no tiene artículos.")
     cantidades = {}
@@ -353,10 +360,18 @@ async def crear_pedido_del_canal(data: PedidoCanal, request: Request, canal: dic
         for sku, cant in cantidades.items():
             await conn.execute("INSERT INTO document_lines (document_id, sku, quantity_requested, quantity_picked, serial_numbers) VALUES ($1, $2, $3, 0, '[]'::jsonb)",
                                doc_id, sku, cant)
+        if directa:
+            for sku, cant in cantidades.items():
+                branch_id, sector_id, loc_id, lot = await _origen_picking(conn, sku, None, cant)
+                await record_stock_movement(conn, sku, branch_id, sector_id, loc_id, -cant, 'OUT_PICKING', numero,
+                                            f"canal:{canal['code']}", lot_number=lot)
+            await conn.execute("UPDATE document_lines SET quantity_picked = quantity_requested WHERE document_id = $1", doc_id)
+            await conn.execute("UPDATE documents SET status = 'DISPATCHED', packed_at = now(), dispatched_at = now() WHERE id = $1", doc_id)
         if not externo:   # un pedido Full no compromete stock de Tracker
             await emitir_stock_a_canales(conn, cantidades.keys())
         await log_action(conn, f"canal:{canal['code']}", "ORDER_CREATED", f"Pedido {numero} creado desde el canal {canal['code']} (ref {ref})"
-                         + (" (Full: sale del depósito del marketplace)." if externo else "."), get_client_ip(request))
+                         + (" (Full: sale del depósito del marketplace)." if externo else
+                            " como venta de mostrador: stock descontado y despachado." if directa else "."), get_client_ip(request))
         doc = await conn.fetchrow("SELECT id, document_number, status, external_ref, external_account, shipping_type, shipment_ref, priority, created_at FROM documents WHERE id = $1", doc_id)
         return {**await _pedido_dict(conn, doc), "created": True}
 
@@ -372,7 +387,8 @@ async def cancelar_pedido_del_canal(external_ref: str, request: Request, data: O
                                     conn: asyncpg.Connection = Depends(get_db_connection)):
     """Cancelacion desde el canal: total (sin cuerpo o sin lineas: la venta se cancelo en el marketplace) o parcial
     (`lines`: SKU y cantidad, por ejemplo una orden de un carrito que se cancelo o se reembolso). Lo pickeado de la
-    parte cancelada vuelve al stock. Un pedido ya despachado no se puede cancelar (400)."""
+    parte cancelada vuelve al stock. Un pedido ya despachado no se puede cancelar (400), salvo una venta de
+    mostrador (shipping.type MOSTRADOR): su cancelacion es la nota de credito y devuelve el stock."""
     doc = await _pedido_del_canal(conn, canal, _ref(external_ref))
     if doc["status"] == "CANCELLED":
         return {**await _pedido_dict(conn, doc), "devuelto": []}

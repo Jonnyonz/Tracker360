@@ -470,7 +470,7 @@ const PEDIDOS_POR_BUSQUEDA = 200;
 let busquedaPedidos = null;
 const ESTADO_PEDIDO_LABEL = { PENDING: 'Pendiente', IN_PROGRESS: 'En preparación', COMPLETED: 'Para empacar',
     DISPATCHED: 'Despachado', CANCELLED: 'Cancelado', FULL: 'Full (informativo)' };
-const ENVIO_PEDIDO_LABEL = { CROSS_DOCKING: 'Colecta', SELF_SERVICE: 'Flex', FULFILLMENT: 'Full', DROP_OFF: 'Correo' };
+const ENVIO_PEDIDO_LABEL = { CROSS_DOCKING: 'Colecta', SELF_SERVICE: 'Flex', FULFILLMENT: 'Full', DROP_OFF: 'Correo', MOSTRADOR: 'Mostrador' };
 
 function fechaLocalHoy() {
     const d = new Date();

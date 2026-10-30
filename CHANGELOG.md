@@ -2,6 +2,17 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.7.0 — 2026-10-30
+
+### Agregado
+- API de canales: un pedido con `shipping.type = "MOSTRADOR"` es una **venta de mostrador**: la mercadería ya se
+  entregó (el facturador JZBill emitió el comprobante), así que descuenta el stock al crearse (mismo origen que el
+  picking; respeta *Permitir stock negativo*) y queda **Despachado** sin picking ni empaque. No depende del ajuste de
+  Configuración de la venta manual: lo declara el canal. Sin stock suficiente se rechaza con 400 "Stock
+  insuficiente" y no se crea nada; el canal lo muestra como error. Su cancelación, total o parcial (la nota de
+  crédito), devuelve el stock al lugar de donde salió aunque el pedido esté despachado; el resto sigue Despachado.
+- Pedidos y Canales muestran el envío *Mostrador*.
+
 ## 1.6.0 — 2026-10-29
 
 ### Agregado
