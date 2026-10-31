@@ -56,6 +56,11 @@ Flujos principales:
   condición y números de serie), con el movimiento `Retroceso de PDV ID:<pedido>` en la traza.
 - **Interno:** traspasos entre sectores (ODT) con sugerencias de reposición; conteos cíclicos
   por sector con revisión y ajuste; control puntual de stock.
+- **Ajustes de stock:** sumas y restas con concepto (rotura, vencimiento, faltante, sobrante...;
+  lista configurable) por sucursal y sector, artículo por artículo, con resumen antes de
+  confirmar. Número `AJ-000001`, movimientos `AJUSTE` en la traza; las restas respetan
+  *Permitir stock negativo*. Historial con filtros (número, fechas, sucursal, sector, usuario,
+  concepto, SKU).
 - **Observaciones:** cada pedido, traspaso, remito, orden de compra y devolución lleva sus
   observaciones, visibles dentro del documento. Las escribe quien puede ver el documento o el
   propio sistema (marcadas como "Sistema"); no se editan ni se borran.

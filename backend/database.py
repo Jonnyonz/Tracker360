@@ -443,12 +443,13 @@ _NUMERACION = {
     "TRASPASO": ("transfer_orders", "transfer_number"),
     "OC": ("purchase_orders", "order_number"),
     "DEVOLUCION": ("customer_returns", "return_number"),
+    "AJUSTE": ("stock_adjustments", "adjustment_number"),
 }
 
 async def _prefijo_numero(conn: asyncpg.Connection, tipo: str) -> str:
     if tipo == "DEVOLUCION":
         return await conn.fetchval("SELECT value FROM system_settings WHERE key = 'return_number_prefix'") or "DEV-"
-    return {"PEDIDO": "", "TRASPASO": "TR-", "OC": "OC-"}[tipo]
+    return {"PEDIDO": "", "TRASPASO": "TR-", "OC": "OC-", "AJUSTE": "AJ-"}[tipo]
 
 async def siguiente_numero(conn: asyncpg.Connection, tipo: str) -> str:
     """Proximo numero automatico: el mayor con el formato <prefijo><digitos> mas uno, con 6 digitos."""

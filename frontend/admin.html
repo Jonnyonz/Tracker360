@@ -129,6 +129,13 @@
             </button>
         </div>
         
+        <div class="rail-item">
+            <button class="rail-btn" title="Ajustes de Stock" data-on-click="switchView('section-ajustes', this)">
+                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" fill="none"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/><line x1="17" y1="15" x2="17" y2="19"/><line x1="15" y1="17" x2="19" y2="17"/></svg>
+                <span class="rail-label">Ajustes de Stock</span>
+            </button>
+        </div>
+
         <!-- TIENDAS ONLINE: un modulo por tienda activada en Configuracion (js/tiendas.js) -->
         <div id="rail-tiendas"></div>
 
@@ -711,6 +718,92 @@
                 </div>
             </div>
 
+        </div>
+
+        <!-- 7b. AJUSTES DE STOCK (js/ajustes.js) -->
+        <div id="section-ajustes" class="view-section">
+            <div class="content-header">
+                <div>
+                    <h2>Ajustes de stock</h2>
+                    <p style="font-size:0.85rem; color:var(--text-muted); margin-top:4px;">Sumas y restas de stock con un concepto (rotura, vencimiento, faltante, sobrante...) por sucursal y sector, fuera de remitos y conteos.</p>
+                </div>
+                <button type="button" class="btn-submit" id="btn-ajuste-crear" data-on-click="nuevoAjuste()">+ Crear ajuste</button>
+            </div>
+
+            <div class="card" id="ajuste-alta" hidden style="margin-bottom:1.5rem;" data-help="Nuevo ajuste de stock|Elegí sucursal, sector y concepto; agregá los artículos uno por uno.|Suma o Resta por artículo. Antes de guardar se muestra un resumen para confirmar o descartar. Esc descarta.">
+                <h3>Nuevo ajuste de stock</h3>
+                <form id="form-ajuste" data-on-submit="resumirAjuste(event)">
+                    <div class="grid-layout" style="margin-bottom:0;">
+                        <div class="form-group"><label for="aj-num">Nº de ajuste</label><input type="text" id="aj-num" readonly placeholder="Se asigna al guardar" title="Lo asigna el sistema"></div>
+                        <div class="form-group"><label for="aj-branch">Sucursal</label><select id="aj-branch" data-on-change="pintarSectoresAjuste()" required></select></div>
+                        <div class="form-group"><label for="aj-sector">Sección (sector)</label><select id="aj-sector" data-on-change="onSectorAjuste()" required></select></div>
+                        <div class="form-group"><label for="aj-reason">Concepto</label><select id="aj-reason" required></select></div>
+                        <div class="form-group" style="grid-column:1 / -1;"><label for="aj-notes">Observación (opcional)</label><input type="text" id="aj-notes" maxlength="500" autocomplete="off"></div>
+                    </div>
+                    <label style="margin:8px 0; display:block;">Artículos</label>
+                    <div class="dynamic-row" style="flex-wrap:wrap; align-items:center;">
+                        <input type="text" id="aj-sku" placeholder="SKU" class="font-mono" style="flex:2; min-width:150px;" autocomplete="off" data-on-keydown="enterAgregaAjuste(event)">
+                        <select id="aj-tipo" style="flex:1; min-width:110px;"><option value="1">Suma (+)</option><option value="-1">Resta (−)</option></select>
+                        <input type="number" id="aj-cant" placeholder="Cantidad" min="0.01" step="any" style="flex:1; min-width:100px;" data-on-keydown="enterAgregaAjuste(event)">
+                        <input type="text" id="aj-ubic" placeholder="Ubicación" class="font-mono" style="flex:1; min-width:110px;" autocomplete="off" hidden data-on-keydown="enterAgregaAjuste(event)">
+                        <input type="text" id="aj-lote" placeholder="Lote" style="flex:1; min-width:100px;" autocomplete="off" hidden data-on-keydown="enterAgregaAjuste(event)">
+                        <button type="button" class="btn-secondary" data-on-click="agregarLineaAjuste()">+ Agregar artículo</button>
+                    </div>
+                    <p id="aj-sku-ayuda" style="font-size:0.85rem; color:var(--text-muted); margin:4px 0 0;"></p>
+                    <div style="overflow-x:auto; margin:1rem 0;">
+                        <table>
+                            <thead><tr><th>SKU</th><th>Descripción</th><th>Ubicación</th><th>Lote</th><th style="text-align:right;">Cantidad</th><th></th></tr></thead>
+                            <tbody id="aj-lineas"><tr><td colspan="6" class="busqueda-vacia">Todavía no agregaste artículos.</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="busqueda-acciones">
+                        <button type="submit" class="btn-submit">Continuar al resumen</button>
+                        <button type="button" class="btn-secondary" data-on-click="descartarAjuste()">Descartar</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card" id="ajuste-resumen" hidden style="margin-bottom:1.5rem;" data-help="Resumen del ajuste|Lo que se va a registrar, artículo por artículo.|Confirmar genera el ajuste y los movimientos de stock; Volver permite corregir; Descartar lo borra sin guardar.">
+                <h3>Resumen del ajuste: revisá antes de confirmar</h3>
+                <div id="aj-resumen-cabecera" class="compras-aviso" style="margin-bottom:1rem;"></div>
+                <div style="overflow-x:auto; margin-bottom:1rem;">
+                    <table>
+                        <thead><tr><th>SKU</th><th>Descripción</th><th>Ubicación</th><th>Lote</th><th style="text-align:right;">Cantidad</th></tr></thead>
+                        <tbody id="aj-resumen-lineas"></tbody>
+                        <tfoot id="aj-resumen-totales"></tfoot>
+                    </table>
+                </div>
+                <div class="busqueda-acciones">
+                    <button type="button" class="btn-submit" id="aj-confirmar" data-on-click="confirmarAjuste()">Confirmar y registrar</button>
+                    <button type="button" class="btn-secondary" data-on-click="volverEditarAjuste()">Volver a editar</button>
+                    <button type="button" class="btn-danger" data-on-click="descartarAjuste()">Descartar</button>
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom:1.5rem;" data-help="Buscar ajustes|No se lista nada hasta buscar.|Un campo por dato: número, sucursal, sector, usuario, concepto, SKU y fechas; se pueden combinar.">
+                <form id="filtros-ajustes" class="busqueda-filtros" data-on-submit="buscarAjustes(event)">
+                    <div class="form-group"><label for="f-aj-numero">Nº de ajuste</label><input type="text" id="f-aj-numero" name="number" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-aj-desde">Desde</label><input type="date" id="f-aj-desde" name="date_from"></div>
+                    <div class="form-group"><label for="f-aj-hasta">Hasta</label><input type="date" id="f-aj-hasta" name="date_to"></div>
+                    <div class="form-group"><label for="f-aj-sucursal">Sucursal</label><input type="text" id="f-aj-sucursal" name="branch" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-aj-sector">Sección (sector)</label><input type="text" id="f-aj-sector" name="sector" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-aj-usuario">Usuario creador</label><input type="text" id="f-aj-usuario" name="user" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-aj-concepto">Concepto</label><input type="text" id="f-aj-concepto" name="reason" autocomplete="off"></div>
+                    <div class="form-group"><label for="f-aj-sku">SKU</label><input type="text" id="f-aj-sku" name="sku" autocomplete="off"></div>
+                    <div class="busqueda-acciones">
+                        <button type="submit" class="btn-submit">Buscar</button>
+                        <button type="button" class="btn-secondary" data-on-click="limpiarAjustes()">Limpiar</button>
+                    </div>
+                </form>
+                <p id="ajustes-resumen" class="busqueda-resumen" hidden></p>
+            </div>
+
+            <div class="card grid-full-width" data-help="Ajustes registrados|Cada ajuste con su concepto, cuántos artículos y cuánto sumó o restó.|Ver abre el detalle. Los movimientos aparecen en la Traza de artículos como AJUSTE con el número del ajuste.">
+                <table>
+                    <thead><tr><th>Nº</th><th>Fecha</th><th>Sucursal</th><th>Sector</th><th>Concepto</th><th style="text-align:right;">Artículos</th><th style="text-align:right;">Suma</th><th style="text-align:right;">Resta</th><th>Usuario</th><th></th></tr></thead>
+                    <tbody id="table-ajustes-body"><tr><td colspan="10" class="busqueda-vacia">Completá los filtros y tocá Buscar.</td></tr></tbody>
+                </table>
+            </div>
         </div>
 
         <!-- 8. PEDIDOS -->
@@ -1428,6 +1521,10 @@
                         <div class="settings-row">
                             <label for="cfg-return-number-prefix">Prefijo para Devoluciones</label>
                             <div class="control-wrap"><input type="text" id="cfg-return-number-prefix"></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-stock-adjustment-reasons">Conceptos de ajuste de stock (uno por línea)</label>
+                            <div class="control-wrap"><textarea id="cfg-stock-adjustment-reasons" rows="5" style="background:var(--bg-page);"></textarea></div>
                         </div>
                         
                     </div>
@@ -2487,6 +2584,20 @@
         </div>
     </div>
 
+    <div id="modal-ajuste" class="modal">
+        <div class="modal-content" style="max-width:760px;">
+            <span class="close-modal" data-on-click="closeModal('modal-ajuste')">&times;</span>
+            <h3 id="aj-det-titulo" style="color:var(--text-primary); margin-bottom:1rem;">Ajuste de stock</h3>
+            <div id="aj-det-cabecera" class="compras-aviso" style="margin-bottom:1rem;"></div>
+            <div style="overflow-x:auto;">
+                <table>
+                    <thead><tr><th>SKU</th><th>Descripción</th><th>Ubicación</th><th>Lote</th><th style="text-align:right;">Cantidad</th></tr></thead>
+                    <tbody id="aj-det-lineas"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-spot-check" class="modal">
         <div class="modal-content" style="max-width:550px;">
             <span class="close-modal" data-on-click="closeModal('modal-spot-check')">&times;</span>
@@ -2561,16 +2672,17 @@
     <!-- SCRIPTS DEL SISTEMA -->
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261007_2"></script>
-    <script src="js/admin-core.js?v=20261007_2"></script>
-    <script src="js/ayuda.js?v=20261006_1"></script>
+    <script src="js/admin-core.js?v=20261031_1"></script>
+    <script src="js/ayuda.js?v=20261031_1"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261003_1"></script>
     <script src="js/items.js?v=20261007_1"></script>
     <script src="js/warehouse.js?v=20261007_2"></script>
     <script src="js/operations.js?v=20261029_1"></script>
     <script src="js/compras.js?v=20261003_4"></script>
+    <script src="js/ajustes.js?v=20261031_1"></script>
     <script src="js/reports.js?v=20261007_2"></script>
-    <script src="js/settings.js?v=20261029_1"></script>
+    <script src="js/settings.js?v=20261031_1"></script>
     <script src="js/canales.js?v=20261029_1"></script>
     <script src="js/tiendas.js?v=20261029_1"></script>
     <script src="js/admin-init.js?v=20261007_2"></script>

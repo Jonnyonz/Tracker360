@@ -55,6 +55,12 @@ const AYUDA_SECCIONES = {
         pasos: ['Al entrar se ven las sesiones de hoy; con los filtros (fechas, sucursal, sector, estado, modalidad, operador) se buscan otras.', 'Creá la sesión de conteo.', 'Contá con la colectora.', 'Revisá las diferencias y aplicá. Lo no contado no se ajusta.'],
         ancla: 'inventario',
     },
+    'section-ajustes': {
+        titulo: 'Ajustes de stock',
+        resumen: 'Sumas y restas de stock con un concepto (rotura, vencimiento, faltante, sobrante...) por sucursal y sector.',
+        pasos: ['No se lista nada hasta buscar: número, fechas, sucursal, sector, usuario, concepto o SKU.', 'Crear ajuste: elegí sucursal, sector y concepto; agregá los artículos uno por uno con Suma o Resta.', 'Continuar muestra el resumen: Confirmar registra el ajuste y los movimientos; Descartar lo borra.', 'Las restas no dejan stock negativo salvo que la configuración lo permita. Los conceptos se editan en Configuración.'],
+        ancla: 'ajustes',
+    },
     'section-kardex': {
         titulo: 'Traza de artículos',
         resumen: 'Cada movimiento de un artículo: fecha, usuario, origen, destino y documento.',

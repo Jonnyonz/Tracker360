@@ -177,6 +177,7 @@ function switchView(secId, btnElement = null) {
     if(secId === 'section-purchases' && typeof loadPurchaseSelectors === 'function') { loadPurchaseSelectors(); loadAllPurchaseHistories(); }
     if(secId === 'section-orders' && typeof loadOrders === 'function') loadOrders();
     if(secId === 'section-inventory' && typeof loadInventorySessions === 'function') loadInventorySessions();
+    if(secId === 'section-ajustes' && typeof loadAjustes === 'function') loadAjustes();
     if(secId === 'section-logs') loadLogs();
     if(secId === 'section-settings' && typeof loadSettings === 'function') loadSettings();
     
@@ -215,7 +216,7 @@ const ACCIONES_AUDITORIA = {
     ORDER_PARTIAL_CANCEL: 'Pedido cancelado en parte', PACKING_DISPATCH: 'Pedido despachado',
     PURCHASE_ORDER_CREATED: 'Orden de compra creada', PURCHASE_REMITO_CREATED: 'Remito de entrada registrado',
     RECEPTION_EXCEPTION_APPROVED: 'Artículo no esperado aprobado', RECEPTION_EXCEPTION_REJECTED: 'Artículo no esperado rechazado',
-    RETURN_CREATED: 'Devolución registrada', TRANSFER_CREATED: 'Traspaso creado',
+    RETURN_CREATED: 'Devolución registrada', TRANSFER_CREATED: 'Traspaso creado', STOCK_ADJUSTMENT_CREATED: 'Ajuste de stock registrado',
     INVENTORY_STARTED: 'Conteo iniciado', INVENTORY_APPLIED: 'Conteo aplicado al stock', SPOT_CHECK_AUDIT: 'Control puntual',
     SALES_CHANNEL_CREATED: 'Canal de venta creado', SALES_CHANNEL_UPDATED: 'Canal de venta modificado',
     SALES_CHANNEL_KEY_ROTATED: 'Clave de canal renovada', CHANNEL_AUTH_FAILED: 'Clave de canal inválida',

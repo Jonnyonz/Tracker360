@@ -2,6 +2,22 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.8.0 — 2026-10-31
+
+### Agregado
+- **Ajustes de stock** (menú *Ajustes de Stock*, pedido de Jonny): sumas y restas de stock por fuera de remitos y
+  conteos. Al entrar no se lista nada: se busca con un campo por dato (número, desde, hasta, sucursal, sector,
+  usuario creador, concepto, SKU). *Crear ajuste* pide sucursal, sección (sector), concepto y observación opcional,
+  y los artículos se agregan uno por uno (SKU, Suma o Resta, cantidad; ubicación si el sector trabaja con
+  ubicaciones; lote si los lotes están activados). *Continuar* muestra el resumen con los totales y ahí se
+  confirma, se vuelve a editar o se descarta (Esc también descarta). Número correlativo `AJ-000001`; cada línea es
+  un movimiento `AJUSTE` con ese número como referencia (Traza de artículos); auditoría `Ajuste de stock
+  registrado`. Las restas no dejan stock negativo salvo *Permitir stock negativo*; las líneas repetidas se suman.
+  El supervisor consulta y no crea. API: `GET/POST /api/admin/stock-adjustments`, `GET .../{número}`,
+  `GET .../next-number` (admin), `GET .../reasons`. Migración 0013.
+- Configuración, Numeración: **Conceptos de ajuste de stock** (uno por línea; por defecto Rotura, Vencimiento,
+  Faltante, Sobrante, Error de carga, Consumo interno, Otro).
+
 ## 1.7.0 — 2026-10-30
 
 ### Agregado

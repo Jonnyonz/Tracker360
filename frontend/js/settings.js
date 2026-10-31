@@ -63,6 +63,7 @@ async function loadSettings() {
 
         // Numeracion: solo el prefijo de devoluciones es configurable (el resto lo asigna el sistema)
         setVal('cfg-return-number-prefix', data.return_number_prefix || 'DEV-');
+        setVal('cfg-stock-adjustment-reasons', data.stock_adjustment_reasons || '');
 
         // Reglas de Operativa, Depósito y Auditoría
         setVal('cfg-allow-negative-stock', String(data.allow_negative_stock ?? 'false'));
@@ -141,6 +142,7 @@ async function saveSettings(e) {
         max_login_attempts: getVal('cfg-max-login-attempts'),
         lockout_time_minutes: getVal('cfg-lockout-time-minutes'),
         return_number_prefix: getVal('cfg-return-number-prefix'),
+        stock_adjustment_reasons: getVal('cfg-stock-adjustment-reasons'),
         allow_negative_stock: getVal('cfg-allow-negative-stock'),
         manual_order_direct_sale: getVal('cfg-manual-order-direct-sale'),
         enable_lots_expiration: getVal('cfg-enable-lots-expiration'),

@@ -44,6 +44,7 @@
                 <li><a href="#pedidos">Pedidos y despacho</a></li>
                 <li><a href="#traspasos">Traspasos</a></li>
                 <li><a href="#inventario">Conteos de inventario</a></li>
+                <li><a href="#ajustes">Ajustes de stock</a></li>
                 <li><a href="#colectora">Colectora móvil</a></li>
                 <li><a href="#reportes">Reportes y traza</a></li>
                 <li><a href="#impresion">Impresión de etiquetas</a></li>
@@ -209,6 +210,17 @@
                     <li><strong>En frío (COLD):</strong> con el depósito quieto; el stock queda igual a lo contado.</li>
                 </ul>
                 <p>Antes de aplicar, se revisan las diferencias. <strong>Lo que no se contó no se ajusta.</strong> El <strong>control puntual</strong> de la colectora sirve para verificar rápido una ubicación.</p>
+            </section>
+
+            <section id="ajustes">
+                <h2>Ajustes de stock</h2>
+                <p>En <strong>Ajustes de Stock</strong> se suma o resta stock por fuera de los remitos y los conteos, con un <strong>concepto</strong> (rotura, vencimiento, faltante, sobrante, error de carga, consumo interno u otro; la lista se edita en <strong>Configuración</strong>). Al entrar no se lista nada: se busca por número, fechas, sucursal, sector, usuario, concepto o SKU, un campo por dato.</p>
+                <ol class="pasos">
+                    <li><strong>Crear ajuste:</strong> elegir la sucursal, la sección (sector) y el concepto; la observación es opcional. El número (<code>AJ-000001</code>) lo asigna el sistema al guardar.</li>
+                    <li><strong>Agregar artículos</strong> uno por uno: SKU, Suma o Resta y cantidad. Si el sector trabaja con ubicaciones hay que indicar la ubicación; con lotes activados, el lote.</li>
+                    <li><strong>Continuar al resumen:</strong> se ve todo lo que se va a registrar, con los totales que suman y restan. <strong>Confirmar</strong> registra el ajuste y sus movimientos (en la Traza de artículos figuran como <code>AJUSTE</code> con el número del ajuste); <strong>Volver a editar</strong> permite corregir; <strong>Descartar</strong> (o Esc) lo borra sin guardar.</li>
+                </ol>
+                <p>Una resta nunca deja el stock negativo, salvo que <strong>Permitir stock negativo</strong> esté activado. El supervisor consulta los ajustes pero no los crea. Un usuario con sucursal o sector fijos solo ajusta ahí.</p>
             </section>
 
             <section id="colectora">
