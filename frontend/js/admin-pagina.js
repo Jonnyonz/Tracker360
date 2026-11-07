@@ -185,7 +185,7 @@ function cmdItems(q) {
     const lista = its.filter(c => !q || c.l.toLowerCase().includes(q));
     if (q) {
         lista.push({ l: 'Buscar artículo «' + q + '»', k: 'SKU', ic: 'sku', mono: true, go: () => { switchView('section-items'); const f = document.getElementById('form-buscar-articulos'); if (f) f.reset(); document.getElementById('search-sku').value = q; buscarArticulos(); } });
-        lista.push({ l: 'Buscar pedido «' + q + '»', k: 'PEDIDO', ic: 'pedido', mono: true, go: () => { switchView('section-orders'); const f = document.getElementById('filtros-pedidos'); if (f) f.reset(); document.getElementById('f-ped-numero').value = q; buscarPedidos(); } });
+        lista.push({ l: 'Buscar pedido «' + q + '»', k: 'PEDIDO', ic: 'pedido', mono: true, go: () => { switchView('section-orders'); if (typeof mostrarPedidoBuscado === 'function') mostrarPedidoBuscado(q); else { document.getElementById('f-ped-numero').value = q; buscarPedidos(); } } });
     }
     return lista;
 }

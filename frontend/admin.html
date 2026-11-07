@@ -7,7 +7,7 @@
     <title id="html-title">Tracker360 - JZTech Suite</title>
     
     <!-- CSS Separado y Limpio -->
-    <link rel="stylesheet" href="css/admin.css?v=20261107_1">
+    <link rel="stylesheet" href="css/admin.css?v=20261107_2">
 </head>
 <body>
     <div id="toast-container" class="toast-container"></div>
@@ -180,78 +180,41 @@
     <div class="main-content">
         <div id="net-banner" class="net-status">Sin conexión a la red local</div>
 
-        <!-- 1. DASHBOARD -->
+        <!-- 1. INICIO: tablero en vivo (js/inicio.js) -->
         <div id="section-dashboard" class="view-section active">
             <div class="content-header">
-                <h2>Tablero Resumen de Operaciones</h2>
-            </div>
-
-            <!-- FASE 5: TARJETAS DE KPIS SUPERIORES -->
-            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
-                <div class="kpi-card success" data-help="Productividad Diaria|Muestra la suma total de artículos extraídos físicamente hoy por todo el equipo.">
-                    <div style="font-size:0.85rem; color:var(--text-secondary); text-transform:uppercase; font-weight:700; letter-spacing:0.04em;">Unidades Pickeadas Hoy</div>
-                    <div id="kpi-units-today" style="font-size:2.8rem; font-weight:800; color:var(--text-primary); margin-top:0.2rem; letter-spacing:-0.03em;">0</div>
-                </div>
-                <div class="kpi-card warning" data-help="Tiempo Promedio de Ciclo|Mide el promedio de tiempo desde que un pedido es cargado (PENDING) hasta que sale por la puerta empacado (DISPATCHED).">
-                    <div style="font-size:0.85rem; color:var(--text-secondary); text-transform:uppercase; font-weight:700; letter-spacing:0.04em;">Tiempo de Ciclo Promedio</div>
-                    <div id="kpi-cycle-time" style="font-size:2.8rem; font-weight:800; color:var(--text-primary); margin-top:0.2rem; letter-spacing:-0.03em;">0,0 h</div>
+                <h2>Inicio</h2>
+                <div>
+                    <button type="button" class="btn-secondary" data-on-click="irA('/mobile')">Colectora Móvil</button>
+                    <button type="button" class="btn-submit" data-on-click="switchView('section-orders'); openManualOrderModal()">
+                        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.2" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                        Nuevo pedido
+                    </button>
                 </div>
             </div>
-
-            <div class="masonry-grid">
-                <!-- FASE 5: LEADERBOARD DE PRODUCTIVIDAD -->
-                <div class="card" data-help="Ranking de Productividad|Muestra el Top 5 de operarios con mayor volumen de recolección física en los últimos 7 días.">
-                    <h3 class="card-title">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15c-3 0-6-3-6-6h12c0 3-3 6-6 6z"/><path d="M12 15v7"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
-                        Top Preparadores (Últimos 7 días)
-                    </h3>
-                    <table>
-                        <thead><tr><th>Operario</th><th style="text-align:center;">Líneas Extr.</th><th style="text-align:right;">Unid. Totales</th></tr></thead>
-                        <tbody id="dash-leaderboard-body"></tbody>
-                    </table>
+            <div class="kpis" id="ini-kpis" data-help="Indicadores del día|Pedidos pendientes, unidades pickeadas hoy, ciclo carga → despacho y traspasos activos.|Cada celda lleva al módulo correspondiente."></div>
+            <div class="g2">
+                <div class="card p0" data-help="Pedidos pendientes|Los pedidos de venta sin preparar o en picking, los Flex primero.|Priorice el armado de pedidos con mayor tiempo en cola.">
+                    <div class="card-h"><h3>Pedidos pendientes</h3><button type="button" class="btn-link" data-on-click="irAPedidos('pendientes')">Ver pedidos</button></div>
+                    <div id="ini-pedidos"></div>
                 </div>
-
-                <div class="card" data-help="Pedidos Pendientes|Muestra las órdenes de salida pendientes de preparado enviadas por la API o cargadas manualmente.|Priorice el armado de pedidos con mayor tiempo en cola.">
-                    <h3 class="card-title">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                        1. Pedidos Pendientes
-                    </h3>
-                    <table><thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th></tr></thead><tbody id="dash-orders-body"></tbody></table>
-                    <button class="btn-secondary" style="width: 100%; margin-top: 1.5rem;" data-on-click="switchView('section-orders')">Ver Todos los Pedidos</button>
-                </div>
-                
-                <div class="card" data-help="Traspasos Activos|Órdenes de movimiento de mercadería (ODT) entre sucursales o sectores.|El stock de origen se descuenta de inmediato y el destino se suma cuando la colectora confirma la recepción.">
-                    <h3 class="card-title">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5"/><path d="M4 20L21 3"/><path d="M21 16v5h-5"/><path d="M15 15l6 6"/><path d="M4 4l5 5"/></svg>
-                        2. Traspasos Activos
-                    </h3>
-                    <table><thead><tr><th>Nº Traspaso</th><th>Origen</th><th>Destino</th></tr></thead><tbody id="dash-transfers-body"></tbody></table>
-                    <button class="btn-secondary" style="width: 100%; margin-top: 1.5rem;" data-on-click="abrirCompras('tab-transfer')">Ver Todos los Traspasos</button>
-                </div>
-
-                <div class="card" data-help="Carga de Mercadería|Accesos directos para la carga de comprobantes de ingreso, devoluciones y traspasos.|Garantiza que la mercadería ingrese asignada a la sucursal y sector del operador logístico.">
-                    <h3 class="card-title">
-                        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                        3. Ingresos y Movimientos
-                    </h3>
-                    <div style="display:flex; flex-direction:column; gap:0.6rem; margin-top:0.5rem;">
-                        <div class="dash-action-item"><span>Devoluciones de clientes</span><button class="btn-secondary" data-on-click="abrirCompras('tab-return')">Ver</button></div>
-                        <div class="dash-action-item"><span>Crear Orden de Traspaso (ODT)</span><button class="btn-secondary" data-on-click="abrirCompras('tab-transfer', null, true)">Crear</button></div>
-                        <div class="dash-action-item"><span>Crear Remito de Compra</span><button class="btn-secondary" data-on-click="abrirCompras('tab-remito', null, true)">Crear</button></div>
-                        <div class="dash-action-item"><span>Crear Orden de Compra</span><button class="btn-secondary" data-on-click="abrirCompras('tab-po', null, true)">Crear</button></div>
-                    </div>
+                <div class="card" data-help="Productividad|Unidades pickeadas por operario en los últimos 7 días.">
+                    <div class="card-h" style="padding:0 0 12px; border:none;"><h3>Productividad · últimos 7 días</h3><span class="muted" style="font-size:12px;">unidades pickeadas</span></div>
+                    <div id="ini-ranking" class="ranking"></div>
                 </div>
             </div>
-
-            <!-- TARJETA FULL WIDTH AFUERA DEL MASONRY -->
-            <div class="card grid-full-width" data-help="Registros de Auditoría|Bitácora inmutable de eventos de seguridad y operaciones realizadas.|Permite rastrear qué usuario ejecutó cada cambio o ajuste de inventario.">
-                <h3 class="card-title">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                    4. Registros de Auditoría Recientes
-                </h3>
-                <table><thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th></tr></thead><tbody id="dash-logs-body"></tbody></table>
-                <div style="text-align:right;">
-                    <button class="btn-secondary" style="margin-top: 1.5rem;" data-on-click="switchView('section-logs')">Ver Registro Completo »</button>
+            <div class="g3">
+                <div class="card p0" data-help="Requiere tu atención|Pedidos Flex sin preparar, listos para empacar, remitos con diferencias y conteos para revisar.">
+                    <div class="card-h"><h3>Requiere tu atención</h3><span class="mono sec" id="ini-at-n" style="font-size:12px; font-weight:600;"></span></div>
+                    <div id="ini-atencion"></div>
+                </div>
+                <div class="card p0" data-help="Traspasos Activos|Órdenes de movimiento de mercadería (ODT) entre sucursales o sectores.|El stock de origen se descuenta de inmediato y el destino se suma cuando la colectora confirma la recepción.">
+                    <div class="card-h"><h3>Traspasos activos</h3><button type="button" class="btn-link" data-on-click="abrirCompras('tab-transfer')">Ver traspasos</button></div>
+                    <div id="ini-traspasos"></div>
+                </div>
+                <div class="card p0" data-help="Eventos del sistema|Los últimos registros de la auditoría.|ERROR marca ingresos fallidos, accesos no autorizados y alertas de seguridad.">
+                    <div class="card-h"><h3>Eventos del sistema</h3><button type="button" class="btn-link" data-on-click="switchView('section-logs')">Auditoría</button></div>
+                    <div id="ini-eventos"></div>
                 </div>
             </div>
         </div>
@@ -792,23 +755,24 @@
             </div>
         </div>
 
-        <!-- 8. PEDIDOS -->
+        <!-- 8. PEDIDOS: bandeja lista + detalle (js/pedidos.js); la busqueda sigue siendo la de operations.js -->
         <div id="section-orders" class="view-section">
             <div class="content-header">
-                <h2>Monitoreo de Salidas (Pedidos)</h2>
+                <h2>Pedidos (PDV)</h2>
                 <button type="button" class="btn-submit" data-on-click="openManualOrderModal()">
-                    <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                    Crear Pedido
+                    <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2.2" fill="none"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Nuevo pedido
                 </button>
             </div>
-            
-            <div class="card" style="margin-bottom:1.5rem;" data-help="Buscar pedidos|No se lista nada hasta buscar o tocar un atajo.|Para empacar, De hoy y Urgentes son búsquedas listas; los campos se pueden combinar.">
-                <div class="busqueda-atajos">
-                    <span>Atajos:</span>
-                    <button type="button" class="btn-secondary" data-on-click="atajoPedidos('empacar')">Para empacar</button>
-                    <button type="button" class="btn-secondary" data-on-click="atajoPedidos('hoy')">De hoy</button>
-                    <button type="button" class="btn-secondary" data-on-click="atajoPedidos('urgentes')">Urgentes</button>
-                </div>
+            <div class="busqueda-atajos" data-help="Buscar pedidos|No se lista nada hasta buscar o tocar un atajo.|Para empacar, De hoy y Urgentes son búsquedas listas; Filtros abre los campos para combinar.">
+                <span>Atajos</span>
+                <button type="button" class="btn-secondary" data-on-click="atajoPedidos('empacar')"><i class="dot" style="background:var(--ok);"></i>Para empacar</button>
+                <button type="button" class="btn-secondary" data-on-click="atajoPedidos('hoy')"><i class="dot" style="background:var(--ac);"></i>De hoy</button>
+                <button type="button" class="btn-secondary" data-on-click="atajoPedidos('urgentes')"><i class="dot" style="background:var(--dg);"></i>Urgentes</button>
+                <button type="button" class="btn-secondary" id="btn-ped-filtros" data-on-click="alternarFiltrosPedidos()">Filtros</button>
+                <p id="pedidos-resumen" class="busqueda-resumen" style="margin:0 0 0 auto;" hidden></p>
+            </div>
+            <div class="card" id="ped-filtros" hidden>
                 <form id="filtros-pedidos" class="busqueda-filtros" data-on-submit="buscarPedidos(event)">
                     <div class="form-group"><label for="f-ped-numero">Nº de pedido o venta</label><input type="text" id="f-ped-numero" name="number" autocomplete="off"></div>
                     <div class="form-group"><label for="f-ped-cliente">Cliente o comprador</label><input type="text" id="f-ped-cliente" name="customer" autocomplete="off"></div>
@@ -825,17 +789,15 @@
                         <button type="button" class="btn-secondary" data-on-click="limpiarPedidos()">Limpiar</button>
                     </div>
                 </form>
-                <p id="pedidos-resumen" class="busqueda-resumen" hidden></p>
             </div>
-
-            <div class="card grid-full-width" data-help="Monitoreo de Pedidos|Panel de control de avance del armado de pedidos.|Muestra la barra de porcentaje (%) en tiempo real a medida que los preparadores escanean en la colectora.">
-                <table>
-                    <thead><tr><th>Documento</th><th>Cliente</th><th>Estado</th><th>Progreso</th><th>Fecha</th><th>Acción</th></tr></thead>
-                    <tbody id="table-orders-body">
-                        <tr><td colspan="6" class="busqueda-vacia">Buscá un pedido o tocá un atajo.</td></tr>
-                    </tbody>
-                </table>
+            <div class="dos" data-help="Monitoreo de Pedidos|Bandejas por estado a la izquierda y el detalle del pedido elegido a la derecha.|El avance se actualiza a medida que los preparadores escanean en la colectora; Empacar y despachar se habilita con el picking completo.">
+                <div class="lista">
+                    <div class="band-tabs" id="ped-tabs"></div>
+                    <div class="scroll" id="ped-lista"></div>
+                </div>
+                <div class="det" id="ped-det"></div>
             </div>
+            <table hidden><tbody id="table-orders-body"></tbody></table>
         </div>
 
         <!-- 5. CONTEOS CÍCLICOS -->
@@ -2658,21 +2620,23 @@
     <!-- SCRIPTS DEL SISTEMA -->
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261007_2"></script>
-    <script src="js/admin-core.js?v=20261031_1"></script>
+    <script src="js/admin-core.js?v=20261107_2"></script>
     <script src="js/ayuda.js?v=20261031_1"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261003_1"></script>
     <script src="js/items.js?v=20261007_1"></script>
     <script src="js/warehouse.js?v=20261007_2"></script>
     <script src="js/operations.js?v=20261029_1"></script>
+    <script src="js/inicio.js?v=20261107_2"></script>
+    <script src="js/pedidos.js?v=20261107_2"></script>
     <script src="js/compras.js?v=20261003_4"></script>
     <script src="js/ajustes.js?v=20261031_1"></script>
     <script src="js/reports.js?v=20261007_2"></script>
     <script src="js/settings.js?v=20261031_1"></script>
     <script src="js/canales.js?v=20261029_1"></script>
     <script src="js/tiendas.js?v=20261029_1"></script>
-    <script src="js/admin-init.js?v=20261107_1"></script>
+    <script src="js/admin-init.js?v=20261107_2"></script>
     
-    <script src="js/admin-pagina.js?v=20261107_1"></script>
+    <script src="js/admin-pagina.js?v=20261107_2"></script>
 </body>
 </html>

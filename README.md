@@ -103,7 +103,9 @@ Tracker360/
 │                            # agent-auth.html, js/, css/ (sin build, lo sirve la API).
 │                            # El panel usa el sistema visual de JZTech Suite (css/admin.css,
 │                            # tokens --bg/--sf/--ac...; barra lateral por grupos, Ctrl+K,
-│                            # paneles laterales), ver design_handoff_tracker360 en la suite.
+│                            # paneles laterales; Inicio como tablero en js/inicio.js y Pedidos
+│                            # como bandeja lista + detalle en js/pedidos.js), ver
+│                            # design_handoff_tracker360 en la suite.
 ├── agent/                   # Agente de impresión para Windows (código fuente)
 ├── docker-compose.yml
 ├── install.sh

@@ -2,6 +2,24 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.10.0 — 2026-11-07 (en main local, sin publicar)
+
+### Cambiado
+- **Rediseño del panel, fase 2** (`design_handoff_tracker360`): Inicio y Pedidos. Solo frontend, sin endpoints nuevos.
+  - **Inicio como tablero en vivo** (`js/inicio.js`): KPIs clicables (pedidos pendientes con urgentes y listos para
+    empacar, unidades pickeadas hoy, ciclo carga → despacho, traspasos activos), pedidos pendientes con canal y barra de
+    avance (los Flex primero), productividad de los últimos 7 días en barras, "Requiere tu atención" (Flex sin preparar,
+    listos para empacar, remitos con diferencias, conteos para revisar), traspasos activos y eventos del sistema con
+    OK/ERROR. Datos: `/api/admin/dashboard`, `/api/admin/documents`, `/api/admin/purchase-remitos?status=COMPLETED_DIFF`
+    y `/api/inventory/sessions?status=REVIEW`.
+  - **Pedidos como bandeja** (`js/pedidos.js`): atajos en píldora (Para empacar, De hoy, Urgentes) y botón Filtros que
+    muestra los campos de siempre; bandejas Pendientes / En picking / Completos / Despachados / Full / Cancelados sobre el
+    resultado de la búsqueda; lista con número, canal (FLEX, ML, JZBILL, MANUAL, FULL), cliente, "hace X" y avance; detalle
+    con líneas (SKU, descripción, ubicación sugerida, pedido, pickeado, estado), participantes (creó, pickeó, empacó,
+    despachó), observaciones y footer con Cancelar pedido, Hoja A4, Imprimir etiqueta y **Empacar y despachar** (solo con
+    el picking completo). Sigue la regla de no listar nada hasta buscar. El supervisor ve todo sin acciones de cambio.
+  - Desde Inicio y desde Ctrl+K un pedido se abre directamente en su bandeja.
+
 ## 1.9.0 — 2026-11-07
 
 ### Cambiado

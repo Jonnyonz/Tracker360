@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Usuarios, configuracion e integraciones son solo del admin (ver aplicarModoSupervisor).
     const supervisor = await esSupervisor();
     loadDashboardSummary();
+    if (typeof renderInicio === 'function') renderInicio();
     if (!supervisor && typeof loadUsers === 'function') loadUsers();
     if (typeof loadEntities === 'function') loadEntities();
     if (typeof loadItems === 'function') loadItems(1);
