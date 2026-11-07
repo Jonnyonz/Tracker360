@@ -100,7 +100,10 @@ Tracker360/
 │   ├── requirements.txt
 │   └── Dockerfile           # se construye desde la raíz del repo
 ├── frontend/                # index.html (login/setup), admin.html, preparador.html,
-│                            # agent-auth.html, js/, css/ (sin build, lo sirve la API)
+│                            # agent-auth.html, js/, css/ (sin build, lo sirve la API).
+│                            # El panel usa el sistema visual de JZTech Suite (css/admin.css,
+│                            # tokens --bg/--sf/--ac...; barra lateral por grupos, Ctrl+K,
+│                            # paneles laterales), ver design_handoff_tracker360 en la suite.
 ├── agent/                   # Agente de impresión para Windows (código fuente)
 ├── docker-compose.yml
 ├── install.sh

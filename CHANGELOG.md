@@ -2,6 +2,25 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.9.0 — 2026-11-07
+
+### Cambiado
+- **Panel de administración con el sistema visual de JZTech Suite** (`design_handoff_tracker360`, fase 1: estructura
+  y componentes). Solo frontend: no cambian endpoints, migraciones ni backend (salvo el número de versión).
+  - Barra lateral oscura por grupos (Operación, Catálogo, Tiendas online, Análisis, Sistema) con contador de pedidos
+    pendientes, desplegables con línea guía, interruptor de Modo Ayuda, acceso a la Colectora y pie con el usuario y
+    su rol. En celular se abre con el botón de menú y se cierra tocando fuera o con la X.
+  - Cabecera de cada módulo con rótulo del grupo (Inicio: "En vivo · fecha" y saludo por nombre) y acciones a la
+    derecha; subpestañas en Compras y Recepción y en Reportes.
+  - **Buscador Ctrl+K**: módulos, acciones (nuevo pedido, artículo, remito, orden, traspaso, ajuste, conteo, control
+    puntual) y búsqueda rápida de un SKU o un pedido con las funciones de cada sección.
+  - Formularios y detalles en **panel lateral derecho** en lugar de modales centrados (mismos `openModal` /
+    `closeModal`), avisos en toast abajo al centro, panel de Modo Ayuda con cabecera azul.
+  - Tarjetas, tablas, badges, botones, filtros y filas de Configuración con los tokens del handoff (claro y oscuro).
+    Las variables CSS anteriores quedan como alias, así el JS que pinta con estilos en línea sigue igual.
+  - Pendiente para las fases siguientes: Inicio como tablero en vivo, Pedidos y Compras como bandeja lista + detalle,
+    ficha de Artículos, Depósitos en columnas, conteos en tarjetas, Configuración por grupos y la Colectora Móvil.
+
 ## 1.8.0 — 2026-10-31
 
 ### Agregado

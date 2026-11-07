@@ -11,6 +11,10 @@ async function loadDashboardSummary() {
             tOrders.innerHTML = data.pending_orders.length ? data.pending_orders.map(o => `<tr><td class="font-mono" style="color:var(--accent); font-weight:bold;">${escapeHTML(o.document_number)}</td><td>${escapeHTML(o.company_name)}</td><td><span class="badge badge-warning">${escapeHTML(ESTADO_PEDIDO_LABEL[o.status] || o.status)}</span></td></tr>`).join('') : '<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">Sin pedidos pendientes</td></tr>';
         }
 
+        // Contador de pendientes en el menu lateral.
+        const cnt = document.getElementById('nav-cnt-pedidos');
+        if (cnt) cnt.textContent = data.pending_orders.length ? String(data.pending_orders.length) : '';
+
         // 2. Traspasos
         const tTransfers = document.getElementById('dash-transfers-body');
         if(tTransfers) {
