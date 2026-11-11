@@ -1,41 +1,9 @@
-/* Tracker360 · panel de administracion. Sistema visual comun de JZTech Suite (design_handoff_tracker360).
-   Las variables viejas (--bg-page, --accent, --border...) quedan como alias de los tokens nuevos: todo el
-   JS que pinta con estilos en linea sigue viendose bien sin tocarlo. */
-:root {
-    --f: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-    --m: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --bg: #f3f4f7; --sf: #ffffff; --sf2: #f8f9fb; --ln: #e4e6eb; --ln2: #eef0f3; --tp: #121722; --ts: #5b6170; --tm: #8e93a0;
-    --ac: #2962ff; --ach: #1f4fd1; --acs: #eaf0ff; --act: #1a3fb8;
-    --ok: #00a84a; --oks: #e6f6ec; --okt: #0f6b34;
-    --dg: #d50000; --dgs: #fdecec; --dgt: #a31515;
-    --wn: #f2a900; --wns: #fff5dc; --wnt: #8a5a00;
-    --ne: #eef0f3; --net: #5b6170;
-    --ink: #0e1424; --ink2: #182036; --inkln: #242d45; --inktx: #c5cbda; --inkmu: #7b84a0;
-
-    /* alias del tema anterior */
-    --bg-page: var(--bg); --bg-surface: var(--sf); --accent: var(--ac); --accent-hover: var(--ach);
-    --success: var(--ok); --danger: var(--dg); --warning: var(--wn);
-    --text-primary: var(--tp); --text-secondary: var(--ts); --text-muted: var(--tm); --border: var(--ln);
-    --rail-bg: var(--ink); --input-bg: var(--sf); --input-border: var(--ln); --shadow: none; --header-bg: var(--sf); --th-bg: var(--sf2);
-}
-[data-theme="dark"] {
-    --bg: #0b0e15; --sf: #131824; --sf2: #171d2b; --ln: #252c3d; --ln2: #1d2331; --tp: #e6e9f0; --ts: #a2a9b9; --tm: #6d7488;
-    --ac: #4d7cff; --ach: #6b92ff; --acs: rgba(77,124,255,.14); --act: #9db6ff;
-    --ok: #2fd47a; --oks: rgba(47,212,122,.12); --okt: #7ee8ad;
-    --dg: #ff5a5a; --dgs: rgba(255,90,90,.12); --dgt: #ff9d9d;
-    --wn: #ffc940; --wns: rgba(255,201,64,.12); --wnt: #ffdd85;
-    --ne: rgba(255,255,255,.06); --net: #b4bac8;
-    --ink: #080b12; --ink2: #121826; --inkln: #1c2334;
-}
-
-* { box-sizing: border-box; margin: 0; padding: 0; }
+/* Tracker360 · panel de administracion. Los tokens claro/oscuro, el reset, los enlaces, las animaciones, .badge,
+   .btn-link/.btn-sm y .muted/.sec/.cap vienen de /jz/suite.css (jztech-core, sistema visual comun de JZTech Suite):
+   admin.html la enlaza ANTES de esta hoja. Aca queda solo lo propio del panel (barra lateral, tablas, bandejas, modales). */
+* { margin: 0; padding: 0; }
 html, body { height: 100%; }
 body { background: var(--bg); color: var(--tp); font-family: var(--f); font-size: 14px; display: grid; grid-template-columns: 244px minmax(0, 1fr); height: 100vh; width: 100vw; overflow: hidden; -webkit-font-smoothing: antialiased; }
-a { color: var(--ac); text-decoration: none; } a:hover { color: var(--ach); }
-button { font-family: inherit; }
-@keyframes jzin { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
-@keyframes jzlive { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
-@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
 .top-accent-bar { display: none; }
 .mobile-header { display: none; }
@@ -174,12 +142,6 @@ td small, td .text-muted { color: var(--tm); }
 .orden-marca { color: var(--ac); font-size: 11px; }
 
 /* ===== BADGES ===== */
-.badge { padding: 4px 7px; border-radius: 5px; font: 700 10.5px/1 var(--f); text-transform: uppercase; letter-spacing: .05em; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-.badge-success { background: var(--oks); color: var(--okt); }
-.badge-info { background: var(--acs); color: var(--act); }
-.badge-warning { background: var(--wns); color: var(--wnt); }
-.badge-danger { background: var(--dgs); color: var(--dgt); }
-.badge-neutral { background: var(--ne); color: var(--net); border: none; }
 
 .dash-action-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--ln2); color: var(--tp); font-weight: 500; flex-wrap: wrap; gap: 10px; }
 .dash-action-item:last-child { border-bottom: none; }
@@ -367,11 +329,7 @@ td.busqueda-vacia { text-align: center; padding: 34px 16px; color: var(--tm); wh
 .card-h { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 16px 20px; border-bottom: 1px solid var(--ln); }
 .card-h h3 { margin: 0; padding: 0; border: none; font: 600 15px/1 var(--f); }
 .vacio { padding: 34px 20px; text-align: center; color: var(--tm); font: 500 13px/1.5 var(--f); }
-.muted { color: var(--tm); } .sec { color: var(--ts); } .min0 { min-width: 0; }
-.cap { font: 600 10.5px/1 var(--f); letter-spacing: .08em; text-transform: uppercase; color: var(--tm); }
-.btn-link { cursor: pointer; border: none; background: transparent; color: var(--ac); font: 600 12px/1 var(--f); padding: 0; }
-.btn-link:hover { color: var(--ach); }
-.btn-sm { padding: 7px 10px; font-size: 12px; border-radius: 7px; }
+.min0 { min-width: 0; }
 .pbar { display: block; height: 5px; border-radius: 3px; background: var(--ne); overflow: hidden; flex: 1; }
 .pbar i { display: block; height: 100%; border-radius: 3px; }
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1px; background: var(--ln); border: 1px solid var(--ln); border-radius: 12px; overflow: hidden; }

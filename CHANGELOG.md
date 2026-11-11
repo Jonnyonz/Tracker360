@@ -2,6 +2,15 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.11.0 — 2026-11-11 (en main local, sin publicar)
+
+### Cambiado
+- **jztech-core 0.1.6 → 0.2.0.** El panel de administración toma el sistema visual común de la suite desde la
+  librería: `admin.html` enlaza `/jz/suite.css` (tokens claro/oscuro, reset, enlaces, animaciones, `.badge`,
+  `.btn-link`, `.btn-sm`, `.muted/.sec/.cap`) antes de `admin.css`, que pierde esas reglas duplicadas y conserva
+  solo lo propio del panel. Mismos colores que antes; la hoja se sirve con caché inmutable por versión del core.
+  La pantalla de login, la colectora móvil y los documentos no cambian.
+
 ## 1.10.0 — 2026-11-07 (en main local, sin publicar)
 
 ### Cambiado

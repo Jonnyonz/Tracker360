@@ -3,6 +3,7 @@ from backend import __version__
 from fastapi import Depends
 from jztech_core.security_headers import SecurityHeadersMiddleware
 from jztech_core.logging_setup import configure_logging, install_generic_error_handler
+from jztech_core.ui import montar_ui
 
 # Logs en JSON por stdout (docker logs / journald).
 configure_logging()
@@ -204,6 +205,9 @@ app.include_router(notes.router)     # Observaciones de documentos
 app.include_router(channels.router)  # Canales de venta (marketplaces): /api/v1/channel/*
 app.include_router(expedicion.router)  # Despacho desde el Escaner Flex: /api/v1/expedicion/*
 app.include_router(adjustments.router)  # Ajustes de stock: /api/admin/stock-adjustments
+# Sistema visual comun de la suite: GET /jz/suite.css (tokens, botones, badges) desde jztech-core. Va antes del
+# mount de / (StaticFiles), que si no se lo quedaria.
+montar_ui(app)
 
 # === ENDPOINTS EXPLICITOS DE FAVICON ===
 @app.get("/favicon.png", include_in_schema=False)
