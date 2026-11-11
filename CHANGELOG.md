@@ -2,7 +2,7 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
-## 1.11.0 — 2026-11-11 (en main local, sin publicar)
+## 1.11.0 — 2026-11-11
 
 ### Cambiado
 - **jztech-core 0.1.6 → 0.2.0.** El panel de administración toma el sistema visual común de la suite desde la
@@ -11,7 +11,7 @@ Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a 
   solo lo propio del panel. Mismos colores que antes; la hoja se sirve con caché inmutable por versión del core.
   La pantalla de login, la colectora móvil y los documentos no cambian.
 
-## 1.10.0 — 2026-11-07 (en main local, sin publicar)
+## 1.10.0 — 2026-11-07 (publicada junto con la 1.11.0)
 
 ### Cambiado
 - **Rediseño del panel, fase 2** (`design_handoff_tracker360`): Inicio y Pedidos. Solo frontend, sin endpoints nuevos.
