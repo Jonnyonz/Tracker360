@@ -8,7 +8,7 @@
     
     <!-- CSS Separado y Limpio -->
     <link rel="stylesheet" href="/jz/suite.css?v=0.2.0">
-    <link rel="stylesheet" href="css/admin.css?v=20261112_4">
+    <link rel="stylesheet" href="css/admin.css?v=20261112_5">
 </head>
 <body>
     <div id="toast-container" class="toast-container"></div>
@@ -235,6 +235,10 @@
                 </div>
             </div>
             
+            <div class="cfg-banner" id="users-banner" hidden>
+                <span id="users-banner-texto"></span>
+                <button type="button" class="btn-submit" data-on-click="openPendingRequestsModal()">Ver solicitudes</button>
+            </div>
             <div style="display:flex; gap:10px; margin-bottom:1.5rem; flex-wrap:wrap;">
                 <input type="text" id="search-user-text" placeholder="Buscar usuario o nombre..." style="flex:2; min-width:180px;" data-on-keyup="filterUsers()">
                 <select id="search-user-role" style="flex:1; min-width:130px;" data-on-change="filterUsers()">
@@ -1427,6 +1431,7 @@
                         <a href="mailto:jonaiker.jimenez.g@gmail.com?subject=Soporte%20Tracker360"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg> jonaiker.jimenez.g@gmail.com</a>
                         <a href="https://jz-tech.mywire.org" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg> jz-tech.mywire.org</a>
                     </div>
+                    <p class="soporte-version">Versión instalada <b id="soporte-version">…</b></p>
                 </div>
                 <div class="card" data-help="Cómo reportar un problema|Con estos datos el problema se resuelve más rápido.">
                     <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> Cómo reportar un problema</h3>
@@ -1454,15 +1459,33 @@
             <div class="content-header">
                 <h2>Configuración del Sistema</h2>
             </div>
-            
-            <form id="form-settings-unified" data-on-submit="saveSettings(event)">
-                <div class="masonry-grid">
-                    
-                    <!-- COLUMNA IZQUIERDA -->
-                    <div class="card">
-                        <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Seguridad y Sesiones</h3>
-                        <span class="settings-subtitle" style="display:block; margin-top:-0.5rem; margin-bottom:1rem; color:var(--text-muted); font-size:0.85rem;">Autenticación, tiempos de expiración y acceso corporativo</span>
-                        
+
+            <!-- GENERAL POR GRUPOS (design_handoff_tracker360, fase 7): titulo y descripcion a la izquierda, tarjeta con filas a la derecha -->
+            <form id="form-settings-unified" class="cfg" data-on-submit="saveSettings(event)">
+
+                <div class="cfg-grupo">
+                    <div class="cfg-tit">
+                        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/></svg> Empresa</h3>
+                        <p>Datos que encabezan la hoja A4 de la venta de mostrador</p>
+                    </div>
+                    <div class="cfg-card">
+                        <div class="settings-row">
+                            <label for="cfg-app-name">Nombre de la aplicación</label>
+                            <div class="control-wrap"><input type="text" id="cfg-app-name" maxlength="80" autocomplete="off"></div>
+                        </div>
+                        <div class="settings-row">
+                            <label for="cfg-company-cuit">CUIT de la empresa</label>
+                            <div class="control-wrap"><input type="text" id="cfg-company-cuit" maxlength="20" autocomplete="off"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cfg-grupo">
+                    <div class="cfg-tit">
+                        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Seguridad y Sesiones</h3>
+                        <p>Autenticación, tiempos de expiración y acceso corporativo</p>
+                    </div>
+                    <div class="cfg-card">
                         <div class="settings-row">
                             <label for="cfg-session-timeout-minutes">Expiración de Sesión Activa (minutos)</label>
                             <div class="control-wrap"><input type="number" id="cfg-session-timeout-minutes" min="15"></div>
@@ -1475,257 +1498,271 @@
                             <label for="cfg-lockout-time-minutes">Tiempo de Penalización/Bloqueo (minutos)</label>
                             <div class="control-wrap"><input type="number" id="cfg-lockout-time-minutes" min="1"></div>
                         </div>
-
-                        <div class="settings-group-header" style="margin-top:1.5rem; border-top:1px solid var(--border); padding-top:1rem; font-weight:600;">Autenticación Google OAUTH2</div>
-                        <div class="settings-row" style="border:none; padding-bottom:0; margin-top:0.5rem;">
-                            <div>
-                                <strong style="color:var(--text-primary); font-size:0.88rem;">Google Workspace SSO</strong>
-                                <div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">Acceso institucional unificado</div>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:10px;">
-                                <span id="google-sso-status-badge" class="badge badge-neutral">INACTIVO</span>
-                                <button type="button" class="btn-secondary" data-on-click="editGoogleSSO()" style="padding:0.4rem 0.9rem; font-size:0.78rem;">Editar</button>
-                            </div>
-                        </div>
-
-                        <div class="settings-group-header" style="margin-top:1.5rem; border-top:1px solid var(--border); padding-top:1rem; font-weight:600;">Actualizaciones del Sistema</div>
-                        <div class="settings-row" style="border:none; padding-bottom:0; margin-top:0.5rem;">
-                            <div id="updater-info-text" style="font-size:0.8rem; color:var(--text-muted);">Consultando versiones publicadas...</div>
-                            <span id="updater-status-badge" class="badge badge-neutral">-</span>
-                        </div>
                     </div>
+                </div>
 
-                    <!-- CARD 2: DOCUMENTOS, CORRELATIVOS E IDENTIDAD -->
-                    <div class="card">
-                        <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Numeración</h3>
-                        <span class="settings-subtitle" style="display:block; margin-top:-0.5rem; margin-bottom:1rem; color:var(--text-muted); font-size:0.85rem;">Prefijo de los números de devolución (los demás números los asigna el sistema)</span>
-
+                <div class="cfg-grupo">
+                    <div class="cfg-tit">
+                        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg> Numeración</h3>
+                        <p>Prefijo de los números de devolución (los demás números los asigna el sistema)</p>
+                    </div>
+                    <div class="cfg-card">
                         <div class="settings-row">
                             <label for="cfg-return-number-prefix">Prefijo para Devoluciones</label>
                             <div class="control-wrap"><input type="text" id="cfg-return-number-prefix"></div>
                         </div>
                         <div class="settings-row">
                             <label for="cfg-stock-adjustment-reasons">Conceptos de ajuste de stock (uno por línea)</label>
-                            <div class="control-wrap"><textarea id="cfg-stock-adjustment-reasons" rows="5" style="background:var(--bg-page);"></textarea></div>
+                            <div class="control-wrap"><textarea id="cfg-stock-adjustment-reasons" rows="5"></textarea></div>
                         </div>
-                        
                     </div>
+                </div>
 
-                    <!-- CARD 3: OPERATIVA Y DEPÓSITO -->
-                    <div class="card" data-help="Reglas de Depósito|Reglas de picking, stock negativo, lotes y control de remitos.|Cada opción se aplica al guardar la configuración.">
-                        <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Operativa y Depósito</h3>
-                        <span class="settings-subtitle" style="display:block; margin-top:-0.5rem; margin-bottom:1rem; color:var(--text-muted); font-size:0.85rem;">Reglas de negocio logístico, inventarios y stock</span>
-                        
+                <div class="cfg-grupo" data-help="Reglas de Depósito|Reglas de picking, stock negativo, lotes y control de remitos.|Cada opción se aplica al guardar la configuración.">
+                    <div class="cfg-tit">
+                        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> Operativa y Depósito</h3>
+                        <p>Reglas de negocio logístico, inventarios y stock</p>
+                    </div>
+                    <div class="cfg-card">
                         <div class="settings-row">
                             <label for="cfg-auto-complete-picking">Auto-completar Pedido al finalizar Picking</label>
-                            <div class="control-wrap"><select id="cfg-auto-complete-picking"><option value="true">SÍ</option><option value="false">NO</option></select></div>
+                            <label class="interruptor"><input type="checkbox" id="cfg-auto-complete-picking"><span></span></label>
                         </div>
                         <div class="settings-row">
                             <label for="cfg-allow-negative-stock">Permitir Stock Negativo (Quiebres)</label>
-                            <div class="control-wrap"><select id="cfg-allow-negative-stock"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                            <label class="interruptor"><input type="checkbox" id="cfg-allow-negative-stock"><span></span></label>
                         </div>
                         <div class="settings-row">
-                            <label for="cfg-manual-order-direct-sale">Pedido de venta manual como venta de mostrador</label>
-                            <div class="control-wrap"><select id="cfg-manual-order-direct-sale"><option value="false">NO: entra al picking como cualquier pedido</option><option value="true">SÍ: descuenta el stock al crearse, queda despachado e imprime la hoja A4</option></select></div>
+                            <label for="cfg-manual-order-direct-sale">Pedido de venta manual como venta de mostrador<small>Sí: descuenta el stock al crearse, queda despachado e imprime la hoja A4. No: entra al picking como cualquier pedido.</small></label>
+                            <label class="interruptor"><input type="checkbox" id="cfg-manual-order-direct-sale"><span></span></label>
                         </div>
                         <div class="settings-row">
-                            <label for="cfg-require-mobile-reception">Trabaja con segundo control de stock en remitos</label>
-                            <div class="control-wrap"><select id="cfg-require-mobile-reception"><option value="false">NO: el remito suma al stock al registrarse</option><option value="true">SÍ: el stock entra con el control del depósito</option></select></div>
+                            <label for="cfg-require-mobile-reception">Trabaja con segundo control de stock en remitos<small>Sí: el stock entra con el control del depósito. No: el remito suma al stock al registrarse.</small></label>
+                            <label class="interruptor"><input type="checkbox" id="cfg-require-mobile-reception"><span></span></label>
                         </div>
                         <div class="settings-row">
                             <label for="cfg-enable-lots-expiration">Trabaja con lotes y vencimientos (FEFO)</label>
-                            <div class="control-wrap"><select id="cfg-enable-lots-expiration"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                            <label class="interruptor"><input type="checkbox" id="cfg-enable-lots-expiration"><span></span></label>
                         </div>
                         <div class="settings-row">
                             <label for="cfg-enable-item-dimensions">Trabaja con Pesos y Volúmenes</label>
-                            <div class="control-wrap"><select id="cfg-enable-item-dimensions"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                            <label class="interruptor"><input type="checkbox" id="cfg-enable-item-dimensions"><span></span></label>
                         </div>
                     </div>
+                </div>
 
-                    <!-- CARD 4: MODULOS AVANZADOS -->
-                    <div class="card">
-                        <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Módulos avanzados</h3>
-                        <span class="settings-subtitle" style="display:block; margin-top:-0.5rem; margin-bottom:1rem; color:var(--text-muted); font-size:0.85rem;">Parámetros avanzados de logística, trazabilidad y algoritmos</span>
-
+                <div class="cfg-grupo">
+                    <div class="cfg-tit">
+                        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> Módulos avanzados</h3>
+                        <p>Parámetros avanzados de logística, trazabilidad y algoritmos</p>
+                    </div>
+                    <div class="cfg-card">
                         <div class="settings-row">
                             <label for="cfg-enable-api-idempotency">Evitar pedidos duplicados por la API (doble envío)</label>
-                            <div class="control-wrap"><select id="cfg-enable-api-idempotency"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                            <label class="interruptor"><input type="checkbox" id="cfg-enable-api-idempotency"><span></span></label>
                         </div>
                         <div class="settings-row">
                             <label for="cfg-enable-serial-tracking">Trazabilidad por número de serie</label>
-                            <div class="control-wrap"><select id="cfg-enable-serial-tracking"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                            <label class="interruptor"><input type="checkbox" id="cfg-enable-serial-tracking"><span></span></label>
                         </div>
                         <div class="settings-row">
                             <label for="cfg-enable-putaway-suggestions">Sugerir dónde guardar al recibir</label>
-                            <div class="control-wrap"><select id="cfg-enable-putaway-suggestions"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                            <label class="interruptor"><input type="checkbox" id="cfg-enable-putaway-suggestions"><span></span></label>
                         </div>
                         <div class="settings-row">
                             <label for="cfg-enable-replenishment">Reabastecimiento Automático (Pulmón a Picking)</label>
-                            <div class="control-wrap"><select id="cfg-enable-replenishment"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                            <label class="interruptor"><input type="checkbox" id="cfg-enable-replenishment"><span></span></label>
                         </div>
                         <div class="settings-row">
                             <label for="cfg-enable-wave-picking">Picking por olas (varios pedidos juntos)</label>
-                            <div class="control-wrap"><select id="cfg-enable-wave-picking"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                            <label class="interruptor"><input type="checkbox" id="cfg-enable-wave-picking"><span></span></label>
                         </div>
                         <div class="settings-row">
                             <label for="cfg-enable-optimal-routing">Enrutamiento Óptimo de Caminata en Colectora</label>
-                            <div class="control-wrap"><select id="cfg-enable-optimal-routing"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                            <label class="interruptor"><input type="checkbox" id="cfg-enable-optimal-routing"><span></span></label>
                         </div>
                         <div class="settings-row">
                             <label for="cfg-enable-packing-station">Estación de Empaque (Verificación de Bultos)</label>
-                            <div class="control-wrap"><select id="cfg-enable-packing-station"><option value="false">NO</option><option value="true">SÍ</option></select></div>
+                            <label class="interruptor"><input type="checkbox" id="cfg-enable-packing-station"><span></span></label>
                         </div>
                     </div>
-
-                    <!-- CARD 5: CONFIGURACIÓN DE IMPRESORAS DE ETIQUETAS -->
-                    <div class="card">
-                        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem; flex-wrap:wrap; gap:12px;">
-                            <div>
-                                <h3 class="card-title" style="margin-bottom:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Impresoras y Plantillas ZPL</h3>
-                                <span class="settings-subtitle" style="display:block; margin-top:4px; color:var(--text-muted); font-size:0.85rem;">Colas de impresión y diseño de etiquetas</span>
-                            </div>
-                            <a href="/api/download-agent" class="btn-secondary" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Descargar Agente Windows (.exe)</a>
-                        </div>
-                        
-
-                        <div style="border:1px solid var(--border); border-radius:8px; overflow:hidden;">
-                            <div class="settings-row" style="padding:1rem; border-bottom:1px solid var(--border);">
-                                <div>
-                                    <strong style="color:var(--text-primary); font-size:0.85rem;">Etiqueta de Artículo</strong>
-                                    <div style="font-size:0.75rem; color:var(--text-muted);">Productos individuales (SKU)</div>
-                                </div>
-                                <button type="button" class="btn-secondary" data-on-click="editZPLSettings('zpl-tab-item')" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Editar ZPL</button>
-                            </div>
-                            <div class="settings-row" style="padding:1rem; border-bottom:1px solid var(--border);">
-                                <div>
-                                    <strong style="color:var(--text-primary); font-size:0.85rem;">Etiqueta de Bulto / Envío</strong>
-                                    <div style="font-size:0.75rem; color:var(--text-muted);">Pedidos empaquetados y despachos</div>
-                                </div>
-                                <button type="button" class="btn-secondary" data-on-click="editZPLSettings('zpl-tab-order')" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Editar ZPL</button>
-                            </div>
-                            <div class="settings-row" style="padding:1rem;">
-                                <div>
-                                    <strong style="color:var(--text-primary); font-size:0.85rem;">Etiqueta de Ubicación / Rack</strong>
-                                    <div style="font-size:0.75rem; color:var(--text-muted);">Estanterías y posiciones físicas</div>
-                                </div>
-                                <button type="button" class="btn-secondary" data-on-click="editZPLSettings('zpl-tab-location')" style="padding:0.4rem 0.8rem; font-size:0.75rem;">Editar ZPL</button>
-                            </div>
-                        </div>
-                    </div>
-
-                </div> <!-- Fin Masonry Settings -->
-
-                <div style="margin-top:1rem; margin-bottom:1.5rem;">
-                    <button type="submit" class="btn-submit" style="width:100%; padding:1.1rem; font-size:1rem; justify-content:center;">Guardar Toda la Configuración General</button>
                 </div>
             </form>
 
-            <!-- TARJETA: TIENDAS ONLINE (js/tiendas.js): cada tienda activada aparece en el menu -->
-            <div class="card grid-full-width" id="card-tiendas-online" style="margin-top:1.5rem;" data-help="Tiendas online|Las tiendas con las que trabaja la organización. Vienen desactivadas: al activar una, aparece su módulo en el menú con su logo.|La conexión de cada tienda la instala JZ Tech Solutions: al activarla sin conexión, el sistema indica cómo pedirla.">
-                <div style="margin-bottom:1.2rem;">
-                    <h3 class="card-title" style="margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v2a3 3 0 01-6 0 3 3 0 01-6 0 3 3 0 01-6 0z"/><path d="M5 13v7h14v-7"/></svg> Tiendas online</h3>
-                    <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Activá solo las tiendas con las que trabajás: las demás no aparecen en el menú</span>
+            <!-- Grupos que no pasan por Guardar: cada uno se guarda en su boton, su ventana o su interruptor -->
+            <div class="cfg">
+
+                <div class="cfg-grupo">
+                    <div class="cfg-tit">
+                        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Impresoras y Plantillas ZPL</h3>
+                        <p>Colas de impresión y diseño de etiquetas</p>
+                        <div class="cfg-acc"><a href="/api/download-agent" class="btn-secondary">Descargar Agente Windows (.exe)</a></div>
+                    </div>
+                    <div class="cfg-card">
+                        <div class="settings-row">
+                            <label>Etiqueta de Artículo<small>Productos individuales (SKU)</small></label>
+                            <button type="button" class="btn-secondary" data-on-click="editZPLSettings('zpl-tab-item')">Editar ZPL</button>
+                        </div>
+                        <div class="settings-row">
+                            <label>Etiqueta de Bulto / Envío<small>Pedidos empaquetados y despachos</small></label>
+                            <button type="button" class="btn-secondary" data-on-click="editZPLSettings('zpl-tab-order')">Editar ZPL</button>
+                        </div>
+                        <div class="settings-row">
+                            <label>Etiqueta de Ubicación / Rack<small>Estanterías y posiciones físicas</small></label>
+                            <button type="button" class="btn-secondary" data-on-click="editZPLSettings('zpl-tab-location')">Editar ZPL</button>
+                        </div>
+                    </div>
                 </div>
-                <div id="tiendas-online-lista" class="canales-lista">
-                    <p class="canales-vacio">Cargando tiendas...</p>
+
+                <!-- TIENDAS ONLINE (js/tiendas.js): cada tienda activada aparece en el menu -->
+                <div class="cfg-grupo" id="card-tiendas-online" data-help="Tiendas online|Las tiendas con las que trabaja la organización. Vienen desactivadas: al activar una, aparece su módulo en el menú con su logo.|La conexión de cada tienda la instala JZ Tech Solutions: al activarla sin conexión, el sistema indica cómo pedirla.">
+                    <div class="cfg-tit">
+                        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v2a3 3 0 01-6 0 3 3 0 01-6 0 3 3 0 01-6 0z"/><path d="M5 13v7h14v-7"/></svg> Tiendas online</h3>
+                        <p>Activá solo las tiendas con las que trabajás: las demás no aparecen en el menú</p>
+                    </div>
+                    <div class="cfg-card">
+                        <div id="tiendas-online-lista" class="canales-lista">
+                            <p class="canales-vacio">Cargando tiendas...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CANALES DE VENTA (middleware de Mercado Libre u otra tienda): los mas activos -->
+                <div class="cfg-grupo" id="card-canales-venta" data-help="Canales de venta|Sistemas externos que cargan pedidos en Tracker y reciben el stock (por ejemplo el middleware de Mercado Libre).|Cada canal tiene su propia clave: se muestra una sola vez al crearlo o al rotarla. Se carga en la pagina del middleware junto con la direccion de Tracker.">
+                    <div class="cfg-tit">
+                        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h10l-3-3M20 17H10l3 3"/></svg> Canales de venta</h3>
+                        <p>Los más activos de los últimos 7 días. Sistemas externos que cargan pedidos y reciben el stock, como el middleware de Mercado Libre</p>
+                        <div class="cfg-acc">
+                            <button type="button" class="btn-secondary" id="btn-ver-canales" data-on-click="abrirTodosCanales()">Ver canales</button>
+                            <button type="button" class="btn-submit" data-on-click="abrirCanalVenta()">+ Nuevo canal</button>
+                        </div>
+                    </div>
+                    <div class="cfg-card">
+                        <div id="canales-venta-destacados" class="canales-lista">
+                            <p class="canales-vacio">Cargando canales...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ESCANER FLEX (js/canales.js): empacar sin despachar; despacha el Escaner al cerrar la ola -->
+                <div class="cfg-grupo" id="card-escaner-flex" data-help="Escáner Flex|Para trabajar con el Escáner Flex (carga de envíos por olas). Activado, Empacar imprime la etiqueta y el pedido queda Empacado esperando la carga; pasa a Despachado cuando el Escáner cierra la ola donde se cargó.|La clave se carga en el Escáner (Conexión con Tracker) junto con la dirección de Tracker. Se muestra una sola vez.">
+                    <div class="cfg-tit">
+                        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 8v8M11 8v8M15 8v8"/></svg> Escáner Flex</h3>
+                        <p>Empacar imprime la etiqueta y el pedido espera la carga: lo despacha el Escáner al cerrar la ola</p>
+                    </div>
+                    <div class="cfg-card">
+                        <div class="settings-row">
+                            <label for="escaner-activo">Despacho desde el Escáner Flex<small id="escaner-estado"></small></label>
+                            <label class="interruptor"><input type="checkbox" id="escaner-activo" data-on-change="activarEscaner(this)"><span></span></label>
+                        </div>
+                        <div class="settings-row">
+                            <label>Clave del Escáner<small>Se carga en el Escáner (Conexión con Tracker). Se muestra una sola vez.</small></label>
+                            <button type="button" class="btn-secondary" data-on-click="generarClaveEscaner()">Generar clave</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cfg-grupo">
+                    <div class="cfg-tit">
+                        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg> Autenticación Google OAUTH2</h3>
+                        <p>Acceso institucional unificado</p>
+                    </div>
+                    <div class="cfg-card">
+                        <div class="settings-row">
+                            <label>Google Workspace SSO</label>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <span id="google-sso-status-badge" class="badge badge-neutral">INACTIVO</span>
+                                <button type="button" class="btn-secondary" data-on-click="editGoogleSSO()">Editar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cfg-grupo">
+                    <div class="cfg-tit">
+                        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Actualizaciones del Sistema</h3>
+                        <p>El panel avisa si hay una versión nueva publicada; la actualización se hace en el servidor</p>
+                    </div>
+                    <div class="cfg-card">
+                        <div class="settings-row">
+                            <div id="updater-info-text" class="cfg-texto">Consultando versiones publicadas...</div>
+                            <span id="updater-status-badge" class="badge badge-neutral">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- EVENTOS DEL SISTEMA (ultimos registros de la auditoria general) -->
+                <div class="cfg-grupo" id="card-eventos-sistema" data-help="Eventos del sistema|Los últimos 6 registros de la auditoría general, con su resultado.|ERROR marca ingresos fallidos, accesos no autorizados y alertas de seguridad. El registro completo está en Auditoría.">
+                    <div class="cfg-tit">
+                        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Eventos del sistema</h3>
+                        <p>Los últimos 6 registros de la auditoría, con su resultado</p>
+                        <div class="cfg-acc">
+                            <button type="button" class="btn-secondary" data-on-click="cargarEventosSistema()">Actualizar</button>
+                            <button type="button" class="btn-secondary" data-on-click="switchView('section-logs')">Ver auditoría completa</button>
+                        </div>
+                    </div>
+                    <div class="cfg-card">
+                        <div id="eventos-sistema-lista" class="canales-lista">
+                            <p class="canales-vacio">Cargando eventos...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cfg-grupo">
+                    <div class="cfg-tit">
+                        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> API para desarrolladores</h3>
+                        <p>Documentación de los endpoints y clave para que otro sistema consulte Tracker360</p>
+                    </div>
+                    <div class="cfg-card">
+                        <div class="settings-row">
+                            <label>Documentación de todos los endpoints<small>Swagger y ReDoc, solo para el administrador</small></label>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <a href="/docs" target="_blank" rel="noopener" class="btn-secondary">Swagger UI</a>
+                                <a href="/redoc" target="_blank" rel="noopener" class="btn-secondary">ReDoc</a>
+                            </div>
+                        </div>
+                        <div class="settings-row">
+                            <label>API de canales de venta<small>Documentación pública (<span class="font-mono">/api/v1/docs</span>), para pasarle a quien integra una tienda o un sistema</small></label>
+                            <a href="/api/v1/docs" target="_blank" rel="noopener" class="btn-secondary" title="Pública: se puede pasar a quien integra un canal de venta">API de canales (pública)</a>
+                        </div>
+                        <div class="settings-row">
+                            <label>Clave para que otro sistema consulte Tracker360<small>Generar una clave nueva invalida la anterior</small></label>
+                            <button type="button" class="btn-secondary" data-on-click="generateApiKey()">Generar Clave API</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- AUDITORÍA DE WEBHOOKS -->
+                <div class="cfg-grupo">
+                    <div class="cfg-tit">
+                        <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> Registro y Auditoría de Webhooks</h3>
+                        <p>Historial de eventos enviados y consola de reintentos manuales</p>
+                        <div class="cfg-acc"><button type="button" class="btn-secondary" data-on-click="loadWebhookLogs()">Actualizar Registros</button></div>
+                    </div>
+                    <div class="cfg-card" style="overflow-x:auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Fecha y Hora</th>
+                                    <th>Canal / App</th>
+                                    <th>Evento</th>
+                                    <th>URL Destino</th>
+                                    <th>Estado Respuesta</th>
+                                    <th style="text-align:right;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="webhookLogsTableBody">
+                                <tr><td colspan="6" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Cargando registros de webhooks...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
-            <!-- TARJETA: CANALES DE VENTA (middleware de Mercado Libre u otra tienda): los mas activos -->
-            <div class="card grid-full-width" id="card-canales-venta" style="margin-top:1.5rem;" data-help="Canales de venta|Sistemas externos que cargan pedidos en Tracker y reciben el stock (por ejemplo el middleware de Mercado Libre).|Cada canal tiene su propia clave: se muestra una sola vez al crearlo o al rotarla. Se carga en la pagina del middleware junto con la direccion de Tracker.">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem; flex-wrap:wrap; gap:12px;">
-                    <div>
-                        <h3 class="card-title" style="margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h10l-3-3M20 17H10l3 3"/></svg> Canales de venta</h3>
-                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Los más activos de los últimos 7 días. Sistemas externos que cargan pedidos y reciben el stock, como el middleware de Mercado Libre</span>
-                    </div>
-                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                        <button type="button" class="btn-secondary" id="btn-ver-canales" data-on-click="abrirTodosCanales()" style="font-size:0.8rem;">Ver canales</button>
-                        <button type="button" class="btn-submit" data-on-click="abrirCanalVenta()" style="font-size:0.8rem;">+ Nuevo canal</button>
-                    </div>
-                </div>
-                <div id="canales-venta-destacados" class="canales-lista">
-                    <p class="canales-vacio">Cargando canales...</p>
-                </div>
+            <div class="cfg-barra">
+                <button type="button" class="btn-secondary" data-on-click="loadSettings()">Descartar</button>
+                <button type="submit" form="form-settings-unified" class="btn-submit">Guardar configuración</button>
             </div>
-
-            <!-- TARJETA: ESCANER FLEX (js/canales.js): empacar sin despachar; despacha el Escaner al cerrar la ola -->
-            <div class="card grid-full-width" id="card-escaner-flex" style="margin-top:1.5rem;" data-help="Escáner Flex|Para trabajar con el Escáner Flex (carga de envíos por olas). Activado, Empacar imprime la etiqueta y el pedido queda Empacado esperando la carga; pasa a Despachado cuando el Escáner cierra la ola donde se cargó.|La clave se carga en el Escáner (Conexión con Tracker) junto con la dirección de Tracker. Se muestra una sola vez.">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:12px;">
-                    <div>
-                        <h3 class="card-title" style="margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2M7 8v8M11 8v8M15 8v8"/></svg> Escáner Flex</h3>
-                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Empacar imprime la etiqueta y el pedido espera la carga: lo despacha el Escáner al cerrar la ola</span>
-                    </div>
-                    <button type="button" class="btn-secondary" data-on-click="generarClaveEscaner()" style="font-size:0.8rem;">Generar clave</button>
-                </div>
-                <label style="display:flex; gap:8px; align-items:center; cursor:pointer;">
-                    <input type="checkbox" id="escaner-activo" data-on-change="activarEscaner(this)"> Despacho desde el Escáner Flex
-                </label>
-                <p id="escaner-estado" style="font-size:0.85rem; color:var(--text-secondary); margin-top:0.6rem;"></p>
-            </div>
-
-            <!-- TARJETA: EVENTOS DEL SISTEMA (ultimos registros de la auditoria general) -->
-            <div class="card grid-full-width" id="card-eventos-sistema" style="margin-top:1.5rem;" data-help="Eventos del sistema|Los últimos 6 registros de la auditoría general, con su resultado.|ERROR marca ingresos fallidos, accesos no autorizados y alertas de seguridad. El registro completo está en Auditoría.">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.2rem; flex-wrap:wrap; gap:12px;">
-                    <div>
-                        <h3 class="card-title" style="margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Eventos del sistema</h3>
-                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Los últimos 6 registros de la auditoría, con su resultado</span>
-                    </div>
-                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                        <button type="button" class="btn-secondary" data-on-click="cargarEventosSistema()" style="font-size:0.8rem;">Actualizar</button>
-                        <button type="button" class="btn-secondary" data-on-click="switchView('section-logs')" style="font-size:0.8rem;">Ver auditoría completa</button>
-                    </div>
-                </div>
-                <div id="eventos-sistema-lista" class="canales-lista">
-                    <p class="canales-vacio">Cargando eventos...</p>
-                </div>
-            </div>
-
-            <div class="card grid-full-width" style="margin-top:1.5rem;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:12px;">
-                    <div>
-                        <h3 class="card-title" style="color:var(--success); margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> API para desarrolladores</h3>
-                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Documentación de todos los endpoints (Swagger y ReDoc, solo para el administrador), documentación pública de la API de canales de venta (<span class="font-mono">/api/v1/docs</span>, para pasarle a quien integra una tienda o un sistema) y clave para que otro sistema consulte Tracker360. Generar una clave nueva invalida la anterior.</span>
-                    </div>
-                    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-                        <a href="/docs" target="_blank" rel="noopener" class="btn-secondary" style="font-size:0.8rem;">Swagger UI</a>
-                        <a href="/redoc" target="_blank" rel="noopener" class="btn-secondary" style="font-size:0.8rem;">ReDoc</a>
-                        <a href="/api/v1/docs" target="_blank" rel="noopener" class="btn-secondary" style="font-size:0.8rem;" title="Pública: se puede pasar a quien integra un canal de venta">API de canales (pública)</a>
-                        <button type="button" class="btn-secondary" data-on-click="generateApiKey()" style="font-size:0.8rem;">Generar Clave API</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TARJETA: AUDITORÍA DE WEBHOOKS -->
-            <div class="card grid-full-width" style="margin-top:1.5rem;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; flex-wrap:wrap; gap:12px;">
-                    <div>
-                        <h3 class="card-title" style="margin:0; border:none; padding-bottom:0;"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg> Registro y Auditoría de Webhooks</h3>
-                        <span class="settings-subtitle" style="display:block; margin-top:4px; font-size:0.85rem; color:var(--text-secondary);">Historial de eventos enviados y consola de reintentos manuales</span>
-                    </div>
-                    <button type="button" class="btn-secondary" data-on-click="loadWebhookLogs()" style="font-size:0.8rem;">
-                        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-                        Actualizar Registros
-                    </button>
-                </div>
-                <div style="overflow-x:auto;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Fecha y Hora</th>
-                                <th>Canal / App</th>
-                                <th>Evento</th>
-                                <th>URL Destino</th>
-                                <th>Estado Respuesta</th>
-                                <th style="text-align:right;">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="webhookLogsTableBody">
-                            <tr><td colspan="6" style="text-align:center; padding:1.5rem; color:var(--text-muted);">Cargando registros de webhooks...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
         </div>
 
         <footer class="app-footer">
@@ -2610,9 +2647,9 @@
     <!-- SCRIPTS DEL SISTEMA -->
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261007_2"></script>
-    <script src="js/admin-core.js?v=20261107_2"></script>
-    <script src="js/ayuda.js?v=20261112_4"></script>
-    <script src="js/users.js?v=20261001_3"></script>
+    <script src="js/admin-core.js?v=20261112_1"></script>
+    <script src="js/ayuda.js?v=20261112_5"></script>
+    <script src="js/users.js?v=20261112_1"></script>
     <script src="js/entities.js?v=20261003_1"></script>
     <script src="js/items.js?v=20261112_1"></script>
     <script src="js/warehouse.js?v=20261112_1"></script>
@@ -2622,9 +2659,9 @@
     <script src="js/compras.js?v=20261112_1"></script>
     <script src="js/ajustes.js?v=20261031_1"></script>
     <script src="js/reports.js?v=20261007_2"></script>
-    <script src="js/settings.js?v=20261031_1"></script>
+    <script src="js/settings.js?v=20261112_1"></script>
     <script src="js/canales.js?v=20261029_1"></script>
-    <script src="js/tiendas.js?v=20261029_1"></script>
+    <script src="js/tiendas.js?v=20261112_1"></script>
     <script src="js/admin-init.js?v=20261107_2"></script>
     
     <script src="js/admin-pagina.js?v=20261107_2"></script>

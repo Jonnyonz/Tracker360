@@ -48,6 +48,7 @@ async function loadSettings() {
             const el = document.getElementById(id);
             if (el) {
                 const strVal = (val !== undefined && val !== null) ? String(val) : '';
+                if (el.type === 'checkbox') { el.checked = strVal === 'true'; return; }   // interruptores si/no
                 el.value = strVal;
                 if (el.tagName === 'TEXTAREA') {
                     el.textContent = strVal;
@@ -55,6 +56,10 @@ async function loadSettings() {
             }
         };
 
+
+        // Empresa (encabezado de la hoja A4 del pedido)
+        setVal('cfg-app-name', data.app_name || 'Tracker360');
+        setVal('cfg-company-cuit', data.company_cuit || '');
 
         // Seguridad y Sesiones
         setVal('cfg-session-timeout-minutes', data.session_timeout_minutes || '240');
@@ -87,6 +92,8 @@ async function loadSettings() {
         const ssoEnabled = (data.enable_google_sso === 'true');
         const ssoCheck = document.getElementById('cfg-enable-google-sso');
         if (ssoCheck) ssoCheck.checked = ssoEnabled;
+        const ssoBadge = document.getElementById('google-sso-status-badge');
+        if (ssoBadge) { ssoBadge.textContent = ssoEnabled ? 'ACTIVO' : 'INACTIVO'; ssoBadge.className = 'badge ' + (ssoEnabled ? 'badge-success' : 'badge-neutral'); }
         
         const cbUrl = document.getElementById('cfg-google-callback-url');
         if (cbUrl) {
@@ -131,6 +138,7 @@ async function saveSettings(e) {
     if (e) e.preventDefault();
     const getVal = (id) => {
         const el = document.getElementById(id);
+        if (el && el.type === 'checkbox') return el.checked ? 'true' : 'false';
         return el ? el.value.trim() : '';
     };
 
@@ -138,6 +146,8 @@ async function saveSettings(e) {
     const enable_google_sso = ssoEl ? (ssoEl.checked ? 'true' : 'false') : 'false';
 
     const payload = {
+        app_name: getVal('cfg-app-name'),
+        company_cuit: getVal('cfg-company-cuit'),
         session_timeout_minutes: getVal('cfg-session-timeout-minutes'),
         max_login_attempts: getVal('cfg-max-login-attempts'),
         lockout_time_minutes: getVal('cfg-lockout-time-minutes'),
@@ -271,6 +281,14 @@ async function checkSystemUpdates() {
     }
 }
 
+// Version instalada en Soporte: la informa el OpenAPI publico (la consulta de actualizaciones es solo del admin).
+async function cargarVersionSoporte() {
+    const el = document.getElementById('soporte-version');
+    if (!el) return;
+    try { el.textContent = 'v' + (await (await fetch('/api/v1/openapi.json')).json()).info.version; }
+    catch (e) { el.textContent = 'no disponible'; }
+}
+
 // === GOOGLE OAUTH2 MODAL ===
 function editGoogleSSO() {
     if (typeof openModal === 'function') {
@@ -333,6 +351,7 @@ window.saveSettings = saveSettings;
 window.loadWebhookLogs = loadWebhookLogs;
 window.retryWebhook = retryWebhook;
 window.checkSystemUpdates = checkSystemUpdates;
+window.cargarVersionSoporte = cargarVersionSoporte;
 window.editGoogleSSO = editGoogleSSO;
 window.saveGoogleSSOModal = saveGoogleSSOModal;
 window.toggleGoogleFields = toggleGoogleFields;

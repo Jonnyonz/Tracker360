@@ -2,6 +2,27 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.16.0 — 2026-11-12
+
+### Cambiado
+- **Rediseño del panel, fase 7** (`design_handoff_tracker360`): Configuración. Solo frontend, sin endpoints nuevos.
+  - **General por grupos:** cada grupo lleva el título y la descripción a la izquierda y una tarjeta con sus filas a
+    la derecha: Empresa, Seguridad y Sesiones, Numeración, Operativa y Depósito, Módulos avanzados, Impresoras y
+    Plantillas ZPL, Tiendas online, Canales de venta, Escáner Flex, Google, Actualizaciones, Eventos del sistema,
+    API para desarrolladores y Webhooks.
+  - **Interruptores:** las opciones de sí/no dejan de ser listas desplegables.
+  - **Barra fija abajo:** **Descartar** (vuelve a lo guardado) y **Guardar configuración**.
+  - **Usuarios:** aviso arriba cuando hay solicitudes de acceso por aprobar; el rol SUPERVISOR se ve en ámbar.
+  - **Soporte:** muestra la versión instalada.
+  - **Tiendas online:** la tienda activada y con conexión lleva la marca Conectada.
+
+### Agregado
+- **Empresa:** el nombre de la aplicación y el CUIT que encabezan la hoja A4 de la venta de mostrador ahora se
+  editan desde Configuración (antes solo por base de datos).
+
+### Corregido
+- El estado de Google en Configuración decía siempre INACTIVO; ahora refleja si el ingreso con Google está activo.
+
 ## 1.15.0 — 2026-11-12
 
 ### Cambiado

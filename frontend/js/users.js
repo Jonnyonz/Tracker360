@@ -20,6 +20,13 @@ async function loadUsers() {
             countBadge.className = pendingUsers.length > 0 ? 'badge badge-warning' : 'badge badge-neutral';
         }
 
+        const banner = document.getElementById('users-banner');
+        if (banner) {
+            const n = pendingUsers.length;
+            banner.hidden = n === 0;
+            document.getElementById('users-banner-texto').textContent = n === 1 ? '1 solicitud de acceso espera aprobación.' : `${n} solicitudes de acceso esperan aprobación.`;
+        }
+
         if (activeUsers.length === 0) {
             tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:1.5rem;">Sin usuarios activos registrados.</td></tr>';
         } else {
@@ -28,7 +35,7 @@ async function loadUsers() {
                     <td style="font-weight:bold; color:var(--accent);">${escapeHTML(u.username)}</td>
                     <td>${escapeHTML(u.full_name)}</td>
                     <td><small>${escapeHTML(u.email || '-')}</small></td>
-                    <td><span class="badge ${u.role === 'ADMIN' ? 'badge-info' : 'badge-neutral'}">${escapeHTML(u.role)}</span></td>
+                    <td><span class="badge ${u.role === 'ADMIN' ? 'badge-info' : u.role === 'SUPERVISOR' ? 'badge-warning' : 'badge-neutral'}">${escapeHTML(u.role)}</span></td>
                     <td><small>${escapeHTML(u.branch_name || 'Todas')}</small></td>
                     <td><small>${escapeHTML(u.sector_name || 'Todos')}</small></td>
                     <td><span class="badge badge-success">ACTIVO</span></td>

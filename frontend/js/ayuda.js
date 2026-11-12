@@ -82,7 +82,7 @@ const AYUDA_SECCIONES = {
     'section-settings': {
         titulo: 'Configuración',
         resumen: 'Opciones del sistema: seguridad, numeración, operativa, impresoras, tiendas online, canales de venta y actualizaciones.',
-        pasos: ['Guardá los cambios con el botón de abajo del formulario.', 'Tiendas online: activá solo las tiendas con las que trabajás; cada una suma su módulo al menú (se guarda al tocar el interruptor).','Canales de venta: la tarjeta muestra los más activos; "Ver canales" abre todos.', 'Cada canal tiene "Configuración" y "Eventos" (sus últimos pedidos y avisos).', 'Eventos del sistema: los últimos 6 registros de la auditoría, con ERROR o APROBADO.'],
+        pasos: ['Las opciones están por grupos; los sí/no son interruptores.', 'Guardá los cambios con "Guardar configuración", en la barra de abajo; Descartar vuelve a lo guardado.', 'Tiendas online: activá solo las tiendas con las que trabajás; cada una suma su módulo al menú (se guarda al tocar el interruptor).','Canales de venta: la tarjeta muestra los más activos; "Ver canales" abre todos.', 'Cada canal tiene "Configuración" y "Eventos" (sus últimos pedidos y avisos).', 'Eventos del sistema: los últimos 6 registros de la auditoría, con ERROR o APROBADO.'],
         ancla: 'configuracion',
     },
     'section-soporte': {

@@ -75,7 +75,7 @@ function pintarTiendasConfig() {
             <div class="tienda-linea-datos">
                 <span class="tienda-logo">${logoTienda(t.code)}</span>
                 <div class="canal-linea-datos">
-                    <strong>Trabaja con ${escapeHTML(t.name)}${tiendaProximamente(t.code) ? ' <span class="badge badge-neutral">Próximamente</span>' : ''}</strong>
+                    <strong>Trabaja con ${escapeHTML(t.name)}${tiendaProximamente(t.code) ? ' <span class="badge badge-neutral">Próximamente</span>' : t.enabled && t.channels ? ' <span class="badge badge-success">Conectada</span>' : ''}</strong>
                     <small>${escapeHTML(estadoTienda(t))}</small>
                 </div>
             </div>

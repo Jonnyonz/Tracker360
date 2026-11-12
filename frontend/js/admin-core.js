@@ -180,6 +180,7 @@ function switchView(secId, btnElement = null) {
     if(secId === 'section-ajustes' && typeof loadAjustes === 'function') loadAjustes();
     if(secId === 'section-logs') loadLogs();
     if(secId === 'section-settings' && typeof loadSettings === 'function') loadSettings();
+    if(secId === 'section-soporte' && typeof cargarVersionSoporte === 'function') cargarVersionSoporte();
     
     if(secId === 'section-kardex' && typeof window.loadKardexSelectors === 'function') window.loadKardexSelectors();
     if(secId === 'section-rep-stock' && typeof window.loadReportStockSelectors === 'function') window.loadReportStockSelectors();
