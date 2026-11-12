@@ -2,6 +2,22 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.13.0 — 2026-11-12
+
+### Cambiado
+- **Rediseño del panel, fase 4** (`design_handoff_tracker360`): Artículos. Solo frontend, sin endpoints nuevos.
+  - **Lista + ficha:** la búsqueda de siempre (mismos filtros, por páginas) llena la lista de la izquierda con SKU,
+    descripción, stock y tipo; al elegir un artículo se ve su ficha a la derecha, sin abrir ventanas.
+  - **Ficha del artículo:** SKU, tipo, descripción y categoría; stock total, cantidad de ubicaciones con stock y de
+    ubicaciones asignadas; tabla de stock por ubicación (sucursal, sector, ubicación y cantidad); datos del artículo
+    o, si es combo, sus componentes; y los movimientos de los últimos 30 días.
+  - **Acciones en la ficha:** Editar, Imprimir etiqueta (abre la impresión con el SKU ya cargado) y Ver traza (abre
+    Reportes, Traza de Artículos, con el SKU y el reporte generado). El supervisor solo ve Ver traza.
+  - Pestañas **Todos, Simples, Combos y Sin stock** como atajos de los filtros Tipo y Stock, y campo **Orden** en la
+    búsqueda (reemplaza a los títulos de columna que se tocaban para ordenar).
+  - El botón "Stock" y su ventana de desglose se reemplazan por la tabla de la ficha.
+  - No se muestran EAN, lote, condición, reservado ni cuarentena por artículo: la API todavía no los informa.
+
 ## 1.12.0 — 2026-11-12
 
 ### Cambiado

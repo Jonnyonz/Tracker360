@@ -8,7 +8,7 @@
     
     <!-- CSS Separado y Limpio -->
     <link rel="stylesheet" href="/jz/suite.css?v=0.2.0">
-    <link rel="stylesheet" href="css/admin.css?v=20261112">
+    <link rel="stylesheet" href="css/admin.css?v=20261112_2">
 </head>
 <body>
     <div id="toast-container" class="toast-container"></div>
@@ -356,6 +356,7 @@
                     <div class="form-group"><label for="f-art-ubicacion">Ubicación asignada</label><input type="text" id="f-art-ubicacion" placeholder="Código" autocomplete="off"></div>
                     <div class="form-group"><label for="f-art-combo">Tipo</label><select id="f-art-combo"><option value="">Todos</option><option value="NO">Simple</option><option value="SI">Combo</option></select></div>
                     <div class="form-group"><label for="f-art-stock">Stock</label><select id="f-art-stock"><option value="">Todos</option><option value="CON">Con stock</option><option value="SIN">Sin stock</option><option value="NEGATIVO">Negativo</option></select></div>
+                    <div class="form-group"><label for="f-art-orden">Orden</label><select id="f-art-orden" data-on-change="ordenarArticulos(this.value)"><option value="sku:ASC">SKU (A a Z)</option><option value="sku:DESC">SKU (Z a A)</option><option value="description:ASC">Descripción</option><option value="total_stock:DESC">Mayor stock</option><option value="total_stock:ASC">Menor stock</option></select></div>
                     <div class="busqueda-acciones">
                         <button type="submit" id="btn-search-items" class="btn-submit">Buscar</button>
                         <button type="button" class="btn-secondary" data-on-click="limpiarBusquedaArticulos()">Limpiar</button>
@@ -364,24 +365,17 @@
                 <p id="articulos-resumen" class="busqueda-resumen" hidden></p>
             </div>
 
-            <div class="card" data-help="Catálogo de Productos|Listado maestro de productos con soporte para Artículos Combo (Kit/BOM).|Permite definir dimensiones, pesos y ubicaciones fijas de extracción.">
-                <table>
-                    <thead>
-                        <tr>
-                            <th data-on-click="sortItems('sku')" style="cursor:pointer;">SKU <span id="sort-sku" class="orden-marca">↑</span></th>
-                            <th data-on-click="sortItems('description')" style="cursor:pointer;">Descripción <span id="sort-description" class="orden-marca"></span></th>
-                            <th>Ubicaciones Asignadas</th>
-                            <th data-on-click="sortItems('total_stock')" style="cursor:pointer;">Stock Total <span id="sort-total_stock" class="orden-marca"></span></th>
-                            <th>Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-items-body"><tr><td colspan="5" class="busqueda-vacia">Buscá por SKU, descripción, categoría, ubicación, tipo o stock.</td></tr></tbody>
-                </table>
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:1rem;">
-                    <button class="btn-secondary" data-on-click="prevItemPage()">« Anterior</button>
-                    <span id="items-page-info" style="font-size:0.85rem; font-weight:600;"></span>
-                    <button class="btn-secondary" data-on-click="nextItemPage()">Siguiente »</button>
+            <div class="dos" data-help="Catálogo de Productos|Lista de artículos a la izquierda y la ficha del elegido a la derecha: stock por ubicación, datos o componentes del combo y últimos movimientos.|Editar permite definir dimensiones, pesos, combos (Kit/BOM) y ubicaciones fijas de extracción.">
+                <div class="lista">
+                    <div class="band-tabs" id="art-tabs"></div>
+                    <div class="scroll" id="art-lista"><div class="vacio">Buscá por SKU, descripción, categoría, ubicación, tipo o stock.</div></div>
+                    <div class="art-pag">
+                        <button type="button" class="btn-secondary" data-on-click="prevItemPage()">« Anterior</button>
+                        <span id="items-page-info"></span>
+                        <button type="button" class="btn-secondary" data-on-click="nextItemPage()">Siguiente »</button>
+                    </div>
                 </div>
+                <div class="det" id="art-det"></div>
             </div>
         </div>
 
@@ -2638,10 +2632,10 @@
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261007_2"></script>
     <script src="js/admin-core.js?v=20261107_2"></script>
-    <script src="js/ayuda.js?v=20261112_1"></script>
+    <script src="js/ayuda.js?v=20261112_2"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261003_1"></script>
-    <script src="js/items.js?v=20261007_1"></script>
+    <script src="js/items.js?v=20261112_1"></script>
     <script src="js/warehouse.js?v=20261007_2"></script>
     <script src="js/operations.js?v=20261112_1"></script>
     <script src="js/inicio.js?v=20261112_1"></script>

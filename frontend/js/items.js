@@ -26,20 +26,12 @@ function buscarArticulos(event) {
 function limpiarBusquedaArticulos() {
     document.getElementById('form-buscar-articulos')?.reset();
     busquedaArticulos = null;
+    itemsOrden = { col: 'sku', dir: 'ASC' };
     handleSearchItems(1);
 }
 
 function prevItemPage() { if (busquedaArticulos && itemsCurrentPage > 1) handleSearchItems(itemsCurrentPage - 1); }
 function nextItemPage() { if (busquedaArticulos && itemsCurrentPage < itemsTotalPages) handleSearchItems(itemsCurrentPage + 1); }
-
-function sortItems(col) {
-    itemsOrden = { col, dir: itemsOrden.col === col && itemsOrden.dir === 'ASC' ? 'DESC' : 'ASC' };
-    ['sku', 'description', 'total_stock'].forEach(c => {
-        const marca = document.getElementById(`sort-${c}`);
-        if (marca) marca.textContent = c === itemsOrden.col ? (itemsOrden.dir === 'ASC' ? '↑' : '↓') : '';
-    });
-    if (busquedaArticulos) handleSearchItems(1);
-}
 
 function resumenArticulos(texto) {
     const p = document.getElementById('articulos-resumen');
@@ -48,76 +40,145 @@ function resumenArticulos(texto) {
     p.hidden = !texto;
 }
 
+// === LISTA + FICHA (design_handoff_tracker360, fase 4) ===
+// La busqueda de siempre (mismos filtros, por paginas) pinta la lista de la izquierda; al elegir un articulo se arma
+// su ficha a la derecha con /stock-breakdown, /combo y los movimientos de los ultimos 30 dias de /api/admin/stock/kardex.
+// La API no informa EAN, lote, condicion ni reservado: la ficha no los muestra.
+const ART_TABS = [['Todos', '', ''], ['Simples', 'NO', ''], ['Combos', 'SI', ''], ['Sin stock', '', 'SIN']];   // etiqueta, filtro Tipo, filtro Stock
+let artFilas = [], artSel = null;
+
+function ordenarArticulos(valor) {
+    const [col, dir] = valor.split(':');
+    itemsOrden = { col, dir };
+    if (busquedaArticulos) handleSearchItems(1);
+}
+// Las pestañas son los filtros Tipo y Stock del formulario: los fijan y buscan.
+function artTab(i) {
+    document.getElementById('f-art-combo').value = ART_TABS[i][1];
+    document.getElementById('f-art-stock').value = ART_TABS[i][2];
+    buscarArticulos();
+}
+function artElegir(sku) { artSel = sku; pintarArticulos(); }
+
 async function handleSearchItems(page = 1) {
     itemsCurrentPage = page;
-    const tbody = document.getElementById('table-items-body');
-    if (!tbody) return;
+    const lista = document.getElementById('art-lista');
+    if (!lista) return;
     const info = document.getElementById('items-page-info');
     if (!busquedaArticulos) {
-        tbody.innerHTML = '<tr><td colspan="5" class="busqueda-vacia">Buscá por SKU, descripción, categoría, ubicación, tipo o stock.</td></tr>';
+        artFilas = [];
         if (info) info.textContent = '';
         resumenArticulos('');
+        pintarArticulos('Buscá por SKU, descripción, categoría, ubicación, tipo o stock.');
         return;
     }
-
-    tbody.innerHTML = '<tr><td colspan="5" class="busqueda-vacia">Buscando...</td></tr>';
+    lista.innerHTML = '<div class="vacio">Buscando…</div>';
     const params = new URLSearchParams({ page, limit: ARTICULOS_POR_PAGINA, sort_by: itemsOrden.col, sort_order: itemsOrden.dir });
     Object.entries(busquedaArticulos).forEach(([k, v]) => { if (v) params.set(k, v); });
-    const url = `/api/admin/items?${params.toString()}`;
-
     try {
-        const data = await fetchAPI(url);
-        const items = Array.isArray(data) ? data : (data.items || data.rows || data.data || []);
+        const data = await fetchAPI(`/api/admin/items?${params.toString()}`);
+        artFilas = (data && data.items) || [];
         itemsTotalPages = (data && data.total_pages) || 1;
         if (info) info.textContent = `Página ${(data && data.page) || page} de ${itemsTotalPages}`;
         const total = (data && data.total_count) || 0;
         resumenArticulos(`${total} artículo${total === 1 ? '' : 's'}.`);
-
-        if (!items || items.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="busqueda-vacia">No hay artículos que coincidan con la búsqueda.</td></tr>';
-            return;
-        }
-
         itemsCache = {};
-        items.forEach(item => {
-            const key = item.sku || item.code;
-            if (key) itemsCache[key] = item;
-        });
-
-        tbody.innerHTML = items.map(item => {
-            const itemSku = escapeHTML(item.sku || item.code || '-');
-            const itemDesc = escapeHTML(item.description || item.name || '-');
-            const itemLoc = escapeHTML(item.locations_summary || item.locations || item.location_code || 'Sin asignación');
-            const stockTotal = item.total_stock || 0;
-            const isCombo = item.is_combo;
-
-            const stockColor = stockTotal > 0 ? 'var(--success-green)' : (stockTotal < 0 ? 'var(--error-red)' : 'var(--text-muted)');
-            const comboBadge = isCombo ? `<span class="badge badge-info" style="margin-left:6px; font-size:0.7rem;">COMBO</span>` : '';
-
-            return `
-                <tr>
-                    <td style="font-weight:600; color:var(--primary-blue);"><code>${itemSku}</code>${comboBadge}</td>
-                    <td>${itemDesc}</td>
-                    <td><span class="badge badge-neutral">${itemLoc}</span></td>
-                    <td style="font-weight:bold; color:${stockColor}; font-size:1.1rem;">${stockTotal}</td>
-                    <td>
-                        <div style="display:flex; gap:6px;">
-                            <button type="button" class="btn-secondary" style="padding:0.3rem 0.6rem; font-size:0.75rem;" data-on-click="openStockBreakdownModal(${jsArg(item.sku || item.code || '-')})">
-                                Stock
-                            </button>
-                            <button type="button" class="btn-submit" style="width:auto; margin:0; padding:0.3rem 0.6rem; font-size:0.75rem;" data-on-click="openEditItemModal(${jsArg(item.sku || item.code || '-')})">
-                                Editar
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-
+        artFilas.forEach(a => { itemsCache[a.sku] = a; });
+        pintarArticulos();
     } catch (err) {
-        console.error("Error al obtener artículos:", err);
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1.5rem; color:#dc3545;">Error de conexión al cargar artículos.</td></tr>';
+        lista.innerHTML = `<div class="vacio" style="color:var(--dg);">Error al cargar artículos: ${escapeHTML(err.message)}</div>`;
     }
+}
+
+function pintarArticulos(vacioTexto) {
+    const b = busquedaArticulos;
+    document.getElementById('art-tabs').innerHTML = ART_TABS.map((t, i) =>
+        `<button type="button" class="${b && b.combo === t[1] && b.stock === t[2] ? 'on' : ''}" data-on-click="artTab(${i})">${t[0]}</button>`).join('');
+    if (!artFilas.some(a => a.sku === artSel)) artSel = artFilas.length ? artFilas[0].sku : null;
+    document.getElementById('art-lista').innerHTML = artFilas.length ? artFilas.map(a => {
+        const n = Number(a.total_stock || 0);
+        return `<button type="button" class="art-row ${a.sku === artSel ? 'on' : ''}" data-on-click="artElegir(${jsArg(a.sku)})">
+            <span class="min0"><b>${escapeHTML(a.sku)}</b><span class="d">${escapeHTML(a.description || '')}</span></span>
+            <span class="s"><b style="color:${n < 0 ? 'var(--dgt)' : n === 0 ? 'var(--tm)' : 'var(--tp)'}">${n}</b><small>${a.is_combo ? 'Combo' : 'Simple'}</small></span>
+        </button>`;
+    }).join('') : `<div class="vacio">${escapeHTML(vacioTexto || 'No hay artículos que coincidan con la búsqueda.')}</div>`;
+    pintarFichaArticulo(artFilas.find(a => a.sku === artSel));
+}
+
+async function pintarFichaArticulo(a) {
+    const box = document.getElementById('art-det');
+    if (!box) return;
+    if (!a) { box.innerHTML = '<div class="vacio" style="margin:auto;">Elegí un artículo de la lista.</div>'; return; }
+    const sku = a.sku, ruta = `/api/admin/items/${encodeURIComponent(sku)}`;
+    // El supervisor solo consulta: editar e imprimir etiquetas son de administrador.
+    const acciones = (window.ROL_ACTUAL === 'SUPERVISOR' ? '' :
+        `<button type="button" class="btn-submit" data-on-click="openEditItemModal(${jsArg(sku)})">Editar</button>
+         <button type="button" class="btn-secondary" data-on-click="imprimirEtiquetaArticulo(${jsArg(sku)})">Imprimir etiqueta</button>`)
+        + `<button type="button" class="btn-secondary" data-on-click="verTrazaArticulo(${jsArg(sku)})">Ver traza</button>`;
+    box.innerHTML = `<div class="det-h"><div class="art-cab"><span class="art-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></span>
+            <div class="min0"><div class="g"><span class="num mono">${escapeHTML(sku)}</span><span class="badge ${a.is_combo ? 'badge-info' : 'badge-neutral'}">${a.is_combo ? 'Combo' : 'Simple'}</span></div>
+            <div class="art-desc">${escapeHTML(a.description || '')}</div><div class="sub">${escapeHTML(a.category || 'Sin categoría')}</div></div></div>
+            <div class="art-acc">${acciones}</div></div>
+        <div class="det-b" id="art-cuerpo"><div class="vacio">Cargando…</div></div>`;
+    const hace30 = new Date(Date.now() - 30 * 86400000);
+    const desde = new Date(hace30.getTime() - hace30.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const [stock, combo, kardex] = await Promise.all([
+        fetchAPI(`${ruta}/stock-breakdown`).catch(() => null),
+        a.is_combo ? fetchAPI(`${ruta}/combo`).catch(() => null) : null,
+        fetchAPI(`/api/admin/stock/kardex?sku=${encodeURIComponent(sku)}&date_from=${desde}`).catch(() => null),
+    ]);
+    const cuerpo = document.getElementById('art-cuerpo');
+    if (!cuerpo || artSel !== sku) return;   // el usuario ya eligio otro
+    const total = Number(a.total_stock || 0), filas = stock || [];
+    const asignadas = a.locations_summary && a.locations_summary !== 'Sin asignación' ? a.locations_summary.split(', ') : [];
+    const kv = (k, v, mono) => `<div class="kv"><span>${escapeHTML(k)}</span><b${mono ? ' class="mono"' : ''}>${escapeHTML(String(v))}</b></div>`;
+    let extra;
+    if (a.is_combo) {
+        const comp = (combo && combo.components) || [];
+        extra = comp.length ? comp.map(c => `<div class="kv"><span><b class="mono">${escapeHTML(c.component_sku)}</b> ${escapeHTML(c.component_description || '')}</span><b class="mono">${escapeHTML(String(c.quantity))} ×</b></div>`).join('')
+            : '<div class="muted" style="font-size:13px;">Este combo todavía no tiene componentes cargados.</div>';
+    } else {
+        extra = kv('Categoría', a.category || '—') + kv('Ubicaciones asignadas', asignadas.join(', ') || 'Sin asignación', asignadas.length > 0);
+        if (typeof AppConfig !== 'undefined' && AppConfig.enable_item_dimensions === 'true') {
+            extra += kv('Largo × ancho × alto (cm)', `${a.length || 0} × ${a.width || 0} × ${a.height || 0}`, true) + kv('Peso (kg)', a.weight || 0, true);
+        }
+    }
+    // El kardex busca por texto (SKU o descripcion): se queda solo con los de este SKU.
+    const movs = (kardex || []).filter(m => String(m.sku).toUpperCase() === String(sku).toUpperCase()).slice(0, 6);
+    cuerpo.innerHTML = `<div class="datos stats">
+            <div><div class="cap">Stock total</div><b style="color:${total < 0 ? 'var(--dgt)' : 'var(--tp)'}">${total}</b></div>
+            <div><div class="cap">Ubicaciones con stock</div><b>${stock ? filas.length : '—'}</b></div>
+            <div><div class="cap">Ubicaciones asignadas</div><b>${asignadas.length}</b></div>
+        </div>
+        <div><div class="cap" style="margin-bottom:8px;">Stock por ubicación</div>
+            <div class="scrollx"><table class="tbl-lineas tbl-compras"><thead><tr><th>Sucursal</th><th>Sector</th><th>Ubicación</th><th style="text-align:right;">Cant.</th></tr></thead><tbody>${
+                !stock ? '<tr><td colspan="4" class="busqueda-vacia" style="color:var(--dg);">No se pudo consultar el stock.</td></tr>'
+                : filas.map(r => `<tr><td>${escapeHTML(r.branch_name || '—')}</td><td class="sec">${escapeHTML(r.sector_name || '—')}</td><td class="mono"><b>${escapeHTML(r.location_code)}</b></td><td class="mono" style="text-align:right; font-weight:600;">${escapeHTML(String(r.quantity))}</td></tr>`).join('')
+                || '<tr><td colspan="4" class="busqueda-vacia">No hay existencias registradas para este artículo.</td></tr>'}</tbody></table></div></div>
+        <div class="det-cols">
+            <div><div class="cap" style="margin-bottom:6px;">${a.is_combo ? 'Componentes del combo' : 'Datos del artículo'}</div>${extra}</div>
+            <div><div class="cap" style="margin-bottom:6px;">Últimos movimientos</div>${
+                !kardex ? '<div class="muted" style="font-size:13px;">No se pudieron consultar los movimientos.</div>'
+                : movs.map(m => `<div class="mov-row"><span>${escapeHTML(new Date(m.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }))}</span>
+                    <span class="min0"><span class="t">${escapeHTML(m.movement_type)}</span><span class="d">${escapeHTML([m.reference_document, m.username, m.location_code || m.sector_name].filter(Boolean).join(' · '))}</span></span>
+                    <b style="color:${m.quantity < 0 ? 'var(--dgt)' : 'var(--okt)'}">${m.quantity > 0 ? '+' : ''}${escapeHTML(String(m.quantity))}</b></div>`).join('')
+                || '<div class="muted" style="font-size:13px;">Sin movimientos en los últimos 30 días.</div>'}</div>
+        </div>`;
+}
+
+// Abre la impresion de etiquetas con el SKU ya cargado en la primera linea.
+async function imprimirEtiquetaArticulo(sku) {
+    await openBatchPrintModal();
+    const campo = document.querySelector('#batch-print-lines input[type="text"]');
+    if (campo) campo.value = sku;
+}
+
+// Abre Reportes > Traza de Articulos con el SKU cargado y el reporte generado (fechas por defecto: ultimo mes).
+async function verTrazaArticulo(sku) {
+    switchView('section-kardex');
+    if (typeof window.loadKardexSelectors === 'function') await window.loadKardexSelectors();
+    document.getElementById('kardex-filter-sku').value = sku;
+    window.loadKardexFiltered();
 }
 
 // === EDICIÓN DE ARTÍCULO Y GESTIÓN DE COMBOS/DIMENSIONES ===
@@ -292,86 +353,6 @@ async function saveItemEdit(event) {
 }
 
 // === DESGLOSE DE STOCK Y MODALES ===
-function ensureStockModalExists() {
-    if (document.getElementById('modal-stock-breakdown')) return;
-    
-    const modalHTML = `
-    <div id="modal-stock-breakdown" class="modal">
-        <div class="modal-content" style="max-width:700px;">
-            <span class="close-modal" data-on-click="ocultarElemento('modal-stock-breakdown')">&times;</span>
-            <h3 style="color:var(--primary-blue); margin-bottom:0.5rem;">Desglose de Stock Físico</h3>
-            <h4 id="stock-breakdown-subtitle" style="color:var(--text-muted); font-size:0.95rem; margin-bottom:1.5rem;"></h4>
-            
-            <div style="max-height:60vh; overflow-y:auto; border:1px solid var(--border-color); border-radius:6px;">
-                <table style="width:100%; border-collapse:collapse;">
-                    <thead>
-                        <tr>
-                            <th style="background:#F3F4F6; padding:10px; text-align:left; border-bottom:2px solid var(--border-color);">Sucursal</th>
-                            <th style="background:#F3F4F6; padding:10px; text-align:left; border-bottom:2px solid var(--border-color);">Sector</th>
-                            <th style="background:#F3F4F6; padding:10px; text-align:left; border-bottom:2px solid var(--border-color);">Ubicación Exacta</th>
-                            <th style="background:#F3F4F6; padding:10px; text-align:right; border-bottom:2px solid var(--border-color);">Cant. Disp.</th>
-                        </tr>
-                    </thead>
-                    <tbody id="stock-breakdown-body">
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>`;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-}
-
-async function openStockBreakdownModal(sku) {
-    ensureStockModalExists();
-    const modal = document.getElementById('modal-stock-breakdown');
-    const tbody = document.getElementById('stock-breakdown-body');
-    const subtitle = document.getElementById('stock-breakdown-subtitle');
-    
-    const item = itemsCache[sku] || { description: 'Artículo' };
-    subtitle.innerHTML = `SKU: <strong>${escapeHTML(sku)}</strong> - ${escapeHTML(item.description || item.name)}`;
-    
-    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--primary-blue);">Consultando existencias en tiempo real...</td></tr>';
-    modal.style.display = 'flex';
-    
-    try {
-        const rows = await fetchAPI(`/api/admin/items/${encodeURIComponent(sku)}/stock-breakdown`);
-        
-        if (!rows || rows.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--error-red); font-weight:bold;">No hay existencias físicas registradas para este artículo.</td></tr>';
-            return;
-        }
-
-        let html = '';
-        let total = 0;
-
-        rows.forEach(r => {
-            html += `
-                <tr style="border-bottom:1px solid #E5E7EB;">
-                    <td style="padding:10px; font-weight:600; color:var(--text-main);">${escapeHTML(r.branch_name)}</td>
-                    <td style="padding:10px; color:var(--text-muted);">${escapeHTML(r.sector_name)}</td>
-                    <td style="padding:10px; font-family:monospace; color:var(--primary-blue); font-weight:bold;">${escapeHTML(r.location_code)}</td>
-                    <td style="padding:10px; text-align:right; font-weight:bold; color:var(--success-green); font-size:1.1rem;">${escapeHTML(r.quantity)}</td>
-                </tr>
-            `;
-            total += (parseFloat(r.quantity) || 0);
-        });
-
-        html += `
-            <tr style="background:#F8FAFC;">
-                <td colspan="3" style="padding:12px; text-align:right; font-weight:800; color:var(--primary-blue); text-transform:uppercase;">TOTAL CONSOLIDADO:</td>
-                <td style="padding:12px; text-align:right; font-weight:900; color:var(--primary-blue); font-size:1.2rem;">${total}</td>
-            </tr>
-        `;
-
-        tbody.innerHTML = html;
-
-    } catch (err) {
-        console.error("Error al obtener desglose de stock:", err);
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:2rem; color:var(--error-red);">Error al conectar con la base de datos.</td></tr>';
-    }
-}
-
 // === ALTA DE UN ARTÍCULO ===
 async function crearArticulo(event) {
     event.preventDefault();
@@ -608,11 +589,9 @@ window.buscarArticulos = buscarArticulos;
 window.limpiarBusquedaArticulos = limpiarBusquedaArticulos;
 window.prevItemPage = prevItemPage;
 window.nextItemPage = nextItemPage;
-window.sortItems = sortItems;
 window.openBatchPrintModal = openBatchPrintModal;
 window.openEditItemModal = openEditItemModal;
 window.sendBatchPrintJobs = sendBatchPrintJobs;
-window.openStockBreakdownModal = openStockBreakdownModal;
 window.addDynamicLineBatchPrint = addDynamicLineBatchPrint;
 window.openImportModal = openImportModal;
 window.handleFileSelect = handleFileSelect;

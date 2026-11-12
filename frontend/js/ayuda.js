@@ -34,7 +34,7 @@ const AYUDA_SECCIONES = {
     'section-items': {
         titulo: 'Artículos',
         resumen: 'El maestro de productos. El SKU tiene que ser idéntico al del canal de venta (Mercado Libre).',
-        pasos: ['No se lista nada hasta buscar: SKU, descripción, categoría, ubicación, tipo (simple o combo) o stock.', 'Cargá cada artículo con su SKU.', 'Imprimí etiquetas de artículo si las necesitás.'],
+        pasos: ['No se lista nada hasta buscar: SKU, descripción, categoría, ubicación, tipo (simple o combo) o stock.', 'Al elegir un artículo de la lista se ve su ficha: stock por ubicación, datos o componentes del combo y últimos movimientos, con Editar, Imprimir etiqueta y Ver traza.', 'Cargá cada artículo con su SKU.', 'Imprimí etiquetas de artículo si las necesitás.'],
         ancla: 'articulos',
     },
     'section-purchases': {
