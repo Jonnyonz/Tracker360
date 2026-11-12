@@ -28,14 +28,17 @@ const locSecSelect = document.getElementById('loc-sector');
         cachedLocations = locations;
     }
 
-    await pintarSucursales();
-    // Si el detalle de una sucursal esta abierto (por ejemplo al crear un sector desde ahi), se actualiza.
-    if (sucursalSectoresId && document.getElementById('modal-sucursal-sectores')?.style.display === 'flex') pintarSectoresSucursal();
+    stockSectorCache = {};   // el stock pudo cambiar: se vuelve a pedir por sector
+    await pintarDepositos();
 }
 
-// === DEPOSITOS: se listan solo las sucursales; cada una abre su configuracion o sus sectores ===
-let sucursalSectoresId = null;
-let ubicacionesSectorNombre = null;
+// === DEPOSITOS: tres columnas (design_handoff_tracker360, fase 5) ===
+// Sucursales -> sectores de la elegida -> ubicaciones del sector elegido. Cada ubicacion muestra si esta libre o
+// que SKU tiene (/api/admin/reports/stock?sector_id=). La API no informa la capacidad de una ubicacion: no hay
+// porcentaje de ocupacion.
+let sucursalSectoresId = null;        // sucursal elegida
+let ubicacionesSectorNombre = null;   // sector elegido (por nombre: /api/admin/locations no trae su id)
+let stockSectorCache = {};            // id de sector -> { codigo de ubicacion: [{ sku, quantity }] }
 const UBICACIONES_VISIBLES = 300;
 
 function plural(n, uno, varios) { return `${n} ${n === 1 ? uno : varios}`; }
@@ -54,96 +57,94 @@ function ubicacionesDeSector(nombre) {
     return (cachedLocations || []).filter(l => l.sector_name === nombre);
 }
 
-async function pintarSucursales() {
-    const caja = document.getElementById('sucursales-lista');
-    if (!caja) return;
-    const sucursales = cachedBranches || [];
-    if (sucursales.length === 0) {
-        caja.innerHTML = '<p class="canales-vacio">Sin sucursales registradas. Creá la primera con "+ Crear Sucursal".</p>';
-        return;
-    }
+function sectorElegido() {
+    return (cachedSectors || []).find(s => s.name === ubicacionesSectorNombre);
+}
+
+async function pintarDepositos() {
+    const cajaSuc = document.getElementById('dep-sucursales');
+    if (!cajaSuc) return;
     const soloConsulta = await esSupervisor();
-    const estilo = 'padding:3px 8px; font-size:0.75rem;';
-    caja.innerHTML = sucursales.map(b => {
+    const sucursales = cachedBranches || [];
+    if (!sucursales.some(b => String(b.id) === String(sucursalSectoresId))) sucursalSectoresId = sucursales.length ? sucursales[0].id : null;
+    cajaSuc.innerHTML = sucursales.length ? sucursales.map(b => {
         const sectores = sectoresDeSucursal(b.id);
         const ubicaciones = sectores.reduce((n, s) => n + ubicacionesDeSector(s.name).length, 0);
-        const activa = b.is_active !== false;
-        return `
-        <div class="canal-linea">
-            <div class="canal-linea-datos">
-                <div><strong>${escapeHTML(b.name)}</strong> <span class="font-mono canal-linea-codigo">${escapeHTML(b.code)}</span>
-                    <span class="badge ${activa ? 'badge-success' : 'badge-neutral'}">${activa ? 'ACTIVA' : 'INACTIVA'}</span></div>
-                <small>${escapeHTML(direccionSucursal(b) || 'Sin dirección')} · ${plural(sectores.length, 'sector', 'sectores')} · ${plural(ubicaciones, 'ubicación', 'ubicaciones')}</small>
-            </div>
-            <div class="canal-linea-botones">
-                ${soloConsulta ? '' : `<button type="button" class="btn-secondary" style="${estilo}" data-on-click="openEditBranch(${jsArg(b.id)})">Configuración</button>`}
-                <button type="button" class="btn-secondary" style="${estilo} margin-left:6px;" data-on-click="abrirSectoresSucursal(${jsArg(b.id)})">Sectores</button>
-            </div>
+        return `<div class="dep-row ${String(b.id) === String(sucursalSectoresId) ? 'on' : ''}">
+            <button type="button" class="dep-main" data-on-click="depSucursal(${jsArg(b.id)})">
+                <span class="l1"><b>${escapeHTML(b.name)}</b><span class="mono">${escapeHTML(b.code)}</span></span>
+                <span class="l2">${escapeHTML(direccionSucursal(b) || 'Sin dirección')}</span>
+                <span class="l3">${plural(sectores.length, 'sector', 'sectores')} · ${plural(ubicaciones, 'ubicación', 'ubicaciones')}${b.is_active !== false ? '' : ' · <span class="badge badge-neutral">Inactiva</span>'}</span>
+            </button>
+            ${soloConsulta ? '' : `<button type="button" class="btn-link" data-on-click="openEditBranch(${jsArg(b.id)})">Configuración</button>`}
         </div>`;
-    }).join('');
-}
+    }).join('') : '<div class="vacio">Sin sucursales registradas. Creá la primera con "+ Crear Sucursal".</div>';
 
-function abrirSectoresSucursal(id) {
-    sucursalSectoresId = id;
-    ubicacionesSectorNombre = null;
-    pintarSectoresSucursal();
-    openModal('modal-sucursal-sectores');
-}
+    const suc = sucursales.find(b => String(b.id) === String(sucursalSectoresId));
+    const sectores = suc ? sectoresDeSucursal(suc.id) : [];
+    if (!sectores.some(s => s.name === ubicacionesSectorNombre)) ubicacionesSectorNombre = sectores.length ? sectores[0].name : null;
+    document.getElementById('dep-sectores-titulo').textContent = suc ? `Sectores · ${suc.name}` : 'Sectores';
+    document.getElementById('sucursal-sectores-nuevo').style.display = soloConsulta || !suc ? 'none' : '';
+    document.getElementById('dep-sectores').innerHTML = sectores.length ? sectores.map(s => `<div class="dep-row ${s.name === ubicacionesSectorNombre ? 'on' : ''}">
+            <button type="button" class="dep-main" data-on-click="depSector(${jsArg(s.name)})">
+                <span class="l1"><b>${escapeHTML(s.name)}</b><span class="mono">${ubicacionesDeSector(s.name).length} ubic.</span></span>
+                <span class="l2 mono"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>${escapeHTML(s.print_queue_code || 'Sin cola')}${s.uses_locations ? '' : ' · no usa ubicaciones'}</span>
+            </button>
+        </div>`).join('') : `<div class="vacio">${suc ? 'Esta sucursal todavía no tiene sectores.' : 'Elegí una sucursal.'}</div>`;
 
-function cerrarSectoresSucursal() {
-    sucursalSectoresId = null;
-    ubicacionesSectorNombre = null;
-    closeModal('modal-sucursal-sectores');
-}
-
-async function pintarSectoresSucursal() {
-    const b = (cachedBranches || []).find(x => String(x.id) === String(sucursalSectoresId));
-    if (!b) return;
-    const soloConsulta = await esSupervisor();
-    document.getElementById('sucursal-sectores-titulo').textContent = `Sectores de ${b.name}`;
-    document.getElementById('sucursal-sectores-nuevo').style.display = soloConsulta ? 'none' : '';
-    document.getElementById('sector-ubicaciones-nueva').style.display = soloConsulta ? 'none' : '';
-    document.getElementById('sector-ubicaciones-importar').style.display = soloConsulta ? 'none' : '';
-    const sectores = sectoresDeSucursal(b.id);
-    const body = document.getElementById('sucursal-sectores-body');
-    body.innerHTML = sectores.length === 0
-        ? '<tr><td colspan="4" class="busqueda-vacia">Esta sucursal todavía no tiene sectores.</td></tr>'
-        : sectores.map(s => `
-            <tr>
-                <td style="font-weight:bold;">${escapeHTML(s.name)}</td>
-                <td><span class="badge badge-info">${escapeHTML(s.print_queue_code)}</span></td>
-                <td><span class="badge badge-neutral">${s.uses_locations ? 'SÍ' : 'NO'}</span></td>
-                <td style="text-align:right;"><button type="button" class="btn-secondary" style="padding:3px 8px; font-size:0.75rem;" data-on-click="verUbicacionesSector(${jsArg(s.name)})">Ver ubicaciones (${ubicacionesDeSector(s.name).length})</button></td>
-            </tr>`).join('');
-    if (ubicacionesSectorNombre && !sectores.some(s => s.name === ubicacionesSectorNombre)) ubicacionesSectorNombre = null;
+    ['sector-ubicaciones-nueva', 'sector-ubicaciones-importar'].forEach(id => {
+        document.getElementById(id).style.display = soloConsulta || !ubicacionesSectorNombre ? 'none' : '';
+    });
     pintarUbicacionesSector();
+    cargarStockSector();
 }
 
-function verUbicacionesSector(nombre) {
+function depSucursal(id) { sucursalSectoresId = id; depSector(null); }
+function depSector(nombre) {
     ubicacionesSectorNombre = nombre;
     const filtro = document.getElementById('sector-ubicaciones-filtro');
     if (filtro) filtro.value = '';
+    pintarDepositos();
+}
+
+// Trae una vez por sector que SKU hay en cada ubicacion y repinta la grilla.
+async function cargarStockSector() {
+    const sector = sectorElegido();
+    if (!sector || stockSectorCache[sector.id]) return;
+    try {
+        const filas = await fetchAPI(`/api/admin/reports/stock?sector_id=${encodeURIComponent(sector.id)}`) || [];
+        const mapa = {};
+        filas.forEach(f => { (mapa[f.location_code] = mapa[f.location_code] || []).push({ sku: f.sku, quantity: f.quantity }); });
+        stockSectorCache[sector.id] = mapa;
+    } catch (e) { return; }   // sin el dato, las celdas quedan sin estado (no se muestran como libres)
     pintarUbicacionesSector();
-    document.getElementById('sector-ubicaciones')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function pintarUbicacionesSector() {
-    const panel = document.getElementById('sector-ubicaciones');
-    if (!panel) return;
-    panel.hidden = !ubicacionesSectorNombre;
-    if (!ubicacionesSectorNombre) return;
+    const caja = document.getElementById('dep-ubicaciones');
+    if (!caja) return;
+    const titulo = document.getElementById('dep-ubis-titulo');
+    if (!ubicacionesSectorNombre) {
+        titulo.textContent = 'Ubicaciones';
+        caja.innerHTML = '<div class="vacio">Elegí un sector para ver sus ubicaciones.</div>';
+        return;
+    }
     const filtro = (document.getElementById('sector-ubicaciones-filtro')?.value || '').trim().toLowerCase();
     const todas = ubicacionesDeSector(ubicacionesSectorNombre);
     const lista = todas.filter(l => !filtro || l.location_code.toLowerCase().includes(filtro) || (l.description || '').toLowerCase().includes(filtro));
-    document.getElementById('sector-ubicaciones-titulo').textContent = `Ubicaciones de ${ubicacionesSectorNombre} (${todas.length})`;
-    const caja = document.getElementById('sector-ubicaciones-lista');
+    titulo.textContent = `Ubicaciones · ${ubicacionesSectorNombre} (${todas.length})`;
     if (lista.length === 0) {
-        caja.innerHTML = `<p class="canales-vacio">${todas.length === 0 ? 'Este sector no tiene ubicaciones.' : 'Ninguna ubicación coincide.'}</p>`;
+        caja.innerHTML = `<div class="vacio">${todas.length === 0 ? 'Este sector no tiene ubicaciones.' : 'Ninguna ubicación coincide.'}</div>`;
         return;
     }
-    caja.innerHTML = lista.slice(0, UBICACIONES_VISIBLES).map(l =>
-        `<span class="ubicacion-chip font-mono" title="${escapeHTML(l.description || '')}">${escapeHTML(l.location_code)}</span>`).join('')
-        + (lista.length > UBICACIONES_VISIBLES ? `<p class="busqueda-resumen" style="width:100%;">Se muestran ${UBICACIONES_VISIBLES} de ${lista.length}: buscá para encontrar el resto.</p>` : '');
+    const sector = sectorElegido(), stock = sector ? stockSectorCache[sector.id] : null;
+    caja.innerHTML = `<div class="dep-grid">${lista.slice(0, UBICACIONES_VISIBLES).map(l => {
+        const hay = stock ? (stock[l.location_code] || []) : null;
+        const detalle = [l.description, hay && hay.map(x => `${x.sku} × ${x.quantity}`).join(', ')].filter(Boolean).join(' · ');
+        const texto = !hay ? '' : hay.length ? hay[0].sku + (hay.length > 1 ? ` +${hay.length - 1}` : '') : 'Libre';
+        return `<div class="dep-celda ${hay && hay.length ? 'con' : ''}" title="${escapeHTML(detalle)}"><b>${escapeHTML(l.location_code)}</b><span>${escapeHTML(texto)}</span></div>`;
+    }).join('')}</div>`
+        + (lista.length > UBICACIONES_VISIBLES ? `<p class="busqueda-resumen" style="margin:0 16px 14px;">Se muestran ${UBICACIONES_VISIBLES} de ${lista.length}: buscá para encontrar el resto.</p>` : '');
 }
 
 function nuevoSectorEnSucursal() {

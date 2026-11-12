@@ -2,6 +2,20 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.14.0 — 2026-11-12
+
+### Cambiado
+- **Rediseño del panel, fase 5** (`design_handoff_tracker360`): Depósitos. Solo frontend, sin endpoints nuevos.
+  - **Tres columnas en la misma pantalla:** sucursales (código, dirección, cantidad de sectores y de ubicaciones),
+    sectores de la sucursal elegida (con su cola de impresión) y ubicaciones del sector elegido. Reemplaza a la lista
+    de sucursales con la ventana "Sectores".
+  - **Grilla de ubicaciones:** cada celda muestra el código y si está libre o qué artículo tiene (con "+N" si hay más
+    de uno; al pasar el cursor se ve el detalle con cantidades). Conserva el buscador por código o detalle.
+  - "+ Nuevo sector", "+ Nueva ubicación" e "Importar" quedan en la cabecera de su columna, con la sucursal o el
+    sector elegido ya cargado. El supervisor solo consulta.
+  - No se muestra el porcentaje de ocupación (la API no informa la capacidad de cada ubicación) ni el botón para
+    imprimir etiquetas de ubicación (no hay impresión de ese tipo de etiqueta).
+
 ## 1.13.0 — 2026-11-12
 
 ### Cambiado

@@ -8,7 +8,7 @@
     
     <!-- CSS Separado y Limpio -->
     <link rel="stylesheet" href="/jz/suite.css?v=0.2.0">
-    <link rel="stylesheet" href="css/admin.css?v=20261112_2">
+    <link rel="stylesheet" href="css/admin.css?v=20261112_3">
 </head>
 <body>
     <div id="toast-container" class="toast-container"></div>
@@ -299,11 +299,28 @@
                 </div>
             </div>
 
-            <!-- SUCURSALES: cada una abre su configuracion o sus sectores (y, en cada sector, sus ubicaciones) -->
-            <div class="card grid-full-width" data-help="Sucursales|Cada depósito o local de la empresa, con sus sectores y ubicaciones.|Configuración edita la sucursal; Sectores muestra sus sectores y, en cada uno, sus ubicaciones.">
-                <h3 class="card-title"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> Sucursales</h3>
-                <div id="sucursales-lista" class="canales-lista">
-                    <p class="canales-vacio">Cargando sucursales...</p>
+            <!-- SUCURSALES -> SECTORES -> UBICACIONES (js/warehouse.js) -->
+            <div class="dep-cols" data-help="Depósitos|Tres columnas: las sucursales, los sectores de la sucursal elegida y las ubicaciones del sector elegido.|Cada ubicación muestra si está libre o qué artículo tiene; Configuración edita los datos de la sucursal.">
+                <div class="dep-col">
+                    <div class="dep-h"><span>Sucursales</span></div>
+                    <div id="dep-sucursales"><div class="vacio">Cargando sucursales…</div></div>
+                </div>
+                <div class="dep-col">
+                    <div class="dep-h"><span id="dep-sectores-titulo">Sectores</span><button type="button" class="btn-link" id="sucursal-sectores-nuevo" data-on-click="nuevoSectorEnSucursal()">+ Nuevo sector</button></div>
+                    <div id="dep-sectores"></div>
+                </div>
+                <div class="dep-col dep-ancha">
+                    <div class="dep-h">
+                        <span id="dep-ubis-titulo">Ubicaciones</span>
+                        <span class="dep-acc">
+                            <span class="dep-ley"><i style="background:var(--ne);"></i>Libre</span>
+                            <span class="dep-ley"><i style="background:var(--ac);"></i>Con stock</span>
+                            <input type="text" id="sector-ubicaciones-filtro" placeholder="Buscar código o detalle" autocomplete="off" data-on-input="pintarUbicacionesSector()">
+                            <button type="button" class="btn-secondary" id="sector-ubicaciones-nueva" data-on-click="nuevaUbicacionEnSector()">+ Nueva ubicación</button>
+                            <button type="button" class="btn-secondary" id="sector-ubicaciones-importar" data-on-click="importarUbicacionesEnSector()">Importar</button>
+                        </span>
+                    </div>
+                    <div id="dep-ubicaciones"></div>
                 </div>
             </div>
 
@@ -1864,34 +1881,6 @@
 
     <!-- MODALES DE CREACIÓN Y EDICIÓN -->
     <!-- MODAL SUCURSAL -->
-    <!-- MODAL: SECTORES DE UNA SUCURSAL (y ubicaciones de cada sector). Va antes de los modales de alta para que estos se abran encima. -->
-    <div id="modal-sucursal-sectores" class="modal">
-        <div class="modal-content" style="max-width:900px;">
-            <span class="close-modal" data-on-click="cerrarSectoresSucursal()">&times;</span>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; flex-wrap:wrap; gap:12px; padding-right:2rem;">
-                <h3 style="color:var(--text-primary); margin:0;" id="sucursal-sectores-titulo">Sectores</h3>
-                <button type="button" class="btn-submit" id="sucursal-sectores-nuevo" data-on-click="nuevoSectorEnSucursal()" style="font-size:0.8rem;">+ Nuevo sector</button>
-            </div>
-            <div style="overflow-x:auto;">
-                <table>
-                    <thead><tr><th>Sector</th><th>Cola de impresión</th><th>Usa ubicaciones</th><th style="text-align:right;">Ubicaciones</th></tr></thead>
-                    <tbody id="sucursal-sectores-body"></tbody>
-                </table>
-            </div>
-            <div id="sector-ubicaciones" class="sector-ubicaciones" hidden>
-                <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:0.6rem;">
-                    <h4 style="color:var(--text-primary); margin:0;" id="sector-ubicaciones-titulo">Ubicaciones</h4>
-                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                        <input type="text" id="sector-ubicaciones-filtro" placeholder="Buscar código o detalle" autocomplete="off" data-on-input="pintarUbicacionesSector()" style="width:220px;">
-                        <button type="button" class="btn-secondary" id="sector-ubicaciones-nueva" data-on-click="nuevaUbicacionEnSector()" style="font-size:0.8rem;">+ Nueva ubicación</button>
-                        <button type="button" class="btn-secondary" id="sector-ubicaciones-importar" data-on-click="importarUbicacionesEnSector()" style="font-size:0.8rem;">Importar ubicaciones</button>
-                    </div>
-                </div>
-                <div id="sector-ubicaciones-lista" class="ubicaciones-chips"></div>
-            </div>
-        </div>
-    </div>
-
     <div id="modal-branch" class="modal">
         <div class="modal-content" style="max-width:500px;">
             <span class="close-modal" data-on-click="closeModal('modal-branch')">&times;</span>
@@ -2632,11 +2621,11 @@
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261007_2"></script>
     <script src="js/admin-core.js?v=20261107_2"></script>
-    <script src="js/ayuda.js?v=20261112_2"></script>
+    <script src="js/ayuda.js?v=20261112_3"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261003_1"></script>
     <script src="js/items.js?v=20261112_1"></script>
-    <script src="js/warehouse.js?v=20261007_2"></script>
+    <script src="js/warehouse.js?v=20261112_1"></script>
     <script src="js/operations.js?v=20261112_1"></script>
     <script src="js/inicio.js?v=20261112_1"></script>
     <script src="js/pedidos.js?v=20261107_2"></script>

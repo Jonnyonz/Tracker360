@@ -28,7 +28,7 @@ const AYUDA_SECCIONES = {
     'section-warehouse': {
         titulo: 'Depósitos',
         resumen: 'La estructura física: sucursales, sectores (cada uno con su impresora) y ubicaciones.',
-        pasos: ['Creá la sucursal con su dirección.', 'Cada sucursal tiene Configuración (sus datos) y Sectores (sus sectores y, en cada uno, sus ubicaciones).', 'Agregá los sectores y su cola de impresión.', 'Cargá las ubicaciones e imprimí sus etiquetas.'],
+        pasos: ['Creá la sucursal con su dirección.', 'Tres columnas: elegí una sucursal para ver sus sectores y un sector para ver sus ubicaciones; cada ubicación muestra si está libre o qué artículo tiene. Configuración edita los datos de la sucursal.', 'Agregá los sectores y su cola de impresión.', 'Cargá las ubicaciones e imprimí sus etiquetas.'],
         ancla: 'depositos',
     },
     'section-items': {

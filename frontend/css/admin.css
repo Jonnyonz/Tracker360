@@ -265,9 +265,6 @@ td.busqueda-vacia { text-align: center; padding: 34px 16px; color: var(--tm); wh
 .busqueda-atajos .btn-secondary:hover { color: var(--tp); border-color: var(--tp); }
 .pedido-origen { display: block; margin-top: 3px; font-family: var(--f); font-weight: 500; color: var(--tm); font-size: 12px; }
 
-.sector-ubicaciones { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--ln); }
-.ubicaciones-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 320px; overflow-y: auto; }
-.ubicacion-chip { padding: 4px 8px; border: 1px solid var(--ln); border-radius: 6px; background: var(--sf2); color: var(--act); font: 600 12px/1 var(--m); }
 
 .compras-modulo { display: flex; flex-direction: column; gap: 18px; }
 .compras-alta[hidden] { display: none !important; }
@@ -410,3 +407,20 @@ td.busqueda-vacia { text-align: center; padding: 34px 16px; color: var(--tm); wh
 .kv > span { min-width: 0; overflow-wrap: anywhere; }
 .mov-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--ln2); }
 .mov-row > span:first-child { font: 500 11.5px/1 var(--m); color: var(--tm); } .mov-row .t { display: block; font: 600 12px/1.3 var(--m); } .mov-row .d { font: 500 11.5px/1.3 var(--f); color: var(--ts); overflow-wrap: anywhere; } .mov-row > b { font: 600 13px/1 var(--m); }
+/* Depositos: sucursales -> sectores -> ubicaciones (fase 5) */
+.dep-cols { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+.dep-col { flex: 1 1 240px; min-width: 0; background: var(--sf); border: 1px solid var(--ln); border-radius: 12px; overflow: hidden; } .dep-col.dep-ancha { flex: 3 1 460px; }
+.dep-h { padding: 10px 16px; border-bottom: 1px solid var(--ln); display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; min-height: 46px; }
+.dep-h > span:first-child { font: 600 10.5px/1.3 var(--f); letter-spacing: .1em; text-transform: uppercase; color: var(--tm); }
+.dep-acc { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; } .dep-acc input { width: 190px; padding: 6px 9px; font-size: 12.5px; } .dep-acc .btn-secondary { padding: 6px 10px; font-size: 12px; }
+.dep-ley { display: flex; align-items: center; gap: 5px; font: 500 11.5px/1 var(--f); color: var(--ts); } .dep-ley i { width: 9px; height: 9px; border-radius: 2px; }
+.dep-row { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--ln2); padding-right: 12px; } .dep-row:hover { background: var(--sf2); } .dep-row.on { background: var(--acs); box-shadow: inset 3px 0 0 var(--ac); }
+.dep-row .btn-link { flex: none; font-size: 12px; }
+#dep-sucursales, #dep-sectores { max-height: 620px; overflow-y: auto; }
+.dep-main { flex: 1; min-width: 0; cursor: pointer; text-align: left; border: none; background: transparent; color: var(--tp); padding: 13px 0 13px 16px; display: flex; flex-direction: column; gap: 5px; }
+.dep-main .l1 { display: flex; justify-content: space-between; gap: 8px; width: 100%; align-items: baseline; } .dep-main .l1 b { font: 600 13.5px/1.2 var(--f); } .dep-main .l1 .mono { font: 600 11px/1 var(--m); color: var(--tm); flex: none; }
+.dep-main .l2 { font: 500 12px/1.4 var(--f); color: var(--ts); display: flex; gap: 6px; align-items: center; } .dep-main .l2.mono { font-family: var(--m); font-size: 11.5px; } .dep-main .l3 { font: 500 11.5px/1.3 var(--f); color: var(--tm); }
+.dep-grid { padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; max-height: 560px; overflow-y: auto; }
+.dep-celda { border: 1px solid var(--ln); background: var(--sf2); border-radius: 7px; padding: 9px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.dep-celda b { font: 600 12px/1 var(--m); overflow-wrap: anywhere; } .dep-celda span { font: 500 10.5px/1.2 var(--f); color: var(--ts); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 13px; }
+.dep-celda.con { background: var(--sf); border-color: var(--ac); } .dep-celda.con span { color: var(--act); font-family: var(--m); }
