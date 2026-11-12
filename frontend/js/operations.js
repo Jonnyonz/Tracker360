@@ -150,54 +150,6 @@ async function savePO(event) {
     finally { btn.disabled = false; }
 }
 
-async function loadPOData() {
-    const tbody = document.getElementById('table-po-body');
-    if (!tbody) return;
-    const url = urlBusquedaCompras('po', '/api/admin/purchase-orders', 'table-po-body', 4);   // compras.js
-    if (!url) return;
-    try {
-        const rows = await fetchAPI(url);
-        resumenCompras('po', (rows || []).length);
-        if (!rows || !rows.length) { tbody.innerHTML = '<tr><td colspan="4" class="busqueda-vacia">No hay órdenes de compra que coincidan con la búsqueda.</td></tr>'; return; }
-        tbody.innerHTML = rows.map(o => `<tr>
-            <td style="color:var(--accent); font-weight:bold;">${escapeHTML(o.order_number)}</td>
-            <td>${escapeHTML(o.supplier_name)}</td>
-            <td><span class="badge ${o.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(PO_STATUS_LABEL[o.status] || o.status)}</span></td>
-            <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-on-click="verOC(${jsArg(o.order_number)})">Detalle</button></td>
-        </tr>`).join('');
-    } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; color:var(--danger);">Error al cargar el historial.</td></tr>';
-    }
-}
-
-async function verOC(orderNumber) {
-    const body = document.getElementById('po-detail-body');
-    document.getElementById('po-detail-label').textContent = orderNumber;
-    body.innerHTML = '<p style="color:var(--text-muted);">Cargando...</p>';
-    openModal('modal-po-detail');
-    try {
-        const d = await fetchAPI(`/api/admin/purchase-orders/${encodeURIComponent(orderNumber)}`);
-        const o = d.order;
-        const filas = d.lines.map(l => `<tr>
-            <td class="font-mono">${escapeHTML(l.sku)}</td>
-            <td>${escapeHTML(l.description)}</td>
-            <td style="text-align:right;">${escapeHTML(String(l.ordered))}</td>
-            <td style="text-align:right;">${escapeHTML(String(l.received))}</td>
-            <td style="text-align:right; font-weight:bold;">${escapeHTML(String(l.pending))}</td>
-        </tr>`).join('');
-        body.innerHTML = `
-            <p>Estado: <span class="badge badge-neutral">${escapeHTML(PO_STATUS_LABEL[o.status] || o.status)}</span> &nbsp; Proveedor: <strong>${escapeHTML(o.supplier_name)}</strong> ${o.supplier_tax_id ? '(' + escapeHTML(o.supplier_tax_id) + ')' : ''}</p>
-            <p>Recepción: ${escapeHTML(o.branch_name || '-')}${o.delivery_address ? ' &middot; ' + escapeHTML(o.delivery_address) : ''}</p>
-            <p style="font-size:0.85rem; color:var(--text-muted);">Emitida ${escapeHTML(new Date(o.created_at).toLocaleString())} por ${escapeHTML(o.created_by || '-')}</p>
-            <table><thead><tr><th>SKU</th><th>Descripción</th><th style="text-align:right;">Pedido</th><th style="text-align:right;">Recibido</th><th style="text-align:right;">Pendiente</th></tr></thead><tbody>${filas}</tbody></table>
-            <div id="po-notes"></div>`;
-        renderObservaciones(document.getElementById('po-notes'), 'OC', orderNumber);
-    } catch (e) {
-        body.innerHTML = `<p style="color:var(--danger);">Error: ${escapeHTML(e.message)}</p>`;
-    }
-}
-
-// === REMITOS DE COMPRA ===
 const REM_STATUS_LABEL = { PENDING: 'Pendiente de control', PENDING_CONTROL: 'Pendiente de control', IN_PROGRESS: 'En control', COMPLETED: 'Ingresado', COMPLETED_DIFF: 'Controlado con diferencias' };
 const EXC_STATUS_LABEL = { PENDING: 'En cuarentena', APPROVED: 'Aprobado', REJECTED: 'Rechazado' };
 let remSectorsCache = [];
@@ -304,27 +256,6 @@ async function saveRemito(event) {
     finally { btn.disabled = false; }
 }
 
-async function loadRemitoData() {
-    const tbody = document.getElementById('table-remito-body');
-    if (!tbody) return;
-    const url = urlBusquedaCompras('remito', '/api/admin/purchase-remitos', 'table-remito-body', 5);   // compras.js
-    if (!url) return;
-    try {
-        const rows = await fetchAPI(url);
-        resumenCompras('remito', (rows || []).length);
-        if (!rows || !rows.length) { tbody.innerHTML = '<tr><td colspan="5" class="busqueda-vacia">No hay remitos que coincidan con la búsqueda.</td></tr>'; return; }
-        tbody.innerHTML = rows.map(r => `<tr>
-            <td style="color:var(--accent); font-weight:bold;">${escapeHTML(r.remito_number)}</td>
-            <td>${escapeHTML(r.supplier_name)}</td>
-            <td><small>${escapeHTML(r.branch_name || '-')} (${escapeHTML(r.sector_name || '-')})</small></td>
-            <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : (r.status === 'COMPLETED_DIFF' ? 'badge-danger' : 'badge-warning')}">${escapeHTML(REM_STATUS_LABEL[r.status] || r.status)}</span></td>
-            <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-on-click="verRemito(${jsArg(r.id)}, ${jsArg(r.remito_number)})">Detalle</button></td>
-        </tr>`).join('');
-    } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--danger);">Error al cargar el historial.</td></tr>';
-    }
-}
-
 // Articulos no esperados del control fisico: en cuarentena hasta que ADMIN/SUPERVISOR los resuelva.
 function renderNoEsperados(excepciones, remitoId, remitoNumber) {
     if (!excepciones.length) return '';
@@ -350,7 +281,8 @@ async function resolverNoEsperado(exceptionId, aprobar, remitoId, remitoNumber) 
     try {
         const r = await fetchAPI(`/api/admin/reception-exceptions/${encodeURIComponent(exceptionId)}/${aprobar ? 'approve' : 'reject'}`, { method: 'POST' });
         showToast(r.message, 'success');
-        await verRemito(remitoId, remitoNumber);
+        // Refresca donde este a la vista: el modal (se abre desde Reportes) y la bandeja de Remitos.
+        if (document.getElementById('modal-remito-detail')?.style.display === 'flex') await verRemito(remitoId, remitoNumber);
         loadRemitoData();
     } catch (e) { /* fetchAPI ya mostro el error */ }
 }
@@ -1479,59 +1411,6 @@ async function saveTransfer(event) {
 
 const TR_STATUS_LABEL = { PENDING: 'Pendiente', PENDING_CONTROL: 'Pendiente', IN_PROGRESS: 'En curso', COMPLETED: 'Completado' };
 
-async function loadTransferData() {
-    const tbody = document.getElementById('table-transfers-body');
-    if (!tbody) return;
-    const url = urlBusquedaCompras('transfer', '/api/admin/transfer-orders', 'table-transfers-body', 5);   // compras.js
-    if (!url) return;
-
-    try {
-        const rows = await fetchAPI(url);
-        resumenCompras('transfer', (rows || []).length);
-        if (!rows || rows.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="busqueda-vacia">No hay traspasos que coincidan con la búsqueda.</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = rows.map(r => `
-            <tr>
-                <td style="color:var(--accent); font-weight:bold;">${escapeHTML(r.transfer_number)}</td>
-                <td><small>${escapeHTML(r.origin_branch)} (${escapeHTML(r.origin_sector)})</small></td>
-                <td><small>${escapeHTML(r.destination_branch)} (${escapeHTML(r.destination_sector)})</small></td>
-                <td><span class="badge ${r.status === 'COMPLETED' ? 'badge-success' : 'badge-warning'}">${escapeHTML(TR_STATUS_LABEL[r.status] || r.status)}</span></td>
-                <td><button class="btn-secondary" style="padding:4px 10px; font-size:0.75rem;" data-on-click="verTraspaso(${jsArg(r.transfer_number)})">Detalle</button></td>
-            </tr>
-        `).join('');
-    } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--danger);">Error al cargar historial.</td></tr>';
-    }
-}
-
-async function verTraspaso(transferNumber) {
-    const body = document.getElementById('transfer-detail-body');
-    document.getElementById('transfer-detail-label').textContent = transferNumber;
-    body.innerHTML = '<p style="color:var(--text-muted);">Cargando...</p>';
-    openModal('modal-transfer-detail');
-    try {
-        const d = await fetchAPI(`/api/transfers/orders/${encodeURIComponent(transferNumber)}`);
-        const t = d.transfer;
-        const filas = d.lines.map(l => `<tr>
-            <td class="font-mono">${escapeHTML(l.sku)}</td>
-            <td>${escapeHTML(l.origin_location || '-')}</td>
-            <td>${escapeHTML(l.destination_location || '-')}</td>
-            <td style="text-align:right;">${escapeHTML(String(l.quantity_sent))}</td>
-            <td style="text-align:right;">${escapeHTML(String(l.quantity_received))}</td>
-        </tr>`).join('');
-        body.innerHTML = `
-            <p>Estado: <span class="badge badge-neutral">${escapeHTML(TR_STATUS_LABEL[t.status] || t.status)}</span> &nbsp; ${escapeHTML(t.origin_branch)} &rarr; ${escapeHTML(t.destination_branch)}</p>
-            <table><thead><tr><th>SKU</th><th>Origen</th><th>Destino</th><th style="text-align:right;">Enviado</th><th style="text-align:right;">Recibido</th></tr></thead><tbody>${filas}</tbody></table>
-            <div id="transfer-notes"></div>`;
-        renderObservaciones(document.getElementById('transfer-notes'), 'TRASPASO', transferNumber);
-    } catch (e) {
-        body.innerHTML = `<p style="color:var(--danger);">Error: ${escapeHTML(e.message)}</p>`;
-    }
-}
-
 // Generación y copia de Clave API
 async function generateApiKey() {
     if (!confirm("ATENCIÓN: ¿Desea generar una nueva Clave API Maestra? La clave anterior dejará de funcionar de inmediato.")) return;
@@ -1597,12 +1476,9 @@ window.loadPurchaseSelectors = loadPurchaseSelectors;
 window.loadAllPurchaseHistories = loadAllPurchaseHistories;
 window.onPOBranchChange = onPOBranchChange;
 window.savePO = savePO;
-window.loadPOData = loadPOData;
-window.verOC = verOC;
 window.onRemBranchChange = onRemBranchChange;
 window.onRemSupplierChange = onRemSupplierChange;
 window.saveRemito = saveRemito;
-window.loadRemitoData = loadRemitoData;
 window.verRemito = verRemito;
 window.resolverNoEsperado = resolverNoEsperado;
 window.addDynamicLineRemito = addDynamicLineRemito;
@@ -1611,7 +1487,6 @@ window.addDynamicLineTransfer = addDynamicLineTransfer;
 window.loadOrders = loadOrders;
 window.filterOrders = filterOrders;
 window.verParticipantes = verParticipantes;
-window.verTraspaso = verTraspaso;
 window.renderObservaciones = renderObservaciones;
 window.abrirCancelacion = abrirCancelacion;
 window.confirmarCancelacion = confirmarCancelacion;

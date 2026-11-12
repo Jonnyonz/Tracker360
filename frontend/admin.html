@@ -8,7 +8,7 @@
     
     <!-- CSS Separado y Limpio -->
     <link rel="stylesheet" href="/jz/suite.css?v=0.2.0">
-    <link rel="stylesheet" href="css/admin.css?v=20261111">
+    <link rel="stylesheet" href="css/admin.css?v=20261112">
 </head>
 <body>
     <div id="toast-container" class="toast-container"></div>
@@ -422,9 +422,15 @@
                         </form>
                     </div>
 
-                    <div class="card">
-                        <h3>Historial de Órdenes</h3>
-                        <form id="filtros-po" class="busqueda-filtros" style="margin-bottom:1rem;" data-on-submit="buscarCompras(event, 'po')">
+                    <div class="busqueda-atajos">
+                        <span>Atajos</span>
+                        <button type="button" class="btn-secondary" data-on-click="atajoCompras('po', 0)">De hoy</button>
+                        <button type="button" class="btn-secondary" data-on-click="atajoCompras('po', 30)">Últimos 30 días</button>
+                        <button type="button" class="btn-secondary" id="btn-filtros-po" data-on-click="alternarFiltrosCompras('po')">Filtros</button>
+                        <p id="resumen-po" class="busqueda-resumen" style="margin:0 0 0 auto;" hidden></p>
+                    </div>
+                    <div class="card" id="caja-filtros-po" hidden>
+                        <form id="filtros-po" class="busqueda-filtros" data-on-submit="buscarCompras(event, 'po')">
                             <div class="form-group"><label for="f-po-numero">Nº de orden</label><input type="text" id="f-po-numero" name="number" placeholder="OC-000001" autocomplete="off"></div>
                             <div class="form-group"><label for="f-po-proveedor">Proveedor</label><input type="text" id="f-po-proveedor" name="supplier" autocomplete="off"></div>
                             <div class="form-group"><label for="f-po-sucursal">Sucursal de recepción</label><input type="text" id="f-po-sucursal" name="branch" autocomplete="off"></div>
@@ -436,11 +442,13 @@
                                 <button type="button" class="btn-secondary" data-on-click="limpiarCompras('po')">Limpiar</button>
                             </div>
                         </form>
-                        <p id="resumen-po" class="busqueda-resumen" hidden style="margin:0 0 0.8rem;"></p>
-                        <table>
-                            <thead><tr><th>Nº Orden</th><th>Proveedor</th><th>Estado</th><th>Acciones</th></tr></thead>
-                            <tbody id="table-po-body"><tr><td colspan="6" class="busqueda-vacia">Completá los filtros y tocá Buscar.</td></tr></tbody>
-                        </table>
+                    </div>
+                    <div class="dos" data-help="Órdenes de compra|Pestañas por estado a la izquierda y el detalle de la orden elegida a la derecha.|Pendiente es lo pedido menos lo recibido en los remitos.">
+                        <div class="lista">
+                            <div class="band-tabs" id="band-tabs-po"></div>
+                            <div class="scroll" id="band-lista-po"><div class="vacio">Buscá con los filtros o tocá un atajo.</div></div>
+                        </div>
+                        <div class="det" id="band-det-po"></div>
                     </div>
                 </div>
             </div>
@@ -475,9 +483,15 @@
                         </form>
                     </div>
 
-                    <div class="card">
-                        <h3>Historial de Remitos</h3>
-                        <form id="filtros-remito" class="busqueda-filtros" style="margin-bottom:1rem;" data-on-submit="buscarCompras(event, 'remito')">
+                    <div class="busqueda-atajos">
+                        <span>Atajos</span>
+                        <button type="button" class="btn-secondary" data-on-click="atajoCompras('remito', 0)">De hoy</button>
+                        <button type="button" class="btn-secondary" data-on-click="atajoCompras('remito', 30)">Últimos 30 días</button>
+                        <button type="button" class="btn-secondary" id="btn-filtros-remito" data-on-click="alternarFiltrosCompras('remito')">Filtros</button>
+                        <p id="resumen-remito" class="busqueda-resumen" style="margin:0 0 0 auto;" hidden></p>
+                    </div>
+                    <div class="card" id="caja-filtros-remito" hidden>
+                        <form id="filtros-remito" class="busqueda-filtros" data-on-submit="buscarCompras(event, 'remito')">
                             <div class="form-group"><label for="f-remito-numero">Nº de remito</label><input type="text" id="f-remito-numero" name="number" autocomplete="off"></div>
                             <div class="form-group"><label for="f-remito-proveedor">Proveedor</label><input type="text" id="f-remito-proveedor" name="supplier" autocomplete="off"></div>
                             <div class="form-group"><label for="f-remito-oc">Orden de compra</label><input type="text" id="f-remito-oc" name="purchase_order" placeholder="OC-000001" autocomplete="off"></div>
@@ -490,11 +504,13 @@
                                 <button type="button" class="btn-secondary" data-on-click="limpiarCompras('remito')">Limpiar</button>
                             </div>
                         </form>
-                        <p id="resumen-remito" class="busqueda-resumen" hidden style="margin:0 0 0.8rem;"></p>
-                        <table>
-                            <thead><tr><th>Nº Remito</th><th>Proveedor</th><th>Destino</th><th>Estado</th><th>Acciones</th></tr></thead>
-                            <tbody id="table-remito-body"><tr><td colspan="6" class="busqueda-vacia">Completá los filtros y tocá Buscar.</td></tr></tbody>
-                        </table>
+                    </div>
+                    <div class="dos" data-help="Remitos de entrada|Pestañas por estado a la izquierda y el detalle del remito elegido a la derecha.|Diferencia es lo controlado menos lo remitido; lo que llegó sin figurar en el remito queda en cuarentena hasta aprobarlo o rechazarlo.">
+                        <div class="lista">
+                            <div class="band-tabs" id="band-tabs-remito"></div>
+                            <div class="scroll" id="band-lista-remito"><div class="vacio">Buscá con los filtros o tocá un atajo.</div></div>
+                        </div>
+                        <div class="det" id="band-det-remito"></div>
                     </div>
                 </div>
             </div>
@@ -593,9 +609,15 @@
                         </form>
                     </div>
 
-                    <div class="card">
-                        <h3>Historial de Traspasos</h3>
-                        <form id="filtros-transfer" class="busqueda-filtros" style="margin-bottom:1rem;" data-on-submit="buscarCompras(event, 'transfer')">
+                    <div class="busqueda-atajos">
+                        <span>Atajos</span>
+                        <button type="button" class="btn-secondary" data-on-click="atajoCompras('transfer', 0)">De hoy</button>
+                        <button type="button" class="btn-secondary" data-on-click="atajoCompras('transfer', 30)">Últimos 30 días</button>
+                        <button type="button" class="btn-secondary" id="btn-filtros-transfer" data-on-click="alternarFiltrosCompras('transfer')">Filtros</button>
+                        <p id="resumen-transfer" class="busqueda-resumen" style="margin:0 0 0 auto;" hidden></p>
+                    </div>
+                    <div class="card" id="caja-filtros-transfer" hidden>
+                        <form id="filtros-transfer" class="busqueda-filtros" data-on-submit="buscarCompras(event, 'transfer')">
                             <div class="form-group"><label for="f-transfer-numero">Nº de traspaso</label><input type="text" id="f-transfer-numero" name="number" placeholder="TR-000001" autocomplete="off"></div>
                             <div class="form-group"><label for="f-transfer-origen">Origen</label><input type="text" id="f-transfer-origen" name="origin" placeholder="Sucursal o sector" autocomplete="off"></div>
                             <div class="form-group"><label for="f-transfer-destino">Destino</label><input type="text" id="f-transfer-destino" name="destination" placeholder="Sucursal o sector" autocomplete="off"></div>
@@ -607,11 +629,13 @@
                                 <button type="button" class="btn-secondary" data-on-click="limpiarCompras('transfer')">Limpiar</button>
                             </div>
                         </form>
-                        <p id="resumen-transfer" class="busqueda-resumen" hidden style="margin:0 0 0.8rem;"></p>
-                        <table>
-                            <thead><tr><th>Nº Traspaso</th><th>Origen</th><th>Destino</th><th>Estado</th><th>Acciones</th></tr></thead>
-                            <tbody id="table-transfers-body"><tr><td colspan="6" class="busqueda-vacia">Completá los filtros y tocá Buscar.</td></tr></tbody>
-                        </table>
+                    </div>
+                    <div class="dos" data-help="Traspasos|Pestañas por estado a la izquierda y el detalle del traspaso elegido a la derecha.|Pendiente es lo solicitado menos lo que ya se movió al destino.">
+                        <div class="lista">
+                            <div class="band-tabs" id="band-tabs-transfer"></div>
+                            <div class="scroll" id="band-lista-transfer"><div class="vacio">Buscá con los filtros o tocá un atajo.</div></div>
+                        </div>
+                        <div class="det" id="band-det-transfer"></div>
                     </div>
                 </div>
             </div>
@@ -646,9 +670,15 @@
                         </form>
                     </div>
 
-                    <div class="card">
-                        <h3>Historial de Devoluciones</h3>
-                        <form id="filtros-return" class="busqueda-filtros" style="margin-bottom:1rem;" data-on-submit="buscarCompras(event, 'return')">
+                    <div class="busqueda-atajos">
+                        <span>Atajos</span>
+                        <button type="button" class="btn-secondary" data-on-click="atajoCompras('return', 0)">De hoy</button>
+                        <button type="button" class="btn-secondary" data-on-click="atajoCompras('return', 30)">Últimos 30 días</button>
+                        <button type="button" class="btn-secondary" id="btn-filtros-return" data-on-click="alternarFiltrosCompras('return')">Filtros</button>
+                        <p id="resumen-return" class="busqueda-resumen" style="margin:0 0 0 auto;" hidden></p>
+                    </div>
+                    <div class="card" id="caja-filtros-return" hidden>
+                        <form id="filtros-return" class="busqueda-filtros" data-on-submit="buscarCompras(event, 'return')">
                             <div class="form-group"><label for="f-return-numero">Nº de devolución</label><input type="text" id="f-return-numero" name="number" autocomplete="off"></div>
                             <div class="form-group"><label for="f-return-cliente">Cliente</label><input type="text" id="f-return-cliente" name="customer" autocomplete="off"></div>
                             <div class="form-group"><label for="f-return-pedido">Pedido</label><input type="text" id="f-return-pedido" name="order" autocomplete="off"></div>
@@ -659,11 +689,13 @@
                                 <button type="button" class="btn-secondary" data-on-click="limpiarCompras('return')">Limpiar</button>
                             </div>
                         </form>
-                        <p id="resumen-return" class="busqueda-resumen" hidden style="margin:0 0 0.8rem;"></p>
-                        <table>
-                            <thead><tr><th>Nº Devolución</th><th>Cliente</th><th>Pedido</th><th>Fecha</th><th>Usuario</th></tr></thead>
-                            <tbody id="table-returns-body"><tr><td colspan="6" class="busqueda-vacia">Completá los filtros y tocá Buscar.</td></tr></tbody>
-                        </table>
+                    </div>
+                    <div class="dos" data-help="Devoluciones de clientes|Lista de devoluciones a la izquierda y los datos de la elegida a la derecha.|Las observaciones se agregan, no se editan.">
+                        <div class="lista">
+                            <div class="band-tabs" id="band-tabs-return"></div>
+                            <div class="scroll" id="band-lista-return"><div class="vacio">Buscá con los filtros o tocá un atajo.</div></div>
+                        </div>
+                        <div class="det" id="band-det-return"></div>
                     </div>
                 </div>
             </div>
@@ -1772,22 +1804,6 @@
         </div>
     </div>
 
-    <div id="modal-po-detail" class="modal">
-        <div class="modal-content" style="max-width:760px;">
-            <span class="close-modal" data-on-click="closeModal('modal-po-detail')">&times;</span>
-            <h2 style="color:var(--text-primary); margin:0 0 1rem; font-size:1.3rem;">Orden de compra <span id="po-detail-label" class="font-mono" style="color:var(--accent);"></span></h2>
-            <div id="po-detail-body"></div>
-        </div>
-    </div>
-
-    <div id="modal-transfer-detail" class="modal">
-        <div class="modal-content" style="max-width:760px;">
-            <span class="close-modal" data-on-click="closeModal('modal-transfer-detail')">&times;</span>
-            <h2 style="color:var(--text-primary); margin:0 0 1rem; font-size:1.3rem;">Traspaso <span id="transfer-detail-label" class="font-mono" style="color:var(--accent);"></span></h2>
-            <div id="transfer-detail-body"></div>
-        </div>
-    </div>
-
     <div id="modal-packing-station" class="modal">
         <div class="modal-content" style="max-width:850px; background:var(--bg-page);">
             <span class="close-modal" data-on-click="closeModal('modal-packing-station')">&times;</span>
@@ -2622,15 +2638,15 @@
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261007_2"></script>
     <script src="js/admin-core.js?v=20261107_2"></script>
-    <script src="js/ayuda.js?v=20261031_1"></script>
+    <script src="js/ayuda.js?v=20261112_1"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261003_1"></script>
     <script src="js/items.js?v=20261007_1"></script>
     <script src="js/warehouse.js?v=20261007_2"></script>
-    <script src="js/operations.js?v=20261029_1"></script>
-    <script src="js/inicio.js?v=20261107_2"></script>
+    <script src="js/operations.js?v=20261112_1"></script>
+    <script src="js/inicio.js?v=20261112_1"></script>
     <script src="js/pedidos.js?v=20261107_2"></script>
-    <script src="js/compras.js?v=20261003_4"></script>
+    <script src="js/compras.js?v=20261112_1"></script>
     <script src="js/ajustes.js?v=20261031_1"></script>
     <script src="js/reports.js?v=20261007_2"></script>
     <script src="js/settings.js?v=20261031_1"></script>

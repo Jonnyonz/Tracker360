@@ -2,6 +2,26 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.12.0 — 2026-11-12
+
+### Cambiado
+- **Rediseño del panel, fase 3** (`design_handoff_tracker360`): Compras y Recepción. Solo frontend, sin endpoints nuevos.
+  - **Órdenes de compra, Remitos de entrada, Traspasos y Devoluciones pasan a bandeja lista + detalle**, como
+    Pedidos: a la izquierda las pestañas por estado con su cantidad y la lista (número, fecha, proveedor o recorrido y
+    estado); a la derecha el detalle del documento elegido, con sus datos, las líneas y las observaciones. Ya no se abre
+    una ventana aparte para ver el detalle.
+  - Columnas de las líneas según el documento: Pedido / Recibido / Pendiente en las órdenes, Remito / Controlado /
+    Diferencia en los remitos (con el origen de cada línea, la ubicación y el lote) y Solicitado / Movido / Pendiente en
+    los traspasos.
+  - **Remitos con artículos en cuarentena:** el detalle muestra un aviso por cada artículo que llegó sin figurar en el
+    remito, con **Aprobar ingreso** y **Rechazar**; al resolverlo se actualiza el detalle sin salir de la pantalla.
+  - Sigue sin listarse nada hasta buscar. Atajos nuevos **De hoy** y **Últimos 30 días**; los filtros de siempre quedan
+    detrás del botón **Filtros**.
+  - En Inicio, "Ver" de un traspaso activo y "Revisar" de un remito con diferencias abren ese documento en su bandeja.
+  - Las devoluciones muestran los datos de cabecera y las observaciones: el detalle de artículos por devolución no
+    está disponible en la API todavía.
+  - Las facturas de compra no cambian (se consultan en Reportes).
+
 ## 1.11.0 — 2026-11-11
 
 ### Cambiado

@@ -86,7 +86,7 @@ async function renderInicio() {
     const at = [];
     if (urgentes.length) at.push({ cls: 'badge-danger', ic: 'alert', t: `${urgentes.length} pedido${urgentes.length === 1 ? '' : 's'} Flex sin preparar`, d: urgentes.slice(0, 3).map(o => o.document_number).join(', '), cta: 'Ver', go: "irAPedidos('urgentes')" });
     if (empacar.length) at.push({ cls: 'badge-success', ic: 'box', t: `${empacar.length} pedido${empacar.length === 1 ? ' listo' : 's listos'} para empacar`, d: 'Picking completo, falta despachar', cta: 'Empacar', go: "irAPedidos('empacar')" });
-    (remitosDif || []).slice(0, 3).forEach(r => at.push({ cls: 'badge-warning', ic: 'alert', t: `Remito ${r.remito_number || r.number || ''} con diferencias`, d: `${r.supplier_name || r.supplier || ''}`.trim() || 'Controlado con faltantes o sobrantes', cta: 'Revisar', go: "abrirCompras('tab-remito')" }));
+    (remitosDif || []).slice(0, 3).forEach(r => at.push({ cls: 'badge-warning', ic: 'alert', t: `Remito ${r.remito_number || r.number || ''} con diferencias`, d: `${r.supplier_name || r.supplier || ''}`.trim() || 'Controlado con faltantes o sobrantes', cta: 'Revisar', go: r.remito_number ? `mostrarCompraBuscada('tab-remito', ${jsArg(r.remito_number)})` : "abrirCompras('tab-remito')" }));
     (conteos || []).slice(0, 3).forEach(s => at.push({ cls: 'badge-info', ic: 'count', t: `Conteo de ${s.sector_name || ''} para revisar`, d: `${s.branch_name || ''} · ${s.count_type === 'COLD' ? 'en frío' : 'en caliente'} · ${s.assigned_operator || s.created_by || ''}`, cta: 'Revisar y aplicar', go: "switchView('section-inventory')" }));
     const ICO = {
         alert: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line>',
@@ -98,7 +98,7 @@ async function renderInicio() {
         : '<div class="vacio">Todo en orden por ahora.</div>';
 
     // Traspasos activos
-    document.getElementById('ini-traspasos').innerHTML = traspasos.length ? traspasos.map(t => `<div class="tr-row"><b class="mono">${escapeHTML(t.transfer_number)}</b><span class="od">${escapeHTML(t.origin_branch)}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>${escapeHTML(t.destination_branch)}</span><button type="button" class="btn-link" data-on-click="verTraspaso(${jsArg(t.transfer_number)})">Ver</button></div>`).join('')
+    document.getElementById('ini-traspasos').innerHTML = traspasos.length ? traspasos.map(t => `<div class="tr-row"><b class="mono">${escapeHTML(t.transfer_number)}</b><span class="od">${escapeHTML(t.origin_branch)}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>${escapeHTML(t.destination_branch)}</span><button type="button" class="btn-link" data-on-click="mostrarCompraBuscada('tab-transfer', ${jsArg(t.transfer_number)})">Ver</button></div>`).join('')
         : '<div class="vacio">Sin traspasos activos.</div>';
 
     // Eventos del sistema

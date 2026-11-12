@@ -387,3 +387,14 @@ td.busqueda-vacia { text-align: center; padding: 34px 16px; color: var(--tm); wh
 .det-b .obs-list > div > div:first-child { font-family: var(--m); font-size: 11px !important; }
 .det-b h3 { display: none; }
 @media (max-width: 900px) { .dos { min-height: 0; } .dos > .lista { max-height: 460px; } .det-h .avance { text-align: left; } }
+/* Compras: bandejas lista + detalle (fase 3) */
+.compras-modulo .dos { margin-top: 0; }
+.busqueda-atajos .btn-secondary.on { background: var(--tp); color: var(--sf); border-color: var(--tp); }
+.band-row .lt { font: 600 13px/1.3 var(--f); }
+.band-row .l4 { display: flex; justify-content: space-between; gap: 8px; align-items: center; width: 100%; font: 500 12px/1.3 var(--f); color: var(--ts); }
+.datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; border: 1px solid var(--ln); border-radius: 10px; overflow: hidden; flex: none; }
+.datos > div { padding: 12px 14px; box-shadow: 0 0 0 1px var(--ln); } .datos b { display: block; font: 600 13.5px/1.3 var(--f); margin-top: 7px; overflow-wrap: anywhere; }
+.aviso-dif { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: var(--wns); border: 1px solid var(--wn); border-radius: 10px; padding: 12px 14px; color: var(--wnt); font: 500 13px/1.45 var(--f); }
+.aviso-dif > span { flex: 1 1 100%; }
+.det-b > * { flex: none; }
+.tbl-compras { min-width: 400px; } .tbl-compras th, .tbl-compras td { padding-left: 7px; padding-right: 7px; } .tbl-compras th { letter-spacing: .04em; } .tbl-compras td:nth-child(2) { min-width: 100px; }
