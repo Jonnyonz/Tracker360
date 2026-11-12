@@ -1034,6 +1034,8 @@ async function runSpotCheck(e) {
 // crear, revisar o cerrar una sesion (loadInventorySessions).
 const SESIONES_POR_BUSQUEDA = 200;
 let busquedaInventario = null;
+let atajoInv = null;   // atajo en uso (hoy, semana, revisar, todas) o null si se busco con los filtros
+const INV_ESTADO = { OPEN: ['Abierta', 'badge-info'], REVIEW: ['En revisión', 'badge-warning'], CLOSED: ['Cerrada', 'badge-success'] };
 
 function buscarInventario(event) {
     if (event) event.preventDefault();
@@ -1043,67 +1045,86 @@ function buscarInventario(event) {
         if (valor) params.set(el.name, valor);
     });
     busquedaInventario = params;
+    atajoInv = null;
     loadInventorySessions();
 }
 
-function limpiarInventario() {
+// Atajos: busquedas listas que cargan los filtros y buscan. Al entrar se usa "hoy".
+function atajoInventario(cual) {
     document.getElementById('filtros-inventario')?.reset();
-    busquedaInventario = null;
-    loadInventorySessions();
+    const poner = (id, valor) => { const el = document.getElementById(id); if (el) el.value = valor; };
+    const hoy = fechaLocalHoy();
+    if (cual === 'hoy') { poner('f-inv-desde', hoy); poner('f-inv-hasta', hoy); }
+    if (cual === 'semana') {
+        const lunes = new Date();
+        lunes.setDate(lunes.getDate() - ((lunes.getDay() + 6) % 7));
+        poner('f-inv-desde', new Date(lunes.getTime() - lunes.getTimezoneOffset() * 60000).toISOString().slice(0, 10));
+        poner('f-inv-hasta', hoy);
+    }
+    if (cual === 'revisar') poner('f-inv-estado', 'REVIEW');
+    buscarInventario();
+    atajoInv = cual;
+    marcarAtajoInventario();
+}
+function limpiarInventario() { atajoInventario('hoy'); }
+function marcarAtajoInventario() {
+    document.querySelectorAll('#inv-atajos [data-atajo]').forEach(b => b.classList.toggle('on', b.dataset.atajo === atajoInv));
+}
+function alternarFiltrosInventario() {
+    const c = document.getElementById('inv-filtros'); c.hidden = !c.hidden;
+    document.getElementById('btn-inv-filtros')?.classList.toggle('on', !c.hidden);
 }
 
+// Tarjetas de sesion (design_handoff_tracker360, fase 6). La lista de sesiones no trae numero, avance ni
+// diferencias: el titulo es el sector y los tres totales se piden a /review solo para las que estan en revision.
 async function loadInventorySessions() {
-    const tbody = document.getElementById('table-inventory-sessions-body');
-    if(!tbody) return;
-    if (!busquedaInventario) {
-        // Sin busqueda propia: las de hoy.
-        const hoy = fechaLocalHoy();
-        ['f-inv-desde', 'f-inv-hasta'].forEach(id => { const el = document.getElementById(id); if (el) el.value = hoy; });
-        busquedaInventario = new URLSearchParams({ limit: SESIONES_POR_BUSQUEDA, date_from: hoy, date_to: hoy });
-    }
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:2rem;">Cargando sesiones...</td></tr>';
+    const caja = document.getElementById('inv-tarjetas');
+    if (!caja) return;
+    if (!busquedaInventario) { atajoInventario('hoy'); return; }   // sin busqueda propia: las de hoy
+    marcarAtajoInventario();
+    caja.innerHTML = '<div class="vacio">Cargando sesiones…</div>';
     const resumen = document.getElementById('inventario-resumen');
-
     try {
-        const data = await fetchAPI('/api/inventory/sessions?' + busquedaInventario.toString());
+        const data = await fetchAPI('/api/inventory/sessions?' + busquedaInventario.toString()) || [];
         if (resumen) {
-            const n = (data || []).length;
+            const n = data.length;
             resumen.textContent = n >= SESIONES_POR_BUSQUEDA ? `Se muestran las ${SESIONES_POR_BUSQUEDA} más recientes: afiná la búsqueda.` : `${n} sesi${n === 1 ? 'ón' : 'ones'}.`;
             resumen.hidden = false;
         }
-        if(!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="busqueda-vacia">No hay sesiones de conteo en esas fechas o con esos filtros.</td></tr>';
+        if (data.length === 0) {
+            caja.innerHTML = '<div class="vacio">No hay sesiones de conteo en esas fechas o con esos filtros.</div>';
             return;
         }
-
-        tbody.innerHTML = data.map(s => {
-            let btn = '';
-            let badge = '';
-            
-            if(s.status === 'OPEN') {
-                badge = '<span class="badge badge-warning">ABIERTO (CONTANDO)</span>';
-                btn = `<button class="btn-secondary" data-on-click="openScanInventoryModal(${jsArg(s.id)})" style="padding:4px 8px; font-size:0.75rem;">Escanear Físico</button>`;
-            } else if (s.status === 'REVIEW') {
-                badge = '<span class="badge badge-info">EN REVISIÓN (DIFERENCIAS)</span>';
-                btn = `<button class="btn-submit" data-on-click="openReviewInventoryModal(${jsArg(s.id)})" style="padding:4px 8px; font-size:0.75rem;">Revisar diferencias</button>`;
-            } else {
-                badge = '<span class="badge badge-success">CERRADO</span>';
-                btn = `<span style="color:var(--text-muted); font-size:0.8rem; padding-right:8px;">Finalizado</span>`;
-            }
-            
-            return `<tr>
-                <td>${escapeHTML(s.branch_name)}</td>
-                <td style="font-weight:bold; color:var(--primary-blue);">${escapeHTML(s.sector_name)}</td>
-                <td><span class="badge badge-neutral">${escapeHTML(s.count_type)}</span></td>
-                <td>${badge}</td>
-                <td>${new Date(s.created_at).toLocaleDateString()}</td>
-                <td>${escapeHTML(s.assigned_operator)}</td>
-                <td style="text-align:right;">${btn}</td>
-            </tr>`;
+        caja.innerHTML = data.map(s => {
+            const [estado, cls] = INV_ESTADO[s.status] || [s.status, 'badge-neutral'];
+            const accion = s.status === 'OPEN' ? `<button type="button" class="btn-secondary" data-on-click="openScanInventoryModal(${jsArg(s.id)})">Escanear Físico</button>`
+                : s.status === 'REVIEW' ? `<button type="button" class="btn-submit" data-on-click="openReviewInventoryModal(${jsArg(s.id)})">Revisar diferencias</button>`
+                : '<span>Finalizado</span>';
+            return `<div class="conteo">
+                <div class="c1"><div class="min0"><b>${escapeHTML(s.sector_name)}</b><div class="sub">${escapeHTML(s.branch_name)} · ${escapeHTML(new Date(s.created_at).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short', hour12: false }))}</div></div><span class="badge ${cls}">${escapeHTML(estado)}</span></div>
+                <div class="tags"><span>Ciego</span><span>${s.count_type === 'COLD' ? 'En frío' : 'En caliente'}</span></div>
+                ${s.status === 'REVIEW' ? `<div class="datos" id="conteo-stats-${escapeHTML(s.id)}">${['Diferencias', 'Faltantes', 'Sobrantes'].map(k => `<div><div class="cap">${k}</div><b>…</b></div>`).join('')}</div>` : ''}
+                <div class="c4"><span>Operador: ${escapeHTML(s.assigned_operator || s.created_by || '—')}</span>${accion}</div>
+            </div>`;
         }).join('');
+        data.filter(s => s.status === 'REVIEW').forEach(totalesConteo);
     } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--danger); padding:2rem;">Error al cargar sesiones.</td></tr>';
+        caja.innerHTML = '<div class="vacio" style="color:var(--dg);">Error al cargar sesiones.</div>';
     }
+}
+
+// Diferencias, faltantes y sobrantes de una sesion en revision (lo mismo que muestra Revisar diferencias).
+async function totalesConteo(s) {
+    let filas;
+    try { filas = await fetchAPI(`/api/inventory/sessions/${encodeURIComponent(s.id)}/review`); } catch (e) { return; }
+    const caja = document.getElementById(`conteo-stats-${s.id}`);
+    if (!caja) return;
+    const deltas = (filas || []).map(d => parseFloat(d.delta) || 0).filter(n => n !== 0);
+    const suma = lista => Math.round(lista.reduce((a, n) => a + n, 0) * 100) / 100;
+    const faltan = suma(deltas.filter(n => n < 0)), sobran = suma(deltas.filter(n => n > 0));
+    const dato = (k, v, color) => `<div><div class="cap">${k}</div><b style="color:${color}">${v}</b></div>`;
+    caja.innerHTML = dato('Diferencias', deltas.length, deltas.length ? 'var(--wnt)' : 'var(--tp)')
+        + dato('Faltantes', faltan, faltan ? 'var(--dgt)' : 'var(--tp)') + dato('Sobrantes', sobran ? '+' + sobran : 0, 'var(--tp)');
 }
 
 async function openCreateInventoryModal() {

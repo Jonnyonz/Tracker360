@@ -8,7 +8,7 @@
     
     <!-- CSS Separado y Limpio -->
     <link rel="stylesheet" href="/jz/suite.css?v=0.2.0">
-    <link rel="stylesheet" href="css/admin.css?v=20261112_3">
+    <link rel="stylesheet" href="css/admin.css?v=20261112_4">
 </head>
 <body>
     <div id="toast-container" class="toast-container"></div>
@@ -857,7 +857,15 @@
                 </div>
             </div>
             
-            <div class="card" style="margin-bottom:1.5rem;" data-help="Buscar sesiones de conteo|Al entrar se ven las sesiones de hoy.|Para ver otras, cambiá las fechas o usá los demás filtros; Hoy vuelve a las del día.">
+            <div class="busqueda-atajos" id="inv-atajos" data-help="Buscar sesiones de conteo|Al entrar se ven las sesiones de hoy.|Hoy, Esta semana, Para revisar y Todas son búsquedas listas; Filtros abre los campos para combinar.">
+                <button type="button" class="btn-secondary" data-atajo="hoy" data-on-click="atajoInventario('hoy')">Hoy</button>
+                <button type="button" class="btn-secondary" data-atajo="semana" data-on-click="atajoInventario('semana')">Esta semana</button>
+                <button type="button" class="btn-secondary" data-atajo="revisar" data-on-click="atajoInventario('revisar')">Para revisar</button>
+                <button type="button" class="btn-secondary" data-atajo="todas" data-on-click="atajoInventario('todas')">Todas</button>
+                <button type="button" class="btn-secondary" id="btn-inv-filtros" data-on-click="alternarFiltrosInventario()">Filtros</button>
+                <p id="inventario-resumen" class="busqueda-resumen" style="margin:0 0 0 auto;" hidden></p>
+            </div>
+            <div class="card" id="inv-filtros" hidden>
                 <form id="filtros-inventario" class="busqueda-filtros" data-on-submit="buscarInventario(event)">
                     <div class="form-group"><label for="f-inv-desde">Desde</label><input type="date" id="f-inv-desde" name="date_from"></div>
                     <div class="form-group"><label for="f-inv-hasta">Hasta</label><input type="date" id="f-inv-hasta" name="date_to"></div>
@@ -871,27 +879,9 @@
                         <button type="button" class="btn-secondary" data-on-click="limpiarInventario()">Hoy</button>
                     </div>
                 </form>
-                <p id="inventario-resumen" class="busqueda-resumen" hidden></p>
             </div>
 
-            <div class="card grid-full-width" data-help="Sesiones de Conteo Ciego|Al abrir un conteo se toma una foto del stock del sector para comparar.|En caliente: se puede seguir operando. En frío: el sector queda congelado para mayor precisión.">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Sucursal</th>
-                            <th>Sector Auditado</th>
-                            <th>Modalidad</th>
-                            <th>Estado</th>
-                            <th>Fecha Creación</th>
-                            <th>Operador Asignado</th>
-                            <th>Acción Operativa</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-inventory-sessions-body">
-                        <tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--text-muted);">Cargando sesiones...</td></tr>
-                    </tbody>
-                </table>
-            </div>
+            <div class="conteos" id="inv-tarjetas" data-help="Sesiones de Conteo Ciego|Al abrir un conteo se toma una foto del stock del sector para comparar.|En caliente: se puede seguir operando. En frío: el sector queda congelado para mayor precisión."></div>
         </div>
 
         <!-- REPORTES (Kardex, Stock, Remitos, Facturas, PO) -->
@@ -2621,12 +2611,12 @@
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261007_2"></script>
     <script src="js/admin-core.js?v=20261107_2"></script>
-    <script src="js/ayuda.js?v=20261112_3"></script>
+    <script src="js/ayuda.js?v=20261112_4"></script>
     <script src="js/users.js?v=20261001_3"></script>
     <script src="js/entities.js?v=20261003_1"></script>
     <script src="js/items.js?v=20261112_1"></script>
     <script src="js/warehouse.js?v=20261112_1"></script>
-    <script src="js/operations.js?v=20261112_1"></script>
+    <script src="js/operations.js?v=20261112_2"></script>
     <script src="js/inicio.js?v=20261112_1"></script>
     <script src="js/pedidos.js?v=20261107_2"></script>
     <script src="js/compras.js?v=20261112_1"></script>

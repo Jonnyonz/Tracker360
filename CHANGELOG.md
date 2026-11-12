@@ -2,6 +2,19 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.15.0 — 2026-11-12
+
+### Cambiado
+- **Rediseño del panel, fase 6** (`design_handoff_tracker360`): Auditoría de Inventario. Solo frontend, sin endpoints nuevos.
+  - **Sesiones de conteo en tarjetas:** cada una muestra el sector, la sucursal y la fecha, el estado (Abierta, En
+    revisión, Cerrada), la modalidad (ciego, en caliente o en frío), el operador y la acción que corresponde
+    (Escanear Físico o Revisar diferencias).
+  - **Sesiones en revisión:** la tarjeta muestra cuántas diferencias tiene y el total de faltantes y sobrantes (lo
+    mismo que se ve al abrir Revisar diferencias).
+  - **Atajos en píldora:** Hoy (lo que se ve al entrar, como antes), Esta semana, Para revisar y Todas. Los filtros
+    de siempre quedan detrás del botón **Filtros**.
+  - No se muestran el número de sesión ni la barra de ubicaciones contadas: la API todavía no los informa.
+
 ## 1.14.0 — 2026-11-12
 
 ### Cambiado
