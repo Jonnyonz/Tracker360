@@ -5,447 +5,294 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tracker360 - JZTech Suite</title>
+    <!-- Tokens, badges y animaciones de la suite (jztech-core). Lo propio de la colectora va abajo. -->
+    <link rel="stylesheet" href="/jz/suite.css?v=0.2.0">
     <style>
-        :root { 
-            /* JZTech Suite Light Theme */
-            --bg-page: #f4f6f9; 
-            --bg-surface: #ffffff; 
-            --accent: #2962ff; 
-            --accent-hover: #1f4fd1; 
-            --success: #00c853; 
-            --danger: #d50000; 
-            --warning: #ffc107; 
-            --text-primary: #212529; 
-            --text-secondary: #666666; 
-            --text-muted: #999999; 
-            --border: #e0e0e0;
-            
-            /* Derivados Semánticos Módulo Colectora */
-            --header-bg: #2962ff;
-            --header-text: #ffffff;
-            --card-border: #e0e0e0;
-            --shadow: 0 2px 8px rgba(0,0,0,0.04);
-        }
+        /* Colectora Movil (design_handoff_tracker360, fase 8): una mano, escaneando. Objetivos tactiles de 50px o mas. */
+        * { margin: 0; padding: 0; }
+        [hidden] { display: none !important; }
+        body { font: 500 15px/1.4 var(--f); background: var(--bg); color: var(--tp); max-width: 620px; margin: 0 auto; min-height: 100vh; }
+        .mono, .font-mono { font-family: var(--m); }
+        .min0 { min-width: 0; }
 
-        [data-theme="dark"] {
-            /* JZTech Suite Dark Theme */
-            --bg-page: #121212; 
-            --bg-surface: #1e1e1e; 
-            --accent: #3d70ff; 
-            --accent-hover: #5a85ff; 
-            --success: #00e676; 
-            --danger: #ff5252; 
-            --warning: #ffca28;
-            --text-primary: #e0e0e0; 
-            --text-secondary: #aaaaaa; 
-            --text-muted: #777777; 
-            --border: #333333;
-            
-            /* Derivados Semánticos Módulo Colectora Dark */
-            --header-bg: #1e1e1e;
-            --header-text: #e0e0e0;
-            --card-border: #333333;
-            --shadow: 0 4px 12px rgba(0,0,0,0.3);
-        }
+        /* Cabecera */
+        .hdr { position: sticky; top: 0; z-index: 50; background: var(--ink); color: #fff; display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+        .hdr-logo { width: 40px; height: 40px; border-radius: 10px; background: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
+        .hdr-logo img { width: 28px; height: 28px; }
+        .hdr-back { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--inkln); background: var(--ink2); color: #fff; display: flex; align-items: center; justify-content: center; flex: none; cursor: pointer; }
+        .hdr-back svg { width: 20px; height: 20px; }
+        .hdr-txt { flex: 1; min-width: 0; }
+        .hdr-eye { display: flex; align-items: center; gap: 6px; font: 600 10.5px/1 var(--f); letter-spacing: .1em; text-transform: uppercase; color: var(--inkmu); }
+        .live { width: 7px; height: 7px; border-radius: 50%; background: #2fd47a; animation: jzlive 2s infinite; flex: none; }
+        .live.off { background: #ff5a5a; animation: none; }
+        .hdr-tit { font: 600 19px/1.2 var(--f); margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .hdr-tit.mono { font-family: var(--m); font-size: 18px; }
+        .hdr-user { font: 600 11px/1 var(--m); color: var(--inktx); background: var(--ink2); border: 1px solid var(--inkln); border-radius: 6px; padding: 6px 8px; flex: none; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .hdr-user:empty { display: none; }
+        .net-status { display: none; background: var(--dg); color: #fff; text-align: center; padding: 9px; font: 600 13px/1.2 var(--f); }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            font-family: system-ui, -apple-system, sans-serif; 
-            background-color: var(--bg-page); 
-            color: var(--text-primary); 
-            transition: background-color 0.2s, color 0.2s;
-        }
+        .view { display: none; padding: 14px 14px 96px; }
+        .view.active { display: block; animation: jzin .2s ease-out; }
+        .vacio { text-align: center; padding: 34px 16px; color: var(--tm); font: 500 13.5px/1.5 var(--f); }
+        .vacio.err { color: var(--dg); }
+        .nota { font: 500 13px/1.5 var(--f); color: var(--ts); margin-bottom: 12px; }
 
-        .font-mono, input[id*="-sku"], input[id*="-loc"] {
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-            font-size: 0.9em;
-            letter-spacing: 0.02em;
-        }
+        /* Inicio */
+        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .menu-card { min-height: 132px; text-align: left; cursor: pointer; background: var(--sf); border: 1px solid var(--ln); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 4px; color: var(--tp); font-family: var(--f); }
+        .menu-card:active { border-color: var(--ac); background: var(--acs); }
+        .menu-card.ancha { grid-column: 1 / -1; min-height: 0; }
+        .mc-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: auto; padding-bottom: 12px; }
+        .mc-ico { width: 40px; height: 40px; border-radius: 10px; background: var(--acs); color: var(--ac); display: flex; align-items: center; justify-content: center; }
+        .mc-ico svg { width: 22px; height: 22px; stroke-width: 1.75; }
+        .mc-n { font: 600 22px/1 var(--m); }
+        .mc-t { font: 600 16px/1.2 var(--f); }
+        .menu-card small { font: 500 12px/1.35 var(--f); color: var(--ts); }
+        .mc-tag { align-self: flex-start; margin-top: 6px; background: var(--ne); color: var(--net); border-radius: 4px; padding: 3px 6px; font: 700 9.5px/1.2 var(--f); letter-spacing: .05em; }
+        .mc-tag.dg { background: var(--dgs); color: var(--dgt); }
+        .mc-tag.in { background: var(--acs); color: var(--act); }
+        .bottom-actions { display: grid; gap: 8px; margin-top: 14px; }
+        .btn-fila { min-height: 52px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 9px; background: var(--sf); border: 1px solid var(--ln); border-radius: 12px; color: var(--tp); font: 600 14px/1 var(--f); }
+        .btn-fila svg { width: 18px; height: 18px; }
+        .btn-fila.dg { color: var(--dg); }
+        .app-footer { padding: 22px 0 0; text-align: center; font: 500 12px/1 var(--f); color: var(--tm); }
+        .app-footer a { color: var(--ts); }
 
-        .top-accent-bar {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 4px;
-            background-color: var(--accent);
-            z-index: 10000;
-        }
+        /* Listas */
+        .list-item { width: 100%; min-height: 64px; text-align: left; cursor: pointer; background: var(--sf); border: 1px solid var(--ln); border-radius: 12px; padding: 14px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px; color: var(--tp); font-family: var(--f); }
+        .list-item:active { border-color: var(--ac); background: var(--acs); }
+        .list-item.flex { box-shadow: inset 4px 0 0 var(--dg); }
+        .li-1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .li-1 b { font: 600 16px/1.2 var(--m); overflow-wrap: anywhere; }
+        .li-2 { font: 500 13px/1.4 var(--f); color: var(--ts); }
+        .li-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+        .li-tags:empty { display: none; }
+        .barra { height: 5px; border-radius: 3px; background: var(--ln2); overflow: hidden; margin-top: 4px; }
+        .barra i { display: block; height: 100%; background: var(--ac); border-radius: 3px; }
+        .btn-ola { width: 100%; min-height: 52px; cursor: pointer; margin-bottom: 12px; background: var(--wns); color: var(--wnt); border: 1px solid var(--wn); border-radius: 12px; font: 600 14px/1 var(--f); }
 
-        .header { 
-            background-color: var(--header-bg); 
-            color: var(--header-text); 
-            padding: 1.2rem 1rem; 
-            text-align: center; 
-            font-weight: 800; 
-            text-transform: uppercase; 
-            position: relative; 
-            box-shadow: var(--shadow);
-            border-bottom: 1px solid var(--border);
-            margin-top: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .header-logo-svg {
-            height: 24px;
-            width: 24px;
-            position: absolute;
-            right: 1rem;
-            color: var(--header-text);
-        }
+        /* Escaneo: visor */
+        .cam { position: relative; height: 196px; background: #000; border-radius: 14px; border: 2px solid var(--ac); overflow: hidden; margin-bottom: 12px; }
+        .cam.ola { border-color: var(--wn); }
+        .cam video { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .mira { position: absolute; inset: 24px 44px; pointer-events: none; --c: rgba(255,255,255,.9);
+            background: linear-gradient(var(--c), var(--c)) top left / 22px 3px, linear-gradient(var(--c), var(--c)) top left / 3px 22px,
+                linear-gradient(var(--c), var(--c)) top right / 22px 3px, linear-gradient(var(--c), var(--c)) top right / 3px 22px,
+                linear-gradient(var(--c), var(--c)) bottom left / 22px 3px, linear-gradient(var(--c), var(--c)) bottom left / 3px 22px,
+                linear-gradient(var(--c), var(--c)) bottom right / 22px 3px, linear-gradient(var(--c), var(--c)) bottom right / 3px 22px;
+            background-repeat: no-repeat; }
+        .laser { position: absolute; left: 44px; right: 44px; top: 50%; height: 2px; background: #ff3b3b; box-shadow: 0 0 8px #ff3b3b; pointer-events: none; animation: laser 2s ease-in-out infinite; }
+        @keyframes laser { 0%, 100% { transform: translateY(-58px); } 50% { transform: translateY(58px); } }
+        .cam-chip { position: absolute; left: 10px; bottom: 10px; background: rgba(0,0,0,.6); color: #fff; border-radius: 5px; padding: 4px 7px; font: 600 9.5px/1 var(--m); letter-spacing: .06em; }
+        .cam-off { display: none; position: absolute; inset: 0; background: #0b0e15; color: #9ca3af; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 16px; text-align: center; font: 500 12.5px/1.4 var(--f); }
+        .cam-off b { color: #fca5a5; font: 700 12px/1 var(--f); letter-spacing: .06em; }
+        .cam.sin-camara .cam-off { display: flex; }
+        .cam.sin-camara .laser, .cam.sin-camara .mira, .cam.sin-camara .cam-chip, .cam.sin-camara video { display: none; }
 
-        .btn-back { 
-            position: absolute; 
-            left: 1rem; 
-            color: var(--header-text); 
-            text-decoration: none; 
-            font-size: 0.9rem; 
-            display: none; 
-            cursor: pointer; 
-            font-weight: 600; 
-            text-transform: uppercase; 
-            opacity: 0.8;
-            transition: opacity 0.2s;
-        }
-        .btn-back:hover { opacity: 1; }
-        
-        .menu-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; padding: 1.5rem 1rem; }
-        .bottom-actions { display: grid; grid-template-columns: 1fr; gap: 1rem; padding: 0 1rem 1.5rem 1rem; }
-        
-        .menu-card { 
-            background-color: var(--bg-surface); 
-            padding: 1.5rem 1rem; 
-            border-radius: 10px; 
-            border: 1px solid var(--border); 
-            text-align: center; 
-            cursor: pointer; 
-            font-weight: 700; 
-            color: var(--accent);
-            box-shadow: var(--shadow); 
-            transition: all 0.2s ease;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-        }
-        .menu-card svg {
-            width: 28px;
-            height: 28px;
-            stroke-width: 1.5;
-            color: var(--accent);
-            margin-bottom: 4px;
-        }
-
-        .menu-card:hover, .menu-card:active {
-            border-color: var(--accent);
-            background-color: rgba(41, 98, 255, 0.04);
-        }
-        .menu-card span { font-size: 1.05rem; }
-        .menu-card small { display: block; font-size: 0.75rem; color: var(--text-secondary); font-weight: 500; }
-        
-        .card-danger { color: var(--danger); border-color: var(--border); flex-direction: row; justify-content: center; padding: 1rem; }
-        .card-danger svg { color: var(--danger); margin-bottom: 0; width: 20px; height: 20px; }
-        .card-danger:hover, .card-danger:active { background-color: rgba(213, 0, 0, 0.05); border-color: var(--danger); }
-        
-        .card-secondary { color: var(--text-primary); border-color: var(--border); flex-direction: row; justify-content: center; padding: 1rem; }
-        .card-secondary svg { color: var(--text-primary); margin-bottom: 0; width: 20px; height: 20px; }
-        .card-secondary:hover, .card-secondary:active { background-color: var(--bg-page); border-color: var(--text-muted); }
-
-        .view { display: none; padding: 1rem; padding-bottom: 5rem; }
-        .view.active { display: block; }
-        
-        h3 { 
-            color: var(--text-primary); 
-            margin-bottom: 1.5rem; 
-            font-size: 1.2rem; 
-            border-bottom: 1px solid var(--border); 
-            padding-bottom: 0.5rem; 
-            font-weight: 600;
-        }
-        
-        .list-item { 
-            background: var(--bg-surface); 
-            padding: 1rem; 
-            border-radius: 8px; 
-            border: 1px solid var(--border); 
-            margin-bottom: 0.8rem; 
-            cursor: pointer; 
-            transition: background 0.2s; 
-            box-shadow: var(--shadow);
-        }
-        .list-item:active { background: rgba(41, 98, 255, 0.04); border-color: var(--accent); }
-        .list-item strong { display: block; font-size: 1.05rem; color: var(--text-primary); margin-bottom: 0.4rem; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
-        .list-item p { margin-bottom: 0.2rem; font-size: 0.9rem; color: var(--text-secondary); }
-        
-        form { display: flex; flex-direction: column; gap: 1rem; }
-        label { font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
-        label svg { width: 16px; height: 16px; stroke-width: 1.5; }
-        
-        .input-group { display: flex; gap: 8px; align-items: center; width: 100%; }
-        .input-group input { flex: 1; }
-        
-        input { 
-            width: 100%; 
-            padding: 0.8rem 1rem; 
-            border: 1px solid var(--border); 
-            border-radius: 8px; 
-            font-size: 1rem; 
-            background-color: var(--bg-surface); 
-            color: var(--text-primary);
-            transition: all 0.2s;
-        }
-        input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(41, 98, 255, 0.1); }
-        
-        button { 
-            background-color: var(--accent); 
-            color: white; 
-            border: none; 
-            padding: 0.9rem 1rem; 
-            border-radius: 8px; 
-            font-weight: 600; 
-            font-size: 0.95rem; 
-            cursor: pointer; 
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            transition: background 0.2s;
-        }
-        button:hover { background-color: var(--accent-hover); }
-        button svg { width: 18px; height: 18px; stroke-width: 2; }
-        
-        .picking-camera-container {
-            position: relative;
-            width: 100%;
-            height: 240px;
-            background: #000000;
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 1.5rem;
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow);
-        }
-        .picking-camera-container video { width: 100%; height: 100%; object-fit: cover; }
-        
-        .step-banner {
-            padding: 1rem;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            margin-bottom: 1.5rem;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            border: 1px solid transparent;
-        }
-        .step-banner svg { width: 20px; height: 20px; flex-shrink: 0; }
-        
-        .step-banner-sku { background-color: rgba(41, 98, 255, 0.1); color: var(--accent); border-color: rgba(41, 98, 255, 0.2); }
-        .step-banner-loc { background-color: rgba(255, 193, 7, 0.1); color: #B45309; border-color: rgba(255, 193, 7, 0.2); }
-        .step-banner-qty { background-color: rgba(0, 200, 83, 0.1); color: var(--success); border-color: rgba(0, 200, 83, 0.2); }
-
-        .items-sheet {
-            background: var(--bg-surface);
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 1.2rem;
-            margin-top: 1.5rem;
-            max-height: 300px;
-            overflow-y: auto;
-            box-shadow: var(--shadow);
-        }
-        .items-sheet-title {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 1rem;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 0.6rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .camera-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 99999; flex-direction: column; align-items: center; justify-content: space-between; padding: 1.5rem; }
-        .camera-viewport { position: relative; width: 100%; max-width: 500px; height: 65vh; background: #111; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 2px solid var(--accent); }
-        .camera-viewport video { width: 100%; height: 100%; object-fit: cover; }
-        .btn-close-cam { background-color: transparent; color: white; width: 100%; max-width: 500px; padding: 1rem; border-radius: 8px; font-weight: 600; border: 1px solid rgba(255,255,255,0.3); margin-bottom: 2rem; }
-
-        .badge { display: inline-flex; align-items: center; padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
-        .badge-warning { background: rgba(255, 193, 7, 0.15); color: #B45309; }
-        .badge-info { background: rgba(41, 98, 255, 0.15); color: var(--accent); }
-        .badge-success { background: rgba(0, 200, 83, 0.15); color: var(--success); }
-        .badge-neutral { background: var(--border); color: var(--text-secondary); }
-
-        .net-status { display: none; background: var(--danger); color: white; text-align: center; padding: 8px; font-weight: 600; font-size: 0.85rem; border-bottom: 1px solid rgba(0,0,0,0.1); }
-
-        .toast-container { position: fixed; top: 1rem; right: 1rem; left: 1rem; z-index: 100000; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
-        .toast { background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border); padding: 1rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); font-size: 0.9rem; font-weight: 500; display: flex; align-items: center; justify-content: space-between; gap: 10px; animation: slideDown 0.2s ease forwards; pointer-events: auto; }
-        .toast-success { border-left: 4px solid var(--success); }
-        .toast-error { border-left: 4px solid var(--danger); }
-        .toast-warning { border-left: 4px solid var(--warning); }
-        @keyframes slideDown { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-
+        /* Escaneo: pasos y tarjeta objetivo */
+        .pasos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
+        .pasos span { border-top: 4px solid var(--ln); padding-top: 6px; font: 600 10px/1 var(--f); letter-spacing: .08em; text-transform: uppercase; color: var(--tm); }
+        .pasos span.ok { border-color: var(--ok); color: var(--okt); }
+        .pasos[data-paso="SKU"] span.on { border-color: var(--ac); color: var(--act); }
+        .pasos[data-paso="LOCATION"] span.on { border-color: var(--wn); color: var(--wnt); }
+        .pasos[data-paso="QTY"] span.on { border-color: var(--ok); color: var(--okt); }
+        .obj { background: var(--sf); border: 1px solid var(--ln); border-radius: 14px; overflow: hidden; padding-bottom: 14px; }
+        .step-banner { padding: 11px 14px; font: 700 11.5px/1.3 var(--f); letter-spacing: .04em; }
+        .step-banner-sku { background: var(--acs); color: var(--act); }
+        .step-banner-loc { background: var(--wns); color: var(--wnt); }
+        .step-banner-qty { background: var(--oks); color: var(--okt); }
+        .obj-datos { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--ln2); border-bottom: 1px solid var(--ln2); }
+        .obj-datos:empty { display: none; }
+        .obj-datos > div { background: var(--sf); padding: 10px 14px; min-width: 0; }
+        .obj-datos .ancho { grid-column: 1 / -1; }
+        .obj-datos span { display: block; font: 600 9.5px/1 var(--f); letter-spacing: .08em; text-transform: uppercase; color: var(--tm); }
+        .obj-datos b { display: block; margin-top: 5px; font: 600 14px/1.3 var(--f); overflow-wrap: anywhere; }
+        .obj-datos .mono b { font-family: var(--m); }
+        .form-group { padding: 12px 14px 0; }
+        label { display: block; font: 600 12px/1.2 var(--f); color: var(--ts); margin-bottom: 6px; }
+        input[type=text], input[type=number] { width: 100%; height: 52px; padding: 0 14px; border: 1px solid var(--ln); border-radius: 10px; background: var(--sf); color: var(--tp); font: 600 16px/1 var(--m); -moz-appearance: textfield; }
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input:focus { outline: none; border-color: var(--ac); box-shadow: 0 0 0 3px var(--acs); }
+        .input-group { display: flex; gap: 8px; }
+        .input-group input { flex: 1; min-width: 0; }
+        .btn-saltar { height: 52px; padding: 0 16px; cursor: pointer; border: 1px solid var(--ln); background: var(--sf2); color: var(--tp); border-radius: 10px; font: 600 14px/1 var(--f); }
+        .cant { display: grid; grid-template-columns: 60px 1fr 60px; gap: 8px; align-items: center; }
+        .cant > button { height: 60px; cursor: pointer; border: 1px solid var(--ln); background: var(--sf2); color: var(--tp); border-radius: 12px; font: 600 26px/1 var(--m); }
+        .cant input { height: 44px; text-align: center; font: 600 28px/1 var(--m); color: var(--okt); border: none; background: transparent; padding: 0; }
+        .cant input:focus { box-shadow: none; }
+        .cant small { display: block; text-align: center; font: 500 11.5px/1 var(--f); color: var(--tm); min-height: 12px; }
+        .cta { width: 100%; min-height: 56px; margin-top: 12px; cursor: pointer; border: none; border-radius: 12px; background: var(--ok); color: #fff; font: 600 16px/1 var(--f); display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .cta svg { width: 18px; height: 18px; }
+        .cta.ac { background: var(--ac); }
+        .cta.wn { background: var(--wn); color: #1a1300; }
+        [data-theme="dark"] .cta:not(.ac) { color: #06210f; }
+        .btn-fin { width: 100%; min-height: 52px; margin-top: 12px; cursor: pointer; background: var(--sf); border: 1px solid var(--ln); color: var(--tp); border-radius: 12px; font: 600 14px/1 var(--f); }
+        .btn-fin.dg { color: var(--dg); border-color: var(--dg); }
         .lot-input { display: none; }
         body.con-lotes .lot-input { display: block; }
 
-        /* JZTech Footer */
-        .app-footer {
-            padding: 1.5rem 1rem;
-            text-align: center;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            margin-top: 2rem;
-            border-top: 1px solid var(--border);
-        }
-        .app-footer a { color: var(--text-secondary); text-decoration: none; font-weight: 500; }
-        .footer-logo-svg { height: 16px; width: auto; color: var(--text-muted); opacity: 0.6; }
+        /* Escaneo: hoja de ruta */
+        .items-sheet { background: var(--sf); border: 1px solid var(--ln); border-radius: 14px; margin-top: 12px; overflow: hidden; }
+        .items-sheet-title { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--ln); font: 600 10.5px/1 var(--f); letter-spacing: .1em; text-transform: uppercase; color: var(--tm); }
+        .fila { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 11px 14px; border-bottom: 1px solid var(--ln2); }
+        .fila:last-child { border-bottom: none; }
+        .fila.on { background: var(--acs); }
+        .est { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--ln); display: flex; align-items: center; justify-content: center; font: 700 12px/1 var(--f); font-style: normal; color: #fff; }
+        .fila.ok .est { background: var(--ok); border-color: var(--ok); }
+        .fila.on .est { border-color: var(--ac); }
+        .fila b { display: block; font: 600 13px/1.2 var(--m); }
+        .fila span { display: block; font: 500 12.5px/1.35 var(--f); color: var(--ts); }
+        .fila small { display: block; font: 500 11.5px/1.3 var(--f); color: var(--tm); }
+        .fila.ok b, .fila.ok span { color: var(--tm); }
+        .fila .cnt { font: 600 13px/1 var(--m); white-space: nowrap; }
+        .sub-rot { padding: 12px 14px 4px; font: 600 10.5px/1 var(--f); letter-spacing: .08em; text-transform: uppercase; color: var(--tm); }
+        .listo { background: var(--oks); color: var(--okt); padding: 16px 14px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--ln2); }
+        .listo b { font: 600 14px/1.3 var(--f); }
+        .listo button { min-height: 50px; cursor: pointer; border: none; border-radius: 10px; background: var(--ok); color: #fff; font: 600 14px/1 var(--f); }
+
+        /* Control puntual: resultado */
+        .spot-res { margin-top: 12px; border-radius: 14px; overflow: hidden; border: 1px solid var(--ln); background: var(--sf); }
+        .spot-h { padding: 12px 14px; font: 700 12px/1.3 var(--f); letter-spacing: .05em; }
+        .spot-res.ok .spot-h { background: var(--oks); color: var(--okt); }
+        .spot-res.dif .spot-h { background: var(--dgs); color: var(--dgt); }
+        .spot-st { display: grid; grid-template-columns: repeat(3, 1fr); }
+        .spot-st > div { padding: 12px 14px; border-left: 1px solid var(--ln2); min-width: 0; }
+        .spot-st > div:first-child { border-left: none; }
+        .spot-st span { display: block; font: 600 9.5px/1 var(--f); letter-spacing: .08em; text-transform: uppercase; color: var(--tm); }
+        .spot-st b { display: block; margin-top: 6px; font: 600 20px/1 var(--m); overflow-wrap: anywhere; }
+
+        /* Avisos: abajo, con punto de color segun el resultado */
+        .toast-container { position: fixed; bottom: 22px; left: 14px; right: 14px; max-width: 592px; margin: 0 auto; z-index: 100000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+        .toast { background: var(--tp); color: var(--sf); border-radius: 12px; padding: 14px 16px; font: 500 14px/1.4 var(--f); display: flex; align-items: flex-start; gap: 10px; animation: jzin .2s ease-out; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+        .toast::before { content: ''; flex: none; width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; background: var(--ok); }
+        .toast-error::before { background: var(--dg); }
+        .toast-warning::before { background: var(--wn); }
+
+        .camera-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.9); z-index: 99999; flex-direction: column; align-items: center; justify-content: space-between; padding: 1.5rem; }
+        .camera-viewport { position: relative; width: 100%; max-width: 500px; height: 65vh; background: #111; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 2px solid var(--ac); }
+        .camera-viewport video { width: 100%; height: 100%; object-fit: cover; }
+        .btn-close-cam { cursor: pointer; background: transparent; color: #fff; width: 100%; max-width: 500px; min-height: 52px; border-radius: 10px; font: 600 15px/1 var(--f); border: 1px solid rgba(255,255,255,0.3); margin-bottom: 2rem; }
     </style>
 </head>
 <body>
-    <div class="top-accent-bar"></div>
+    <header class="hdr">
+        <span class="hdr-logo" id="hdr-logo"><img src="/favicon.png" alt=""></span>
+        <button type="button" class="hdr-back" id="btn-back" data-on-click="volver()" aria-label="Volver" title="Volver (Esc)" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <div class="hdr-txt">
+            <div class="hdr-eye"><i class="live" id="hdr-live"></i><span id="header-eyebrow">En vivo</span></div>
+            <div class="hdr-tit" id="header-title">Terminal Operativa</div>
+        </div>
+        <span class="hdr-user" id="hdr-user"></span>
+    </header>
     <div id="net-banner" class="net-status">Sin conexi&oacute;n a la red local</div>
     <div id="toast-container" class="toast-container"></div>
-
-    <div class="header">
-        <span class="btn-back" id="btn-back" data-on-click="goHome()">Volver</span>
-        <span id="header-title">Terminal Operativa</span>
-        <svg class="header-logo-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <clipPath id="top-hemi"><rect x="0" y="0" width="200" height="78" /></clipPath>
-                <clipPath id="bottom-hemi"><rect x="0" y="122" width="200" height="80" /></clipPath>
-                <g id="orbital-arrow">
-                    <path d="M 22.7,79.3 A 80,80 0 0,1 177.3,79.3" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" />
-                    <path d="M -6,-6 L 6,0 L -6,6 Z" fill="currentColor" stroke="none" transform="translate(177.3, 79.3) rotate(75)" />
-                </g>
-            </defs>
-            <use href="#orbital-arrow" />
-            <use href="#orbital-arrow" transform="rotate(180 100 100)" />
-            <g stroke="currentColor" stroke-width="5.5" fill="none" stroke-linejoin="round">
-                <g clip-path="url(#top-hemi)"><circle cx="100" cy="100" r="60" /><line x1="100" y1="40" x2="100" y2="160" /><ellipse cx="100" cy="100" rx="26" ry="60" /><ellipse cx="100" cy="100" rx="60" ry="20" /></g>
-                <line x1="44.5" y1="78" x2="155.5" y2="78" stroke-linecap="round" />
-                <g clip-path="url(#bottom-hemi)"><circle cx="100" cy="100" r="60" /><line x1="100" y1="40" x2="100" y2="160" /><ellipse cx="100" cy="100" rx="26" ry="60" /><ellipse cx="100" cy="100" rx="60" ry="20" /></g>
-                <line x1="44.5" y1="122" x2="155.5" y2="122" stroke-linecap="round" />
-            </g>
-            <text x="100" y="114" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="38" text-anchor="middle" letter-spacing="1">
-                <tspan fill="currentColor">T</tspan><tspan fill="currentColor" style="opacity:0.7">360</tspan>
-            </text>
-        </svg>
-    </div>
 
     <!-- MENÚ PRINCIPAL -->
     <div id="view-home" class="view active">
         <div class="menu-grid">
-            <div class="menu-card" data-on-click="openView('view-picking', loadPicking)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                <span>Picking</span>
+            <button type="button" class="menu-card" data-on-click="openView('view-picking', loadPicking)">
+                <span class="mc-top">
+                    <span class="mc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg></span>
+                    <b class="mc-n" id="n-picking"></b>
+                </span>
+                <span class="mc-t">Picking</span>
                 <small>Armado Guiado de Pedidos</small>
-            </div>
-            <div class="menu-card" data-on-click="openView('view-receptions', loadReceptions)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
-                <span>Recepci&oacute;n</span>
+                <span class="mc-tag dg" id="tag-urgentes" hidden></span>
+            </button>
+            <button type="button" class="menu-card" data-on-click="openView('view-receptions', loadReceptions)">
+                <span class="mc-top">
+                    <span class="mc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg></span>
+                    <b class="mc-n" id="n-receptions"></b>
+                </span>
+                <span class="mc-t">Recepci&oacute;n</span>
                 <small>Control Ingreso Remitos</small>
-            </div>
-            <div class="menu-card" data-on-click="openView('view-transfers', loadTransfers)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 3l4 4-4 4"></path><path d="M3 7h18"></path><path d="M7 21l-4-4 4-4"></path><path d="M21 17H3"></path></svg>
-                <span>Traspasos</span>
+                <span class="mc-tag">CONTROL CIEGO</span>
+            </button>
+            <button type="button" class="menu-card" data-on-click="openView('view-transfers', loadTransfers)">
+                <span class="mc-top">
+                    <span class="mc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 3l4 4-4 4"></path><path d="M3 7h18"></path><path d="M7 21l-4-4 4-4"></path><path d="M21 17H3"></path></svg></span>
+                    <b class="mc-n" id="n-transfers"></b>
+                </span>
+                <span class="mc-t">Traspasos</span>
                 <small>Movimientos entre Sucursales</small>
-            </div>
-            <div class="menu-card" data-on-click="openView('view-inventory', loadInventory)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                <span>Inventario</span>
+            </button>
+            <button type="button" class="menu-card" data-on-click="openView('view-inventory', loadInventory)">
+                <span class="mc-top">
+                    <span class="mc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></span>
+                    <b class="mc-n" id="n-inventory"></b>
+                </span>
+                <span class="mc-t">Inventario</span>
                 <small>Auditor&iacute;a y Conteos</small>
-            </div>
-            <div class="menu-card" data-on-click="openSpotCheck()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"></path><path d="M12 12v9"></path><path d="M8 17l4 4 4-4"></path></svg>
-                <span>Control puntual</span>
+                <span class="mc-tag in" id="tag-asignado" hidden>ASIGNADO A VOS</span>
+            </button>
+            <button type="button" class="menu-card ancha" data-on-click="openSpotCheck()">
+                <span class="mc-top">
+                    <span class="mc-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></span>
+                </span>
+                <span class="mc-t">Control puntual</span>
                 <small>Verificar r&aacute;pido una ubicaci&oacute;n</small>
-            </div>
+            </button>
         </div>
-        
+
         <div id="bottom-actions" class="bottom-actions">
-            <div id="btn-switch-desktop" class="menu-card card-secondary" data-on-click="irA('/admin.html')" style="display:none;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
-                <span>Modo Escritorio</span>
-            </div>
-            
-            <div class="menu-card card-secondary" data-on-click="toggleTheme()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path></svg>
-                <span>Tema Visual</span>
-            </div>
-
-            <div class="menu-card card-danger" data-on-click="logout()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
-                <span>Cerrar Sesi&oacute;n</span>
-            </div>
+            <button type="button" id="btn-switch-desktop" class="btn-fila" data-on-click="irA('/admin.html')" style="display:none;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                Modo Escritorio
+            </button>
+            <button type="button" class="btn-fila" data-on-click="toggleTheme()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path></svg>
+                Tema Visual
+            </button>
+            <button type="button" class="btn-fila dg" data-on-click="logout()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                Cerrar Sesi&oacute;n
+            </button>
         </div>
 
-        <footer class="app-footer">
-            <svg class="footer-logo-svg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-                <use href="#orbital-arrow" />
-                <use href="#orbital-arrow" transform="rotate(180 100 100)" />
-                <g stroke="currentColor" stroke-width="5.5" fill="none" stroke-linejoin="round">
-                    <g clip-path="url(#top-hemi)"><circle cx="100" cy="100" r="60" /><line x1="100" y1="40" x2="100" y2="160" /><ellipse cx="100" cy="100" rx="26" ry="60" /><ellipse cx="100" cy="100" rx="60" ry="20" /></g>
-                    <line x1="44.5" y1="78" x2="155.5" y2="78" stroke-linecap="round" />
-                    <g clip-path="url(#bottom-hemi)"><circle cx="100" cy="100" r="60" /><line x1="100" y1="40" x2="100" y2="160" /><ellipse cx="100" cy="100" rx="26" ry="60" /><ellipse cx="100" cy="100" rx="60" ry="20" /></g>
-                    <line x1="44.5" y1="122" x2="155.5" y2="122" stroke-linecap="round" />
-                </g>
-            </svg>
-            <span>Powered by <a href="https://jz-tech.mywire.org" target="_blank">JZ Tech Solutions</a></span>
-        </footer>
+        <footer class="app-footer">Powered by <a href="https://jz-tech.mywire.org" target="_blank" rel="noopener">JZ Tech Solutions</a></footer>
     </div>
 
     <!-- 1. PICKING GUIADO POR CÁMARA (Y Olas) -->
     <div id="view-picking" class="view">
-        <h3>Pedidos Pendientes</h3>
-        <div id="wave-picking-container" style="display:none; margin-bottom: 1.5rem;">
-            <button style="width: 100%; background-color: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--warning);" data-on-click="startWavePicking(5)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-                Agrupar Ola de Picking (Max 5)
-            </button>
+        <div id="wave-picking-container" style="display:none;">
+            <button type="button" class="btn-ola" data-on-click="startWavePicking(5)">Agrupar Ola de Picking (Max 5)</button>
         </div>
         <div id="picking-list"></div>
     </div>
-    
+
     <!-- VISTA: ESCANEO PICKING INDIVIDUAL -->
     <div id="view-picking-scan" class="view">
-        <h3 id="pick-title"></h3>
-        
-        <div class="picking-camera-container">
+        <div class="cam">
             <video id="picking-video-stream" playsinline autoplay muted></video>
+            <i class="mira"></i><i class="laser"></i><span class="cam-chip">QR &middot; EAN-13 &middot; CODE 128</span>
+            <div class="cam-off"><b>C&Aacute;MARA RESTRINGIDA</b>El navegador bloque&oacute; la c&aacute;mara. Use esc&aacute;ner l&aacute;ser o teclado.</div>
         </div>
+        <div class="pasos" id="pick-pasos" data-paso="SKU"><span class="on">SKU</span><span>Ubicaci&oacute;n</span><span>Cantidad</span></div>
 
-        <div id="picking-step-banner" class="step-banner step-banner-sku">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="7" y1="12" x2="17" y2="12"></line></svg>
-            Paso 1: Escanee SKU
-        </div>
-
-        <form id="form-picking" data-on-submit="handlePickingFormSubmit(event)">
+        <form id="form-picking" class="obj" data-on-submit="handlePickingFormSubmit(event)">
             <input type="hidden" id="pick-number">
-            
+            <div id="picking-step-banner" class="step-banner step-banner-sku">Paso 1: Escanee SKU</div>
+            <div class="obj-datos" id="pick-datos"></div>
+
             <div id="grp-pick-sku" class="form-group">
-                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> 1. SKU del Producto *</label>
-                <div class="input-group">
-                    <input type="text" id="pick-sku" placeholder="A la espera..." autocomplete="off" data-on-keydown="scanEnter(event, 'PICKING', 'sku')">
-                </div>
+                <label for="pick-sku">1. SKU del Producto *</label>
+                <input type="text" id="pick-sku" placeholder="A la espera..." autocomplete="off" data-on-keydown="scanEnter(event, 'PICKING', 'sku')">
             </div>
-
             <div id="grp-pick-loc" class="form-group" style="display:none;">
-                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> 2. Ubicaci&oacute;n *</label>
-                <div class="input-group">
-                    <input type="text" id="pick-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-keydown="scanEnter(event, 'PICKING', 'loc')">
-                </div>
+                <label for="pick-loc">2. Ubicaci&oacute;n *</label>
+                <input type="text" id="pick-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-keydown="scanEnter(event, 'PICKING', 'loc')">
             </div>
-
             <div id="grp-pick-qty" class="form-group" style="display:none;">
-                <label>3. Cantidad *</label>
-                <input type="number" id="pick-qty" min="0.01" step="0.01" value="1" style="font-size:1.2rem; font-weight:bold; color:var(--success);">
-                <button type="submit" style="margin-top:0.5rem; background-color:var(--success);">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <label for="pick-qty">3. Cantidad *</label>
+                <div class="cant">
+                    <button type="button" aria-label="Restar una unidad" data-on-click="ajustarCantidad('pick-qty', -1)">&minus;</button>
+                    <div><input type="number" id="pick-qty" min="0.01" step="0.01" value="1"><small id="pick-qty-de"></small></div>
+                    <button type="button" aria-label="Sumar una unidad" data-on-click="ajustarCantidad('pick-qty', 1)">+</button>
+                </div>
+                <button type="submit" class="cta">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     Confirmar Extracci&oacute;n
                 </button>
             </div>
@@ -454,7 +301,7 @@
         <div class="items-sheet">
             <div class="items-sheet-title">
                 <span>Ruta del Pedido</span>
-                <span id="pick-items-count-badge" class="badge badge-neutral" style="font-size:0.75rem;">0/0</span>
+                <span id="pick-items-count-badge" class="badge badge-neutral">0/0</span>
             </div>
             <div id="pick-items-sheet-body"></div>
         </div>
@@ -462,38 +309,35 @@
 
     <!-- VISTA: ESCANEO PICKING POR OLAS (WAVES) -->
     <div id="view-wave-scan" class="view">
-        <h3 id="wave-title" style="color:var(--warning);">Ola de Picking Activa</h3>
-        <p id="wave-orders-subtitle" style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1rem; font-weight:bold;"></p>
-        
-        <div class="picking-camera-container" style="border-color:var(--warning);">
+        <p id="wave-orders-subtitle" class="nota"></p>
+        <div class="cam ola">
             <video id="wave-video-stream" playsinline autoplay muted></video>
+            <i class="mira"></i><i class="laser"></i><span class="cam-chip">QR &middot; EAN-13 &middot; CODE 128</span>
+            <div class="cam-off"><b>C&Aacute;MARA RESTRINGIDA</b>El navegador bloque&oacute; la c&aacute;mara. Use esc&aacute;ner l&aacute;ser o teclado.</div>
         </div>
+        <div class="pasos" id="wave-pasos" data-paso="SKU"><span class="on">SKU</span><span>Ubicaci&oacute;n</span><span>Cantidad</span></div>
 
-        <div id="wave-step-banner" class="step-banner step-banner-sku">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="7" y1="12" x2="17" y2="12"></line></svg>
-            Paso 1: Escanee SKU
-        </div>
+        <form id="form-wave" class="obj" data-on-submit="handleWaveFormSubmit(event)">
+            <div id="wave-step-banner" class="step-banner step-banner-sku">Paso 1: Escanee SKU</div>
+            <div class="obj-datos" id="wave-datos"></div>
 
-        <form id="form-wave" data-on-submit="handleWaveFormSubmit(event)">
             <div id="grp-wave-sku" class="form-group">
-                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> 1. SKU Consolidado *</label>
-                <div class="input-group">
-                    <input type="text" id="wave-sku" placeholder="A la espera..." autocomplete="off" data-on-keydown="scanEnter(event, 'WAVE', 'sku')">
-                </div>
+                <label for="wave-sku">1. SKU Consolidado *</label>
+                <input type="text" id="wave-sku" placeholder="A la espera..." autocomplete="off" data-on-keydown="scanEnter(event, 'WAVE', 'sku')">
             </div>
-
             <div id="grp-wave-loc" class="form-group" style="display:none;">
-                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> 2. Ubicaci&oacute;n *</label>
-                <div class="input-group">
-                    <input type="text" id="wave-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-keydown="scanEnter(event, 'WAVE', 'loc')">
-                </div>
+                <label for="wave-loc">2. Ubicaci&oacute;n *</label>
+                <input type="text" id="wave-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-keydown="scanEnter(event, 'WAVE', 'loc')">
             </div>
-
             <div id="grp-wave-qty" class="form-group" style="display:none;">
-                <label>3. Cantidad Total *</label>
-                <input type="number" id="wave-qty" min="0.01" step="0.01" value="1" style="font-size:1.2rem; font-weight:bold; color:#B45309;">
-                <button type="submit" style="margin-top:0.5rem; background-color:var(--warning); color:#000;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <label for="wave-qty">3. Cantidad Total *</label>
+                <div class="cant">
+                    <button type="button" aria-label="Restar una unidad" data-on-click="ajustarCantidad('wave-qty', -1)">&minus;</button>
+                    <div><input type="number" id="wave-qty" min="0.01" step="0.01" value="1"><small id="wave-qty-de"></small></div>
+                    <button type="button" aria-label="Sumar una unidad" data-on-click="ajustarCantidad('wave-qty', 1)">+</button>
+                </div>
+                <button type="submit" class="cta wn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     Confirmar Recolecci&oacute;n
                 </button>
             </div>
@@ -501,8 +345,8 @@
 
         <div class="items-sheet">
             <div class="items-sheet-title">
-                <span style="color:var(--warning);">Ruta Optimizada</span>
-                <span id="wave-items-count-badge" class="badge badge-neutral" style="font-size:0.75rem;">0/0</span>
+                <span>Ruta Optimizada</span>
+                <span id="wave-items-count-badge" class="badge badge-neutral">0/0</span>
             </div>
             <div id="wave-items-sheet-body"></div>
         </div>
@@ -510,44 +354,42 @@
 
     <!-- 2. RECEPCIÓN GUIADA POR CÁMARA (REMITOS) -->
     <div id="view-receptions" class="view">
-        <h3>Remitos Pendientes</h3>
         <div id="receptions-list"></div>
     </div>
 
     <div id="view-reception-scan" class="view">
-        <h3 id="rec-title"></h3>
-        
-        <div class="picking-camera-container">
+        <div class="cam">
             <video id="reception-video-stream" playsinline autoplay muted></video>
+            <i class="mira"></i><i class="laser"></i><span class="cam-chip">QR &middot; EAN-13 &middot; CODE 128</span>
+            <div class="cam-off"><b>C&Aacute;MARA RESTRINGIDA</b>El navegador bloque&oacute; la c&aacute;mara. Use esc&aacute;ner l&aacute;ser o teclado.</div>
         </div>
+        <div class="pasos" id="rec-pasos" data-paso="SKU"><span class="on">SKU</span><span>Destino</span><span>Cantidad</span></div>
 
-        <div id="reception-step-banner" class="step-banner step-banner-sku">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="7" y1="12" x2="17" y2="12"></line></svg>
-            Paso 1: Escanee SKU
-        </div>
-
-        <form id="form-reception" data-on-submit="handleReceptionFormSubmit(event)">
+        <form id="form-reception" class="obj" data-on-submit="handleReceptionFormSubmit(event)">
             <input type="hidden" id="rec-number">
-            
-            <div id="grp-rec-sku" class="form-group">
-                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> 1. SKU Recibido *</label>
-                <div class="input-group">
-                    <input type="text" id="rec-sku" placeholder="A la espera..." autocomplete="off" data-on-keydown="scanEnter(event, 'RECEPTION', 'sku')">
-                </div>
-            </div>
+            <div id="reception-step-banner" class="step-banner step-banner-sku">Paso 1: Escanee SKU</div>
+            <div class="obj-datos" id="rec-datos"></div>
 
+            <div id="grp-rec-sku" class="form-group">
+                <label for="rec-sku">1. SKU Recibido *</label>
+                <input type="text" id="rec-sku" placeholder="A la espera..." autocomplete="off" data-on-keydown="scanEnter(event, 'RECEPTION', 'sku')">
+            </div>
             <div id="grp-rec-loc" class="form-group" style="display:none;">
-                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> 2. Destino (Opc.)</label>
+                <label for="rec-loc">2. Destino (Opc.)</label>
                 <div class="input-group">
                     <input type="text" id="rec-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-keydown="scanEnter(event, 'RECEPTION', 'loc')">
+                    <button type="button" class="btn-saltar" data-on-click="onModuleInputProcess('RECEPTION', 'loc')">Saltar</button>
                 </div>
             </div>
-
             <div id="grp-rec-qty" class="form-group" style="display:none;">
-                <label>3. Cantidad *</label>
-                <input type="number" id="rec-qty" min="0.01" step="0.01" value="1" style="font-size:1.2rem; font-weight:bold; color:var(--success);">
-                <button type="submit" style="margin-top:0.5rem; background-color:var(--success);">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <label for="rec-qty">3. Cantidad *</label>
+                <div class="cant">
+                    <button type="button" aria-label="Restar una unidad" data-on-click="ajustarCantidad('rec-qty', -1)">&minus;</button>
+                    <div><input type="number" id="rec-qty" min="0.01" step="0.01" value="1"><small id="rec-qty-de"></small></div>
+                    <button type="button" aria-label="Sumar una unidad" data-on-click="ajustarCantidad('rec-qty', 1)">+</button>
+                </div>
+                <button type="submit" class="cta">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     Confirmar Ingreso
                 </button>
             </div>
@@ -556,53 +398,48 @@
         <div class="items-sheet">
             <div class="items-sheet-title">
                 <span>Art&iacute;culos del Remito</span>
-                <span id="rec-items-count-badge" class="badge badge-neutral" style="font-size:0.75rem;">0</span>
+                <span id="rec-items-count-badge" class="badge badge-neutral">0</span>
             </div>
             <div id="rec-items-sheet-body"></div>
         </div>
-        <button type="button" data-on-click="finishReceptionControl()" style="margin-top:1rem; width:100%;">Finalizar control</button>
+        <button type="button" class="btn-fin" data-on-click="finishReceptionControl()">Finalizar control</button>
     </div>
 
     <!-- 3. TRASPASOS GUIADOS POR CÁMARA (ODTs) -->
     <div id="view-transfers" class="view">
-        <h3>Traspasos Activos</h3>
         <div id="transfers-list"></div>
     </div>
 
     <div id="view-transfer-scan" class="view">
-        <h3 id="tr-title"></h3>
-
-        <div class="picking-camera-container">
+        <div class="cam">
             <video id="transfer-video-stream" playsinline autoplay muted></video>
+            <i class="mira"></i><i class="laser"></i><span class="cam-chip">QR &middot; EAN-13 &middot; CODE 128</span>
+            <div class="cam-off"><b>C&Aacute;MARA RESTRINGIDA</b>El navegador bloque&oacute; la c&aacute;mara. Use esc&aacute;ner l&aacute;ser o teclado.</div>
         </div>
+        <div class="pasos" id="tr-pasos" data-paso="SKU"><span class="on">SKU</span><span>Destino</span><span>Cantidad</span></div>
 
-        <div id="transfer-step-banner" class="step-banner step-banner-sku">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="7" y1="12" x2="17" y2="12"></line></svg>
-            Paso 1: Escanee SKU
-        </div>
-
-        <form id="form-transfer-scan" data-on-submit="handleTransferFormSubmit(event)">
+        <form id="form-transfer-scan" class="obj" data-on-submit="handleTransferFormSubmit(event)">
             <input type="hidden" id="tr-number">
-            
+            <div id="transfer-step-banner" class="step-banner step-banner-sku">Paso 1: Escanee SKU</div>
+            <div class="obj-datos" id="tr-datos"></div>
+
             <div id="grp-tr-sku" class="form-group">
-                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg> 1. SKU a Transferir *</label>
-                <div class="input-group">
-                    <input type="text" id="tr-sku" placeholder="A la espera..." autocomplete="off" data-on-keydown="scanEnter(event, 'TRANSFER', 'sku')">
-                </div>
+                <label for="tr-sku">1. SKU a Transferir *</label>
+                <input type="text" id="tr-sku" placeholder="A la espera..." autocomplete="off" data-on-keydown="scanEnter(event, 'TRANSFER', 'sku')">
             </div>
-
             <div id="grp-tr-loc" class="form-group" style="display:none;">
-                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> 2. Destino *</label>
-                <div class="input-group">
-                    <input type="text" id="tr-dest-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-keydown="scanEnter(event, 'TRANSFER', 'loc')">
-                </div>
+                <label for="tr-dest-loc">2. Destino *</label>
+                <input type="text" id="tr-dest-loc" placeholder="Etiqueta rack..." autocomplete="off" data-on-keydown="scanEnter(event, 'TRANSFER', 'loc')">
             </div>
-
             <div id="grp-tr-qty" class="form-group" style="display:none;">
-                <label>3. Cantidad *</label>
-                <input type="number" id="tr-qty" min="0.01" step="0.01" value="1" style="font-size:1.2rem; font-weight:bold;">
-                <button type="submit" style="margin-top:0.5rem;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                <label for="tr-qty">3. Cantidad *</label>
+                <div class="cant">
+                    <button type="button" aria-label="Restar una unidad" data-on-click="ajustarCantidad('tr-qty', -1)">&minus;</button>
+                    <div><input type="number" id="tr-qty" min="0.01" step="0.01" value="1"><small id="tr-qty-de"></small></div>
+                    <button type="button" aria-label="Sumar una unidad" data-on-click="ajustarCantidad('tr-qty', 1)">+</button>
+                </div>
+                <button type="submit" class="cta">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                     Procesar Traspaso
                 </button>
             </div>
@@ -611,7 +448,7 @@
         <div class="items-sheet">
             <div class="items-sheet-title">
                 <span>L&iacute;neas de la ODT</span>
-                <span id="tr-items-count-badge" class="badge badge-neutral" style="font-size:0.75rem;">0/0</span>
+                <span id="tr-items-count-badge" class="badge badge-neutral">0/0</span>
             </div>
             <div id="tr-items-sheet-body"></div>
         </div>
@@ -619,70 +456,73 @@
 
     <!-- 4. INVENTARIO (CONTEOS CÍCLICOS) -->
     <div id="view-inventory" class="view">
-        <h3>Conteos Pendientes</h3>
         <div id="inventory-list"></div>
     </div>
     <div id="view-inventory-scan" class="view">
-        <h3 id="inv-title">Escaneo de Sector</h3>
-        <div style="background:var(--bg-surface); border:1px solid var(--border); color:var(--text-primary); padding:12px; border-radius:8px; font-size:0.85rem; font-weight:600; margin-bottom:1.5rem; display:flex; justify-content:space-between; box-shadow:var(--shadow);">
-            <span>ID Sesi&oacute;n:</span>
-            <span id="inv-session-id-label" class="font-mono"></span>
-        </div>
-        <form id="form-inventory-scan" data-on-submit="scanInventoryCount(event)">
+        <form id="form-inventory-scan" class="obj" data-on-submit="scanInventoryCount(event)">
             <input type="hidden" id="inv-session-id">
             <div class="form-group">
-                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> Ubicaci&oacute;n (Opcional)</label>
-                <div class="input-group"><input type="text" id="inv-loc" placeholder="Ej: RACK-01" autocomplete="off" data-on-keydown="handleScannerEnter(event, 'inv-sku')"></div>
+                <label for="inv-loc">Ubicaci&oacute;n (Opcional)</label>
+                <input type="text" id="inv-loc" placeholder="Ej: RACK-01" autocomplete="off" data-on-keydown="handleScannerEnter(event, 'inv-sku')">
             </div>
             <div class="form-group">
-                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="7" y1="12" x2="17" y2="12"></line></svg> SKU *</label>
-                <div class="input-group"><input type="text" id="inv-sku" required placeholder="Escanee SKU..." autocomplete="off" data-on-keydown="handleScannerEnter(event, 'inv-qty')"></div>
+                <label for="inv-sku">SKU *</label>
+                <input type="text" id="inv-sku" required placeholder="Escanee SKU..." autocomplete="off" data-on-keydown="handleScannerEnter(event, 'inv-qty')">
             </div>
             <div class="form-group">
-                <label>Cantidad Contada *</label>
-                <input type="number" id="inv-qty" min="0" step="0.01" required placeholder="0" style="font-size:1.2rem; font-weight:bold;">
+                <label for="inv-qty">Cantidad Contada *</label>
+                <input type="number" id="inv-qty" min="0" step="0.01" required placeholder="0">
             </div>
             <div class="form-group lot-input">
-                <label>Lote / Vto</label>
+                <label for="inv-lot">Lote / Vto</label>
                 <input type="text" id="inv-lot" placeholder="Lote..." autocomplete="off">
             </div>
-            <button type="submit" style="margin-top:0.5rem; width:100%;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                Registrar Lectura
-            </button>
+            <div class="form-group">
+                <button type="submit" class="cta ac">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    Registrar Lectura
+                </button>
+            </div>
         </form>
-        <button type="button" class="btn-danger" style="width: 100%; margin-top: 2rem;" data-on-click="finishInventorySession()">
-            Finalizar Conteo de Sector
-        </button>
+
+        <div class="items-sheet">
+            <div class="items-sheet-title">
+                <span>Lecturas reci&eacute;n registradas</span>
+                <span id="inv-lecturas-badge" class="badge badge-neutral">0</span>
+            </div>
+            <div id="inv-lecturas"></div>
+        </div>
+        <button type="button" class="btn-fin dg" data-on-click="finishInventorySession()">Finalizar Conteo de Sector</button>
     </div>
 
     <!-- 5. SPOT CHECK -->
     <div id="view-spot-check" class="view">
-        <h3>Auditor&iacute;a R&aacute;pida</h3>
-        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:1.5rem;">Verificaci&oacute;n en caliente. No altera stock del sistema.</p>
-        <form id="form-spot-check" data-on-submit="runSpotCheck(event)" style="background:var(--bg-surface); border:1px solid var(--border); padding:1.2rem; border-radius:10px; box-shadow:var(--shadow);">
+        <p class="nota">Verificaci&oacute;n en caliente. No altera stock del sistema.</p>
+        <form id="form-spot-check" class="obj" data-on-submit="runSpotCheck(event)">
             <div class="form-group">
-                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> Ubicaci&oacute;n (Opcional)</label>
-                <div class="input-group"><input type="text" id="spot-check-loc" placeholder="Ej: RACK-A-01" autocomplete="off" data-on-keydown="handleScannerEnter(event, 'spot-check-sku')"></div>
+                <label for="spot-check-loc">Ubicaci&oacute;n (Opcional)</label>
+                <input type="text" id="spot-check-loc" placeholder="Ej: RACK-A-01" autocomplete="off" data-on-keydown="handleScannerEnter(event, 'spot-check-sku')">
             </div>
             <div class="form-group">
-                <label><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><line x1="7" y1="12" x2="17" y2="12"></line></svg> SKU *</label>
-                <div class="input-group"><input type="text" id="spot-check-sku" required placeholder="Escanee SKU..." autocomplete="off" data-on-keydown="handleScannerEnter(event, 'spot-check-qty')"></div>
+                <label for="spot-check-sku">SKU *</label>
+                <input type="text" id="spot-check-sku" required placeholder="Escanee SKU..." autocomplete="off" data-on-keydown="handleScannerEnter(event, 'spot-check-qty')">
             </div>
             <div class="form-group">
-                <label>Cantidad F&iacute;sica *</label>
-                <input type="number" id="spot-check-qty" min="0" step="0.01" required placeholder="0" style="font-size:1.2rem; font-weight:bold;">
+                <label for="spot-check-qty">Cantidad F&iacute;sica *</label>
+                <input type="number" id="spot-check-qty" min="0" step="0.01" required placeholder="0">
             </div>
             <div class="form-group lot-input">
-                <label>Lote / Vto</label>
+                <label for="spot-check-lot">Lote / Vto</label>
                 <input type="text" id="spot-check-lot" placeholder="Lote..." autocomplete="off">
             </div>
-            <button type="submit" style="margin-top:0.5rem; width:100%;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                Verificar Stock
-            </button>
+            <div class="form-group">
+                <button type="submit" class="cta ac">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    Verificar Stock
+                </button>
+            </div>
         </form>
-        <div id="spot-check-result" style="display:none; margin-top:1.5rem; padding:1.5rem; border-radius:10px; text-align:center; border:1px solid var(--border); background:var(--bg-surface); box-shadow:var(--shadow);"></div>
+        <div id="spot-check-result" class="spot-res" style="display:none;"></div>
     </div>
 
     <!-- MODAL POPUP CÁMARA DE FALLBACK -->
@@ -694,7 +534,7 @@
 
     <script src="js/acciones.js?v=20261001_1"></script>
     <script src="js/api.js?v=20261007_2"></script>
-    <script src="js/mobile.js?v=20261007_2"></script>
-    <script src="js/preparador-pagina.js?v=20261003_1"></script>
+    <script src="js/mobile.js?v=20261112_1"></script>
+    <script src="js/preparador-pagina.js?v=20261112_1"></script>
 </body>
 </html>

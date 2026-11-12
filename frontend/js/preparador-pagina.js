@@ -15,6 +15,11 @@ document.addEventListener('DOMContentLoaded', () => {
     fetch('/api/auth/me', { credentials: 'include' })
         .then(r => r.ok ? r.json() : null)
         .then(u => {
+            if (u && u.username) {
+                window.usuarioActual = u.username;   // para marcar los conteos asignados a quien esta usando la colectora
+                document.getElementById('hdr-user').textContent = u.username;
+            }
+            cargarPendientes();   // mobile.js: cuanto hay pendiente en cada tarjeta del inicio
             const btn = document.getElementById('btn-switch-desktop');
             if (btn && u && (u.role === 'ADMIN' || u.role === 'SUPERVISOR')) btn.style.display = '';
         })

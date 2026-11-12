@@ -2,6 +2,28 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.17.0 — 2026-11-12
+
+### Cambiado
+- **Rediseño, fase 8** (`design_handoff_tracker360`): Colectora Móvil. Solo frontend, sin endpoints nuevos; la
+  secuencia de escaneo (SKU, ubicación, cantidad) y lo que se envía al servidor no cambian.
+  - **Cabecera oscura:** logo en el inicio y botón Volver en las demás pantallas (también con Esc; desde un
+    escaneo vuelve a su lista), punto verde o rojo según haya red, y el usuario.
+  - **Inicio:** tarjetas con la cantidad pendiente de cada tarea, pedidos urgentes y conteos asignados.
+  - **Listas:** número, estado, tipo de envío (Flex con barra roja), urgencia y barra de avance del pedido.
+  - **Escaneo:** visor de cámara con mira, indicador de los tres pasos, tarjeta con lo que hay que leer (SKU,
+    ubicación, artículo y cuánto falta), botones − y + para la cantidad y hoja de ruta con todas las líneas (las
+    completas tildadas y la actual resaltada).
+  - **Recepción:** botón **Saltar** para el destino, que es opcional.
+  - **Inventario:** lista de las lecturas recién registradas.
+  - **Control puntual:** el resultado muestra Sistema, Físico y Diferencia.
+  - **Avisos:** abajo, con un punto de color según el resultado. Aviso de **sin conexión** bajo la cabecera.
+  - La colectora usa los colores y tipografías de la suite, en claro y oscuro.
+  - No se muestran las unidades y líneas del turno: la API no las informa.
+
+### Corregido
+- Sin cámara disponible, al entrar por segunda vez a un escaneo la pantalla no arrancaba el paso 1.
+
 ## 1.16.0 — 2026-11-12
 
 ### Cambiado
