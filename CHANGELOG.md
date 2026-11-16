@@ -2,6 +2,18 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.17.1 — 2026-11-16
+
+### Cambiado
+- **Política de Privacidad y Términos al día.** Estaban en la 1.3.0 y no nombraban lo que entró después. La
+  política ahora dice: que cada pedido despachado guarda fecha, ola, patente, transportista y quién lo cargó cuando
+  lo informa el Escáner Flex; que la Colectora lee los códigos con la cámara sin guardar imágenes; qué puede leer y
+  cargar un sistema conectado por clave (canales, JZBill, expedición); que el ingreso con Google crea una solicitud
+  de acceso y que la pantalla de ingreso carga el componente de Google aunque no se use; que el webhook de despacho
+  lleva el nombre del cliente y la dirección; y que el registro de auditoría y las copias previas a cada
+  actualización no se borran solos. Los términos suman JZBill y el Escáner Flex a las integraciones y la
+  responsabilidad sobre las claves. Solo textos, sin cambios en el sistema.
+
 ## 1.17.0 — 2026-11-12
 
 ### Cambiado

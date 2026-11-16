@@ -27,7 +27,7 @@
         <main class="doc-texto">
             <section>
                 <h1>Política de Privacidad</h1>
-                <p class="doc-sub">Última actualización: octubre de 2026.</p>
+                <p class="doc-sub">Última actualización: noviembre de 2026.</p>
                 <p>Tracker360 es un sistema de gestión de depósito que cada organización instala en su propio servidor o en un servidor dedicado. Esta política explica qué datos personales se tratan en el sistema, para qué y qué derechos tienen las personas, conforme a la <strong>Ley 25.326 de Protección de los Datos Personales</strong>, su Decreto reglamentario 1558/2001 y las normas de la Agencia de Acceso a la Información Pública (AAIP).</p>
                 <ul>
                     <li><strong>Responsable de los datos:</strong> la organización que usa Tracker360. Es la que decide qué datos se cargan, para qué y por cuánto tiempo, y ante quien se ejercen los derechos.</li>
@@ -39,11 +39,13 @@
                 <h2>1. Qué datos se tratan</h2>
                 <ul>
                     <li><strong>Usuarios del sistema:</strong> nombre, nombre de usuario, correo electrónico, rol y sucursal o sector asignados. La contraseña nunca se guarda: se guarda solo su resumen protegido con Argon2.</li>
-                    <li><strong>Ingreso con Google</strong> (si la organización lo activa): el correo y el nombre que informa Google al iniciar sesión.</li>
+                    <li><strong>Ingreso con Google</strong> (si la organización lo activa): el correo y el nombre que informa Google al iniciar sesión. El primer ingreso de una persona que no tiene usuario crea con esos datos una solicitud de acceso, que un administrador aprueba o rechaza.</li>
                     <li><strong>Registro de auditoría:</strong> qué acción se hizo, quién, cuándo y desde qué dirección IP (ingresos, altas, movimientos de stock, despachos, cambios de configuración).</li>
                     <li><strong>Datos de la operación:</strong> artículos, stock, movimientos, pedidos, órdenes de compra, remitos, traspasos, devoluciones y los clientes y proveedores que carga la organización (razón social o nombre, CUIT y direcciones).</li>
                     <li><strong>Canales de venta</strong> (por ejemplo Mercado Libre, si se conecta): de cada venta, el nombre del comprador, la dirección de envío, la cuenta del canal y los números de venta y de envío; la etiqueta de envío; y de las publicaciones, su título, SKU, estado y stock.</li>
+                    <li><strong>Despacho:</strong> de cada pedido despachado, la fecha y hora y, si lo informa el sistema de expedición (por ejemplo Escáner Flex), la ola, la patente, el transportista y quién lo cargó.</li>
                 </ul>
+                <p><strong>Cámara:</strong> la Colectora Móvil puede leer códigos con la cámara del dispositivo. El código se lee en el propio dispositivo y al servidor llega solo su texto: no se guardan ni se envían imágenes.</p>
                 <p>Tracker360 <strong>no pide ni está pensado para guardar datos sensibles</strong> (origen racial o étnico, opiniones políticas, convicciones religiosas, afiliación sindical, salud o vida sexual, art. 2 de la Ley 25.326). La organización no debe cargarlos en campos de texto libre como observaciones.</p>
             </section>
 
@@ -69,9 +71,11 @@
                 <p>Los datos quedan en el servidor de la organización. <strong>No se venden, no se alquilan y no se ceden a terceros con fines comerciales o publicitarios.</strong> Solo salen del servidor en estos casos, que decide la organización:</p>
                 <ul>
                     <li><strong>Mercado Libre</strong> u otro canal de venta conectado: se le envía el stock de los artículos y se le consultan las ventas, los envíos y las publicaciones de las cuentas autorizadas.</li>
-                    <li><strong>Google</strong>, si se usa el ingreso con Google, para verificar la identidad. Google puede tratar esos datos fuera de la Argentina, según sus propias políticas.</li>
-                    <li><strong>Webhooks</strong> que configure un administrador, que envían datos de stock a los destinos que la organización define. Si un destino está fuera del país, la organización debe verificar que cumpla las reglas de transferencia internacional (art. 12 de la Ley 25.326).</li>
-                    <li><strong>Consulta de actualizaciones:</strong> el servidor consulta las versiones públicas en GitHub, <strong>sin enviar datos</strong> de la organización.</li>
+                    <li><strong>Sistemas conectados por clave</strong> (canales de venta, el facturador JZBill, el sistema de expedición): quien tenga una clave creada por un administrador accede a lo que esa clave permite. Un canal o el facturador pueden leer el catálogo y el stock y cargar pedidos con el nombre, el CUIT y la dirección del cliente; el sistema de expedición puede consultar un envío (nombre del comprador, cuenta, unidades y estado) e informar su despacho. La organización decide a quién le da cada clave y puede rotarla o darla de baja.</li>
+                    <li><strong>Google</strong>, si se usa el ingreso con Google, para verificar la identidad. La pantalla de ingreso carga el componente de Google que muestra ese botón, por lo que Google recibe la dirección IP del navegador aunque no se use ese ingreso. Google puede tratar esos datos fuera de la Argentina, según sus propias políticas.</li>
+                    <li><strong>Webhooks</strong> que configure un administrador, que envían a los destinos que la organización define los cambios de stock y, en el aviso de despacho, el nombre del cliente y la dirección de entrega del pedido. Si un destino está fuera del país, la organización debe verificar que cumpla las reglas de transferencia internacional (art. 12 de la Ley 25.326).</li>
+                    <li><strong>GitHub:</strong> el servidor consulta ahí las versiones públicas, <strong>sin enviar datos</strong> de la organización, y el agente de impresión se descarga desde ahí.</li>
+                    <li><strong>Documentación de la API:</strong> las páginas para desarrolladores cargan sus componentes desde un servidor externo de contenidos, sin enviar datos de la organización.</li>
                     <li><strong>Soporte técnico:</strong> JZ Tech Solutions puede acceder a los datos solo cuando la organización lo pide para resolver un problema, en las condiciones del art. 25 indicadas arriba.</li>
                     <li><strong>Autoridades:</strong> cuando lo ordene un juez o lo exija una ley.</li>
                 </ul>
@@ -106,6 +110,8 @@
                 <ul>
                     <li>Los datos se conservan solo mientras sean necesarios para la finalidad por la que se cargaron (art. 4, inc. 7, de la Ley 25.326) o mientras lo exija otra norma, por ejemplo la fiscal o la comercial. La organización define esos plazos y puede dar de baja usuarios, clientes y proveedores.</li>
                     <li>El registro de webhooks enviados se borra a los 30 días y los eventos para los canales de venta a los 14 días.</li>
+                    <li>El registro de auditoría no se borra por su cuenta: queda mientras la organización lo conserve.</li>
+                    <li>Las copias de la base previas a cada actualización quedan en el servidor e incluyen todos los datos. En la instalación nativa se guardan las últimas 10; en la instalación con Docker las depura la organización.</li>
                     <li>Las sesiones vencen según el tiempo configurado y al cerrar sesión.</li>
                 </ul>
             </section>
