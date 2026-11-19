@@ -236,11 +236,33 @@ if [ -d caddy ]; then
 fi
 VOLUMENES_CADDY="$(docker volume ls -q 2>/dev/null | grep -xE "${PROJECT}_tracker360_caddy_(data|config)" | tr '\n' ' ' || true)"
 
-# 5. Construir y levantar contenedores con Docker Compose. Sin --remove-orphans: en un servidor compartido Docker
+# 5. Imagen de la API: se baja la publicada de esta version (GitHub Container Registry) y, si no se puede, se
+#    compila en este servidor como siempre. Solo se baja si el codigo esta parado justo en el tag de su version
+#    (v<version>): asi la imagen y el codigo son lo mismo. TRACKER360_BUILD=1 fuerza compilar.
+IMAGEN=""
+VERSION_INSTALADA="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' backend/__init__.py 2>/dev/null | head -n1 | tr -d '\r')"
+if [ "${TRACKER360_BUILD:-}" != "1" ] && [ -n "$VERSION_INSTALADA" ] && [ -d .git ] \
+    && [ "$(git -c safe.directory="$PWD" describe --tags --exact-match HEAD 2> /dev/null)" = "v$VERSION_INSTALADA" ]; then
+    IMAGEN="ghcr.io/jonnyonz/tracker360:v$VERSION_INSTALADA"
+    echo "Bajando la imagen de Tracker360 $VERSION_INSTALADA..."
+    if ! docker pull -q "$IMAGEN" > /dev/null 2>&1; then
+        echo "No se pudo bajar $IMAGEN (todavia no esta publicada o no hay conexion con ghcr.io): se compila en este servidor."
+        IMAGEN=""
+    fi
+fi
+# TRACKER360_IMAGE queda en el .env para que un "docker compose up -d" a mano use la misma imagen.
+sed -i '/^TRACKER360_IMAGE=/d' .env
+
+#    Levantar con Docker Compose. Sin --remove-orphans: en un servidor compartido Docker
 #    puede contar como "huerfanos" del proyecto contenedores de otras aplicaciones y los borraria. El unico servicio
 #    que se saco del compose (el Caddy de versiones anteriores) se borra arriba por su nombre.
 echo "Desplegando servicios con Docker Compose..."
-docker compose up -d --build
+if [ -n "$IMAGEN" ]; then
+    poner TRACKER360_IMAGE "$IMAGEN"
+    docker compose up -d --no-build
+else
+    docker compose up -d --build
+fi
 
 # 6. Esperar a que la API responda en su puerto (es lo que va a consultar el proxy).
 API_PORT_SHOWN="$(leer API_PORT)"; API_PORT_SHOWN="${API_PORT_SHOWN:-8001}"
@@ -270,7 +292,6 @@ if [ "$API_OK" != "1" ] && docker compose logs --tail=80 api 2>/dev/null | grep 
         echo "No se pudo cambiar la contrasena en la base. Ver: docker compose logs api"
     fi
 fi
-VERSION_INSTALADA="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' backend/__init__.py 2>/dev/null | tr -d '\r')"
 # IP del servidor para el proxy (o la interfaz elegida con TRACKER360_BIND).
 if [ "$LOCAL" != "127.0.0.1" ]; then
     IP_LOCAL="$LOCAL"
@@ -290,6 +311,7 @@ else
 fi
 echo "=================================================="
 echo "Escuchando en: http://$IP_LOCAL:$API_PORT_SHOWN"
+if [ -n "$IMAGEN" ]; then echo "Imagen: $IMAGEN"; else echo "Imagen: compilada en este servidor"; fi
 if [ -n "$DOMAIN" ]; then
     echo "Direccion publica: $SITIO (tiene que llegar a http://$IP_LOCAL:$API_PORT_SHOWN)"
 fi

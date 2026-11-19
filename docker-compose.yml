@@ -21,8 +21,10 @@ services:
 
   api:
     # Imagen autocontenida: el codigo va dentro de la imagen (sin montar la carpeta del repo).
-    # Para actualizar: git pull && docker compose up -d --build
+    # install.sh pone TRACKER360_IMAGE en el .env cuando baja la imagen publicada de la version instalada
+    # (ghcr.io/jonnyonz/tracker360:vX.Y.Z). Sin esa clave se compila aca: git pull && docker compose up -d --build
     # El HTTPS lo pone el proxy del servidor: reenvia por http a este puerto (API_BIND 0.0.0.0 para que llegue).
+    image: ${TRACKER360_IMAGE:-tracker360-api:local}
     build:
       context: .
       dockerfile: backend/Dockerfile

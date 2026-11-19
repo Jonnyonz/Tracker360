@@ -2,6 +2,20 @@
 
 Cambios de Tracker360, del más nuevo al más viejo. Cada entrada corresponde a un push a `main`.
 
+## 1.18.0 — 2026-11-19
+
+### Agregado
+- **Imagen Docker publicada.** Cada versión se publica sola en GitHub Container Registry
+  (`ghcr.io/jonnyonz/tracker360:vX.Y.Z` y `:latest`) cuando se crea el tag: la arma GitHub Actions
+  (`.github/workflows/imagen.yml`), que antes verifica que el tag coincida con la versión del código.
+- **`install.sh` baja la imagen en vez de compilar.** Al instalar o actualizar con Docker baja la imagen de la
+  versión instalada y deja `TRACKER360_IMAGE` en el `.env`. Actualizar ya no depende de Docker Hub ni de compilar
+  en el servidor. Si no puede bajarla (todavía no está publicada, no hay conexión con `ghcr.io`, o el código no
+  está parado en el tag de su versión), **compila en el servidor como antes**. `TRACKER360_BUILD=1` fuerza
+  compilar. Al terminar dice cuál usó ("Imagen: ...").
+- La instalación sin Docker (`install-native.sh`) no cambia. El sistema tampoco: esta versión solo cambia cómo se
+  distribuye. Sin migración.
+
 ## 1.17.1 — 2026-11-16
 
 ### Cambiado

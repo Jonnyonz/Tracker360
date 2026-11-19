@@ -1,0 +1,43 @@
+# Publica la imagen Docker de Tracker360 en GitHub Container Registry cada vez que se sube un tag vX.Y.Z:
+#   ghcr.io/jonnyonz/tracker360:vX.Y.Z   (la que baja install.sh)   y   ghcr.io/jonnyonz/tracker360:latest
+# Asi el servidor no compila: baja la imagen ya armada. Compilar en el servidor sigue andando (TRACKER360_BUILD=1).
+name: Imagen Docker
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  imagen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: El tag coincide con __version__ de backend/__init__.py
+        run: grep -qx "__version__ = \"${GITHUB_REF_NAME#v}\"" backend/__init__.py
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ponytail: solo linux/amd64 (el servidor de produccion); sumar linux/arm64 en platforms si aparece un ARM.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/jonnyonz/tracker360:${{ github.ref_name }}
+            ghcr.io/jonnyonz/tracker360:latest
+          labels: |
+            org.opencontainers.image.source=https://github.com/Jonnyonz/Tracker360
+            org.opencontainers.image.version=${{ github.ref_name }}
+            org.opencontainers.image.licenses=AGPL-3.0-only
